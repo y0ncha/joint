@@ -47,6 +47,22 @@ describe("household actions", () => {
     });
   });
 
+  it("reports an existing household when creation loses the membership race", async () => {
+    const householdSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: "23505", constraint: "household_members_user_id_key" },
+    });
+    const householdSelect = vi.fn().mockReturnValue({ single: householdSingle });
+    const householdInsert = vi.fn().mockReturnValue({ select: householdSelect });
+    mocks.from.mockReturnValue({ insert: householdInsert });
+
+    await expect(createHousehold(formData({ name: "Our home" }))).resolves.toEqual({
+      status: "error",
+      formError: "You already belong to a household.",
+      fieldErrors: {},
+    });
+  });
+
   it("accepts an active invitation through the invitee-only RLS policies", async () => {
     const invitationMaybeSingle = vi.fn().mockResolvedValue({
       data: { household_id: "household-id" },
@@ -83,5 +99,40 @@ describe("household actions", () => {
       fieldErrors: {},
     });
     expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invitation when the signed-in user already belongs to a household", async () => {
+    mocks.getCurrentHousehold.mockResolvedValue({ householdId: "household-id", role: "member" });
+
+    await expect(acceptInvitation(formData({ token: "invite-token" }))).resolves.toEqual({
+      status: "error",
+      formError: "You already belong to a household.",
+      fieldErrors: {},
+    });
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("reports an existing household when invitation acceptance loses the membership race", async () => {
+    const invitationMaybeSingle = vi.fn().mockResolvedValue({
+      data: { household_id: "household-id" },
+      error: null,
+    });
+    const invitationEq = vi.fn().mockReturnValue({ maybeSingle: invitationMaybeSingle });
+    const invitationSelect = vi.fn().mockReturnValue({ eq: invitationEq });
+    const membershipInsert = vi.fn().mockResolvedValue({
+      error: { code: "23505", constraint: "household_members_user_id_key" },
+    });
+
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "invitations") return { select: invitationSelect };
+      if (table === "household_members") return { insert: membershipInsert };
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    await expect(acceptInvitation(formData({ token: "invite-token" }))).resolves.toEqual({
+      status: "error",
+      formError: "You already belong to a household.",
+      fieldErrors: {},
+    });
   });
 });

@@ -18,6 +18,10 @@ function errorResult(formError: string, fieldErrors: Record<string, string> = {}
   return { status: "error", formError, fieldErrors };
 }
 
+function isMembershipUniqueViolation(error: { code?: string; constraint?: string } | null) {
+  return error?.code === "23505" && error.constraint === "household_members_user_id_key";
+}
+
 async function verifiedUserId(): Promise<string | null> {
   const supabase = await createServerSupabaseClient();
   const { data: claims } = await supabase.auth.getClaims();
@@ -44,6 +48,7 @@ export async function createHousehold(input: FormData): Promise<ActionResult> {
     .select("id")
     .single();
 
+  if (isMembershipUniqueViolation(error)) return errorResult("You already belong to a household.");
   if (error || !data) return errorResult("Unable to create your household. Please try again.");
 
   const household = await getCurrentHousehold();
@@ -61,6 +66,8 @@ export async function acceptInvitation(input: FormData): Promise<ActionResult> {
   const userId = await verifiedUserId();
   if (!userId) return errorResult("Please sign in before accepting an invitation.");
 
+  if (await getCurrentHousehold()) return errorResult("You already belong to a household.");
+
   const supabase = await createServerSupabaseClient();
   const { data: invitation, error: invitationError } = await supabase
     .from("invitations")
@@ -76,6 +83,7 @@ export async function acceptInvitation(input: FormData): Promise<ActionResult> {
     role: "member",
   });
 
+  if (isMembershipUniqueViolation(error)) return errorResult("You already belong to a household.");
   if (error) return errorResult("Unable to accept this invitation. Please try again.");
 
   redirect("/");
