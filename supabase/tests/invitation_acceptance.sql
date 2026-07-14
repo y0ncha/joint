@@ -145,7 +145,7 @@ set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000010';
 set local request.jwt.claim.email = 'owner@example.test';
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000010","email":"owner@example.test"}';
 
-select throws_ok(
+select lives_ok(
   $$
     insert into public.household_members (household_id, user_id, role)
     values (
@@ -154,8 +154,7 @@ select throws_ok(
       'member'
     )
   $$,
-  'Matching invitation could not be consumed',
-  'rolls back a member insert when no matching invitation remains to consume'
+  'allows an owner to add a different member without consuming an invitation'
 );
 
 select throws_ok(
