@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(8);
+select plan(10);
 
 insert into auth.users (id, email)
 values
@@ -34,6 +34,25 @@ values
 
 set local role authenticated;
 set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000011';
+set local request.jwt.claim.email = 'invitee@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000011","email":"invitee@example.test"}';
+
+set local request.jwt.claim.email = 'wrong-email@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000011","email":"wrong-email@example.test"}';
+
+select throws_ok(
+  $$
+    insert into public.household_members (household_id, user_id, role)
+    values (
+      '00000000-0000-0000-0000-000000000020',
+      '00000000-0000-0000-0000-000000000011',
+      'member'
+    )
+  $$,
+  'new row violates row-level security policy for table "household_members"',
+  'rejects the signed-in user when the JWT email does not match the invitation'
+);
+
 set local request.jwt.claim.email = 'invitee@example.test';
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000011","email":"invitee@example.test"}';
 
@@ -118,6 +137,25 @@ select throws_ok(
   $$,
   'new row violates row-level security policy for table "household_members"',
   'rejects a replayed invitation'
+);
+
+reset role;
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000010';
+set local request.jwt.claim.email = 'owner@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000010","email":"owner@example.test"}';
+
+select throws_ok(
+  $$
+    insert into public.household_members (household_id, user_id, role)
+    values (
+      '00000000-0000-0000-0000-000000000020',
+      '00000000-0000-0000-0000-000000000012',
+      'member'
+    )
+  $$,
+  'Matching invitation could not be consumed',
+  'rolls back a member insert when no matching invitation remains to consume'
 );
 
 select throws_ok(
