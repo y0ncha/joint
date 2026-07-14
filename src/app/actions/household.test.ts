@@ -50,7 +50,12 @@ describe("household actions", () => {
   it("reports an existing household when creation loses the membership race", async () => {
     const householdSingle = vi.fn().mockResolvedValue({
       data: null,
-      error: { code: "23505", constraint: "household_members_user_id_key" },
+      error: {
+        code: "23505",
+        details: "Key (user_id)=(member-id) already exists.",
+        hint: null,
+        message: "duplicate key value violates unique constraint \"household_members_user_id_key\"",
+      },
     });
     const householdSelect = vi.fn().mockReturnValue({ single: householdSingle });
     const householdInsert = vi.fn().mockReturnValue({ select: householdSelect });
@@ -120,7 +125,12 @@ describe("household actions", () => {
     const invitationEq = vi.fn().mockReturnValue({ maybeSingle: invitationMaybeSingle });
     const invitationSelect = vi.fn().mockReturnValue({ eq: invitationEq });
     const membershipInsert = vi.fn().mockResolvedValue({
-      error: { code: "23505", constraint: "household_members_user_id_key" },
+      error: {
+        code: "23505",
+        details: "violates unique constraint \"household_members_user_id_key\"",
+        hint: null,
+        message: "duplicate key value violates unique constraint",
+      },
     });
 
     mocks.from.mockImplementation((table: string) => {

@@ -18,8 +18,9 @@ function errorResult(formError: string, fieldErrors: Record<string, string> = {}
   return { status: "error", formError, fieldErrors };
 }
 
-function isMembershipUniqueViolation(error: { code?: string; constraint?: string } | null) {
-  return error?.code === "23505" && error.constraint === "household_members_user_id_key";
+function isMembershipUniqueViolation(error: { code?: string; message?: string; details?: string } | null) {
+  return error?.code === "23505" && [error.message, error.details]
+    .some((value) => value?.includes("household_members_user_id_key"));
 }
 
 async function verifiedUserId(): Promise<string | null> {
