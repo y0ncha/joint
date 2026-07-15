@@ -19,6 +19,13 @@ function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
+function comparisonLabel(change: number | null) {
+  if (change === null) return "No prior average";
+  const roundedChange = Math.round(Math.abs(change));
+  if (roundedChange === 0) return "In line with prior 3-month average";
+  return `${roundedChange}% ${change > 0 ? "above" : "below"} prior 3-month average`;
+}
+
 export default async function HomePage({ searchParams }: { searchParams?: Promise<{ month?: string }> } = {}) {
   const supabase = await createServerSupabaseClient();
   const { data: claims } = await supabase.auth.getClaims();
@@ -76,9 +83,9 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
               <CardContent className="p-5">
                 <p className="text-sm font-medium text-muted-foreground">Income</p>
                 <p className="mt-3 font-mono text-2xl font-semibold">{currency.format(report.income)}</p>
-                <div className="mt-5 flex items-center gap-2 text-sm text-positive">
-                  <ArrowDownRight aria-hidden="true" className="size-4" />
-                  Recorded this month
+                <div className={cn("mt-5 flex items-center gap-2 text-sm", report.incomeChangePercentage === null ? "text-muted-foreground" : report.incomeChangePercentage >= 0 ? "text-positive" : "text-negative")}>
+                  {report.incomeChangePercentage !== null && report.incomeChangePercentage < 0 ? <ArrowUpRight aria-hidden="true" className="size-4" /> : <ArrowDownRight aria-hidden="true" className="size-4" />}
+                  {comparisonLabel(report.incomeChangePercentage)}
                 </div>
               </CardContent>
             </Card>
@@ -87,9 +94,9 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
               <CardContent className="p-5">
                 <p className="text-sm font-medium text-muted-foreground">Outgoings</p>
                 <p className="mt-3 font-mono text-2xl font-semibold">{currency.format(report.expenses)}</p>
-                <div className="mt-5 flex items-center gap-2 text-sm text-negative">
-                  <ArrowUpRight aria-hidden="true" className="size-4" />
-                  {report.income ? `${Math.round((report.expenses / report.income) * 100)}% of income` : "No income yet"}
+                <div className={cn("mt-5 flex items-center gap-2 text-sm", report.expenseChangePercentage === null ? "text-muted-foreground" : report.expenseChangePercentage > 0 ? "text-negative" : "text-positive")}>
+                  {report.expenseChangePercentage !== null && report.expenseChangePercentage <= 0 ? <ArrowDownRight aria-hidden="true" className="size-4" /> : <ArrowUpRight aria-hidden="true" className="size-4" />}
+                  {comparisonLabel(report.expenseChangePercentage)}
                 </div>
               </CardContent>
             </Card>

@@ -8,6 +8,7 @@ import {
   SelectGroup,
   SelectItem,
   SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 
 const months = [
@@ -43,7 +44,6 @@ export function getLedgerYearOptions(selectedYear: number, currentYear = new Dat
 export function LedgerMonthSelector({ month }: { month: string }) {
   const router = useRouter();
   const [selectedYear, selectedMonth] = month.split("-");
-  const selectedMonthLabel = months.find(([value]) => value === selectedMonth)?.[1] ?? "Month";
   const years = getLedgerYearOptions(Number(selectedYear));
 
   return (
@@ -55,7 +55,7 @@ export function LedgerMonthSelector({ month }: { month: string }) {
           onValueChange={(nextMonth) => router.push(buildLedgerMonthPath(selectedYear, nextMonth))}
         >
           <SelectTrigger aria-label="Select ledger month" className="h-11 min-w-36 rounded-xl border-transparent bg-white/55">
-            <span>{selectedMonthLabel}</span>
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
@@ -73,7 +73,7 @@ export function LedgerMonthSelector({ month }: { month: string }) {
           onValueChange={(nextYear) => router.push(buildLedgerMonthPath(nextYear, selectedMonth))}
         >
           <SelectTrigger aria-label="Select ledger year" className="h-11 min-w-28 rounded-xl border-transparent bg-white/55">
-            <span>{selectedYear}</span>
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>

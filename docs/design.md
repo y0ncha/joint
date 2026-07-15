@@ -45,8 +45,7 @@ All text and controls must meet WCAG AA contrast. Color reinforces meaning; labe
 - The dashboard prioritizes shared balance, monthly income/outgoings, category spending, simple visual summaries, and recent transactions.
 - The MVP exposes one shared balance. Multiple accounts and credit-card tracking may be added later, but they are not visible navigation or transaction-entry concepts in this release.
 - Desktop shell: the logo, page eyebrow, and page title align to the same top rhythm. The left rail is narrow, icon-only, and quiet except for the active route.
-- Page content is constrained for reading. Dashboard grids can use the full twelve-column width; settings and management routes use a narrower column so rows remain scannable.
-- Settings section-card stacks use `w-full max-w-5xl`; retain this shared management-column cap so their background-card width does not expand independently of the rest of the workspace.
+- All app tabs share the available workspace content width. Dashboard grids, settings cards, and management cards must not introduce route-specific page-level maximum widths; control density within cards instead.
 - Do not put cards inside cards. Use a card for a distinct section, then rows, tables, forms, or lists inside it.
 
 ## Components and interactions

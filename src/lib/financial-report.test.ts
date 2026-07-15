@@ -60,4 +60,40 @@ describe("buildMonthlyReport", () => {
 
     expect(buildMonthlyReport({ accounts, categories, transactions: staleIncome, month: "2026-07" }).expectedMonthlyIncome).toBeNull();
   });
+
+  it("compares this month's progress with prior months through the same capped calendar day", () => {
+    const comparisonTransactions: ReportTransaction[] = [
+      { id: "february-income", kind: "income", amount: 120, occurredOn: "2024-02-29", accountId: "bank", destinationAccountId: null, categoryId: "income", note: "Current", createdAt: "2024-02-29T08:00:00Z", paidBy: "member-id" },
+      { id: "february-expense", kind: "expense", amount: 60, occurredOn: "2024-02-29", accountId: "bank", destinationAccountId: null, categoryId: "food", note: "Current", createdAt: "2024-02-29T08:00:00Z", paidBy: "member-id" },
+      { id: "january-income-included", kind: "income", amount: 100, occurredOn: "2024-01-29", accountId: "bank", destinationAccountId: null, categoryId: "income", note: "Included", createdAt: "2024-01-29T08:00:00Z", paidBy: "member-id" },
+      { id: "january-income-excluded", kind: "income", amount: 200, occurredOn: "2024-01-30", accountId: "bank", destinationAccountId: null, categoryId: "income", note: "Later", createdAt: "2024-01-30T08:00:00Z", paidBy: "member-id" },
+      { id: "january-expense-included", kind: "expense", amount: 50, occurredOn: "2024-01-29", accountId: "bank", destinationAccountId: null, categoryId: "food", note: "Included", createdAt: "2024-01-29T08:00:00Z", paidBy: "member-id" },
+      { id: "january-expense-excluded", kind: "expense", amount: 50, occurredOn: "2024-01-30", accountId: "bank", destinationAccountId: null, categoryId: "food", note: "Later", createdAt: "2024-01-30T08:00:00Z", paidBy: "member-id" },
+      { id: "december-income-included", kind: "income", amount: 140, occurredOn: "2023-12-29", accountId: "bank", destinationAccountId: null, categoryId: "income", note: "Included", createdAt: "2023-12-29T08:00:00Z", paidBy: "member-id" },
+      { id: "december-income-excluded", kind: "income", amount: 100, occurredOn: "2023-12-30", accountId: "bank", destinationAccountId: null, categoryId: "income", note: "Later", createdAt: "2023-12-30T08:00:00Z", paidBy: "member-id" },
+      { id: "december-expense-included", kind: "expense", amount: 70, occurredOn: "2023-12-29", accountId: "bank", destinationAccountId: null, categoryId: "food", note: "Included", createdAt: "2023-12-29T08:00:00Z", paidBy: "member-id" },
+      { id: "november-income", kind: "income", amount: 60, occurredOn: "2023-11-29", accountId: "bank", destinationAccountId: null, categoryId: "income", note: "Included", createdAt: "2023-11-29T08:00:00Z", paidBy: "member-id" },
+      { id: "november-expense", kind: "expense", amount: 30, occurredOn: "2023-11-29", accountId: "bank", destinationAccountId: null, categoryId: "food", note: "Included", createdAt: "2023-11-29T08:00:00Z", paidBy: "member-id" },
+    ];
+
+    expect(buildMonthlyReport({ accounts, categories, transactions: comparisonTransactions, month: "2024-02", asOfDate: "2024-02-29" })).toMatchObject({
+      income: 120,
+      expenses: 60,
+      incomeChangePercentage: 20,
+      expenseChangePercentage: 20,
+    });
+  });
+
+  it("does not calculate a percentage against a zero prior average", () => {
+    const report = buildMonthlyReport({
+      accounts,
+      categories,
+      transactions: [{ id: "current-income", kind: "income", amount: 100, occurredOn: "2026-07-10", accountId: "bank", destinationAccountId: null, categoryId: "income", note: "Current", createdAt: "2026-07-10T08:00:00Z", paidBy: "member-id" }],
+      month: "2026-07",
+      asOfDate: "2026-07-16",
+    });
+
+    expect(report.incomeChangePercentage).toBeNull();
+    expect(report.expenseChangePercentage).toBeNull();
+  });
 });

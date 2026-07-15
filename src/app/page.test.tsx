@@ -39,6 +39,8 @@ describe("Joint dashboard", () => {
         cardDebt: 0,
         income: 16400,
         expenses: 7940,
+        incomeChangePercentage: 12.5,
+        expenseChangePercentage: -7.6,
         expectedMonthlyIncome: 18000,
         categoryTotals: [{ categoryId: "home-category-id", categoryName: "Home", amount: 4280 }],
         recentTransactions: [
@@ -81,6 +83,9 @@ describe("Joint dashboard", () => {
     expect(markup).not.toContain("Available in the shared bank account");
     expect(markup).toContain("Income");
     expect(markup).toContain("Outgoings");
+    expect(markup).toContain("13% above prior 3-month average");
+    expect(markup).toContain("8% below prior 3-month average");
+    expect(markup).not.toContain("of income");
     expect(markup).toContain("Monthly balance");
     expect(markup).not.toContain("Expected income after outgoings");
     expect(markup).toContain("Based on 3-month income average");
@@ -110,6 +115,8 @@ describe("Joint dashboard", () => {
         cardDebt: 0,
         income: 0,
         expenses: 1200,
+        incomeChangePercentage: null,
+        expenseChangePercentage: null,
         expectedMonthlyIncome: null,
         categoryTotals: [],
         recentTransactions: [],

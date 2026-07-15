@@ -62,7 +62,7 @@ export default async function SettingsPage() {
   const { data: members } = await (await createServerSupabaseClient()).from("household_members").select("user_id, role").eq("household_id", household.householdId).order("joined_at");
   return (
     <WorkspaceShell title="Settings">
-      <div className="mt-6 flex w-full max-w-5xl flex-col gap-5">
+      <div className="mt-6 flex w-full flex-col gap-5">
         <Card className="border-white/50 bg-card/90">
           <CardHeader>
             <CardTitle>Household members</CardTitle>

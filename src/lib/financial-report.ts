@@ -31,6 +31,8 @@ export type MonthlyReport = {
   cardDebt: number;
   income: number;
   expenses: number;
+  incomeChangePercentage: number | null;
+  expenseChangePercentage: number | null;
   expectedMonthlyIncome: number | null;
   categoryTotals: Array<{ categoryId: string; categoryName: string; amount: number }>;
   recentTransactions: ReportTransaction[];
@@ -51,16 +53,36 @@ function previousMonths(month: string, count: number) {
   });
 }
 
+function daysInMonth(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  return new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+}
+
+function dateInMonth(month: string, day: number) {
+  return `${month}-${String(Math.min(day, daysInMonth(month))).padStart(2, "0")}`;
+}
+
+function localToday() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+}
+
+function percentageChange(value: number, average: number) {
+  return average === 0 ? null : ((value - average) / average) * 100;
+}
+
 export function buildMonthlyReport({
   accounts,
   categories,
   transactions,
   month,
+  asOfDate = localToday(),
 }: {
   accounts: ReportAccount[];
   categories: ReportCategory[];
   transactions: ReportTransaction[];
   month: string;
+  asOfDate?: string;
 }): MonthlyReport {
   const monthStart = `${month}-01`;
   const monthEnd = nextMonth(month);
@@ -92,13 +114,19 @@ export function buildMonthlyReport({
   const monthlyTransactions = transactions
     .filter((transaction) => transaction.occurredOn >= monthStart && transaction.occurredOn < monthEnd)
     .sort((left, right) => right.occurredOn.localeCompare(left.occurredOn) || right.createdAt.localeCompare(left.createdAt));
+  const isCurrentMonth = asOfDate.slice(0, 7) === month;
+  const comparisonDay = Number(asOfDate.slice(8, 10));
+  const currentPeriodEnd = isCurrentMonth ? dateInMonth(month, comparisonDay) : null;
+  const currentPeriodTransactions = currentPeriodEnd
+    ? monthlyTransactions.filter((transaction) => transaction.occurredOn <= currentPeriodEnd)
+    : monthlyTransactions;
   const categoryTotals = new Map<string, number>();
   let income = 0;
   let expenses = 0;
   const recentIncomeMonths = new Set(previousMonths(month, 3));
   const recentIncomeByMonth = new Map<string, number>();
 
-  for (const transaction of monthlyTransactions) {
+  for (const transaction of currentPeriodTransactions) {
     if (transaction.kind === "income") income += transaction.amount;
     if (transaction.kind !== "expense") continue;
 
@@ -118,12 +146,25 @@ export function buildMonthlyReport({
   const expectedMonthlyIncome = recentIncomeValues.length
     ? recentIncomeValues.reduce((total, amount) => total + amount, 0) / recentIncomeValues.length
     : null;
+  const previousPeriodTotals = previousMonths(month, 3).map((previousMonth) => {
+    const previousPeriodEnd = dateInMonth(previousMonth, comparisonDay);
+    return transactions.reduce((totals, transaction) => {
+      if (transaction.occurredOn < `${previousMonth}-01` || transaction.occurredOn > previousPeriodEnd) return totals;
+      if (transaction.kind === "income") totals.income += transaction.amount;
+      if (transaction.kind === "expense") totals.expenses += transaction.amount;
+      return totals;
+    }, { income: 0, expenses: 0 });
+  });
+  const previousIncomeAverage = previousPeriodTotals.reduce((total, period) => total + period.income, 0) / previousPeriodTotals.length;
+  const previousExpenseAverage = previousPeriodTotals.reduce((total, period) => total + period.expenses, 0) / previousPeriodTotals.length;
 
   return {
     bankBalance: accounts.filter((account) => account.archivedAt === null && account.kind === "bank").reduce((total, account) => total + (balances.get(account.id) ?? 0), 0),
     cardDebt: accounts.filter((account) => account.archivedAt === null && account.kind === "credit_card").reduce((total, account) => total + (balances.get(account.id) ?? 0), 0),
     income,
     expenses,
+    incomeChangePercentage: isCurrentMonth ? percentageChange(income, previousIncomeAverage) : null,
+    expenseChangePercentage: isCurrentMonth ? percentageChange(expenses, previousExpenseAverage) : null,
     expectedMonthlyIncome,
     categoryTotals: [...categoryTotals.entries()]
       .map(([categoryId, amount]) => ({ categoryId, categoryName: categoriesById.get(categoryId)?.name ?? "Archived category", amount }))
