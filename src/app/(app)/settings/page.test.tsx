@@ -36,8 +36,7 @@ it("renders settings as section cards with row-style controls", async () => {
   const markup = settingsModule ? renderToStaticMarkup(await settingsModule.default()) : "";
 
   expect((markup.match(/data-slot="card"/g) ?? []).length).toBe(4);
-  expect(markup).toContain("mt-6 flex w-full flex-col gap-5");
-  expect(markup).not.toContain("max-w-4xl");
+  expect(markup).toContain("mt-6 flex w-full max-w-5xl flex-col gap-5");
   expect(markup).toContain("Household members");
   expect(markup).toContain("Shared access");
   expect(markup).toContain("Appearance");

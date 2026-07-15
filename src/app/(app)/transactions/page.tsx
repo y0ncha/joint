@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { LedgerMonthSelector } from "@/components/ledger-month-selector";
 import { TransactionLedger } from "@/components/transaction-ledger";
 import { TransactionSheet } from "@/components/transaction-sheet";
 import { WorkspaceShell } from "@/components/workspace-shell";
@@ -21,12 +22,12 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
       description="Review this month's household ledger."
       actions={<TransactionSheet categories={data.categories.filter((category) => category.archivedAt === null).map((category) => ({ id: category.id, name: category.name, kind: category.kind }))} currentUserId={data.currentUserId} members={data.members} />}
     >
-      <p className="mt-6 text-sm text-muted-foreground">{month}</p>
+      <LedgerMonthSelector month={month} />
       <Card className="mt-4 border-white/50 bg-card/90">
         <CardHeader>
           <CardTitle>Monthly ledger</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
           <TransactionLedger transactions={data.report.recentTransactions} categories={data.categories} members={data.members} />
         </CardContent>
       </Card>

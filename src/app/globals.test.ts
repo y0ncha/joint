@@ -40,3 +40,11 @@ describe("surface opacity", () => {
     expect(globalsCss).toContain("--card: rgba(255, 252, 247, 0.92);");
   });
 });
+
+describe("form input surfaces", () => {
+  it("prevents browser autofill from repainting inputs blue", () => {
+    expect(globalsCss).toContain('input[data-slot="input"]:-webkit-autofill');
+    expect(globalsCss).toContain("-webkit-text-fill-color: var(--foreground);");
+    expect(globalsCss).toContain("box-shadow: 0 0 0 1000px rgba(255, 252, 247, 0.68) inset;");
+  });
+});

@@ -31,6 +31,7 @@ export type MonthlyReport = {
   cardDebt: number;
   income: number;
   expenses: number;
+  expectedMonthlyIncome: number | null;
   categoryTotals: Array<{ categoryId: string; categoryName: string; amount: number }>;
   recentTransactions: ReportTransaction[];
 };
@@ -39,6 +40,15 @@ function nextMonth(month: string) {
   const [year, monthNumber] = month.split("-").map(Number);
   const date = new Date(Date.UTC(year, monthNumber, 1));
   return date.toISOString().slice(0, 10);
+}
+
+function previousMonths(month: string, count: number) {
+  const [year, monthNumber] = month.split("-").map(Number);
+
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(Date.UTC(year, monthNumber - 2 - index, 1));
+    return date.toISOString().slice(0, 7);
+  });
 }
 
 export function buildMonthlyReport({
@@ -85,6 +95,8 @@ export function buildMonthlyReport({
   const categoryTotals = new Map<string, number>();
   let income = 0;
   let expenses = 0;
+  const recentIncomeMonths = new Set(previousMonths(month, 3));
+  const recentIncomeByMonth = new Map<string, number>();
 
   for (const transaction of monthlyTransactions) {
     if (transaction.kind === "income") income += transaction.amount;
@@ -96,11 +108,23 @@ export function buildMonthlyReport({
     }
   }
 
+  for (const transaction of transactions) {
+    const incomeMonth = transaction.occurredOn.slice(0, 7);
+    if (transaction.kind !== "income" || !recentIncomeMonths.has(incomeMonth)) continue;
+    recentIncomeByMonth.set(incomeMonth, (recentIncomeByMonth.get(incomeMonth) ?? 0) + transaction.amount);
+  }
+
+  const recentIncomeValues = [...recentIncomeByMonth.values()];
+  const expectedMonthlyIncome = recentIncomeValues.length
+    ? recentIncomeValues.reduce((total, amount) => total + amount, 0) / recentIncomeValues.length
+    : null;
+
   return {
     bankBalance: accounts.filter((account) => account.archivedAt === null && account.kind === "bank").reduce((total, account) => total + (balances.get(account.id) ?? 0), 0),
     cardDebt: accounts.filter((account) => account.archivedAt === null && account.kind === "credit_card").reduce((total, account) => total + (balances.get(account.id) ?? 0), 0),
     income,
     expenses,
+    expectedMonthlyIncome,
     categoryTotals: [...categoryTotals.entries()]
       .map(([categoryId, amount]) => ({ categoryId, categoryName: categoriesById.get(categoryId)?.name ?? "Archived category", amount }))
       .sort((left, right) => right.amount - left.amount || left.categoryName.localeCompare(right.categoryName)),

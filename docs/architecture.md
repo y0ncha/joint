@@ -69,7 +69,8 @@ Transfers, visible card debt, and user-selected accounts are intentionally out o
 
 | Environment | Supabase | Vercel target | Intended use |
 | --- | --- | --- | --- |
-| Local / preview | Development project in EU Central (Frankfurt) | local dev / Vercel preview | schema and feature work |
-| Production | Separate EU Central project, pending setup | Vercel production from `main` | real household data |
+| Local | Shared Joint project | local development | feature work against the shared schema and Auth configuration |
+| Preview | Shared Joint project | Vercel preview | pull-request validation |
+| Production | Shared Joint project | Vercel production from `main` | live application |
 
-Keep `.env.local` private. Maintain `.env.example` with names only. Production configuration requires explicit user action because a second free Supabase project was unavailable at the time of setup.
+All environments deliberately use one Supabase project. Keep `.env.local` private and maintain `.env.example` with names only. Configure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in every Vercel target; no service-role or secret key belongs in browser code.

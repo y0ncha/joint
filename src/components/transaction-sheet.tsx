@@ -1,9 +1,21 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useState, type ReactNode } from "react";
+import { Plus } from "lucide-react";
 
-import { createTransaction } from "@/app/actions/transactions";
+import { createTransaction, deleteTransaction, updateTransaction } from "@/app/actions/transactions";
 import type { ActionResult } from "@/app/actions/result";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -12,6 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import type { ReportTransaction } from "@/lib/financial-report";
 
 type Category = { id: string; name: string; kind: "income" | "expense" };
 type Member = { id: string; label: string };
@@ -20,7 +33,7 @@ const displayDate = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2
 const transactionKindItemClassName = "transition-[background-color,border-color,color,box-shadow] duration-300 ease-in-out motion-reduce:transition-none data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm hover:data-[state=on]:bg-primary hover:data-[state=on]:text-primary-foreground";
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return dateOnlyFromLocalDate(new Date());
 }
 
 function dateFromIso(value: string) {
@@ -28,39 +41,63 @@ function dateFromIso(value: string) {
 }
 
 function isoFromDate(value: Date) {
-  return value.toISOString().slice(0, 10);
+  return dateOnlyFromLocalDate(value);
+}
+
+function dateOnlyFromLocalDate(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function TransactionSheet({
   categories = [],
   currentUserId = "",
   members = [],
+  onOpenChange,
+  open,
+  transaction,
+  trigger,
 }: {
   categories?: Category[];
   currentUserId?: string;
   members?: Member[];
+  onOpenChange?: (open: boolean) => void;
+  open?: boolean;
+  transaction?: ReportTransaction | null;
+  trigger?: ReactNode;
 }) {
-  const [kind, setKind] = useState<"income" | "expense">("expense");
-  const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(async (_state, formData) => createTransaction(formData), null);
+  const initialKind = transaction?.kind === "income" ? "income" : "expense";
+  const isEditing = Boolean(transaction);
+  const [kind, setKind] = useState<"income" | "expense">(initialKind);
+  const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
+    async (_state, formData) => (transaction ? updateTransaction(transaction.id, formData) : createTransaction(formData)),
+    null,
+  );
   const selectableCategories = useMemo(() => categories.filter((category) => category.kind === kind), [categories, kind]);
-  const [occurredOn, setOccurredOn] = useState(todayIso);
-  const [paidBy, setPaidBy] = useState(() => currentUserId || members[0]?.id || "");
-  const [categoryId, setCategoryId] = useState(() => categories.find((category) => category.kind === "expense")?.id ?? "");
+  const [occurredOn, setOccurredOn] = useState(transaction?.occurredOn ?? todayIso);
+  const [paidBy, setPaidBy] = useState(() => transaction?.paidBy ?? currentUserId ?? members[0]?.id ?? "");
+  const [categoryId, setCategoryId] = useState(() => transaction?.categoryId ?? categories.find((category) => category.kind === initialKind)?.id ?? "");
   const selectedCategoryId = selectableCategories.some((category) => category.id === categoryId) ? categoryId : (selectableCategories[0]?.id ?? "");
   const selectedPaidBy = members.some((member) => member.id === paidBy) ? paidBy : (currentUserId || members[0]?.id || "");
+  const shouldRenderDefaultTrigger = !isEditing && open === undefined && onOpenChange === undefined;
 
   return (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button className="rounded-xl">
-          <span className="sm:hidden">Add</span>
-          <span className="hidden sm:inline">Add transaction</span>
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="right" className="inset-x-0 h-full w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl sm:inset-x-auto sm:w-3/4 sm:max-w-lg">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      {trigger ?? (shouldRenderDefaultTrigger ? (
+        <SheetTrigger asChild>
+          <Button size="icon" variant="ghost" className="size-11 rounded-full text-primary hover:bg-primary/10 hover:text-primary" aria-label="Add transaction">
+            <span className="flex size-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-sm transition-colors group-hover/button:bg-primary">
+              <Plus aria-hidden="true" />
+            </span>
+          </Button>
+        </SheetTrigger>
+      ) : null)}
+      <SheetContent side="right" className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg">
         <SheetHeader className="p-6">
-          <SheetTitle className="text-xl">Add transaction</SheetTitle>
-          <SheetDescription>Log shared household money.</SheetDescription>
+          <SheetTitle className="text-xl">{isEditing ? "Edit transaction" : "Add transaction"}</SheetTitle>
+          <SheetDescription>{isEditing ? "Update or remove this shared ledger entry." : "Log shared household money."}</SheetDescription>
         </SheetHeader>
         <form action={formAction} className="px-6 pb-6">
           <FieldGroup>
@@ -77,7 +114,7 @@ export function TransactionSheet({
             </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.amount)}>
               <FieldLabel htmlFor="amount">Amount</FieldLabel>
-              <Input id="amount" name="amount" inputMode="decimal" required aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.amount)} />
+              <Input id="amount" name="amount" inputMode="decimal" required defaultValue={transaction?.amount ?? undefined} aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.amount)} />
               {state?.status === "error" ? <FieldError>{state.fieldErrors.amount}</FieldError> : null}
             </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.occurredOn)}>
@@ -134,13 +171,34 @@ export function TransactionSheet({
             </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.note)}>
               <FieldLabel htmlFor="note">Note</FieldLabel>
-              <Input id="note" name="note" aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.note)} />
+              <Input id="note" name="note" defaultValue={transaction?.note ?? undefined} aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.note)} />
               {state?.status === "error" ? <FieldError>{state.fieldErrors.note}</FieldError> : null}
             </Field>
             {state?.status === "error" ? <FieldError>{state.formError}</FieldError> : null}
-            <Button disabled={isPending} type="submit" className="rounded-xl">Save transaction</Button>
+            <Button disabled={isPending} type="submit" className="rounded-xl">{isEditing ? "Save changes" : "Save transaction"}</Button>
           </FieldGroup>
         </form>
+        {transaction ? (
+          <div className="px-6 pb-6">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button type="button" variant="destructive" className="w-full rounded-xl">Delete transaction</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this transaction?</AlertDialogTitle>
+                  <AlertDialogDescription>This removes the entry from the shared household ledger.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <form action={async () => { await deleteTransaction(transaction.id); }}>
+                    <AlertDialogAction type="submit" variant="destructive">Delete transaction</AlertDialogAction>
+                  </form>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        ) : null}
       </SheetContent>
     </Sheet>
   );

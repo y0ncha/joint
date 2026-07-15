@@ -122,7 +122,7 @@ export function WorkspaceShell({
           </nav>
           <UserNotificationAvatar />
         </aside>
-        <section className="min-w-0 flex-1 pb-24 p-4 sm:p-6 md:pb-6 lg:p-8 animate-in fade-in-0 duration-150 ease-out">
+        <section className="min-w-0 flex-1 p-4 pb-[calc(9rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-6 lg:p-8 animate-in fade-in-0 duration-150 ease-out">
           <header className="flex items-start justify-between gap-4">
             <div>
               <p className="text-sm font-medium text-primary">Joint</p>
@@ -133,7 +133,7 @@ export function WorkspaceShell({
           </header>
           {children}
         </section>
-        <nav aria-label="Primary navigation" className="fixed inset-x-3 bottom-3 flex h-16 items-center justify-around rounded-2xl border border-white/60 bg-white/80 px-3 shadow-lg backdrop-blur-xl md:hidden">
+        <nav aria-label="Primary navigation" className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] flex h-16 items-center justify-around rounded-[calc(2rem-0.75rem)] border border-white/60 bg-white/80 px-3 shadow-lg backdrop-blur-xl md:hidden">
           {navigation.map(([href, label, Icon]) => (
             <NavigationItem key={href} href={href} label={label} icon={Icon} />
           ))}

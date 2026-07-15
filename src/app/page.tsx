@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowDownRight, ArrowUpRight, MoreHorizontal, Plus, WalletCards } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, MoreHorizontal, Plus } from "lucide-react";
 
 import { TransactionSheet } from "@/components/transaction-sheet";
 import { WorkspaceShell } from "@/components/workspace-shell";
@@ -40,7 +40,7 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
   const activeCategories = data.categories.filter((category) => category.archivedAt === null);
   const transactionCategories = activeCategories.map(({ id, name, kind }) => ({ id, name, kind }));
   const maximumCategoryAmount = Math.max(1, ...report.categoryTotals.map((category) => category.amount));
-  const maximumFlowAmount = Math.max(1, report.income, report.expenses);
+  const expectedMonthlyIncome = report.expectedMonthlyIncome;
   const accountName = new Map(data.accounts.map((account) => [account.id, account.name]));
   const categoryName = new Map(data.categories.map((category) => [category.id, category.name]));
 
@@ -48,19 +48,10 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
     <WorkspaceShell
       title="Shared money"
       description="A calm view of your household money."
-      actions={(
-        <>
-          <div className="hidden sm:block">
-            <TransactionSheet categories={transactionCategories} currentUserId={data.currentUserId} members={data.members} />
-          </div>
-        </>
-      )}
+      actions={<TransactionSheet categories={transactionCategories} currentUserId={data.currentUserId} members={data.members} />}
     >
-      <div className="mt-6 flex items-center justify-between gap-3">
+      <div className="mt-6 flex items-center gap-3">
         <Badge variant="secondary" className="rounded-full bg-white/65 px-3 py-1.5 text-sm font-medium text-foreground">{month}</Badge>
-        <div className="sm:hidden">
-          <TransactionSheet categories={transactionCategories} currentUserId={data.currentUserId} members={data.members} />
-        </div>
       </div>
 
       {data.setupRequired ? (
@@ -82,27 +73,6 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
         <>
           <section className="mt-5 grid gap-4 lg:grid-cols-12">
             <Card className="border-white/50 bg-card/90 lg:col-span-6">
-              <CardContent className="p-5 sm:p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Shared balance</p>
-                    <p className="mt-3 font-mono text-4xl font-semibold tracking-tight sm:text-5xl">{currency.format(report.bankBalance)}</p>
-                  </div>
-                  <div className="rounded-2xl bg-primary/10 p-3 text-primary">
-                    <WalletCards aria-hidden="true" className="size-5" />
-                  </div>
-                </div>
-                <div className="mt-8 flex flex-wrap gap-2 text-sm">
-                  <Badge className="rounded-full bg-primary px-3 py-1.5">
-                    <ArrowUpRight data-icon="inline-start" />
-                    {currency.format(report.income - report.expenses)} this month
-                  </Badge>
-                  <span className="self-center text-muted-foreground">Available in the shared bank account</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-white/50 bg-card/90 lg:col-span-3">
               <CardContent className="p-5">
                 <p className="text-sm font-medium text-muted-foreground">Income</p>
                 <p className="mt-3 font-mono text-2xl font-semibold">{currency.format(report.income)}</p>
@@ -113,7 +83,7 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
               </CardContent>
             </Card>
 
-            <Card className="border-white/50 bg-card/90 lg:col-span-3">
+            <Card className="border-white/50 bg-card/90 lg:col-span-6">
               <CardContent className="p-5">
                 <p className="text-sm font-medium text-muted-foreground">Outgoings</p>
                 <p className="mt-3 font-mono text-2xl font-semibold">{currency.format(report.expenses)}</p>
@@ -160,32 +130,33 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
               <CardContent className="p-5 sm:p-6">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Monthly flow</p>
-                    <h2 className="mt-1 text-lg font-semibold">Income vs outgoings</h2>
+                    <p className="text-sm font-medium text-muted-foreground">Monthly balance</p>
                   </div>
                 </div>
-                <div className="mt-7 flex flex-col gap-5">
-                  <div>
-                    <div className="flex justify-between gap-3 text-sm">
-                      <span className="font-medium">Income</span>
-                      <span className="font-mono text-muted-foreground">{currency.format(report.income)}</span>
-                    </div>
-                    <div className="mt-2 h-3 overflow-hidden rounded-full bg-secondary">
-                      <div className="h-full rounded-full bg-chart-1" style={{ width: `${(report.income / maximumFlowAmount) * 100}%` }} />
-                    </div>
+                {expectedMonthlyIncome === null ? (
+                  <div className="mt-7">
+                    <p className="font-mono text-2xl font-semibold">No available income</p>
+                    <p className="mt-4 text-sm leading-6 text-muted-foreground">Record income in the last 3 months to estimate this balance.</p>
                   </div>
-                  <div>
-                    <div className="flex justify-between gap-3 text-sm">
-                      <span className="font-medium">Outgoings</span>
-                      <span className="font-mono text-muted-foreground">{currency.format(report.expenses)}</span>
+                ) : (
+                  <>
+                    <p className={cn("mt-7 font-mono text-3xl font-semibold", expectedMonthlyIncome - report.expenses >= 0 ? "text-positive" : "text-negative")}>
+                      {currency.format(expectedMonthlyIncome - report.expenses)}
+                    </p>
+                    <div className="mt-6 flex flex-col gap-4">
+                      <div className="flex justify-between gap-3 text-sm">
+                        <span className="font-medium">Expected income</span>
+                        <span className="font-mono text-muted-foreground">{currency.format(expectedMonthlyIncome)}</span>
+                      </div>
+                      <div className="flex justify-between gap-3 text-sm">
+                        <span className="font-medium">Outgoings so far</span>
+                        <span className="font-mono text-muted-foreground">{currency.format(report.expenses)}</span>
+                      </div>
                     </div>
-                    <div className="mt-2 h-3 overflow-hidden rounded-full bg-secondary">
-                      <div className="h-full rounded-full bg-negative" style={{ width: `${(report.expenses / maximumFlowAmount) * 100}%` }} />
-                    </div>
-                  </div>
-                </div>
-                <Separator className="my-5" />
-                <p className="text-sm leading-6 text-muted-foreground">Net change this month: <span className="font-mono text-foreground">{currency.format(report.income - report.expenses)}</span>.</p>
+                    <Separator className="my-5" />
+                    <p className="text-sm leading-6 text-muted-foreground">Based on 3-month income average.</p>
+                  </>
+                )}
               </CardContent>
             </Card>
           </section>
@@ -204,9 +175,6 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
               <div className="mt-5 divide-y divide-border/80">
                 {report.recentTransactions.length ? report.recentTransactions.map((transaction) => (
                   <div key={transaction.id} className="flex items-center gap-3 py-4 first:pt-0 last:pb-0">
-                    <div className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary">
-                      {transaction.kind === "income" ? <ArrowDownRight aria-hidden="true" className="size-4" /> : <ArrowUpRight aria-hidden="true" className="size-4" />}
-                    </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{transaction.note || transaction.kind}</p>
                       <p className="text-sm text-muted-foreground">{transaction.categoryId ? categoryName.get(transaction.categoryId) : accountName.get(transaction.accountId)} - {transaction.occurredOn}</p>

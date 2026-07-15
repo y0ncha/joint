@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -38,6 +39,7 @@ describe("Joint dashboard", () => {
         cardDebt: 0,
         income: 16400,
         expenses: 7940,
+        expectedMonthlyIncome: 18000,
         categoryTotals: [{ categoryId: "home-category-id", categoryName: "Home", amount: 4280 }],
         recentTransactions: [
           {
@@ -67,21 +69,56 @@ describe("Joint dashboard", () => {
 
   it("shows the restored dashboard cards with live household values", async () => {
     const markup = renderToStaticMarkup(await Home());
+    const source = readFileSync("src/app/page.tsx", "utf8");
 
-    expect(markup).toContain("Add transaction");
+    expect(markup).toContain("aria-label=\"Add transaction\"");
+    expect(markup).toContain("lucide-plus");
+    expect(markup).not.toContain("sm:hidden");
+    expect(markup).not.toContain("hidden sm:block");
     expect(markup).not.toContain("Choose your accent color");
     expect(markup).not.toContain("lucide-bell");
-    expect(markup).toContain("Shared balance");
-    expect(markup).toContain("Monthly flow");
+    expect(markup).not.toContain("Shared balance");
+    expect(markup).not.toContain("Available in the shared bank account");
+    expect(markup).toContain("Income");
+    expect(markup).toContain("Outgoings");
+    expect(markup).toContain("Monthly balance");
+    expect(markup).not.toContain("Expected income after outgoings");
+    expect(markup).toContain("Based on 3-month income average");
+    expect(markup).toContain("10,060");
+    expect(markup).not.toContain("Income vs outgoings");
     expect(markup).toContain("Where your money went");
     expect(markup).toContain("More chart options");
     expect(markup).toContain("Super Pharm");
-    expect(markup).toContain("18,420");
+    expect(source).not.toContain("flex size-10 items-center justify-center rounded-xl bg-secondary text-primary");
     expect(markup).not.toContain("Upcoming card charge");
     expect(markup).not.toContain("Card debt");
     expect(markup).not.toContain("credit card");
     expect(markup).toContain('alt="Joint logo"');
     expect(markup).not.toContain("flaticon.com");
     expect(markup).not.toContain('data-slot="tooltip-trigger"');
+  });
+
+  it("shows no available income when there is no recent income average", async () => {
+    mocks.getDashboardData.mockResolvedValueOnce({
+      setupRequired: false,
+      accounts: [{ id: "bank-id", name: "Shared bank", kind: "bank", archivedAt: null }],
+      categories: [],
+      currentUserId: "member-id",
+      members: [{ id: "member-id", label: "You" }],
+      report: {
+        bankBalance: 7000,
+        cardDebt: 0,
+        income: 0,
+        expenses: 1200,
+        expectedMonthlyIncome: null,
+        categoryTotals: [],
+        recentTransactions: [],
+      },
+    });
+
+    const markup = renderToStaticMarkup(await Home());
+
+    expect(markup).toContain("No available income");
+    expect(markup).not.toContain("Based on 3-month income average");
   });
 });

@@ -1,3 +1,5 @@
+<img src="public/brand/favicon.png" alt="Joint favicon" width="128" />
+
 # Joint
 
 Joint is a shared household-money workspace for two people. The MVP supports manual income, expenses, and bank-to-card transfers in Israeli shekels.
@@ -8,8 +10,6 @@ Joint is a shared household-money workspace for two people. The MVP supports man
 - [Design system](docs/design.md)
 - [Architecture](docs/architecture.md)
 - [MVP delivery plan](docs/plans/shared-budget-mvp.md)
-
-<img src="public/brand/favicon.png" alt="Joint favicon" width="128" />
 
 ## Local development
 

@@ -4,7 +4,11 @@ import { readFileSync } from "node:fs";
 const categoryListModule = await import("./category-list").catch(() => null);
 it("shows a truthful category empty state", () => {
   const markup = categoryListModule ? renderToStaticMarkup(<categoryListModule.CategoryList categories={[]} />) : "";
-  expect(markup).toContain("No categories yet");
+  expect(markup).toContain("Expense categories");
+  expect(markup).toContain("Income categories");
+  expect(markup).toContain("No expense categories yet");
+  expect(markup).toContain("No income categories yet");
+  expect((markup.match(/data-slot="card"/g) ?? []).length).toBe(2);
 });
 
 it("shows category kind as a badge status", () => {
@@ -17,14 +21,22 @@ it("shows category kind as a badge status", () => {
   ) : "";
 
   expect(markup).toContain("Salary");
+  expect(markup).toMatch(/Income categories[\s\S]*Salary/);
   expect(markup).toContain("Income");
   expect(markup).toContain("Food");
+  expect(markup).toMatch(/Expense categories[\s\S]*Food/);
   expect(markup).toContain("Expense");
   expect((markup.match(/data-slot="badge"/g) ?? []).length).toBe(2);
   expect(markup).toContain("divide-y divide-border/70");
   expect(markup).not.toContain("rounded-lg border border-border bg-background/35");
-  expect(source).toContain("DialogTrigger asChild");
-  expect(source).toContain("DialogContent");
+  expect(source).toContain("SheetTrigger asChild");
+  expect(source).toContain("SheetContent side=\"right\"");
+  expect(source).toContain("h-dvh w-full max-w-none");
+  expect(source).toContain("md:w-3/4 md:max-w-lg");
+  expect(source).not.toContain("sm:w-3/4 sm:max-w-lg");
+  expect(source).not.toContain("@/components/ui/dialog");
+  expect(source).not.toContain("<Dialog>");
+  expect(source).not.toContain("<DialogContent");
   expect(source).not.toContain("<details>");
   expect(source).not.toContain("<summary");
   expect(source).toContain("Delete category");

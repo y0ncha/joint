@@ -14,13 +14,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -52,16 +52,26 @@ function CategoryKindBadge({ category }: { category: Category }) {
   );
 }
 
-export function CategoryList({ categories }: { categories: Category[] }) {
+function CategorySection({
+  categories,
+  description,
+  emptyLabel,
+  title,
+}: {
+  categories: Category[];
+  description: string;
+  emptyLabel: string;
+  title: string;
+}) {
   return (
     <Card className="border-white/50 bg-card/90">
       <CardHeader>
-        <CardTitle>Categories</CardTitle>
-        <CardDescription>Household-owned income and expense categories.</CardDescription>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         {categories.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No categories yet</p>
+          <p className="text-sm text-muted-foreground">{emptyLabel}</p>
         ) : (
           <ul className="divide-y divide-border/70">
             {categories.map((category) => (
@@ -72,8 +82,8 @@ export function CategoryList({ categories }: { categories: Category[] }) {
                     <CategoryKindBadge category={category} />
                   </div>
                 ) : (
-                  <Dialog>
-                    <DialogTrigger asChild>
+                  <Sheet>
+                    <SheetTrigger asChild>
                       <button
                         type="button"
                         className="flex min-h-14 w-full cursor-pointer items-center justify-between gap-4 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
@@ -81,13 +91,13 @@ export function CategoryList({ categories }: { categories: Category[] }) {
                         <span className="min-w-0 truncate font-medium">{category.name}</span>
                         <CategoryKindBadge category={category} />
                       </button>
-                    </DialogTrigger>
-                    <DialogContent className="gap-5 rounded-2xl border-white/70 bg-popover/98 p-5 shadow-[0_24px_80px_rgba(15,44,55,0.24)] backdrop-blur-xl sm:max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Edit category</DialogTitle>
-                        <DialogDescription>Rename this category, change its type, or delete it from new entries.</DialogDescription>
-                      </DialogHeader>
-                      <div className="flex flex-col gap-4">
+                    </SheetTrigger>
+                    <SheetContent side="right" className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg">
+                      <SheetHeader className="p-6">
+                        <SheetTitle className="text-xl">Edit category</SheetTitle>
+                        <SheetDescription>Rename this category, change its type, or delete it from new entries.</SheetDescription>
+                      </SheetHeader>
+                      <div className="flex flex-col gap-4 px-6 pb-6">
                         <form action={async (formData) => { "use server"; await updateCategory(category.id, formData); }}>
                           <FieldGroup>
                             <Field>
@@ -130,8 +140,8 @@ export function CategoryList({ categories }: { categories: Category[] }) {
                           </AlertDialogContent>
                         </AlertDialog>
                       </div>
-                    </DialogContent>
-                  </Dialog>
+                    </SheetContent>
+                  </Sheet>
                 )}
               </li>
             ))}
@@ -139,5 +149,27 @@ export function CategoryList({ categories }: { categories: Category[] }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+export function CategoryList({ categories }: { categories: Category[] }) {
+  const expenseCategories = categories.filter((category) => category.kind === "expense");
+  const incomeCategories = categories.filter((category) => category.kind === "income");
+
+  return (
+    <>
+      <CategorySection
+        categories={expenseCategories}
+        description="Categories used for shared spending."
+        emptyLabel="No expense categories yet"
+        title="Expense categories"
+      />
+      <CategorySection
+        categories={incomeCategories}
+        description="Categories used for shared income."
+        emptyLabel="No income categories yet"
+        title="Income categories"
+      />
+    </>
   );
 }

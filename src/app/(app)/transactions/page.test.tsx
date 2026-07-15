@@ -1,0 +1,57 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  getCurrentHousehold: vi.fn(),
+  getDashboardData: vi.fn(),
+  redirect: vi.fn(),
+  push: vi.fn(),
+}));
+
+vi.mock("@/lib/household", () => ({ getCurrentHousehold: mocks.getCurrentHousehold }));
+vi.mock("@/lib/dashboard-data", () => ({ getDashboardData: mocks.getDashboardData }));
+vi.mock("next/navigation", () => ({ redirect: mocks.redirect, usePathname: () => "/transactions", useRouter: () => ({ push: mocks.push }) }));
+
+import TransactionsPage from "./page";
+
+describe("Transactions page", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mocks.getCurrentHousehold.mockResolvedValue({ householdId: "household-id", role: "owner" });
+    mocks.getDashboardData.mockResolvedValue({
+      setupRequired: false,
+      accounts: [{ id: "bank-id", name: "Shared bank", kind: "bank", archivedAt: null }],
+      categories: [{ id: "food", name: "Food", kind: "expense", archivedAt: null }],
+      currentUserId: "member-id",
+      members: [{ id: "member-id", label: "You" }],
+      report: {
+        bankBalance: 9000,
+        cardDebt: 0,
+        income: 0,
+        expenses: 0,
+        expectedMonthlyIncome: null,
+        categoryTotals: [],
+        recentTransactions: [],
+      },
+    });
+  });
+
+  it("loads the selected ledger month with immediate month and year selectors", async () => {
+    const markup = renderToStaticMarkup(await TransactionsPage({ searchParams: Promise.resolve({ month: "2026-06" }) }));
+
+    expect(mocks.getDashboardData).toHaveBeenCalledWith("2026-06");
+    expect(markup).toContain('aria-label="Select ledger month"');
+    expect(markup).toContain('aria-label="Select ledger year"');
+    expect(markup).toContain("June");
+    expect(markup).toContain("2026");
+    expect(markup).not.toContain('type="month"');
+    expect(markup).not.toContain("Preview");
+  });
+
+  it("adds card padding around the monthly ledger table", async () => {
+    const markup = renderToStaticMarkup(await TransactionsPage({ searchParams: Promise.resolve({ month: "2026-07" }) }));
+
+    expect(markup).toContain("px-4 pb-4 sm:px-6 sm:pb-6");
+    expect(markup).not.toContain('class="p-0"');
+  });
+});

@@ -20,6 +20,11 @@ it("keeps account management out of MVP navigation and shows a bottom avatar wit
   expect(markup).not.toContain(">1</span>");
   expect(markup).toContain("mt-auto");
   expect(markup).toContain("lg:pt-8");
+  expect(markup).toContain("p-4 pb-[calc(9rem+env(safe-area-inset-bottom))]");
+  expect(markup).toContain("sm:p-6 sm:pb-[calc(9rem+env(safe-area-inset-bottom))]");
+  expect(markup).toContain("bottom-[calc(0.75rem+env(safe-area-inset-bottom))]");
+  expect(markup).toContain("rounded-[calc(2rem-0.75rem)]");
+  expect(markup).not.toContain("pb-24 p-4");
   expect(markup).toContain("duration-150");
   expect(markup).not.toContain("duration-300");
   expect(markup).not.toContain("slide-in-from-bottom");

@@ -27,6 +27,7 @@ describe("buildMonthlyReport", () => {
       cardDebt: 350,
       income: 500,
       expenses: 370,
+      expectedMonthlyIncome: null,
       categoryTotals: [{ categoryId: "food", categoryName: "Food", amount: 370 }],
     });
   });
@@ -38,5 +39,25 @@ describe("buildMonthlyReport", () => {
       "bank-expense",
       "income",
     ]);
+  });
+
+  it("uses the previous three months of income as expected monthly income", () => {
+    const transactionsWithRecentIncome: ReportTransaction[] = [
+      ...transactions,
+      { id: "april-income", kind: "income", amount: 900, occurredOn: "2026-04-20", accountId: "bank", destinationAccountId: null, categoryId: "income", note: "April salary", createdAt: "2026-04-20T08:00:00Z", paidBy: "member-id" },
+      { id: "may-income", kind: "income", amount: 1_200, occurredOn: "2026-05-20", accountId: "bank", destinationAccountId: null, categoryId: "income", note: "May salary", createdAt: "2026-05-20T08:00:00Z", paidBy: "member-id" },
+      { id: "june-income", kind: "income", amount: 1_500, occurredOn: "2026-06-20", accountId: "bank", destinationAccountId: null, categoryId: "income", note: "June salary", createdAt: "2026-06-20T08:00:00Z", paidBy: "member-id" },
+    ];
+
+    expect(buildMonthlyReport({ accounts, categories, transactions: transactionsWithRecentIncome, month: "2026-07" }).expectedMonthlyIncome).toBe(1_200);
+  });
+
+  it("reports no expected monthly income when there is no recent income", () => {
+    const staleIncome: ReportTransaction[] = [
+      { id: "old-income", kind: "income", amount: 900, occurredOn: "2026-03-20", accountId: "bank", destinationAccountId: null, categoryId: "income", note: "Old salary", createdAt: "2026-03-20T08:00:00Z", paidBy: "member-id" },
+      { id: "july-expense", kind: "expense", amount: 120, occurredOn: "2026-07-03", accountId: "bank", destinationAccountId: null, categoryId: "food", note: "Groceries", createdAt: "2026-07-03T08:00:00Z", paidBy: "member-id" },
+    ];
+
+    expect(buildMonthlyReport({ accounts, categories, transactions: staleIncome, month: "2026-07" }).expectedMonthlyIncome).toBeNull();
   });
 });
