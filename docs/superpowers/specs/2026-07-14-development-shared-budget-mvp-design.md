@@ -8,7 +8,7 @@ Turn the static Joint dashboard into a secure, development/staging-ready shared-
 
 ### Included
 
-- Google OAuth callback, session-aware routing, sign-out, first-user household creation, and invite-link acceptance.
+- Google OAuth callback, session-aware routing, sign-out, first-user household creation, and email-delivered invite-link acceptance.
 - Authenticated Server Actions for household setup, accounts, categories, and transactions.
 - Live dashboard data for a selected month: shared bank balance, monthly income/outgoings, separate card debt, category spending, and recent transactions.
 - Transaction entry and editing/deletion: income is bank-only with an income category; expenses use an expense category and a bank or card; transfers are bank-to-card and have no category.
@@ -25,7 +25,7 @@ Turn the static Joint dashboard into a secure, development/staging-ready shared-
 
 Server Components load the signed-in member's household-scoped data through the Supabase SSR server client. Client components are restricted to form state, sheets/dialogs, local accent preference, and navigation interaction. Every persisted write calls an authenticated Server Action that validates its input with Zod and relies on the existing database RLS membership policies.
 
-The OAuth callback exchanges the code for a cookie-backed session. A server-side onboarding path creates a household and membership only for a user with no membership, or redeems a valid invite for a signed-in user through a narrowly permissioned RPC. That RPC validates `auth.uid()` and the signed-in email against the invitation before adding membership. Membership, not user-provided metadata, remains the authorization boundary.
+The OAuth callback exchanges the code for a cookie-backed session. An owner creates an expiring, normalized email invitation in an authenticated Server Action, which sends its URL through a configured server-side email provider and exposes a copy-link fallback when delivery is unavailable. A recipient signs in with Google, and RLS permits only that user to insert their own `member` record when an active invitation matches their signed-in email. A private trigger function consumes the invitation during that insert. Membership, not user-provided metadata or a publicly callable privileged function, remains the authorization boundary.
 
 The dashboard derives all money summaries from the month-filtered transaction set using the existing balance rules. Transfers reduce the selected bank balance and card debt but are excluded from expense totals and category spending. The UI never renders fixture money as if it were persistent data.
 
@@ -40,7 +40,8 @@ All controls retain keyboard operation, visible focus, labelled icon buttons, an
 - Amounts must be finite, positive ILS values.
 - Transaction type determines valid account and category combinations; invalid combinations are rejected in the Server Action and surfaced next to the relevant field.
 - Household IDs and ownership fields never come from a trusted browser value. The action derives membership from the authenticated session.
-- A non-member receives no household data and cannot mutate it under RLS.
+- A non-member receives no household data and cannot mutate it under RLS; an invitee can insert only their own member record for an active invitation matching their signed-in email.
+- An email delivery failure preserves a safe manual-copy fallback and does not disclose the invitation to another user.
 - Missing development environment variables produce a local setup state, not a fake dashboard.
 
 ## Testing Seams

@@ -4,7 +4,9 @@ const mocks = vi.hoisted(() => ({
   createServerSupabaseClient: vi.fn(),
   getClaims: vi.fn(),
   getCurrentHousehold: vi.fn(),
+  getHouseholdForUser: vi.fn(),
   from: vi.fn(),
+  insert: vi.fn(),
   redirect: vi.fn(),
 }));
 
@@ -14,6 +16,7 @@ vi.mock("@/lib/supabase/server", () => ({
 
 vi.mock("@/lib/household", () => ({
   getCurrentHousehold: mocks.getCurrentHousehold,
+  getHouseholdForUser: mocks.getHouseholdForUser,
 }));
 
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
@@ -35,12 +38,13 @@ describe("household actions", () => {
     });
     mocks.getClaims.mockResolvedValue({ data: { claims: { sub: "member-id" } } });
     mocks.getCurrentHousehold.mockResolvedValue(null);
+    mocks.getHouseholdForUser.mockResolvedValue(null);
   });
 
   it("rejects household creation when the member already belongs to one", async () => {
-    mocks.getCurrentHousehold.mockResolvedValue({ householdId: "household-id", role: "owner" });
+    mocks.getHouseholdForUser.mockResolvedValue({ householdId: "household-id", role: "owner" });
 
-    await expect(createHousehold(formData({ name: "Our home" }))).resolves.toEqual({
+    await expect(createHousehold(formData({ name: "Our home", openingBalance: "0", openingBalanceDate: "2026-07-14" }))).resolves.toEqual({
       status: "error",
       formError: "You already belong to a household.",
       fieldErrors: {},
@@ -48,8 +52,7 @@ describe("household actions", () => {
   });
 
   it("reports an existing household when creation loses the membership race", async () => {
-    const householdSingle = vi.fn().mockResolvedValue({
-      data: null,
+    const householdInsert = vi.fn().mockResolvedValue({
       error: {
         code: "23505",
         details: "Key (user_id)=(member-id) already exists.",
@@ -57,15 +60,46 @@ describe("household actions", () => {
         message: "duplicate key value violates unique constraint \"household_members_user_id_key\"",
       },
     });
-    const householdSelect = vi.fn().mockReturnValue({ single: householdSingle });
-    const householdInsert = vi.fn().mockReturnValue({ select: householdSelect });
     mocks.from.mockReturnValue({ insert: householdInsert });
 
-    await expect(createHousehold(formData({ name: "Our home" }))).resolves.toEqual({
+    await expect(createHousehold(formData({ name: "Our home", openingBalance: "0", openingBalanceDate: "2026-07-14" }))).resolves.toEqual({
       status: "error",
       formError: "You already belong to a household.",
       fieldErrors: {},
     });
+  });
+
+  it("creates with a known ID instead of reading a household before its membership is visible", async () => {
+    const householdInsert = vi.fn().mockResolvedValue({ error: null });
+    const accountInsert = vi.fn().mockResolvedValue({ error: null });
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "households") return { insert: householdInsert };
+      if (table === "accounts") return { insert: accountInsert };
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    mocks.getHouseholdForUser
+      .mockResolvedValueOnce(null)
+      .mockImplementationOnce(() => ({
+        householdId: householdInsert.mock.calls[0]?.[0].id,
+        role: "owner",
+      }));
+
+    await createHousehold(formData({ name: "Our home", openingBalance: "1200.50", openingBalanceDate: "2026-07-14" }));
+
+    expect(householdInsert).toHaveBeenCalledWith({
+      id: expect.any(String),
+      name: "Our home",
+      created_by: "member-id",
+    });
+    expect(accountInsert).toHaveBeenCalledWith({
+      household_id: householdInsert.mock.calls[0]?.[0].id,
+      name: "Shared balance",
+      kind: "bank",
+      opening_balance: 1200.5,
+      opening_balance_date: "2026-07-14",
+    });
+    expect(mocks.createServerSupabaseClient).toHaveBeenCalledTimes(1);
+    expect(mocks.redirect).toHaveBeenCalledWith("/");
   });
 
   it("accepts an active invitation through the invitee-only RLS policies", async () => {
@@ -107,7 +141,7 @@ describe("household actions", () => {
   });
 
   it("rejects an invitation when the signed-in user already belongs to a household", async () => {
-    mocks.getCurrentHousehold.mockResolvedValue({ householdId: "household-id", role: "member" });
+    mocks.getHouseholdForUser.mockResolvedValue({ householdId: "household-id", role: "member" });
 
     await expect(acceptInvitation(formData({ token: "invite-token" }))).resolves.toEqual({
       status: "error",

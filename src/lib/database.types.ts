@@ -252,6 +252,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["transaction_kind"]
           note: string
           occurred_on: string
+          paid_by: string
           updated_at: string
         }
         Insert: {
@@ -266,6 +267,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["transaction_kind"]
           note?: string
           occurred_on: string
+          paid_by: string
           updated_at?: string
         }
         Update: {
@@ -280,6 +282,7 @@ export type Database = {
           kind?: Database["public"]["Enums"]["transaction_kind"]
           note?: string
           occurred_on?: string
+          paid_by?: string
           updated_at?: string
         }
         Relationships: [
@@ -316,6 +319,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_paid_by_fkey"
+            columns: ["paid_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

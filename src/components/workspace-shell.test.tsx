@@ -1,0 +1,28 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({ usePathname: () => "/settings" }));
+
+const shellModule = await import("./workspace-shell").catch(() => null);
+
+it("keeps account management out of MVP navigation and shows a bottom avatar without an unread badge", () => {
+  const markup = shellModule ? renderToStaticMarkup(<shellModule.WorkspaceShell title="Settings">Content</shellModule.WorkspaceShell>) : "";
+
+  expect(markup).toContain("Overview");
+  expect(markup).toContain("Transactions");
+  expect(markup).toContain("Categories");
+  expect(markup).toContain("Settings");
+  expect(markup).toContain("data-slot=\"avatar\"");
+  expect(markup).toContain("aria-label=\"Open notifications\"");
+  expect(markup).not.toContain("data-slot=\"avatar-badge\"");
+  expect(markup).not.toContain("aria-label=\"Unread notifications\"");
+  expect(markup).not.toContain("-top-1 -right-1");
+  expect(markup).not.toContain(">1</span>");
+  expect(markup).toContain("mt-auto");
+  expect(markup).toContain("lg:pt-8");
+  expect(markup).toContain("duration-150");
+  expect(markup).not.toContain("duration-300");
+  expect(markup).not.toContain("slide-in-from-bottom");
+  expect(markup).not.toContain("Accounts");
+  expect(markup).not.toContain("href=\"/accounts\"");
+});

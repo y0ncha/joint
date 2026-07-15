@@ -1,0 +1,109 @@
+export type ReportAccount = {
+  id: string;
+  name: string;
+  kind: "bank" | "credit_card";
+  openingBalance: number;
+  archivedAt: string | null;
+};
+
+export type ReportCategory = {
+  id: string;
+  name: string;
+  kind: "income" | "expense";
+  archivedAt: string | null;
+};
+
+export type ReportTransaction = {
+  id: string;
+  kind: "income" | "expense" | "transfer";
+  amount: number;
+  occurredOn: string;
+  accountId: string;
+  destinationAccountId: string | null;
+  categoryId: string | null;
+  note: string;
+  createdAt: string;
+  paidBy: string;
+};
+
+export type MonthlyReport = {
+  bankBalance: number;
+  cardDebt: number;
+  income: number;
+  expenses: number;
+  categoryTotals: Array<{ categoryId: string; categoryName: string; amount: number }>;
+  recentTransactions: ReportTransaction[];
+};
+
+function nextMonth(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const date = new Date(Date.UTC(year, monthNumber, 1));
+  return date.toISOString().slice(0, 10);
+}
+
+export function buildMonthlyReport({
+  accounts,
+  categories,
+  transactions,
+  month,
+}: {
+  accounts: ReportAccount[];
+  categories: ReportCategory[];
+  transactions: ReportTransaction[];
+  month: string;
+}): MonthlyReport {
+  const monthStart = `${month}-01`;
+  const monthEnd = nextMonth(month);
+  const accountsById = new Map(accounts.map((account) => [account.id, account]));
+  const categoriesById = new Map(categories.map((category) => [category.id, category]));
+  const balances = new Map(accounts.map((account) => [account.id, account.openingBalance]));
+
+  for (const transaction of transactions.filter((transaction) => transaction.occurredOn < monthEnd)) {
+    const account = accountsById.get(transaction.accountId);
+    if (!account) throw new Error(`Unknown account: ${transaction.accountId}`);
+
+    if (transaction.kind === "income") {
+      balances.set(account.id, (balances.get(account.id) ?? 0) + transaction.amount);
+      continue;
+    }
+
+    if (transaction.kind === "expense") {
+      const direction = account.kind === "credit_card" ? 1 : -1;
+      balances.set(account.id, (balances.get(account.id) ?? 0) + direction * transaction.amount);
+      continue;
+    }
+
+    const destination = accountsById.get(transaction.destinationAccountId ?? "");
+    if (!destination) throw new Error(`Unknown account: ${transaction.destinationAccountId}`);
+    balances.set(account.id, (balances.get(account.id) ?? 0) - transaction.amount);
+    balances.set(destination.id, (balances.get(destination.id) ?? 0) - transaction.amount);
+  }
+
+  const monthlyTransactions = transactions
+    .filter((transaction) => transaction.occurredOn >= monthStart && transaction.occurredOn < monthEnd)
+    .sort((left, right) => right.occurredOn.localeCompare(left.occurredOn) || right.createdAt.localeCompare(left.createdAt));
+  const categoryTotals = new Map<string, number>();
+  let income = 0;
+  let expenses = 0;
+
+  for (const transaction of monthlyTransactions) {
+    if (transaction.kind === "income") income += transaction.amount;
+    if (transaction.kind !== "expense") continue;
+
+    expenses += transaction.amount;
+    if (transaction.categoryId) {
+      categoryTotals.set(transaction.categoryId, (categoryTotals.get(transaction.categoryId) ?? 0) + transaction.amount);
+    }
+  }
+
+  return {
+    bankBalance: accounts.filter((account) => account.archivedAt === null && account.kind === "bank").reduce((total, account) => total + (balances.get(account.id) ?? 0), 0),
+    cardDebt: accounts.filter((account) => account.archivedAt === null && account.kind === "credit_card").reduce((total, account) => total + (balances.get(account.id) ?? 0), 0),
+    income,
+    expenses,
+    categoryTotals: [...categoryTotals.entries()]
+      .map(([categoryId, amount]) => ({ categoryId, categoryName: categoriesById.get(categoryId)?.name ?? "Archived category", amount }))
+      .sort((left, right) => right.amount - left.amount || left.categoryName.localeCompare(right.categoryName)),
+    recentTransactions: monthlyTransactions,
+  };
+}
