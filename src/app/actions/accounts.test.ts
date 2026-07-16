@@ -18,8 +18,8 @@ describe("createAccount", () => {
   });
 
   it("uses the verified household instead of submitted household data", async () => {
-    await expect(actions?.createAccount(formData({ householdId: "other", name: "Shared bank", kind: "bank", openingBalance: "1000.00", openingBalanceDate: "2026-07-01" }))).resolves.toEqual({ status: "success" });
-    expect(mocks.insert).toHaveBeenCalledWith({ household_id: "household-id", name: "Shared bank", kind: "bank", opening_balance: 1000, opening_balance_date: "2026-07-01" });
+    await expect(actions?.createAccount(formData({ householdId: "other", name: "Shared card", kind: "credit_card", openingBalance: "1000.00", openingBalanceDate: "2026-07-01", lastFourDigits: "1234", statementCloseDay: "10" }))).resolves.toEqual({ status: "success" });
+    expect(mocks.insert).toHaveBeenCalledWith({ household_id: "household-id", name: "Shared card", kind: "credit_card", opening_balance: 1000, opening_balance_date: "2026-07-01", last_four_digits: "1234", statement_close_day: 10 });
   });
 
   it("scopes account updates to the verified household", async () => {

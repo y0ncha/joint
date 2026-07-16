@@ -146,6 +146,7 @@
   body {
     @apply bg-background text-foreground;
     background: linear-gradient(135deg, #f6d4b8 0%, #b5cad0 62%, #0d4f73 100%);
+    background-attachment: fixed;
     min-height: 100vh;
   }
   html {

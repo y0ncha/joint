@@ -15,6 +15,7 @@ export type ActionResult = {
 };
 
 const householdName = z.string().trim().min(1, "Enter a household name.").max(80, "Use 80 characters or fewer.");
+const profileName = z.string().trim().min(1, "Enter your name.").max(80, "Use 80 characters or fewer.");
 const openingBalance = z.coerce
   .number()
   .nonnegative("Enter zero or a positive amount.")
@@ -36,11 +37,15 @@ async function verifiedUserId(supabase: SupabaseClient<Database>): Promise<strin
 }
 
 export async function createHousehold(input: FormData): Promise<ActionResult> {
+  const userName = profileName.safeParse(input.get("profileName"));
   const name = householdName.safeParse(input.get("name"));
   const balance = openingBalance.safeParse(input.get("openingBalance"));
   const balanceDate = openingBalanceDate.safeParse(input.get("openingBalanceDate"));
   const fieldErrors: Record<string, string> = {};
 
+  if (!userName.success) {
+    fieldErrors.profileName = userName.error.issues[0]?.message ?? "Invalid name.";
+  }
   if (!name.success) {
     fieldErrors.name = name.error.issues[0]?.message ?? "Invalid name.";
   }
@@ -50,7 +55,7 @@ export async function createHousehold(input: FormData): Promise<ActionResult> {
   if (!balanceDate.success) {
     fieldErrors.openingBalanceDate = balanceDate.error.issues[0]?.message ?? "Invalid balance date.";
   }
-  if (!name.success || !balance.success || !balanceDate.success) {
+  if (!userName.success || !name.success || !balance.success || !balanceDate.success) {
     return errorResult("Check the household setup details.", fieldErrors);
   }
 
@@ -61,6 +66,9 @@ export async function createHousehold(input: FormData): Promise<ActionResult> {
   if (await getHouseholdForUser(supabase, userId)) {
     return errorResult("You already belong to a household.");
   }
+
+  const { error: profileError } = await supabase.from("profiles").update({ full_name: userName.data }).eq("id", userId);
+  if (profileError) return errorResult("Unable to save your name. Please try again.");
 
   const householdId = crypto.randomUUID();
   const { error } = await supabase

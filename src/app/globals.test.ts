@@ -33,6 +33,10 @@ describe("canvas background", () => {
       /background:\s*linear-gradient\(135deg,\s*#f6d4b8 0%,\s*#b5cad0 62%,\s*#0d4f73 100%\);/,
     );
   });
+
+  it("stays fixed while the document content scrolls", () => {
+    expect(globalsCss).toContain("background-attachment: fixed;");
+  });
 });
 
 describe("surface opacity", () => {

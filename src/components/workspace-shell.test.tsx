@@ -13,6 +13,7 @@ it("keeps account management out of MVP navigation and shows a bottom avatar wit
   expect(markup).toContain("Categories");
   expect(markup).toContain("Settings");
   expect(markup).toContain("data-slot=\"avatar\"");
+  expect(markup).not.toContain(">Me<");
   expect(markup).toContain("aria-label=\"Open notifications\"");
   expect(markup).not.toContain("data-slot=\"avatar-badge\"");
   expect(markup).not.toContain("aria-label=\"Unread notifications\"");
@@ -20,6 +21,8 @@ it("keeps account management out of MVP navigation and shows a bottom avatar wit
   expect(markup).not.toContain(">1</span>");
   expect(markup).toContain("mt-auto");
   expect(markup).toContain("lg:pt-8");
+  expect(markup).toContain('data-workspace-content="true"');
+  expect(markup).toContain('data-workspace-content="true" class="w-full"');
   expect(markup).toContain("p-4 pb-[calc(9rem+env(safe-area-inset-bottom))]");
   expect(markup).toContain("sm:p-6 sm:pb-[calc(9rem+env(safe-area-inset-bottom))]");
   expect(markup).toContain("bottom-[calc(0.75rem+env(safe-area-inset-bottom))]");

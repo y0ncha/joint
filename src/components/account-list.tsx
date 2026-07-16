@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 
-type Account = { id: string; name: string; kind: "bank" | "credit_card"; opening_balance: number; opening_balance_date: string; archived_at: string | null };
+type Account = { id: string; name: string; kind: "bank" | "credit_card"; opening_balance: number; opening_balance_date: string; last_four_digits: string | null; statement_close_day: number | null; archived_at: string | null };
 
 export function AccountList({ accounts }: { accounts: Account[] }) {
   return (
@@ -37,6 +37,7 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
                   <div>
                     <p className="font-medium">{account.name}</p>
                     <p className="mt-1 text-sm text-muted-foreground">{account.archived_at ? "Archived" : account.kind === "bank" ? "Bank" : "Credit card"}</p>
+                    {account.kind === "credit_card" && account.last_four_digits && account.statement_close_day ? <p className="mt-1 text-sm text-muted-foreground">•••• {account.last_four_digits} · Closes on day {account.statement_close_day}</p> : null}
                   </div>
                 </div>
                 {!account.archived_at ? (
@@ -71,6 +72,18 @@ export function AccountList({ accounts }: { accounts: Account[] }) {
                             <FieldLabel htmlFor={`opening-date-${account.id}`}>Opening balance date</FieldLabel>
                             <Input id={`opening-date-${account.id}`} name="openingBalanceDate" type="date" defaultValue={account.opening_balance_date} required />
                           </Field>
+                          {account.kind === "credit_card" ? (
+                            <>
+                              <Field>
+                                <FieldLabel htmlFor={`last-four-digits-${account.id}`}>Last 4 card digits</FieldLabel>
+                                <Input id={`last-four-digits-${account.id}`} inputMode="numeric" maxLength={4} name="lastFourDigits" defaultValue={account.last_four_digits ?? ""} required />
+                              </Field>
+                              <Field>
+                                <FieldLabel htmlFor={`statement-close-day-${account.id}`}>Statement close day</FieldLabel>
+                                <Input id={`statement-close-day-${account.id}`} inputMode="numeric" max={31} min={1} name="statementCloseDay" type="number" defaultValue={account.statement_close_day ?? ""} required />
+                              </Field>
+                            </>
+                          ) : null}
                           <Button type="submit" variant="outline">Save account</Button>
                         </FieldGroup>
                       </form>

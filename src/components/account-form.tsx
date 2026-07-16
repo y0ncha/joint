@@ -41,8 +41,22 @@ export function AccountForm() {
           <Input id="opening-date" name="openingBalanceDate" type="date" required aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.openingBalanceDate)} />
           {state?.status === "error" ? <FieldError>{state.fieldErrors.openingBalanceDate}</FieldError> : null}
         </Field>
+        {kind === "credit_card" ? (
+          <>
+            <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.lastFourDigits)}>
+              <FieldLabel htmlFor="last-four-digits">Last 4 card digits</FieldLabel>
+              <Input id="last-four-digits" inputMode="numeric" maxLength={4} name="lastFourDigits" required aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.lastFourDigits)} />
+              {state?.status === "error" ? <FieldError>{state.fieldErrors.lastFourDigits}</FieldError> : null}
+            </Field>
+            <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.statementCloseDay)}>
+              <FieldLabel htmlFor="statement-close-day">Statement close day</FieldLabel>
+              <Input id="statement-close-day" inputMode="numeric" max={31} min={1} name="statementCloseDay" required type="number" aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.statementCloseDay)} />
+              {state?.status === "error" ? <FieldError>{state.fieldErrors.statementCloseDay}</FieldError> : null}
+            </Field>
+          </>
+        ) : null}
         {state?.status === "error" ? <FieldError>{state.formError}</FieldError> : null}
-        <Button disabled={isPending} type="submit">Add bank account</Button>
+        <Button disabled={isPending} type="submit">Add {kind === "credit_card" ? "credit card" : "bank account"}</Button>
       </FieldGroup>
     </form>
   );

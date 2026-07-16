@@ -19,6 +19,8 @@ export async function createAccount(input: FormData): Promise<ActionResult> {
     kind: parsed.data.kind,
     opening_balance: parsed.data.openingBalance,
     opening_balance_date: parsed.data.openingBalanceDate,
+    last_four_digits: parsed.data.kind === "credit_card" ? parsed.data.lastFourDigits : null,
+    statement_close_day: parsed.data.kind === "credit_card" ? parsed.data.statementCloseDay : null,
   });
   if (error) return { status: "error", formError: "Unable to save the account. Please try again.", fieldErrors: {} };
   revalidatePath("/"); revalidatePath("/accounts");
@@ -34,6 +36,8 @@ export async function updateAccount(accountId: string, input: FormData): Promise
     kind: parsed.data.kind,
     opening_balance: parsed.data.openingBalance,
     opening_balance_date: parsed.data.openingBalanceDate,
+    last_four_digits: parsed.data.kind === "credit_card" ? parsed.data.lastFourDigits : null,
+    statement_close_day: parsed.data.kind === "credit_card" ? parsed.data.statementCloseDay : null,
   }).eq("id", accountId).eq("household_id", household.householdId);
   if (error) return { status: "error", formError: "Unable to update the account. Please try again.", fieldErrors: {} };
   revalidatePath("/"); revalidatePath("/accounts");

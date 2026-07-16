@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { LayoutDashboard, Settings, Tags, WalletCards, type LucideIcon } from "lucide-react";
 
 import { BrandMark } from "@/components/brand-mark";
@@ -15,6 +15,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 const navigation = [
   ["/", "Overview", LayoutDashboard],
@@ -52,6 +53,14 @@ function NavigationItem({ href, label, icon: Icon }: { href: string; label: stri
 }
 
 function UserNotificationAvatar({ hasUnreadNotifications = false }: { hasUnreadNotifications?: boolean }) {
+  const [name, setName] = useState<string | null>(null);
+
+  useEffect(() => {
+    createBrowserSupabaseClient().from("profiles").select("full_name").maybeSingle().then(({ data }) => setName(data?.full_name ?? null));
+  }, []);
+
+  const initial = name?.trim().charAt(0).toUpperCase() || "?";
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -61,7 +70,7 @@ function UserNotificationAvatar({ hasUnreadNotifications = false }: { hasUnreadN
           className="relative mt-auto flex size-11 items-center justify-center rounded-full outline-none transition-shadow duration-150 ease-out focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <Avatar className="size-11 border border-white/60 bg-white/70 text-primary">
-            <AvatarFallback>Me</AvatarFallback>
+            <AvatarFallback>{initial}</AvatarFallback>
             {hasUnreadNotifications ? (
               <AvatarBadge
                 aria-label="Unread notifications"
@@ -131,7 +140,9 @@ export function WorkspaceShell({
             </div>
             {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
           </header>
-          {children}
+          <div data-workspace-content className="w-full">
+            {children}
+          </div>
         </section>
         <nav aria-label="Primary navigation" className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] flex h-16 items-center justify-around rounded-[calc(2rem-0.75rem)] border border-white/60 bg-white/80 px-3 shadow-lg backdrop-blur-xl md:hidden">
           {navigation.map(([href, label, Icon]) => (

@@ -85,6 +85,7 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("Outgoings");
     expect(markup).toContain("13% above prior 3-month average");
     expect(markup).toContain("8% below prior 3-month average");
+    expect(markup).toMatch(/Income[\s\S]*lucide-arrow-up-right[\s\S]*13% above prior 3-month average/);
     expect(markup).not.toContain("of income");
     expect(markup).toContain("Monthly balance");
     expect(markup).not.toContain("Expected income after outgoings");
@@ -126,6 +127,32 @@ describe("Joint dashboard", () => {
     const markup = renderToStaticMarkup(await Home());
 
     expect(markup).toContain("No available income");
+    expect(markup).toContain("No 3-month income history yet. Record income in the prior 3 months to compare this month.");
     expect(markup).not.toContain("Based on 3-month income average");
+  });
+
+  it("uses a downward arrow when income is below its prior average", async () => {
+    mocks.getDashboardData.mockResolvedValueOnce({
+      setupRequired: false,
+      accounts: [{ id: "bank-id", name: "Shared bank", kind: "bank", archivedAt: null }],
+      categories: [],
+      currentUserId: "member-id",
+      members: [{ id: "member-id", label: "You" }],
+      report: {
+        bankBalance: 7000,
+        cardDebt: 0,
+        income: 1000,
+        expenses: 1200,
+        incomeChangePercentage: -10,
+        expenseChangePercentage: null,
+        expectedMonthlyIncome: 1000,
+        categoryTotals: [],
+        recentTransactions: [],
+      },
+    });
+
+    const markup = renderToStaticMarkup(await Home());
+
+    expect(markup).toMatch(/Income[\s\S]*lucide-arrow-down-right[\s\S]*10% below prior 3-month average/);
   });
 });

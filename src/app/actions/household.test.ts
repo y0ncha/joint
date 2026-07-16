@@ -44,7 +44,7 @@ describe("household actions", () => {
   it("rejects household creation when the member already belongs to one", async () => {
     mocks.getHouseholdForUser.mockResolvedValue({ householdId: "household-id", role: "owner" });
 
-    await expect(createHousehold(formData({ name: "Our home", openingBalance: "0", openingBalanceDate: "2026-07-14" }))).resolves.toEqual({
+    await expect(createHousehold(formData({ profileName: "Yonatan", name: "Our home", openingBalance: "0", openingBalanceDate: "2026-07-14" }))).resolves.toEqual({
       status: "error",
       formError: "You already belong to a household.",
       fieldErrors: {},
@@ -52,6 +52,8 @@ describe("household actions", () => {
   });
 
   it("reports an existing household when creation loses the membership race", async () => {
+    const profileEq = vi.fn().mockResolvedValue({ error: null });
+    const profileUpdate = vi.fn().mockReturnValue({ eq: profileEq });
     const householdInsert = vi.fn().mockResolvedValue({
       error: {
         code: "23505",
@@ -60,19 +62,45 @@ describe("household actions", () => {
         message: "duplicate key value violates unique constraint \"household_members_user_id_key\"",
       },
     });
-    mocks.from.mockReturnValue({ insert: householdInsert });
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "profiles") return { update: profileUpdate };
+      if (table === "households") return { insert: householdInsert };
+      throw new Error(`Unexpected table: ${table}`);
+    });
 
-    await expect(createHousehold(formData({ name: "Our home", openingBalance: "0", openingBalanceDate: "2026-07-14" }))).resolves.toEqual({
+    await expect(createHousehold(formData({ profileName: "Yonatan", name: "Our home", openingBalance: "0", openingBalanceDate: "2026-07-14" }))).resolves.toEqual({
       status: "error",
       formError: "You already belong to a household.",
       fieldErrors: {},
     });
   });
 
+  it("does not create a household when saving the profile name fails", async () => {
+    const profileEq = vi.fn().mockResolvedValue({ error: { message: "profile update failed" } });
+    const profileUpdate = vi.fn().mockReturnValue({ eq: profileEq });
+    const householdInsert = vi.fn().mockResolvedValue({ error: null });
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "profiles") return { update: profileUpdate };
+      if (table === "households") return { insert: householdInsert };
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    await expect(createHousehold(formData({ profileName: "Yonatan", name: "Our home", openingBalance: "0", openingBalanceDate: "2026-07-14" }))).resolves.toEqual({
+      status: "error",
+      formError: "Unable to save your name. Please try again.",
+      fieldErrors: {},
+    });
+
+    expect(householdInsert).not.toHaveBeenCalled();
+  });
+
   it("creates with a known ID instead of reading a household before its membership is visible", async () => {
+    const profileEq = vi.fn().mockResolvedValue({ error: null });
+    const profileUpdate = vi.fn().mockReturnValue({ eq: profileEq });
     const householdInsert = vi.fn().mockResolvedValue({ error: null });
     const accountInsert = vi.fn().mockResolvedValue({ error: null });
     mocks.from.mockImplementation((table: string) => {
+      if (table === "profiles") return { update: profileUpdate };
       if (table === "households") return { insert: householdInsert };
       if (table === "accounts") return { insert: accountInsert };
       throw new Error(`Unexpected table: ${table}`);
@@ -84,7 +112,10 @@ describe("household actions", () => {
         role: "owner",
       }));
 
-    await createHousehold(formData({ name: "Our home", openingBalance: "1200.50", openingBalanceDate: "2026-07-14" }));
+    await createHousehold(formData({ profileName: "Yonatan", name: "Our home", openingBalance: "1200.50", openingBalanceDate: "2026-07-14" }));
+
+    expect(profileUpdate).toHaveBeenCalledWith({ full_name: "Yonatan" });
+    expect(profileEq).toHaveBeenCalledWith("id", "member-id");
 
     expect(householdInsert).toHaveBeenCalledWith({
       id: expect.any(String),

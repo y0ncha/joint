@@ -21,9 +21,11 @@ export type Database = {
           household_id: string
           id: string
           kind: Database["public"]["Enums"]["account_kind"]
+          last_four_digits: string | null
           name: string
           opening_balance: number
           opening_balance_date: string
+          statement_close_day: number | null
           updated_at: string
         }
         Insert: {
@@ -32,9 +34,11 @@ export type Database = {
           household_id: string
           id?: string
           kind: Database["public"]["Enums"]["account_kind"]
+          last_four_digits?: string | null
           name: string
           opening_balance: number
           opening_balance_date: string
+          statement_close_day?: number | null
           updated_at?: string
         }
         Update: {
@@ -43,9 +47,11 @@ export type Database = {
           household_id?: string
           id?: string
           kind?: Database["public"]["Enums"]["account_kind"]
+          last_four_digits?: string | null
           name?: string
           opening_balance?: number
           opening_balance_date?: string
+          statement_close_day?: number | null
           updated_at?: string
         }
         Relationships: [

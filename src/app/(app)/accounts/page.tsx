@@ -8,7 +8,7 @@ import { getCurrentHousehold } from "@/lib/household";
 export default async function AccountsPage() {
   const household = await getCurrentHousehold();
   if (!household) return null;
-  const { data } = await (await createServerSupabaseClient()).from("accounts").select("id, name, kind, opening_balance, opening_balance_date, archived_at").eq("household_id", household.householdId).order("created_at");
+  const { data } = await (await createServerSupabaseClient()).from("accounts").select("id, name, kind, opening_balance, opening_balance_date, last_four_digits, statement_close_day, archived_at").eq("household_id", household.householdId).order("created_at");
   return (
     <WorkspaceShell title="Accounts" description="Manage the shared bank account and card debt.">
       <div className="mt-6 grid gap-4 lg:grid-cols-2">

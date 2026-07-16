@@ -69,8 +69,8 @@ Transfers, visible card debt, and user-selected accounts are intentionally out o
 
 | Environment | Supabase | Vercel target | Intended use |
 | --- | --- | --- | --- |
-| Local | Shared Joint project | local development | feature work against the shared schema and Auth configuration |
-| Preview | Shared Joint project | Vercel preview | pull-request validation |
-| Production | Shared Joint project | Vercel production from `main` | live application |
+| Local | `joint-dev` | local development | schema and feature work |
+| Preview | `joint-prod` | Vercel preview | pull-request validation |
+| Production | `joint-prod` | Vercel production from `main` | live application |
 
-All environments deliberately use one Supabase project. Keep `.env.local` private and maintain `.env.example` with names only. Configure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in every Vercel target; no service-role or secret key belongs in browser code.
+Keep `.env.local` private and maintain `.env.example` with names only. Local development uses the `joint-dev` URL and publishable key; Vercel currently uses `joint-prod` for Preview and Production. No service-role or secret key belongs in browser code.

@@ -42,6 +42,11 @@ describe("setup schemas", () => {
     expect(accountSchema.parse({ name: "Shared balance", kind: "bank", openingBalance: "1.00", openingBalanceDate: "2026-07-01" })).toMatchObject({ kind: "bank", openingBalance: 1 });
   });
 
+  it("requires display-only card details for credit cards", () => {
+    expect(accountSchema.parse({ name: "Visa", kind: "credit_card", openingBalance: "0", openingBalanceDate: "2026-07-01", lastFourDigits: "1234", statementCloseDay: "10" })).toMatchObject({ lastFourDigits: "1234", statementCloseDay: 10 });
+    expect(() => accountSchema.parse({ name: "Visa", kind: "credit_card", openingBalance: "0", openingBalanceDate: "2026-07-01", lastFourDigits: "123", statementCloseDay: "32" })).toThrow();
+  });
+
   it("rejects an account opening balance with fractional cents", () => {
     expect(() => accountSchema.parse({ name: "Bank", kind: "bank", openingBalance: "1.001", openingBalanceDate: "2026-07-01" })).toThrow();
   });

@@ -25,6 +25,11 @@ export function CreateHouseholdForm() {
   return (
     <form action={formAction} className="mt-8">
       <FieldGroup>
+        <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.profileName)}>
+          <FieldLabel htmlFor="profile-name">Your name</FieldLabel>
+          <Input aria-describedby={state?.fieldErrors.profileName ? "profile-name-error" : undefined} aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.profileName)} className="h-12 rounded-xl" id="profile-name" name="profileName" placeholder="Your name" required />
+          {state?.fieldErrors.profileName ? <FieldError id="profile-name-error">{state.fieldErrors.profileName}</FieldError> : null}
+        </Field>
         <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.name)}>
           <FieldLabel htmlFor="household-name">Household name</FieldLabel>
           <Input aria-describedby={state?.fieldErrors.name ? "household-name-error" : undefined} aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.name)} className="h-12 rounded-xl" id="household-name" name="name" placeholder="Our home" required />

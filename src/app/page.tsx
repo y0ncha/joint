@@ -84,8 +84,14 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
                 <p className="text-sm font-medium text-muted-foreground">Income</p>
                 <p className="mt-3 font-mono text-2xl font-semibold">{currency.format(report.income)}</p>
                 <div className={cn("mt-5 flex items-center gap-2 text-sm", report.incomeChangePercentage === null ? "text-muted-foreground" : report.incomeChangePercentage >= 0 ? "text-positive" : "text-negative")}>
-                  {report.incomeChangePercentage !== null && report.incomeChangePercentage < 0 ? <ArrowUpRight aria-hidden="true" className="size-4" /> : <ArrowDownRight aria-hidden="true" className="size-4" />}
-                  {comparisonLabel(report.incomeChangePercentage)}
+                  {report.incomeChangePercentage === null ? (
+                    "No 3-month income history yet. Record income in the prior 3 months to compare this month."
+                  ) : (
+                    <>
+                      {report.incomeChangePercentage < 0 ? <ArrowDownRight aria-hidden="true" className="size-4" /> : <ArrowUpRight aria-hidden="true" className="size-4" />}
+                      {comparisonLabel(report.incomeChangePercentage)}
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
