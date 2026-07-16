@@ -125,7 +125,7 @@ export default async function SettingsPage() {
             <div className="divide-y divide-border/70">
               <SettingsRow icon={LogOut} label="Session" description="End this browser session and return to sign in.">
                 <form action={logOut}>
-                  <Button type="submit" variant="outline" className="h-11 rounded-xl border-transparent bg-white/55">
+                  <Button type="submit" variant="outline" size="sm" className="border-transparent bg-white/55">
                     Log out
                   </Button>
                 </form>

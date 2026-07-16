@@ -47,6 +47,7 @@ it("renders settings as section cards with row-style controls", async () => {
   expect(markup).toContain("Session");
   expect(markup).toContain("Log out");
   expect((markup.match(/Log out/g) ?? []).length).toBe(1);
+  expect(markup).toContain('data-slot="button" data-variant="outline" data-size="sm"');
   expect(markup).toContain("End this browser session and return to sign in.");
   expect(markup).toContain("Invitations");
   expect(markup).toContain("Enter their Google email to create one invite link.");
