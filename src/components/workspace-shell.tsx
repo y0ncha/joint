@@ -70,7 +70,7 @@ function UserNotificationAvatar({ hasUnreadNotifications = false }: { hasUnreadN
           className="relative mt-auto flex size-11 items-center justify-center rounded-full outline-none transition-shadow duration-150 ease-out focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <Avatar className="size-11 border border-white/60 bg-white/70 text-primary">
-            <AvatarFallback>{initial}</AvatarFallback>
+            <AvatarFallback className="text-base font-bold tracking-tight">{initial}</AvatarFallback>
             {hasUnreadNotifications ? (
               <AvatarBadge
                 aria-label="Unread notifications"

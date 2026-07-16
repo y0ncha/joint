@@ -15,6 +15,7 @@ it("keeps account management out of MVP navigation and shows a bottom avatar wit
   expect(markup).toContain("data-slot=\"avatar\"");
   expect(markup).not.toContain(">Me<");
   expect(markup).toContain("aria-label=\"Open notifications\"");
+  expect(markup).toContain("font-bold");
   expect(markup).not.toContain("data-slot=\"avatar-badge\"");
   expect(markup).not.toContain("aria-label=\"Unread notifications\"");
   expect(markup).not.toContain("-top-1 -right-1");
