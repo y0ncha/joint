@@ -1,13 +1,13 @@
 import { logOut } from "@/app/actions/auth";
 import { AccentPicker } from "@/components/accent-picker";
-import { InviteForm } from "@/components/invite-form";
+import { PartnerAccessControl, type PartnerAccessState } from "@/components/partner-access-control";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getCurrentHousehold } from "@/lib/household";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { Bell, CalendarClock, ChevronRight, LogOut, Palette, ShieldCheck, UserPlus, UserRound, UsersRound, type LucideIcon } from "lucide-react";
+import { Bell, CalendarClock, ChevronRight, LogOut, Palette, UserPlus, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 function SettingsRow({
@@ -59,30 +59,27 @@ function SettingsSelect({ label, value, options }: { label: string; value: strin
 export default async function SettingsPage() {
   const household = await getCurrentHousehold();
   if (!household) return null;
-  const { data: members } = await (await createServerSupabaseClient()).from("household_members").select("user_id, role").eq("household_id", household.householdId).order("joined_at");
+  let partnerState: PartnerAccessState | null = null;
+
+  if (household.role === "owner") {
+    const supabase = await createServerSupabaseClient();
+    const [{ data: members, error: membersError }, { data: authorization, error: authorizationError }] = await Promise.all([
+      supabase.from("household_members").select("role").eq("household_id", household.householdId).order("joined_at"),
+      supabase.from("household_allowed_members").select("email").eq("household_id", household.householdId).maybeSingle(),
+    ]);
+
+    if (membersError || authorizationError) throw new Error("Unable to load partner access.");
+
+    const hasPartner = (members ?? []).some((member) => member.role === "member");
+    if (hasPartner && !authorization) throw new Error("Joined partner authorization is missing.");
+
+    partnerState = authorization
+      ? { status: hasPartner ? "joined" : "pending", email: authorization.email }
+      : { status: "empty" };
+  }
   return (
     <WorkspaceShell title="Settings">
       <div className="mt-6 flex w-full flex-col gap-5">
-        <Card className="border-white/50 bg-card/90">
-          <CardHeader>
-            <CardTitle>Household members</CardTitle>
-            <CardDescription>People with access to this shared money workspace.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="divide-y divide-border/70">
-              {(members ?? []).map((member) => (
-                <SettingsRow
-                  key={member.user_id}
-                  icon={member.role === "owner" ? ShieldCheck : UserRound}
-                  label={member.role === "owner" ? "Owner" : "Member"}
-                  value={member.user_id.slice(0, 8)}
-                />
-              ))}
-              <SettingsRow icon={UsersRound} label="Shared access" value={household.role === "owner" ? "Owner controls" : "Member"} />
-            </div>
-          </CardContent>
-        </Card>
-
         <Card className="border-white/50 bg-card/90">
           <CardHeader>
             <CardTitle>Appearance</CardTitle>
@@ -125,23 +122,14 @@ export default async function SettingsPage() {
             <div className="divide-y divide-border/70">
               <SettingsRow icon={LogOut} label="Session" description="End this browser session and return to sign in.">
                 <form action={logOut}>
-                  <Button type="submit" variant="outline" size="sm" className="border-transparent bg-white/55">
+                  <Button type="submit" variant="outline" size="sm" className="min-h-11 border-transparent bg-white/55">
                     Log out
                   </Button>
                 </form>
               </SettingsRow>
-              {household.role === "owner" ? (
-                <section aria-labelledby="settings-invitations-title" className="flex gap-3 py-4">
-                  <UserPlus aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-4">
-                      <h3 id="settings-invitations-title" className="text-sm font-medium">Invitations</h3>
-                      <p className="mt-0.5 text-xs text-muted-foreground">Enter their Google email to create one invite link.</p>
-                    </div>
-                    <InviteForm />
-                  </div>
-                </section>
-              ) : null}
+              <SettingsRow icon={UserPlus} label="Partner access" description="Authorize one Google account to share this household." value={household.role === "member" ? "Managed by owner" : undefined}>
+                {partnerState ? <PartnerAccessControl state={partnerState} /> : null}
+              </SettingsRow>
             </div>
           </CardContent>
         </Card>

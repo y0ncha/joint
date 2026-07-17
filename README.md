@@ -28,7 +28,11 @@ bun run test
 bun run build
 ```
 
-The Google OAuth callback for development is `http://127.0.0.1:3000/auth/callback`. Before sharing a copied household invite link, add the recipient's Google account to the development OAuth consent screen's test-user list.
+The Google OAuth callback for development is `http://127.0.0.1:3000/auth/callback`. Before a newly authorized partner signs in, add that Google account to the development OAuth consent screen's test-user list.
+
+Google sign-in establishes identity; only a `household_members` row grants access to household data. Owners authorize one partner email in Settings. An unmatched account is signed out locally and shown an access-denied message—there is no self-service household onboarding or global app-access registry.
+
+Future owners must sign in once, then be provisioned by an operator using the transactional [owner provisioning procedure](docs/architecture/operator-owner-provisioning.md).
 
 ## Environment
 

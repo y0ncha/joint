@@ -1,16 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { getCurrentHousehold } from "@/lib/household";
+import { ensurePartnerMembership } from "@/lib/household";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-
-function safeNextPath(next: string | null, origin: string): string | null {
-  if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return null;
-
-  const destination = new URL(next, origin);
-  return destination.origin === origin
-    ? `${destination.pathname}${destination.search}${destination.hash}`
-    : null;
-}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -23,9 +14,17 @@ export async function GET(request: Request) {
 
   if (error) return NextResponse.redirect(new URL("/login?error=oauth_callback", url.origin));
 
-  const household = await getCurrentHousehold();
-  const next = safeNextPath(url.searchParams.get("next"), url.origin);
-  const destination = household ? "/" : next ?? "/onboarding";
+  const { data } = await supabase.auth.getClaims();
+  const userId = data?.claims?.sub;
+  const rawEmail = data?.claims?.email;
+  const provider = data?.claims?.app_metadata?.provider;
+  const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
 
-  return NextResponse.redirect(new URL(destination, url.origin));
+  if (provider === "google" && typeof userId === "string" && userId && email) {
+    const membership = await ensurePartnerMembership(supabase, { userId, email });
+    if (membership !== "unmatched") return NextResponse.redirect(new URL("/", url.origin));
+  }
+
+  await supabase.auth.signOut({ scope: "local" });
+  return NextResponse.redirect(new URL("/login?error=access_denied", url.origin));
 }

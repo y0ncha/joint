@@ -105,6 +105,35 @@ export type Database = {
           },
         ]
       }
+      household_allowed_members: {
+        Row: {
+          created_at: string
+          email: string
+          household_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          household_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          household_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_allowed_members_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: true
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       household_members: {
         Row: {
           household_id: string
@@ -167,54 +196,6 @@ export type Database = {
           {
             foreignKeyName: "households_created_by_fkey"
             columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      invitations: {
-        Row: {
-          accepted_at: string | null
-          created_at: string
-          email: string
-          expires_at: string
-          household_id: string
-          id: string
-          invited_by: string
-          token: string
-        }
-        Insert: {
-          accepted_at?: string | null
-          created_at?: string
-          email: string
-          expires_at?: string
-          household_id: string
-          id?: string
-          invited_by: string
-          token?: string
-        }
-        Update: {
-          accepted_at?: string | null
-          created_at?: string
-          email?: string
-          expires_at?: string
-          household_id?: string
-          id?: string
-          invited_by?: string
-          token?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "invitations_household_id_fkey"
-            columns: ["household_id"]
-            isOneToOne: false
-            referencedRelation: "households"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invitations_invited_by_fkey"
-            columns: ["invited_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

@@ -15,7 +15,7 @@ Offer optional category suggestions for manual transactions or supported CSV-dig
 
 - Support OpenAI API and Gemini API behind one server-only provider adapter; provider selection is an environment/configuration decision, not a browser control.
 - Never expose provider keys to the browser or commit them. The browser sends the minimum required user-entered text to an authenticated Server Action; the server invokes the configured provider.
-- Send only the minimum necessary context: merchant/note text, transaction kind, and the household's active category names. Do not send balances, account identifiers, invite data, raw CSV files, or other household history by default.
+- Send only the minimum necessary context: merchant/note text, transaction kind, and the household's active category names. Do not send balances, account identifiers, authorization data, raw CSV files, or other household history by default.
 - Before first use, explain that text is sent to the selected external provider and require an explicit household/user consent decision. Provide a way to turn suggestions off.
 - Do not use submitted data to train a local model or retain prompts/responses beyond short operational logs unless a later privacy decision explicitly permits it.
 
@@ -35,4 +35,3 @@ Offer optional category suggestions for manual transactions or supported CSV-dig
 ## Dependencies and rollout
 
 Requires live authenticated categories and transaction entry. Build the provider-neutral contract and fake-adapter tests before choosing a production provider; OpenAI and Gemini should remain interchangeable implementations rather than separate product flows.
-
