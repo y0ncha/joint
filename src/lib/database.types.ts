@@ -14,56 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      accounts: {
-        Row: {
-          archived_at: string | null
-          created_at: string
-          household_id: string
-          id: string
-          kind: Database["public"]["Enums"]["account_kind"]
-          last_four_digits: string | null
-          name: string
-          opening_balance: number
-          opening_balance_date: string
-          statement_close_day: number | null
-          updated_at: string
-        }
-        Insert: {
-          archived_at?: string | null
-          created_at?: string
-          household_id: string
-          id?: string
-          kind: Database["public"]["Enums"]["account_kind"]
-          last_four_digits?: string | null
-          name: string
-          opening_balance: number
-          opening_balance_date: string
-          statement_close_day?: number | null
-          updated_at?: string
-        }
-        Update: {
-          archived_at?: string | null
-          created_at?: string
-          household_id?: string
-          id?: string
-          kind?: Database["public"]["Enums"]["account_kind"]
-          last_four_digits?: string | null
-          name?: string
-          opening_balance?: number
-          opening_balance_date?: string
-          statement_close_day?: number | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "accounts_household_id_fkey"
-            columns: ["household_id"]
-            isOneToOne: false
-            referencedRelation: "households"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       categories: {
         Row: {
           archived_at: string | null
@@ -176,6 +126,7 @@ export type Database = {
           created_by: string
           id: string
           name: string
+          opening_balance: number
           updated_at: string
         }
         Insert: {
@@ -183,6 +134,7 @@ export type Database = {
           created_by: string
           id?: string
           name: string
+          opening_balance?: number
           updated_at?: string
         }
         Update: {
@@ -190,6 +142,7 @@ export type Database = {
           created_by?: string
           id?: string
           name?: string
+          opening_balance?: number
           updated_at?: string
         }
         Relationships: [
@@ -228,12 +181,10 @@ export type Database = {
       }
       transactions: {
         Row: {
-          account_id: string
           amount: number
           category_id: string | null
           created_at: string
           created_by: string
-          destination_account_id: string | null
           household_id: string
           id: string
           kind: Database["public"]["Enums"]["transaction_kind"]
@@ -243,12 +194,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          account_id: string
           amount: number
           category_id?: string | null
           created_at?: string
           created_by: string
-          destination_account_id?: string | null
           household_id: string
           id?: string
           kind: Database["public"]["Enums"]["transaction_kind"]
@@ -258,12 +207,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          account_id?: string
           amount?: number
           category_id?: string | null
           created_at?: string
           created_by?: string
-          destination_account_id?: string | null
           household_id?: string
           id?: string
           kind?: Database["public"]["Enums"]["transaction_kind"]
@@ -273,13 +220,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "transactions_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "transactions_category_id_fkey"
             columns: ["category_id"]
@@ -292,13 +232,6 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "transactions_destination_account_id_fkey"
-            columns: ["destination_account_id"]
-            isOneToOne: false
-            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
           {
@@ -332,10 +265,9 @@ export type Database = {
       }
     }
     Enums: {
-      account_kind: "bank" | "credit_card"
       category_kind: "income" | "expense"
       household_role: "owner" | "member"
-      transaction_kind: "income" | "expense" | "transfer"
+      transaction_kind: "income" | "expense"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -463,10 +395,9 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      account_kind: ["bank", "credit_card"],
       category_kind: ["income", "expense"],
       household_role: ["owner", "member"],
-      transaction_kind: ["income", "expense", "transfer"],
+      transaction_kind: ["income", "expense"],
     },
   },
 } as const
