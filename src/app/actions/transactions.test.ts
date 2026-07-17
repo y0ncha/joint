@@ -110,7 +110,7 @@ describe("transaction actions", () => {
   });
 
   it("updates only account-free fields within the verified household", async () => {
-    const { transactionEqHousehold } = configureSupabase();
+    const { transactionEqHousehold, transactionEqId } = configureSupabase();
 
     await expect(transactionsModule.updateTransaction("transaction-id", transactionForm({ amount: "51", paidBy: "member-id", note: "Updated" }))).resolves.toEqual({ status: "success" });
 
@@ -122,9 +122,13 @@ describe("transaction actions", () => {
       category_id: "food",
       note: "Updated",
     });
+    expect(transactionEqId).toHaveBeenCalledWith("id", "transaction-id");
     expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.from).not.toHaveBeenCalledWith("accounts");
     expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/categories");
   });
 
   it("sanitizes update database failures", async () => {
@@ -138,12 +142,16 @@ describe("transaction actions", () => {
   });
 
   it("scopes deletion to the verified household", async () => {
-    const { transactionEqHousehold } = configureSupabase();
+    const { transactionEqHousehold, transactionEqId } = configureSupabase();
 
     await expect(transactionsModule.deleteTransaction("transaction-id")).resolves.toEqual({ status: "success" });
 
+    expect(transactionEqId).toHaveBeenCalledWith("id", "transaction-id");
     expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/categories");
   });
 
   it("sanitizes delete database failures", async () => {
