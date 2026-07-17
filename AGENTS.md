@@ -2,7 +2,7 @@
 
 ## Mission
 
-Joint is a calm shared household-money app for two people. The MVP supports manual entry of shared income and expenses against one shared household balance. Optimize for the shared household view, not separate personal budgeting.
+Joint is a calm shared household-money app for two people. The MVP accepts manual income and expenses only, against one shared household balance. Optimize for the shared household view, not separate personal budgeting.
 
 ## Documentation index
 

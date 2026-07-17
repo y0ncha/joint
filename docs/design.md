@@ -164,6 +164,7 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 
 - The interface is English with logical-property-friendly layout so Hebrew and RTL can be added later.
 - Joint has exactly one shared household balance: opening balance plus income minus expenses. The shared balance may be negative.
+- The MVP accepts manual income and expenses only.
 - The primary experience exposes that shared balance, categories, manual income and expenses, monthly reporting, recent activity, and partner access.
 - Income and expense use a segmented choice.
 - Expense entry identifies who paid and defaults to the signed-in household member.
