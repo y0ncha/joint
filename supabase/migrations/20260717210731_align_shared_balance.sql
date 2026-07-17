@@ -1,5 +1,8 @@
 begin;
 
+lock table public.accounts, public.transactions
+in access exclusive mode;
+
 do $$
 begin
   if exists (
@@ -75,7 +78,8 @@ begin
   select household_id, kind
   into category_household, category_type
   from public.categories
-  where id = new.category_id;
+  where id = new.category_id
+  for share;
 
   if category_household is null or category_household <> new.household_id then
     raise exception 'Transaction category must belong to its household';
@@ -92,6 +96,30 @@ $$;
 create trigger transactions_validate_category
 before insert or update on public.transactions
 for each row execute function public.validate_transaction_category();
+
+create function public.validate_category_transaction_links()
+returns trigger
+language plpgsql
+security invoker
+set search_path = pg_catalog, public
+as $$
+begin
+  if (new.household_id, new.kind) is distinct from (old.household_id, old.kind)
+    and exists (
+      select 1
+      from public.transactions
+      where category_id = old.id
+    ) then
+    raise exception 'A referenced transaction category cannot change household or kind';
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger categories_validate_transaction_links
+before update of household_id, kind on public.categories
+for each row execute function public.validate_category_transaction_links();
 
 drop table public.accounts cascade;
 drop type public.account_kind;
@@ -113,6 +141,18 @@ begin
       or category_id is null
   ) then
     raise exception 'Shared-balance migration left an invalid transaction';
+  end if;
+
+  if exists (
+    select 1
+    from public.transactions as ledger_entry
+    left join public.categories as category
+      on category.id = ledger_entry.category_id
+    where category.id is null
+      or category.household_id is distinct from ledger_entry.household_id
+      or category.kind::text is distinct from ledger_entry.kind::text
+  ) then
+    raise exception 'Shared-balance migration left an invalid transaction-category relationship';
   end if;
 end;
 $$;
