@@ -163,7 +163,8 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 ## Visible MVP contract
 
 - The interface is English with logical-property-friendly layout so Hebrew and RTL can be added later.
-- The primary experience exposes one shared household balance, categories, manual income and expenses, monthly reporting, recent activity, and partner access.
-- Income and expense use a segmented choice. Transaction entry selects the internal shared-balance account on the server rather than asking the user.
+- Joint has exactly one shared household balance: opening balance plus income minus expenses. The shared balance may be negative.
+- The primary experience exposes that shared balance, categories, manual income and expenses, monthly reporting, recent activity, and partner access.
+- Income and expense use a segmented choice.
 - Expense entry identifies who paid and defaults to the signed-in household member.
-- Multiple visible accounts, credit-card debt, transfers, budgets, recurring transactions, imports, labels, attachments, financial credentials, card numbers, and audit history remain outside the visible MVP unless an approved plan changes this contract.
+- Multiple accounts, credit-card debt, transfers, budgets, recurring transactions, imports, labels, attachments, financial credentials, card numbers, and audit history remain outside the MVP unless a separately approved plan changes this contract.
