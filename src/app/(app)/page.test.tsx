@@ -3,26 +3,21 @@ import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  getCurrentHousehold: vi.fn(),
   getDashboardData: vi.fn(),
-  createServerSupabaseClient: vi.fn(),
-  getClaims: vi.fn(),
-  redirect: vi.fn(),
 }));
 
-vi.mock("@/lib/household", () => ({ getCurrentHousehold: mocks.getCurrentHousehold }));
 vi.mock("@/lib/dashboard-data", () => ({ getDashboardData: mocks.getDashboardData }));
-vi.mock("@/lib/supabase/server", () => ({ createServerSupabaseClient: mocks.createServerSupabaseClient }));
-vi.mock("next/navigation", () => ({ redirect: mocks.redirect, usePathname: () => "/" }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
 
 import Home from "./page";
+
+function renderHome() {
+  return Home({ searchParams: Promise.resolve({}) });
+}
 
 describe("Joint dashboard", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mocks.createServerSupabaseClient.mockResolvedValue({ auth: { getClaims: mocks.getClaims } });
-    mocks.getClaims.mockResolvedValue({ data: { claims: { sub: "member-id" } } });
-    mocks.getCurrentHousehold.mockResolvedValue({ householdId: "household-id", role: "owner" });
     mocks.getDashboardData.mockResolvedValue({
       setupRequired: false,
       accounts: [
@@ -59,19 +54,9 @@ describe("Joint dashboard", () => {
     });
   });
 
-  it("sends anonymous visitors to login before loading household data", async () => {
-    mocks.getClaims.mockResolvedValue({ data: { claims: null } });
-
-    await Home();
-
-    expect(mocks.redirect).toHaveBeenCalledWith("/login");
-    expect(mocks.getCurrentHousehold).not.toHaveBeenCalled();
-    expect(mocks.getDashboardData).not.toHaveBeenCalled();
-  });
-
   it("shows the restored dashboard cards with live household values", async () => {
-    const markup = renderToStaticMarkup(await Home());
-    const source = readFileSync("src/app/page.tsx", "utf8");
+    const markup = renderToStaticMarkup(await renderHome());
+    const source = readFileSync("src/app/(app)/page.tsx", "utf8");
 
     expect(markup).toContain("aria-label=\"Add transaction\"");
     expect(markup).toContain("lucide-plus");
@@ -124,11 +109,39 @@ describe("Joint dashboard", () => {
       },
     });
 
-    const markup = renderToStaticMarkup(await Home());
+    const markup = renderToStaticMarkup(await renderHome());
 
     expect(markup).toContain("No available income");
     expect(markup).toContain("No 3-month income history yet. Record income in the prior 3 months to compare this month.");
     expect(markup).not.toContain("Based on 3-month income average");
+  });
+
+  it("directs incomplete household setup to an operator without a dead onboarding link", async () => {
+    mocks.getDashboardData.mockResolvedValueOnce({
+      setupRequired: true,
+      accounts: [],
+      categories: [],
+      currentUserId: "member-id",
+      members: [{ id: "member-id", label: "You" }],
+      report: {
+        bankBalance: 0,
+        cardDebt: 0,
+        income: 0,
+        expenses: 0,
+        incomeChangePercentage: null,
+        expenseChangePercentage: null,
+        expectedMonthlyIncome: null,
+        categoryTotals: [],
+        recentTransactions: [],
+      },
+    });
+
+    const markup = renderToStaticMarkup(await renderHome());
+
+    expect(markup).toContain("The shared balance has not been provisioned.");
+    expect(markup).toContain("Ask a Joint operator to finish setup, then reload this page.");
+    expect(markup).not.toContain("/onboarding");
+    expect(markup).not.toContain("Open setup");
   });
 
   it("uses a downward arrow when income is below its prior average", async () => {
@@ -151,7 +164,7 @@ describe("Joint dashboard", () => {
       },
     });
 
-    const markup = renderToStaticMarkup(await Home());
+    const markup = renderToStaticMarkup(await renderHome());
 
     expect(markup).toMatch(/Income[\s\S]*lucide-arrow-down-right[\s\S]*10% below prior 3-month average/);
   });

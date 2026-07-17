@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { ArrowDownRight, ArrowUpRight, MoreHorizontal, Plus } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, MoreHorizontal } from "lucide-react";
 
 import { TransactionSheet } from "@/components/transaction-sheet";
 import { WorkspaceShell } from "@/components/workspace-shell";
@@ -10,8 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { getDashboardData } from "@/lib/dashboard-data";
-import { getCurrentHousehold } from "@/lib/household";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const currency = new Intl.NumberFormat("en-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
 
@@ -26,21 +23,8 @@ function comparisonLabel(change: number | null) {
   return `${roundedChange}% ${change > 0 ? "above" : "below"} prior 3-month average`;
 }
 
-export default async function HomePage({ searchParams }: { searchParams?: Promise<{ month?: string }> } = {}) {
-  const supabase = await createServerSupabaseClient();
-  const { data: claims } = await supabase.auth.getClaims();
-
-  if (!claims?.claims?.sub) {
-    redirect("/login");
-    return null;
-  }
-
-  if (!(await getCurrentHousehold())) {
-    redirect("/onboarding");
-    return null;
-  }
-
-  const requestedMonth = (await searchParams)?.month;
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
+  const requestedMonth = (await searchParams).month;
   const month = requestedMonth && /^\d{4}-\d{2}$/.test(requestedMonth) ? requestedMonth : currentMonth();
   const data = await getDashboardData(month);
   const { report } = data;
@@ -64,16 +48,11 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
       {data.setupRequired ? (
         <Card className="mt-5 border-white/50 bg-card/90">
           <CardHeader>
-            <CardTitle>Set up your household</CardTitle>
-            <CardDescription>Your shared balance was not created. Create a new household from the setup flow to continue.</CardDescription>
+            <CardTitle>Setup needs attention</CardTitle>
+            <CardDescription>The shared balance has not been provisioned.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button asChild className="rounded-xl">
-              <Link href="/onboarding">
-                <Plus data-icon="inline-start" />
-                Open setup
-              </Link>
-            </Button>
+            <p className="text-sm text-muted-foreground">Ask a Joint operator to finish setup, then reload this page.</p>
           </CardContent>
         </Card>
       ) : (

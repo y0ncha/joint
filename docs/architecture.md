@@ -1,76 +1,103 @@
 # Joint — Architecture
 
-## System boundary
+This document is the technical overview of Joint and the index for detailed mechanism documentation. It describes stable system boundaries and delegates implementation-level explanations to focused records under `docs/architecture/`.
 
-Joint is a Next.js App Router application deployed on Vercel. Supabase provides Google OAuth, Postgres, Row Level Security (RLS), and the server-side data layer. The app stores only manual financial records—never bank credentials, card numbers, statements, or imported transactions.
+Implementation sequencing and delivery status belong in `docs/plans/`, not here.
 
-The MVP exposes one shared household balance. The `accounts` table remains in the schema as a future-ready foundation, but the application creates and uses one internal bank account for the shared balance and does not expose account management, credit-card debt, or transfers in the visible MVP.
+## System at a glance
+
+Joint is a Next.js App Router application deployed on Vercel. Supabase provides Google authentication, Postgres, Row Level Security (RLS), and the server-side data API.
 
 ```text
 Browser
-  └─ Next.js UI (client islands only for interaction)
-       └─ authenticated Server Actions
-            └─ Supabase SSR server client
-                 └─ Postgres with RLS
+  ├─ Server-rendered application UI
+  └─ Small client components for local state and interaction
+       ↓
+Next.js on Vercel
+  ├─ Route handlers for OAuth callbacks
+  ├─ Authenticated Server Actions for mutations
+  └─ Server Components for household queries
+       ↓
+Supabase
+  ├─ Google OAuth identity and session cookies
+  ├─ Postgres household and financial records
+  └─ RLS as the final household-data boundary
 ```
 
-## Application structure
+The browser receives only the Supabase publishable key. No service-role key or financial-provider credential belongs in browser code.
 
-| Area | Responsibility |
+## System boundaries
+
+| Boundary | Responsibility |
 | --- | --- |
-| `src/app/` | App Router pages, layout, global tokens, route-level UI. |
-| `src/components/` | Product components and owned shadcn primitives. |
-| `src/lib/` | Pure domain logic, Supabase clients, database types, utilities. |
-| `src/proxy.ts` | Supabase SSR session refresh. |
-| `supabase/migrations/` | Ordered, versioned Postgres schema and RLS changes. |
-| `docs/` | Product/design/architecture decision records and plans. |
-| `.agents/` | Project-local agent instructions and skills. |
+| Browser | Render the workspace, hold non-financial local preferences, and submit user intent. |
+| Next.js | Verify claims, enforce route behavior, derive trusted identifiers, execute mutations, and assemble server-rendered data. |
+| Supabase Auth | Establish Google identity and maintain the authenticated session. |
+| Postgres and RLS | Store household data and reject access outside verified household membership. |
+| Vercel | Build and run the Next.js application using environment-scoped configuration. |
 
-## Authentication and authorization
+## Core domains
 
-- Authentication: Supabase Auth with Google OAuth.
-- Authorization: membership in `household_members` is the sole access boundary for household data.
-- The household creator is `owner`; the invited partner is `member`.
-- Both roles can create, edit, and delete household transactions, accounts, and categories. Owner-only actions are household settings, membership, and invitations.
-- Security-definer helper functions are in the `private` schema and callable only by authenticated users. RLS policies invoke them for household-owned rows.
-- Browser code uses only the Supabase publishable key. The service-role key must remain server-only and is not needed for normal app mutations.
+### Identity and household access
 
-## Data model
+Google OAuth establishes identity, but identity alone grants no household access. `household_members` is the sole household-data authorization boundary used by RLS. `household_allowed_members` holds at most one pending or joined partner email per household; a matching partner may claim only their own `member` row. Unmatched identities are signed out locally after authentication, and future owners require explicit operator provisioning. There is no global app-access registry, Auth Hook, or self-service owner onboarding.
 
-| Table | Purpose |
+See [`docs/architecture/operator-owner-provisioning.md`](architecture/operator-owner-provisioning.md) for the operator-only owner setup procedure.
+
+### Shared-money model
+
+A household owns accounts, categories, and transactions. The visible MVP presents one shared balance and manual income and expenses. The underlying schema retains account and transfer foundations for later work, but those capabilities do not expand the visible MVP contract.
+
+See [`docs/architecture/financial-model.md`](architecture/financial-model.md).
+
+### Application runtime
+
+Server Components are the default rendering boundary. Client components are limited to browser state and interaction. Persistent mutations use authenticated Server Actions, and Supabase SSR manages cookie-backed sessions.
+
+See [`docs/architecture/application-runtime.md`](architecture/application-runtime.md).
+
+### Visual system
+
+The complete visual and interaction contract remains in [`docs/design.md`](design.md). Architecture records may explain component boundaries, but they must not redefine visual language.
+
+## Repository map
+
+| Path | Responsibility |
 | --- | --- |
-| `profiles` | App profile created for each `auth.users` account. |
-| `households` | Shared household container. |
-| `household_members` | Household membership and role. |
-| `invitations` | Expiring email invitation token. |
-| `accounts` | Internal shared-balance account for the MVP; future-ready foundation for multiple bank/card accounts. |
-| `categories` | Household-owned income or expense categories; can be archived. |
-| `transactions` | Positive amount, date, note, income/expense kind, internal account, category, creator, and paid-by member. |
-
-The initial migration indexes household/date, account/date, and category/date paths. This is deliberate: avoid double-entry accounting or analytics tables until actual usage requires them.
-
-## Balance rules
-
-| Event | Shared balance | Category reporting |
-| --- | ---: | --- |
-| Income | increases | income category |
-| Expense | decreases | expense category |
-
-Transfers, visible card debt, and user-selected accounts are intentionally out of the MVP. `src/lib/account-balances.ts` is the current pure reference implementation. Preserve these invariants in every database query, Server Action, and UI summary.
-
-## Rendering and interaction
-
-- Default to Server Components. Use client components only for browser state or interaction, such as the local Appearance picker.
-- Use shadcn/Radix primitives with semantic CSS tokens defined in `src/app/globals.css`.
-- Personal visual accents are local to the browser (`joint-accent`), never shared household state.
-- The dashboard is a responsive authenticated composition backed by Supabase queries. It reports live household data through the single visible shared-balance model.
+| `src/app/` | App Router pages, layouts, route handlers, Server Actions, and global CSS. |
+| `src/components/` | Product components and owned shadcn/ui primitives. |
+| `src/lib/` | Domain logic, validation, Supabase clients, generated database types, and utilities. |
+| `src/proxy.ts` | Supabase SSR session refresh entry point. |
+| `supabase/migrations/` | Immutable, ordered schema, function, trigger, grant, and RLS history. |
+| `supabase/tests/` | Database-level behavior and security verification. |
+| `docs/architecture/` | Durable explanations of implemented technical mechanisms. |
+| `docs/plans/` | Proposed and active implementation plans, tasks, and completion evidence. |
+| `docs/plans/features/` | Deferred roadmap briefs that do not authorize implementation. |
 
 ## Environments
 
-| Environment | Supabase | Vercel target | Intended use |
-| --- | --- | --- | --- |
-| Local | `joint-dev` | local development | schema and feature work |
-| Preview | `joint-prod` | Vercel preview | pull-request validation |
-| Production | `joint-prod` | Vercel production from `main` | live application |
+- Local development reads a development Supabase URL and publishable key from `.env.local`; the current linked development project is `joint-dev`.
+- Preview and production values are managed independently in Vercel environment settings and must be verified before deployment.
+- `.env.example` contains names only. Never commit `.env.local`, service-role keys, database passwords, or provider secrets.
+- Schema work is applied through ordered migrations. Generated types in `src/lib/database.types.ts` must be regenerated after every applied migration.
 
-Keep `.env.local` private and maintain `.env.example` with names only. Local development uses the `joint-dev` URL and publishable key; Vercel currently uses `joint-prod` for Preview and Production. No service-role or secret key belongs in browser code.
+## Architecture document index
+
+| Document | Scope |
+| --- | --- |
+| [`application-runtime.md`](architecture/application-runtime.md) | Request lifecycle, rendering boundaries, session refresh, queries, and mutations. |
+| [`financial-model.md`](architecture/financial-model.md) | Household-owned finance data, accounting invariants, balances, and monthly reporting. |
+| [`operator-owner-provisioning.md`](architecture/operator-owner-provisioning.md) | Operator-only creation of a future owner's household and shared-balance account. |
+
+## Adding architecture documentation
+
+Add `docs/architecture/<mechanism-name>.md` when a feature or mechanism introduces a durable technical contract that cannot be explained clearly in this overview.
+
+Each mechanism document must:
+
+- Describe implemented and verified behavior, not an aspirational design.
+- State its boundary, trusted inputs, data flow, persistence, failure behavior, and security controls.
+- Link to the primary source files, migrations, and tests.
+- Identify invariants and explicit non-goals.
+- Avoid task lists, delivery status, and temporary rollout notes; those belong in `docs/plans/`.
+- Update this index in the same change.

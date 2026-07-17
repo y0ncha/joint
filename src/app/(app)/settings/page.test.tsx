@@ -5,54 +5,80 @@ const mocks = vi.hoisted(() => ({
   getCurrentHousehold: vi.fn(),
   createServerSupabaseClient: vi.fn(),
   from: vi.fn(),
-  select: vi.fn(),
-  eq: vi.fn(),
-  order: vi.fn(),
+  memberSelect: vi.fn(),
+  memberEq: vi.fn(),
+  memberOrder: vi.fn(),
+  authorizationSelect: vi.fn(),
+  authorizationEq: vi.fn(),
+  authorizationMaybeSingle: vi.fn(),
 }));
 
 vi.mock("@/lib/household", () => ({ getCurrentHousehold: mocks.getCurrentHousehold }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabaseClient: mocks.createServerSupabaseClient }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/settings" }));
+vi.mock("@/components/partner-access-control", () => ({
+  PartnerAccessControl: ({ state }: { state: { status: string; email?: string } }) => (
+    <span data-partner-state={state.status}>{state.email ?? "No authorized email"}</span>
+  ),
+}));
 
-const settingsModule = await import("./page").catch(() => null);
+const settingsModule = await import("./page");
 
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.getCurrentHousehold.mockResolvedValue({ householdId: "household-id", role: "owner" });
   mocks.createServerSupabaseClient.mockResolvedValue({ from: mocks.from });
-  mocks.order.mockResolvedValue({
-    data: [
-      { user_id: "owner-id", role: "owner" },
-      { user_id: "member-id", role: "member" },
-    ],
-    error: null,
-  });
-  mocks.eq.mockReturnValue({ order: mocks.order });
-  mocks.select.mockReturnValue({ eq: mocks.eq });
-  mocks.from.mockReturnValue({ select: mocks.select });
+  mocks.from.mockImplementation((table: string) => table === "household_members"
+    ? { select: mocks.memberSelect }
+    : { select: mocks.authorizationSelect });
+  mocks.memberSelect.mockReturnValue({ eq: mocks.memberEq });
+  mocks.memberEq.mockReturnValue({ order: mocks.memberOrder });
+  mocks.memberOrder.mockResolvedValue({ data: [{ role: "owner" }], error: null });
+  mocks.authorizationSelect.mockReturnValue({ eq: mocks.authorizationEq });
+  mocks.authorizationEq.mockReturnValue({ maybeSingle: mocks.authorizationMaybeSingle });
+  mocks.authorizationMaybeSingle.mockResolvedValue({ data: null, error: null });
 });
 
 it("renders settings as section cards with row-style controls", async () => {
-  const markup = settingsModule ? renderToStaticMarkup(await settingsModule.default()) : "";
+  const markup = renderToStaticMarkup(await settingsModule.default());
 
-  expect((markup.match(/data-slot="card"/g) ?? []).length).toBe(4);
-  expect(markup).toContain("mt-6 flex w-full flex-col gap-5");
-  expect(markup).not.toContain("max-w-5xl");
-  expect(markup).toContain("Household members");
-  expect(markup).toContain("Shared access");
+  expect((markup.match(/data-slot="card"/g) ?? []).length).toBe(3);
   expect(markup).toContain("Appearance");
-  expect(markup).toContain("Accent color");
   expect(markup).toContain("Monthly summary");
   expect(markup).toContain("Account");
   expect(markup).toContain("Session");
-  expect(markup).toContain("Log out");
-  expect((markup.match(/Log out/g) ?? []).length).toBe(1);
-  expect(markup).toContain('data-slot="button" data-variant="outline" data-size="sm"');
-  expect(markup).toContain("End this browser session and return to sign in.");
-  expect(markup).toContain("Invitations");
-  expect(markup).toContain("Enter their Google email to create one invite link.");
-  expect(markup).toContain("Partner&#x27;s Google email");
-  expect(markup).not.toContain("Create a sign-in invitation for this household.");
-  expect(markup).toContain("data-slot=\"select-trigger\"");
-  expect(markup).toContain("data-settings-row");
+  expect(markup).toContain('data-partner-state="empty"');
+  expect(markup).not.toContain("profiles");
+});
+
+it("derives the empty owner state without looking up identities", async () => {
+  const markup = renderToStaticMarkup(await settingsModule.default());
+
+  expect(markup).toContain('data-partner-state="empty"');
+  expect(mocks.from).toHaveBeenCalledWith("household_members");
+  expect(mocks.from).toHaveBeenCalledWith("household_allowed_members");
+  expect(mocks.from).not.toHaveBeenCalledWith("profiles");
+});
+
+it.each([
+  [[{ role: "owner" }], "pending"],
+  [[{ role: "owner" }, { role: "member" }], "joined"],
+] as const)("passes the owner partner lifecycle state to the control", async (members, status) => {
+  mocks.memberOrder.mockResolvedValue({ data: members, error: null });
+  mocks.authorizationMaybeSingle.mockResolvedValue({ data: { email: "partner@example.com" }, error: null });
+
+  const source = renderToStaticMarkup(await settingsModule.default());
+
+  expect(source).toContain(`data-partner-state="${status}"`);
+  expect(source).toContain("partner@example.com");
+  expect(mocks.authorizationSelect).toHaveBeenCalledWith("email");
+});
+
+it("does not query partner authorization for a member", async () => {
+  mocks.getCurrentHousehold.mockResolvedValue({ householdId: "household-id", role: "member" });
+
+  const markup = renderToStaticMarkup(await settingsModule.default());
+
+  expect(markup).toContain("Managed by owner");
+  expect(mocks.authorizationSelect).not.toHaveBeenCalled();
 });

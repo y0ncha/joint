@@ -1,18 +1,13 @@
-import { redirect } from "next/navigation";
-
 import { LedgerMonthSelector } from "@/components/ledger-month-selector";
 import { TransactionLedger } from "@/components/transaction-ledger";
 import { TransactionSheet } from "@/components/transaction-sheet";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDashboardData } from "@/lib/dashboard-data";
-import { getCurrentHousehold } from "@/lib/household";
 
 function currentMonth() { return new Date().toISOString().slice(0, 7); }
 
 export default async function TransactionsPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
-  if (!(await getCurrentHousehold())) redirect("/onboarding");
-
   const requestedMonth = (await searchParams).month;
   const month = requestedMonth && /^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth) ? requestedMonth : currentMonth();
   const data = await getDashboardData(month);

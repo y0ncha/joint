@@ -2,22 +2,18 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  getCurrentHousehold: vi.fn(),
   getDashboardData: vi.fn(),
-  redirect: vi.fn(),
   push: vi.fn(),
 }));
 
-vi.mock("@/lib/household", () => ({ getCurrentHousehold: mocks.getCurrentHousehold }));
 vi.mock("@/lib/dashboard-data", () => ({ getDashboardData: mocks.getDashboardData }));
-vi.mock("next/navigation", () => ({ redirect: mocks.redirect, usePathname: () => "/transactions", useRouter: () => ({ push: mocks.push }) }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/transactions", useRouter: () => ({ push: mocks.push }) }));
 
 import TransactionsPage from "./page";
 
 describe("Transactions page", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mocks.getCurrentHousehold.mockResolvedValue({ householdId: "household-id", role: "owner" });
     mocks.getDashboardData.mockResolvedValue({
       setupRequired: false,
       accounts: [{ id: "bank-id", name: "Shared bank", kind: "bank", archivedAt: null }],

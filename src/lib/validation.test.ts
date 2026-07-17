@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { accountSchema, categorySchema, invitationSchema, transactionSchema } from "./validation";
+import { accountSchema, categorySchema, partnerAccessSchema, transactionSchema } from "./validation";
 
 describe("transactionSchema", () => {
   it("rejects transfers because the visible MVP only supports income and expense", () => {
@@ -55,7 +55,7 @@ describe("setup schemas", () => {
     expect(() => categorySchema.parse({ name: "x".repeat(81), kind: "expense" })).toThrow();
   });
 
-  it("normalizes a valid invitation email", () => {
-    expect(invitationSchema.parse({ email: " Partner@Example.com " })).toEqual({ email: "partner@example.com" });
+  it("normalizes a valid partner email", () => {
+    expect(partnerAccessSchema.parse({ email: " Partner@Example.com " })).toEqual({ email: "partner@example.com" });
   });
 });

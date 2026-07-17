@@ -34,7 +34,7 @@ export const categorySchema = z.object({
   kind: z.enum(["income", "expense"]),
 });
 
-export const invitationSchema = z.object({
+export const partnerAccessSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email address."),
 });
 

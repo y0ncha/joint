@@ -6,11 +6,10 @@ import { ArrowRight, LockKeyhole } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { buildOAuthCallbackUrl } from "@/lib/auth-redirect";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
-export function LoginCard({ nextPath }: { nextPath: string | null }) {
-  const [error, setError] = useState<string | null>(null);
+export function LoginCard({ initialError = null }: { initialError?: string | null }) {
+  const [error, setError] = useState<string | null>(initialError);
 
   async function signInWithGoogle() {
     setError(null);
@@ -19,7 +18,7 @@ export function LoginCard({ nextPath }: { nextPath: string | null }) {
       const { error: signInError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: buildOAuthCallbackUrl(window.location.origin, nextPath),
+          redirectTo: new URL("/auth/callback", window.location.origin).toString(),
         },
       });
 
