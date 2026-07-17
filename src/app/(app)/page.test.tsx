@@ -69,7 +69,10 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("Monthly balance");
     expect(markup).not.toContain("Expected income after outgoings");
     expect(markup).toContain("Based on 3-month income average");
-    expect(markup).toContain("10,060");
+    expect(markup).toContain("18,420");
+    expect(markup).not.toContain("10,060");
+    expect(source).toContain("currency.format(report.sharedBalance)");
+    expect(source).not.toContain("expectedMonthlyIncome - report.expenses");
     expect(markup).not.toContain("Income vs outgoings");
     expect(markup).toContain("Where your money went");
     expect(markup).toContain("More chart options");

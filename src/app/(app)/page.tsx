@@ -120,8 +120,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                   </div>
                 ) : (
                   <>
-                    <p className={cn("mt-7 font-mono text-3xl font-semibold", expectedMonthlyIncome - report.expenses >= 0 ? "text-positive" : "text-negative")}>
-                      {currency.format(expectedMonthlyIncome - report.expenses)}
+                    <p className={cn("mt-7 font-mono text-3xl font-semibold", report.sharedBalance >= 0 ? "text-positive" : "text-negative")}>
+                      {currency.format(report.sharedBalance)}
                     </p>
                     <div className="mt-6 flex flex-col gap-4">
                       <div className="flex justify-between gap-3 text-sm">

@@ -24,3 +24,10 @@ Implemented. The dashboard no longer reads the retired `accounts` or `setupRequi
 Only the dashboard page, ledger, their focused tests, and this report are Task 20 changes. Existing dirty Supabase temporary files and untracked plan files were preserved. No database, production, deployment, merge, or push action was performed.
 
 `ReportTransaction.categoryId` remains nullable in generated database types because the schema uses a constraint/trigger rather than a `NOT NULL` column; the UI uses the established database invariant with a non-null assertion and no compatibility fallback.
+
+## Reviewer P1 follow-up
+
+- Replaced the monthly-balance card's forecast calculation with `report.sharedBalance`, including its positive/negative presentation class; the card's existing structure and accessibility remain unchanged.
+- Red: the focused page test expected the shared balance (`18,420`) and failed while the card rendered the forecast (`10,060`).
+- Green: `/Users/yonatan/.bun/bin/bun run test 'src/app/(app)/page.test.tsx' src/components/transaction-ledger.test.tsx src/components/transaction-sheet.test.tsx` passed 7/7.
+- Passed: the targeted page/component lint command and `git diff --check`.
