@@ -8,27 +8,6 @@ const amountSchema = z.coerce
   .refine((amount) => Number.isInteger(amount * 100), "Use no more than two decimal places.");
 const noteSchema = z.string().trim().max(500, "Use 500 characters or fewer.");
 const nameSchema = z.string().trim().min(1, "Enter a name.").max(80, "Use 80 characters or fewer.");
-const openingBalanceSchema = z.coerce
-  .number()
-  .nonnegative("Enter zero or a positive amount.")
-  .refine((amount) => Number.isInteger(amount * 100), "Use no more than two decimal places.");
-
-const accountFields = {
-  name: nameSchema,
-  openingBalance: openingBalanceSchema,
-  openingBalanceDate: dateSchema,
-};
-
-export const accountSchema = z.discriminatedUnion("kind", [
-  z.object({ ...accountFields, kind: z.literal("bank") }),
-  z.object({
-    ...accountFields,
-    kind: z.literal("credit_card"),
-    lastFourDigits: z.string().regex(/^\d{4}$/, "Enter the last four card digits."),
-    statementCloseDay: z.coerce.number().int().min(1, "Use a day from 1 to 31.").max(31, "Use a day from 1 to 31."),
-  }),
-]);
-
 export const categorySchema = z.object({
   name: nameSchema,
   kind: z.enum(["income", "expense"]),
