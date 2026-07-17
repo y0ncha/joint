@@ -15,14 +15,11 @@ describe("Transactions page", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.getDashboardData.mockResolvedValue({
-      setupRequired: false,
-      accounts: [{ id: "bank-id", name: "Shared bank", kind: "bank", archivedAt: null }],
       categories: [{ id: "food", name: "Food", kind: "expense", archivedAt: null }],
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
       report: {
-        bankBalance: 9000,
-        cardDebt: 0,
+        sharedBalance: 9000,
         income: 0,
         expenses: 0,
         expectedMonthlyIncome: null,

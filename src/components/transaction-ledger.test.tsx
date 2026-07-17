@@ -14,8 +14,6 @@ it("keeps transaction details aligned inside a constrained ledger table", () => 
           kind: "expense",
           amount: 3,
           occurredOn: "2026-07-15",
-          accountId: "bank-id",
-          destinationAccountId: null,
           categoryId: "food",
           note: "A long supermarket note that should not push the action column outside the card",
           createdAt: "2026-07-15T08:00:00Z",
