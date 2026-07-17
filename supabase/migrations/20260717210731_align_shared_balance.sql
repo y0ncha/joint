@@ -1,6 +1,6 @@
 begin;
 
-lock table public.accounts, public.transactions
+lock table public.transactions, public.accounts
 in access exclusive mode;
 
 do $$
