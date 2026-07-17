@@ -66,7 +66,7 @@ export function TransactionLedger({ transactions, categories, members }: { trans
             <TableCell className="font-mono text-muted-foreground">{date.format(new Date(`${transaction.occurredOn}T00:00:00Z`))}</TableCell>
             <TableCell className="capitalize">{transaction.kind}</TableCell>
             <TableCell className="truncate">{memberNames.get(transaction.paidBy) ?? "Household member"}</TableCell>
-            <TableCell className="truncate">{transaction.categoryId ? categoryNames.get(transaction.categoryId) : "-"}</TableCell>
+            <TableCell className="truncate">{categoryNames.get(transaction.categoryId!)}</TableCell>
             <TableCell className="max-w-[14rem] truncate">{transaction.note || "-"}</TableCell>
             <TableCell className="text-right font-mono">{currency.format(transaction.amount)}</TableCell>
           </TableRow>

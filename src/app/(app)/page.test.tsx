@@ -74,6 +74,11 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("Where your money went");
     expect(markup).toContain("More chart options");
     expect(markup).toContain("Super Pharm");
+    expect(markup).toContain("Home - 2026-07-14");
+    expect(source).not.toContain("data.accounts");
+    expect(source).not.toContain("setupRequired");
+    expect(source).not.toContain("accountName");
+    expect(source).not.toContain("accountId");
     expect(source).not.toContain("flex size-10 items-center justify-center rounded-xl bg-secondary text-primary");
     expect(markup).not.toContain("Upcoming card charge");
     expect(markup).not.toContain("Card debt");

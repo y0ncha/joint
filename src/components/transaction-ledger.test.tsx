@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 
 import { TransactionLedger } from "./transaction-ledger";
@@ -32,4 +33,5 @@ it("keeps transaction details aligned inside a constrained ledger table", () => 
   expect(markup).not.toContain("aria-label=\"Add transaction\"");
   expect(markup).not.toContain("aria-label=\"Delete");
   expect(markup).not.toContain(">Delete</button>");
+  expect(readFileSync("src/components/transaction-ledger.tsx", "utf8")).not.toContain("transaction.categoryId ?");
 });
