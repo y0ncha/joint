@@ -36,13 +36,13 @@ household
 shared balance = opening balance + income - expenses
 ```
 
-For a selected `YYYY-MM` month, the shared balance includes transactions before the first day of the next month. Income and expense totals include transactions inside the selected month. Current-month comparisons use activity through today's day-of-month against the same partial period in the prior three months. Expected monthly income averages prior lookback months that contain income. Category totals include expenses only; recent activity sorts by `occurred_on`, then `created_at`, descending.
+For a selected `YYYY-MM` month, the shared balance includes transactions before the first day of the next month. Income, expense, and expense-category totals include all selected-month transactions for past months; for the current month, they stop at `asOfDate` (today by default). Current-month comparisons use activity through that same day-of-month against the prior three months. Expected monthly income averages prior lookback months that contain income. Recent activity sorts by `occurred_on`, then `created_at`, descending.
 
 `src/lib/dashboard-data.ts` loads the household opening balance, categories, transactions, and members. `src/lib/financial-report.ts` applies the formula as the pure reporting layer. `src/app/actions/transactions.ts` persists only the two supported transaction directions after server-side membership and payer checks.
 
 ## Shared-balance migration
 
-`20260717210731_align_shared_balance.sql` converted the legacy schema in one transaction. It locks the affected tables, rejects archived legacy records, adds `households.opening_balance`, and backfills it from signed legacy opening balances. It deletes no-longer-supported transaction rows, narrows transaction kinds to `income` and `expense`, requires a category, installs category-link validation, and removes obsolete schema. Final checks reject a missing opening balance or an invalid category relationship before commit.
+`20260717210731_align_shared_balance.sql` converted the legacy schema in one transaction. It locks the affected tables, rejects archived accounts, adds `households.opening_balance`, and backfills it from signed legacy opening balances. It deletes no-longer-supported transaction rows, narrows transaction kinds to `income` and `expense`, requires a category, installs category-link validation, and removes obsolete schema. Final checks reject a missing opening balance or an invalid category relationship before commit.
 
 ## Primary verification
 
