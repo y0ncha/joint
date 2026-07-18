@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => ({
   insert: vi.fn(),
   delete: vi.fn(),
   update: vi.fn(),
-  eq: vi.fn(),
   revalidatePath: vi.fn(),
 }));
 
@@ -23,43 +22,52 @@ function formData(values: Record<string, string>) {
   return input;
 }
 
-describe("createTransaction", () => {
+function transactionForm(overrides: Record<string, string> = {}) {
+  return formData({
+    kind: "expense",
+    amount: "50",
+    occurredOn: "2026-07-14",
+    categoryId: "food",
+    paidBy: "partner-id",
+    note: "Groceries",
+    ...overrides,
+  });
+}
+
+function configureSupabase({ payer = { user_id: "partner-id" }, transactionError = null }: {
+  payer?: { user_id: string } | null;
+  transactionError?: unknown;
+} = {}) {
+  const payerMaybeSingle = vi.fn().mockResolvedValue({ data: payer, error: null });
+  const payerEqUser = vi.fn().mockReturnValue({ maybeSingle: payerMaybeSingle });
+  const payerEqHousehold = vi.fn().mockReturnValue({ eq: payerEqUser });
+  const payerSelect = vi.fn().mockReturnValue({ eq: payerEqHousehold });
+  const transactionEqHousehold = vi.fn().mockResolvedValue({ error: transactionError });
+  const transactionEqId = vi.fn().mockReturnValue({ eq: transactionEqHousehold });
+
+  mocks.insert.mockResolvedValue({ error: transactionError });
+  mocks.update.mockReturnValue({ eq: transactionEqId });
+  mocks.delete.mockReturnValue({ eq: transactionEqId });
+  mocks.from.mockImplementation((table: string) => {
+    if (table === "household_members") return { select: payerSelect };
+    if (table === "transactions") return { insert: mocks.insert, update: mocks.update, delete: mocks.delete };
+    throw new Error(`Unexpected table: ${table}`);
+  });
+
+  return { payerSelect, transactionEqHousehold, transactionEqId };
+}
+
+describe("transaction actions", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.createServerSupabaseClient.mockResolvedValue({ from: mocks.from });
     mocks.requireCurrentHousehold.mockResolvedValue({ userId: "member-id", householdId: "household-id", role: "member" });
-    mocks.from.mockReturnValue({ insert: mocks.insert });
-    mocks.insert.mockResolvedValue({ error: null });
   });
 
-  it("derives household and creator from verified membership", async () => {
-    const accountMaybeSingle = vi.fn().mockResolvedValue({ data: { id: "shared-account-id" }, error: null });
-    const accountLimit = vi.fn().mockReturnValue({ maybeSingle: accountMaybeSingle });
-    const accountOrder = vi.fn().mockReturnValue({ limit: accountLimit });
-    const accountIs = vi.fn().mockReturnValue({ order: accountOrder });
-    const accountEqKind = vi.fn().mockReturnValue({ is: accountIs });
-    const accountEqHousehold = vi.fn().mockReturnValue({ eq: accountEqKind });
-    const accountSelect = vi.fn().mockReturnValue({ eq: accountEqHousehold });
-    const memberMaybeSingle = vi.fn().mockResolvedValue({ data: { user_id: "partner-id" }, error: null });
-    const memberEqUser = vi.fn().mockReturnValue({ maybeSingle: memberMaybeSingle });
-    const memberEqHousehold = vi.fn().mockReturnValue({ eq: memberEqUser });
-    const memberSelect = vi.fn().mockReturnValue({ eq: memberEqHousehold });
-    mocks.from.mockImplementation((table: string) => {
-      if (table === "accounts") return { select: accountSelect };
-      if (table === "household_members") return { select: memberSelect };
-      if (table === "transactions") return { insert: mocks.insert };
-      throw new Error(`Unexpected table: ${table}`);
-    });
+  it("creates an account-free transaction from verified household membership", async () => {
+    configureSupabase();
 
-    await expect(transactionsModule.createTransaction(formData({
-      householdId: "other-household",
-      kind: "expense",
-      amount: "50",
-      occurredOn: "2026-07-14",
-      categoryId: "food",
-      paidBy: "partner-id",
-      note: "Groceries",
-    }))).resolves.toEqual({ status: "success" });
+    await expect(transactionsModule.createTransaction(transactionForm({ householdId: "other-household" }))).resolves.toEqual({ status: "success" });
 
     expect(mocks.insert).toHaveBeenCalledWith({
       household_id: "household-id",
@@ -68,58 +76,96 @@ describe("createTransaction", () => {
       kind: "expense",
       amount: 50,
       occurred_on: "2026-07-14",
-      account_id: "shared-account-id",
-      destination_account_id: null,
       category_id: "food",
       note: "Groceries",
     });
+    expect(mocks.from).not.toHaveBeenCalledWith("accounts");
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/categories");
+  });
+
+  it("rejects a payer outside the verified household", async () => {
+    configureSupabase({ payer: null });
+
+    await expect(transactionsModule.createTransaction(transactionForm())).resolves.toEqual({
+      status: "error",
+      formError: "Choose a household member for this transaction.",
+      fieldErrors: { paidBy: "Choose a household member." },
+    });
+
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.from).not.toHaveBeenCalledWith("accounts");
+  });
+
+  it("sanitizes create database failures", async () => {
+    configureSupabase({ transactionError: { message: "database details" } });
+
+    await expect(transactionsModule.createTransaction(transactionForm())).resolves.toEqual({
+      status: "error",
+      formError: "Unable to save the transaction. Please try again.",
+      fieldErrors: {},
+    });
+  });
+
+  it("updates only account-free fields within the verified household", async () => {
+    const { transactionEqHousehold, transactionEqId } = configureSupabase();
+
+    await expect(transactionsModule.updateTransaction("transaction-id", transactionForm({ amount: "51", paidBy: "member-id", note: "Updated" }))).resolves.toEqual({ status: "success" });
+
+    expect(mocks.update).toHaveBeenCalledWith({
+      kind: "expense",
+      amount: 51,
+      occurred_on: "2026-07-14",
+      paid_by: "member-id",
+      category_id: "food",
+      note: "Updated",
+    });
+    expect(transactionEqId).toHaveBeenCalledWith("id", "transaction-id");
+    expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
+    expect(mocks.from).not.toHaveBeenCalledWith("accounts");
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/categories");
+  });
+
+  it("sanitizes update database failures", async () => {
+    configureSupabase({ transactionError: { message: "database details" } });
+
+    await expect(transactionsModule.updateTransaction("transaction-id", transactionForm())).resolves.toEqual({
+      status: "error",
+      formError: "Unable to update the transaction. Please try again.",
+      fieldErrors: {},
+    });
   });
 
   it("scopes deletion to the verified household", async () => {
-    mocks.eq.mockResolvedValue({ error: null });
-    mocks.delete.mockReturnValue({ eq: vi.fn().mockReturnValue({ eq: mocks.eq }) });
-    mocks.from.mockReturnValue({ delete: mocks.delete });
+    const { transactionEqHousehold, transactionEqId } = configureSupabase();
 
     await expect(transactionsModule.deleteTransaction("transaction-id")).resolves.toEqual({ status: "success" });
 
-    expect(mocks.delete).toHaveBeenCalledOnce();
-    expect(mocks.eq).toHaveBeenCalledWith("household_id", "household-id");
+    expect(transactionEqId).toHaveBeenCalledWith("id", "transaction-id");
+    expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/categories");
   });
 
-  it("scopes updates to the verified household", async () => {
-    const accountMaybeSingle = vi.fn().mockResolvedValue({ data: { id: "shared-account-id" }, error: null });
-    const accountLimit = vi.fn().mockReturnValue({ maybeSingle: accountMaybeSingle });
-    const accountOrder = vi.fn().mockReturnValue({ limit: accountLimit });
-    const accountIs = vi.fn().mockReturnValue({ order: accountOrder });
-    const accountEqKind = vi.fn().mockReturnValue({ is: accountIs });
-    const accountEqHousehold = vi.fn().mockReturnValue({ eq: accountEqKind });
-    const accountSelect = vi.fn().mockReturnValue({ eq: accountEqHousehold });
-    const memberMaybeSingle = vi.fn().mockResolvedValue({ data: { user_id: "member-id" }, error: null });
-    const memberEqUser = vi.fn().mockReturnValue({ maybeSingle: memberMaybeSingle });
-    const memberEqHousehold = vi.fn().mockReturnValue({ eq: memberEqUser });
-    const memberSelect = vi.fn().mockReturnValue({ eq: memberEqHousehold });
-    mocks.eq.mockResolvedValue({ error: null });
-    mocks.update.mockReturnValue({ eq: vi.fn().mockReturnValue({ eq: mocks.eq }) });
-    mocks.from.mockImplementation((table: string) => {
-      if (table === "accounts") return { select: accountSelect };
-      if (table === "household_members") return { select: memberSelect };
-      if (table === "transactions") return { update: mocks.update };
-      throw new Error(`Unexpected table: ${table}`);
+  it("sanitizes delete database failures", async () => {
+    configureSupabase({ transactionError: { message: "database details" } });
+
+    await expect(transactionsModule.deleteTransaction("transaction-id")).resolves.toEqual({
+      status: "error",
+      formError: "Unable to delete the transaction. Please try again.",
+      fieldErrors: {},
     });
-    await expect(transactionsModule.updateTransaction("transaction-id", formData({ kind: "expense", amount: "51", occurredOn: "2026-07-14", categoryId: "food", paidBy: "member-id", note: "Updated" }))).resolves.toEqual({ status: "success" });
-    expect(mocks.eq).toHaveBeenCalledWith("household_id", "household-id");
   });
 
-  it("rejects transfer submissions at the action boundary", async () => {
-    await expect(transactionsModule.createTransaction(formData({
-      kind: "transfer",
-      amount: "50",
-      occurredOn: "2026-07-14",
-      categoryId: "food",
-      paidBy: "member-id",
-      note: "Transfer",
-    }))).resolves.toMatchObject({ status: "error" });
+  it("rejects transfer submissions at the validation boundary", async () => {
+    await expect(transactionsModule.createTransaction(transactionForm({ kind: "transfer" }))).resolves.toMatchObject({ status: "error" });
 
     expect(mocks.from).not.toHaveBeenCalled();
   });

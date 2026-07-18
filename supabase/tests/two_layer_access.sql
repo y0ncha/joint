@@ -35,25 +35,21 @@ values
   ('00000000-0000-0000-0000-000000000307', 'cross@example.test', now(), '{"provider":"google"}'),
   ('00000000-0000-0000-0000-000000000308', 'unmatched@example.test', now(), '{"provider":"google"}');
 
-insert into public.households (id, name, created_by)
+insert into public.households (id, name, created_by, opening_balance)
 values
-  ('00000000-0000-0000-0000-000000000310', 'Primary household', '00000000-0000-0000-0000-000000000301'),
-  ('00000000-0000-0000-0000-000000000311', 'Other household', '00000000-0000-0000-0000-000000000306');
-
-insert into public.accounts (id, household_id, name, kind, opening_balance, opening_balance_date)
-values ('00000000-0000-0000-0000-000000000312', '00000000-0000-0000-0000-000000000310', 'Shared bank', 'bank', 1000, current_date);
+  ('00000000-0000-0000-0000-000000000310', 'Primary household', '00000000-0000-0000-0000-000000000301', 1000),
+  ('00000000-0000-0000-0000-000000000311', 'Other household', '00000000-0000-0000-0000-000000000306', default);
 
 insert into public.categories (id, household_id, name, kind)
 values ('00000000-0000-0000-0000-000000000313', '00000000-0000-0000-0000-000000000310', 'Groceries', 'expense');
 
-insert into public.transactions (id, household_id, kind, amount, occurred_on, account_id, category_id, created_by, paid_by)
+insert into public.transactions (id, household_id, kind, amount, occurred_on, category_id, created_by, paid_by)
 values (
   '00000000-0000-0000-0000-000000000314',
   '00000000-0000-0000-0000-000000000310',
   'expense',
   50,
   current_date,
-  '00000000-0000-0000-0000-000000000312',
   '00000000-0000-0000-0000-000000000313',
   '00000000-0000-0000-0000-000000000301',
   '00000000-0000-0000-0000-000000000301'

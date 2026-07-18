@@ -5,7 +5,7 @@ import { TransactionSheet } from "@/components/transaction-sheet";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { getDashboardData } from "@/lib/dashboard-data";
@@ -32,7 +32,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const transactionCategories = activeCategories.map(({ id, name, kind }) => ({ id, name, kind }));
   const maximumCategoryAmount = Math.max(1, ...report.categoryTotals.map((category) => category.amount));
   const expectedMonthlyIncome = report.expectedMonthlyIncome;
-  const accountName = new Map(data.accounts.map((account) => [account.id, account.name]));
   const categoryName = new Map(data.categories.map((category) => [category.id, category.name]));
 
   return (
@@ -45,18 +44,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <Badge variant="secondary" className="rounded-full bg-white/65 px-3 py-1.5 text-sm font-medium text-foreground">{month}</Badge>
       </div>
 
-      {data.setupRequired ? (
-        <Card className="mt-5 border-white/50 bg-card/90">
-          <CardHeader>
-            <CardTitle>Setup needs attention</CardTitle>
-            <CardDescription>The shared balance has not been provisioned.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Ask a Joint operator to finish setup, then reload this page.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
+      <>
           <section className="mt-5 grid gap-4 lg:grid-cols-12">
             <Card className="border-white/50 bg-card/90 lg:col-span-6">
               <CardContent className="p-5">
@@ -132,8 +120,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                   </div>
                 ) : (
                   <>
-                    <p className={cn("mt-7 font-mono text-3xl font-semibold", expectedMonthlyIncome - report.expenses >= 0 ? "text-positive" : "text-negative")}>
-                      {currency.format(expectedMonthlyIncome - report.expenses)}
+                    <p className={cn("mt-7 font-mono text-3xl font-semibold", report.sharedBalance >= 0 ? "text-positive" : "text-negative")}>
+                      {currency.format(report.sharedBalance)}
                     </p>
                     <div className="mt-6 flex flex-col gap-4">
                       <div className="flex justify-between gap-3 text-sm">
@@ -169,7 +157,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                   <div key={transaction.id} className="flex items-center gap-3 py-4 first:pt-0 last:pb-0">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{transaction.note || transaction.kind}</p>
-                      <p className="text-sm text-muted-foreground">{transaction.categoryId ? categoryName.get(transaction.categoryId) : accountName.get(transaction.accountId)} - {transaction.occurredOn}</p>
+                      <p className="text-sm text-muted-foreground">{categoryName.get(transaction.categoryId!)} - {transaction.occurredOn}</p>
                     </div>
                     <p className={cn("font-mono text-sm font-semibold", transaction.kind === "income" ? "text-positive" : "text-negative")}>
                       {transaction.kind === "income" ? "+" : "-"}{currency.format(transaction.amount)}
@@ -179,8 +167,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               </div>
             </CardContent>
           </Card>
-        </>
-      )}
+      </>
     </WorkspaceShell>
   );
 }

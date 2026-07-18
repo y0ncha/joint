@@ -2,7 +2,7 @@
 
 # Joint
 
-Joint is a shared household-money workspace for two people. The MVP supports manual income, expenses, and bank-to-card transfers in Israeli shekels.
+Joint is a shared household-money workspace for two people. The MVP supports manual income and expenses in Israeli shekels, against one shared balance.
 
 ## Start here
 

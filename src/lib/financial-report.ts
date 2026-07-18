@@ -1,11 +1,3 @@
-export type ReportAccount = {
-  id: string;
-  name: string;
-  kind: "bank" | "credit_card";
-  openingBalance: number;
-  archivedAt: string | null;
-};
-
 export type ReportCategory = {
   id: string;
   name: string;
@@ -15,11 +7,9 @@ export type ReportCategory = {
 
 export type ReportTransaction = {
   id: string;
-  kind: "income" | "expense" | "transfer";
+  kind: "income" | "expense";
   amount: number;
   occurredOn: string;
-  accountId: string;
-  destinationAccountId: string | null;
   categoryId: string | null;
   note: string;
   createdAt: string;
@@ -27,8 +17,7 @@ export type ReportTransaction = {
 };
 
 export type MonthlyReport = {
-  bankBalance: number;
-  cardDebt: number;
+  sharedBalance: number;
   income: number;
   expenses: number;
   incomeChangePercentage: number | null;
@@ -72,13 +61,13 @@ function percentageChange(value: number, average: number) {
 }
 
 export function buildMonthlyReport({
-  accounts,
+  openingBalance,
   categories,
   transactions,
   month,
   asOfDate = localToday(),
 }: {
-  accounts: ReportAccount[];
+  openingBalance: number;
   categories: ReportCategory[];
   transactions: ReportTransaction[];
   month: string;
@@ -86,30 +75,10 @@ export function buildMonthlyReport({
 }): MonthlyReport {
   const monthStart = `${month}-01`;
   const monthEnd = nextMonth(month);
-  const accountsById = new Map(accounts.map((account) => [account.id, account]));
   const categoriesById = new Map(categories.map((category) => [category.id, category]));
-  const balances = new Map(accounts.map((account) => [account.id, account.openingBalance]));
-
-  for (const transaction of transactions.filter((transaction) => transaction.occurredOn < monthEnd)) {
-    const account = accountsById.get(transaction.accountId);
-    if (!account) throw new Error(`Unknown account: ${transaction.accountId}`);
-
-    if (transaction.kind === "income") {
-      balances.set(account.id, (balances.get(account.id) ?? 0) + transaction.amount);
-      continue;
-    }
-
-    if (transaction.kind === "expense") {
-      const direction = account.kind === "credit_card" ? 1 : -1;
-      balances.set(account.id, (balances.get(account.id) ?? 0) + direction * transaction.amount);
-      continue;
-    }
-
-    const destination = accountsById.get(transaction.destinationAccountId ?? "");
-    if (!destination) throw new Error(`Unknown account: ${transaction.destinationAccountId}`);
-    balances.set(account.id, (balances.get(account.id) ?? 0) - transaction.amount);
-    balances.set(destination.id, (balances.get(destination.id) ?? 0) - transaction.amount);
-  }
+  const sharedBalance = transactions
+    .filter((transaction) => transaction.occurredOn < monthEnd)
+    .reduce((balance, transaction) => transaction.kind === "income" ? balance + transaction.amount : balance - transaction.amount, openingBalance);
 
   const monthlyTransactions = transactions
     .filter((transaction) => transaction.occurredOn >= monthStart && transaction.occurredOn < monthEnd)
@@ -159,8 +128,7 @@ export function buildMonthlyReport({
   const previousExpenseAverage = previousPeriodTotals.reduce((total, period) => total + period.expenses, 0) / previousPeriodTotals.length;
 
   return {
-    bankBalance: accounts.filter((account) => account.archivedAt === null && account.kind === "bank").reduce((total, account) => total + (balances.get(account.id) ?? 0), 0),
-    cardDebt: accounts.filter((account) => account.archivedAt === null && account.kind === "credit_card").reduce((total, account) => total + (balances.get(account.id) ?? 0), 0),
+    sharedBalance,
     income,
     expenses,
     incomeChangePercentage: isCurrentMonth ? percentageChange(income, previousIncomeAverage) : null,

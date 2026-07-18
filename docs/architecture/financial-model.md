@@ -2,110 +2,57 @@
 
 ## Purpose
 
-This document defines the implemented household-finance data model, accounting invariants, and reporting behavior. It distinguishes the visible one-balance MVP from future-ready schema support.
+Joint has one signed shared balance per household. This record defines the implemented data model, accounting invariants, reporting behavior, and the migration that established it.
 
-## Ownership boundary
-
-A household is the ownership boundary for financial records:
+## Ownership and authorization
 
 ```text
 household
   ├─ household_members
-  ├─ accounts
   ├─ categories
   └─ transactions
 ```
 
-Every household-owned table uses RLS. Application mutations derive the household and user from verified server-side identity rather than accepting those identifiers from the browser.
+`household_members` is the household-data authorization boundary. RLS is enabled on household-owned records; application mutations derive the household and user from verified server-side identity rather than browser input.
 
-## Data model
+## Data model and invariants
 
-| Table | Purpose |
+| Record | Implemented purpose |
 | --- | --- |
-| `profiles` | Application profile corresponding to a Supabase Auth user. |
-| `households` | Shared household container created by the owner. |
-| `household_members` | User-to-household membership and `owner` or `member` role. |
-| `accounts` | Opening balance and account metadata used by transaction and reporting logic. |
+| `households` | Shared container with a signed `opening_balance`. |
+| `household_members` | Household membership and `owner` or `member` role. |
 | `categories` | Household-owned `income` or `expense` categories with archival state. |
-| `transactions` | Positive amount, date, kind, account, optional destination, category, creator, payer, and note. |
+| `transactions` | Positive ILS amount, date, `income` or `expense` direction, matching category, creator, payer, and optional note. |
 
-The schema supports `bank` and `credit_card` accounts and retains a `transfer` transaction kind. The visible MVP transaction flow accepts only income and expense and selects the active shared bank account on the server.
-
-The current codebase still contains a directly addressable `/accounts` management route, but it is excluded from primary `WorkspaceShell` navigation and from the visible MVP design contract. Treat that route as retained foundation, not authorization to expand the product surface.
-
-## Financial invariants
-
-- Transaction amounts are positive ILS values with at most two decimal places.
-- Transaction `kind` determines direction; a negative stored amount is invalid.
-- Income requires an income category and increases a bank balance.
-- Expense requires an expense category. It decreases a bank balance or increases credit-card debt in the underlying reporting model.
-- A transfer has no category, moves value from a bank account to a credit-card account, reduces bank balance and card debt, and never contributes to income, expense, or category totals.
+- The opening balance may be positive, zero, or negative.
+- Transaction amounts are positive ILS values with at most two decimal places; direction comes only from `kind`.
+- A transaction requires a category from the same household with the same kind, enforced by a database trigger.
 - `paid_by` must identify a member of the same household.
-- Archived accounts and categories remain available for historical reporting but are excluded from new-entry choices.
 - Browser input never selects household ownership, transaction creator, or membership role.
 
-## Visible MVP contract
-
-The visible MVP intentionally narrows the underlying model:
-
-- One internal shared bank account represents the household balance.
-- Transaction entry exposes income and expense only.
-- Users choose a category, date, payer, amount, and optional note.
-- The server selects the internal shared account.
-- Account management, card debt, and transfers are not primary navigation or transaction-entry concepts.
-
-Schema support for future capabilities does not make those capabilities part of the MVP.
-
-## Balance calculation
-
-For a selected month, balances include transactions occurring before the first day of the following month.
+## Balance and reporting
 
 ```text
-bank balance
-  = opening bank balances
-  + bank income
-  - bank expenses
-  - transfers out
-
-card debt
-  = opening card balances
-  + card expenses
-  - transfers received
+shared balance = opening balance + income - expenses
 ```
 
-The dashboard's visible reporting is based on the shared-balance model. Card debt remains an internal reporting field until an approved design exposes it.
+For a selected `YYYY-MM` month, the shared balance includes transactions before the first day of the next month. Income, expense, and expense-category totals include all selected-month transactions for past months; for the current month, they stop at `asOfDate` (today by default). Current-month comparisons use activity through that same day-of-month against the prior three months. Expected monthly income averages prior lookback months that contain income. Recent activity sorts by `occurred_on`, then `created_at`, descending.
 
-## Monthly reporting
+`src/lib/dashboard-data.ts` loads the household opening balance, categories, transactions, and members. `src/lib/financial-report.ts` applies the formula as the pure reporting layer. `src/app/actions/transactions.ts` persists only the two supported transaction directions after server-side membership and payer checks.
 
-The selected month is represented as `YYYY-MM`.
+## Shared-balance migration
 
-- Income and expense totals include transactions inside the selected month.
-- For the current month, comparisons use activity through today's day-of-month against the same partial period in the prior three months.
-- Expected monthly income is the average of prior months that contain recorded income within the three-month lookback.
-- Category totals include expense transactions only and sort by amount descending, then category name.
-- Recent activity sorts by `occurred_on` descending and then `created_at` descending.
-- Transfers are excluded from income, expense, and category totals.
-- Archived categories retain their historical amounts and use a fallback label if their current category record is unavailable.
-
-## Validation and persistence
-
-- `src/lib/validation.ts` is the current form-validation boundary for accounts, categories, partner email, and visible transaction shapes.
-- `src/app/actions/transactions.ts` resolves the shared bank account and verifies that `paid_by` belongs to the household before mutation.
-- `src/lib/finance-types.ts` maps generated Supabase rows into domain values.
-- `src/lib/financial-report.ts` is the pure reference implementation for monthly reporting.
-- `src/lib/account-balances.ts` preserves the broader bank, credit-card, and transfer invariants.
-- `src/lib/database.types.ts` is generated from the applied Supabase schema and must not be edited by hand.
+`20260717210731_align_shared_balance.sql` converted the legacy schema in one transaction. It locks the affected tables, rejects archived accounts, adds `households.opening_balance`, and backfills it from signed legacy opening balances. It deletes no-longer-supported transaction rows, narrows transaction kinds to `income` and `expense`, requires a category, installs category-link validation, and removes obsolete schema. Final checks reject a missing opening balance or an invalid category relationship before commit.
 
 ## Primary verification
 
-- `src/lib/validation.test.ts`
 - `src/lib/financial-report.test.ts`
-- `src/lib/account-balances.test.ts`
+- `src/lib/dashboard-data.test.ts`
 - `src/app/actions/transactions.test.ts`
-- `supabase/tests/`
+- `supabase/tests/shared_balance.sql`
+- `supabase/tests/two_layer_access.sql`
 
 ## Non-goals
 
-- No double-entry ledger is introduced for the MVP.
-- No bank import, statement ingestion, card credential, attachment, budget, recurring transaction, or audit-history model is implied.
+- No double-entry ledger, bank import, statement ingestion, financial credential, attachment, budget, recurring transaction, or audit-history model is implemented.
 - Roadmap briefs under `docs/plans/features/` do not change these invariants.

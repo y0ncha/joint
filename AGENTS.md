@@ -2,7 +2,7 @@
 
 ## Mission
 
-Joint is a calm shared household-money app for two people. The MVP supports manual entry of shared income, expenses, and bank-to-card transfers. Optimize for the shared household view, not separate personal budgeting.
+Joint is a calm shared household-money app for two people. The MVP accepts manual income and expenses only, against one shared household balance. Optimize for the shared household view, not separate personal budgeting.
 
 ## Documentation index
 
@@ -78,12 +78,10 @@ Every product, design, architecture, or infrastructure change follows this seque
 ## Financial invariants
 
 - Amounts are positive ILS values; transaction `kind` determines direction.
-- Income posts only to a bank account and uses an income category.
-- Expenses post to either a bank account or credit card and use an expense category.
-- Transfers are bank-to-credit-card only, have no category, reduce bank balance and card debt, and never appear in category spending or monthly expense totals.
-- The dashboard headline is shared bank balance. Card debt is reported separately.
+- Joint has exactly one shared household balance: opening balance plus income minus expenses. The shared balance may be negative.
+- Income and expenses use categories.
 - Categories are household-owned, editable, and archivable.
-- Labels, budgets, recurring transactions, bank imports, attachments, and card credentials are outside the MVP unless the user explicitly approves a scope change and its plan.
+- Multiple accounts, credit-card debt, transfers, budgets, recurring transactions, imports, labels, attachments, financial credentials, card numbers, and audit history are outside the MVP unless a separately approved plan changes the contract.
 - Never present static dashboard values as persisted data.
 
 ## UI and accessibility

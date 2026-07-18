@@ -46,7 +46,7 @@ See [`docs/architecture/operator-owner-provisioning.md`](architecture/operator-o
 
 ### Shared-money model
 
-A household owns accounts, categories, and transactions. The visible MVP presents one shared balance and manual income and expenses. The underlying schema retains account and transfer foundations for later work, but those capabilities do not expand the visible MVP contract.
+A household has one signed opening balance, categories, and transactions. The MVP supports manual income and expenses; the shared balance is opening balance plus income minus expenses.
 
 See [`docs/architecture/financial-model.md`](architecture/financial-model.md).
 
@@ -87,7 +87,7 @@ The complete visual and interaction contract remains in [`docs/design.md`](desig
 | --- | --- |
 | [`application-runtime.md`](architecture/application-runtime.md) | Request lifecycle, rendering boundaries, session refresh, queries, and mutations. |
 | [`financial-model.md`](architecture/financial-model.md) | Household-owned finance data, accounting invariants, balances, and monthly reporting. |
-| [`operator-owner-provisioning.md`](architecture/operator-owner-provisioning.md) | Operator-only creation of a future owner's household and shared-balance account. |
+| [`operator-owner-provisioning.md`](architecture/operator-owner-provisioning.md) | Operator-only creation of a future owner's household, owner membership, and opening balance. |
 
 ## Adding architecture documentation
 

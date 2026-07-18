@@ -45,7 +45,7 @@ The publishable key is intentionally available to the browser. Authorization dep
 
 - Server Components query Supabase directly through the server client.
 - Household-scoped loaders derive the caller's sole `household_members` row from verified claims; browser input does not select `household_id`.
-- `src/lib/dashboard-data.ts` loads accounts, categories, transactions, and members concurrently, maps database rows to domain types, and passes them to the pure reporting layer.
+- `src/lib/dashboard-data.ts` loads the household opening balance, categories, transactions, and members concurrently, maps database rows to domain types, and passes them to the pure reporting layer.
 - Browser queries are limited to data allowed by RLS, such as the current profile name used by the workspace avatar.
 
 `household_allowed_members` is only the partner-join seam. It does not authorize household data: matching OAuth claims may insert the caller's own `member` row, after which ordinary membership-scoped RLS applies.

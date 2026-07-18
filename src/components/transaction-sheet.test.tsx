@@ -45,6 +45,8 @@ it("renders edit mode with saved transaction values and deletion inside the shee
   const source = readFileSync("src/components/transaction-sheet.tsx", "utf8");
 
   expect(source).toContain("updateTransaction(transaction.id, formData)");
+  expect(source).not.toContain("accountId");
+  expect(source).not.toContain("destinationAccountId");
   expect(source).toContain("const shouldRenderDefaultTrigger = !isEditing && open === undefined && onOpenChange === undefined");
   expect(source).toContain("shouldRenderDefaultTrigger ?");
   expect(source).toContain("Edit transaction");

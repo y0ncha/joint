@@ -19,10 +19,6 @@ describe("Joint dashboard", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.getDashboardData.mockResolvedValue({
-      setupRequired: false,
-      accounts: [
-        { id: "bank-id", name: "Shared bank", kind: "bank", archivedAt: null },
-      ],
       categories: [
         { id: "income-category-id", name: "Salary", kind: "income", archivedAt: null },
         { id: "home-category-id", name: "Home", kind: "expense", archivedAt: null },
@@ -30,8 +26,7 @@ describe("Joint dashboard", () => {
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
       report: {
-        bankBalance: 18420,
-        cardDebt: 0,
+        sharedBalance: 18420,
         income: 16400,
         expenses: 7940,
         incomeChangePercentage: 12.5,
@@ -43,7 +38,6 @@ describe("Joint dashboard", () => {
             id: "transaction-id",
             kind: "expense",
             amount: 186,
-            accountId: "bank-id",
             categoryId: "home-category-id",
             note: "Super Pharm",
             occurredOn: "2026-07-14",
@@ -75,11 +69,19 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("Monthly balance");
     expect(markup).not.toContain("Expected income after outgoings");
     expect(markup).toContain("Based on 3-month income average");
-    expect(markup).toContain("10,060");
+    expect(markup).toContain("18,420");
+    expect(markup).not.toContain("10,060");
+    expect(source).toContain("currency.format(report.sharedBalance)");
+    expect(source).not.toContain("expectedMonthlyIncome - report.expenses");
     expect(markup).not.toContain("Income vs outgoings");
     expect(markup).toContain("Where your money went");
     expect(markup).toContain("More chart options");
     expect(markup).toContain("Super Pharm");
+    expect(markup).toContain("Home - 2026-07-14");
+    expect(source).not.toContain("data.accounts");
+    expect(source).not.toContain("setupRequired");
+    expect(source).not.toContain("accountName");
+    expect(source).not.toContain("accountId");
     expect(source).not.toContain("flex size-10 items-center justify-center rounded-xl bg-secondary text-primary");
     expect(markup).not.toContain("Upcoming card charge");
     expect(markup).not.toContain("Card debt");
@@ -91,14 +93,11 @@ describe("Joint dashboard", () => {
 
   it("shows no available income when there is no recent income average", async () => {
     mocks.getDashboardData.mockResolvedValueOnce({
-      setupRequired: false,
-      accounts: [{ id: "bank-id", name: "Shared bank", kind: "bank", archivedAt: null }],
       categories: [],
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
       report: {
-        bankBalance: 7000,
-        cardDebt: 0,
+        sharedBalance: 7000,
         income: 0,
         expenses: 1200,
         incomeChangePercentage: null,
@@ -116,44 +115,13 @@ describe("Joint dashboard", () => {
     expect(markup).not.toContain("Based on 3-month income average");
   });
 
-  it("directs incomplete household setup to an operator without a dead onboarding link", async () => {
-    mocks.getDashboardData.mockResolvedValueOnce({
-      setupRequired: true,
-      accounts: [],
-      categories: [],
-      currentUserId: "member-id",
-      members: [{ id: "member-id", label: "You" }],
-      report: {
-        bankBalance: 0,
-        cardDebt: 0,
-        income: 0,
-        expenses: 0,
-        incomeChangePercentage: null,
-        expenseChangePercentage: null,
-        expectedMonthlyIncome: null,
-        categoryTotals: [],
-        recentTransactions: [],
-      },
-    });
-
-    const markup = renderToStaticMarkup(await renderHome());
-
-    expect(markup).toContain("The shared balance has not been provisioned.");
-    expect(markup).toContain("Ask a Joint operator to finish setup, then reload this page.");
-    expect(markup).not.toContain("/onboarding");
-    expect(markup).not.toContain("Open setup");
-  });
-
   it("uses a downward arrow when income is below its prior average", async () => {
     mocks.getDashboardData.mockResolvedValueOnce({
-      setupRequired: false,
-      accounts: [{ id: "bank-id", name: "Shared bank", kind: "bank", archivedAt: null }],
       categories: [],
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
       report: {
-        bankBalance: 7000,
-        cardDebt: 0,
+        sharedBalance: 7000,
         income: 1000,
         expenses: 1200,
         incomeChangePercentage: -10,
