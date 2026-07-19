@@ -1,6 +1,6 @@
 ---
 goal: Deploy production through GitHub Actions after applying ordered Supabase migrations
-version: 1.2
+version: 1.3
 date_created: 2026-07-18
 last_updated: 2026-07-19
 owner: Joint
@@ -12,13 +12,13 @@ tags: [infrastructure, ci, deployment, vercel, supabase]
 
 ![Status: In progress](https://img.shields.io/badge/status-In_progress-yellow)
 
-Replace Vercel Git auto-deploys with one GitHub Actions production pipeline: validate the exact `main` commit, apply its ordered migrations to `joint-prod`, then deploy that same commit to Vercel. This plan creates no preview-schema migrations and does not change application code.
+Replace Vercel Git auto-deploys with separate GitHub Actions workflows: validate pull requests targeting `main`, then apply ordered migrations to `joint-prod` and deploy the resulting `main` commit. This plan creates no preview-schema migrations and does not change application code.
 
 ## Approved release decisions
 
 - Pull requests run lint and tests only. They do not create Vercel previews; manual validation uses `joint-dev`.
 - Vercel's Git integration is disabled completely. GitHub Actions is the sole production release path.
-- Production releases serialize without cancellation: quality checks complete, migrations apply to `joint-prod`, then Vercel deploys production. Later releases queue rather than interrupt a migration.
+- Production releases serialize without cancellation: the required PR check passes before merge, then CD applies migrations to `joint-prod` and deploys production. Later releases queue rather than interrupt a migration.
 - Work happens on one clean `feature/<plan-name>` branch. This repository does not use worktrees for feature isolation.
 - Migrations use the project-specific `SUPABASE_DB_URL`; CI does not receive an account-wide Supabase access token.
 - Vercel rollback remains available for deployed application code, but does not roll back database migrations. Database recovery requires a forward fix or Supabase recovery.
@@ -27,7 +27,7 @@ Replace Vercel Git auto-deploys with one GitHub Actions production pipeline: val
 ## 1. Requirements & Constraints
 
 - **REQ-001**: Only a successful push to `main` may apply migrations to `joint-prod` and deploy production.
-- **REQ-002**: The deployment job MUST run after lint and tests succeed for the same commit.
+- **REQ-002**: GitHub branch protection MUST require `CI / Lint and test`, require branches to be up to date, and block direct and force pushes to `main`; CD therefore does not repeat lint or tests.
 - **REQ-003**: The job MUST run `supabase db push --db-url "$SUPABASE_DB_URL" --yes` against `joint-prod` (`fjstwhrgbslteklwkwfo`) before Vercel deployment; any failure MUST prevent deployment.
 - **REQ-004**: Pull requests MUST continue to run lint and tests, but MUST NOT receive database credentials, apply migrations, or deploy.
 - **SEC-001**: Store `SUPABASE_DB_URL`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` only as GitHub Actions secrets. Do not add them to repository files, Vercel browser-visible variables, or logs.
@@ -55,10 +55,10 @@ Replace Vercel Git auto-deploys with one GitHub Actions production pipeline: val
 
 | Task | Description | Completed | Date |
 | --- | --- | --- | --- |
-| TASK-004 | Update `.github/workflows/ci.yml`: preserve the existing `quality` job for pushes and pull requests; add a `deploy-production` job gated by `github.event_name == 'push' && github.ref == 'refs/heads/main'` and `needs: quality`. Keep quality cancellation separate from a production-only concurrency group with `cancel-in-progress: false`, so releases queue and cannot race or interrupt migrations. | Yes | 2026-07-19 |
-| TASK-005 | In `deploy-production`, install the pinned Bun version and Supabase CLI (`2.110.0-beta.32`), then run `supabase db push --db-url "$SUPABASE_DB_URL" --yes`. The current CLI help confirms `--yes` is the noninteractive flag. Do not run `supabase link` or provide an account-wide Supabase access token. | Yes | 2026-07-19 |
-| TASK-006 | After migration success, deploy the checked-out commit with the Vercel CLI using `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`; use a production deploy command that lets Vercel perform its normal remote build. Capture the deployment URL as a workflow summary, not an application secret. | Yes | 2026-07-19 |
-| TASK-007 | Update `README.md` and `docs/architecture.md`: GitHub Actions owns the production release ordering, Vercel builds/runs the deployed application, and schema rollback requires a database recovery procedure rather than Vercel rollback. Live release verification remains Tasks 008–009. | Yes | 2026-07-19 |
+| TASK-004 | Restrict `.github/workflows/ci.yml` to pull requests targeting `main`. Preserve the `CI / Lint and test` check, Bun cache, and cancelable per-pull-request concurrency; do not reference production secrets. | Yes | 2026-07-19 |
+| TASK-005 | Add `.github/workflows/cd.yml` for pushes to `main` only. Give its `Migrate and deploy production` job the non-cancelable `production-deploy` concurrency group and GitHub `Production` environment; do not run lint or tests. | Yes | 2026-07-19 |
+| TASK-006 | In CD, install the pinned Bun version and Supabase CLI (`2.110.0-beta.32`), run `supabase db push --db-url "$SUPABASE_DB_URL" --yes`, then deploy the checked-out commit with Vercel using `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`. Capture the deployment URL as a workflow summary. | Yes | 2026-07-19 |
+| TASK-007 | Record the split-workflow contract in `docs/architecture/ci-cd.md` and this source plan. Live release verification remains Tasks 008–009. | Yes | 2026-07-19 |
 
 ### Implementation Phase 3
 
@@ -83,14 +83,14 @@ Replace Vercel Git auto-deploys with one GitHub Actions production pipeline: val
 
 ## 5. Files
 
-- **FILE-001**: `.github/workflows/ci.yml` — validation and gated production deployment workflow.
-- **FILE-002**: `README.md` — developer-facing release procedure.
-- **FILE-003**: `docs/architecture.md` — implemented deployment boundary.
+- **FILE-001**: `.github/workflows/ci.yml` — pull-request validation workflow.
+- **FILE-002**: `.github/workflows/cd.yml` — post-merge production migration and deployment workflow.
+- **FILE-003**: `docs/architecture/ci-cd.md` — implemented deployment boundary.
 
 ## 6. Testing
 
-- **TEST-001**: Pull-request workflow runs lint/tests only.
-- **TEST-002**: Production workflow runs ordered migration reconciliation before creating exactly one Vercel deployment.
+- **TEST-001**: Pull-request workflow runs lint/tests only, with no production-secret reference.
+- **TEST-002**: Production workflow runs ordered migration reconciliation before creating exactly one Vercel deployment, without repeating lint/tests.
 - **TEST-003**: `bun run lint`, `bun run test`, and `bun run build` exit zero before implementation approval.
 
 ## 7. Risks & Assumptions

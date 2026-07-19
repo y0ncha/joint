@@ -4,10 +4,8 @@ import { PartnerAccessControl, type PartnerAccessState } from "@/components/part
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getCurrentHousehold } from "@/lib/household";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { Bell, CalendarClock, ChevronRight, LogOut, Palette, UserPlus, type LucideIcon } from "lucide-react";
+import { getCurrentHouseholdContext } from "@/lib/household";
+import { ChevronRight, LogOut, Palette, UserPlus, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 function SettingsRow({
@@ -39,33 +37,15 @@ function SettingsRow({
   );
 }
 
-function SettingsSelect({ label, value, options }: { label: string; value: string; options: string[] }) {
-  return (
-    <Select defaultValue={value}>
-      <SelectTrigger aria-label={label} size="sm" className="border-transparent bg-white/55">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectGroup>
-          {options.map((option) => (
-            <SelectItem key={option} value={option}>{option}</SelectItem>
-          ))}
-        </SelectGroup>
-      </SelectContent>
-    </Select>
-  );
-}
-
 export default async function SettingsPage() {
-  const household = await getCurrentHousehold();
-  if (!household) return null;
+  const household = await getCurrentHouseholdContext();
+  if (household.status !== "member") return null;
   let partnerState: PartnerAccessState | null = null;
 
   if (household.role === "owner") {
-    const supabase = await createServerSupabaseClient();
     const [{ data: members, error: membersError }, { data: authorization, error: authorizationError }] = await Promise.all([
-      supabase.from("household_members").select("role").eq("household_id", household.householdId).order("joined_at"),
-      supabase.from("household_allowed_members").select("email").eq("household_id", household.householdId).maybeSingle(),
+      household.supabase.from("household_members").select("role").eq("household_id", household.householdId).order("joined_at"),
+      household.supabase.from("household_allowed_members").select("email").eq("household_id", household.householdId).maybeSingle(),
     ]);
 
     if (membersError || authorizationError) throw new Error("Unable to load partner access.");
@@ -91,23 +71,6 @@ export default async function SettingsPage() {
                 <div className="w-[min(22rem,55vw)]">
                   <AccentPicker showLabel={false} />
                 </div>
-              </SettingsRow>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-white/50 bg-card/90">
-          <CardHeader>
-            <CardTitle>Notifications</CardTitle>
-            <CardDescription>Choose how household updates should surface in the app.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="divide-y divide-border/70">
-              <SettingsRow icon={Bell} label="Monthly summary">
-                <SettingsSelect label="Monthly summary" value="On" options={["On", "Off"]} />
-              </SettingsRow>
-              <SettingsRow icon={CalendarClock} label="Reminder cadence">
-                <SettingsSelect label="Reminder cadence" value="Monthly" options={["Weekly", "Monthly", "Off"]} />
               </SettingsRow>
             </div>
           </CardContent>

@@ -2,20 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { LayoutDashboard, Settings, Tags, WalletCards, type LucideIcon } from "lucide-react";
 
 import { BrandMark } from "@/components/brand-mark";
-import { Avatar, AvatarBadge, AvatarFallback } from "@/components/ui/avatar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
+import { cn } from "@/lib/utils";
 
 const navigation = [
   ["/", "Overview", LayoutDashboard],
@@ -24,10 +17,52 @@ const navigation = [
   ["/settings", "Settings", Settings],
 ] as const;
 
-const notifications: Array<{ title: string; description: string }> = [];
+type BrowserSupabaseClient = ReturnType<typeof createBrowserSupabaseClient>;
+type ProfileClient = {
+  auth: Pick<BrowserSupabaseClient["auth"], "getClaims">;
+  from: BrowserSupabaseClient["from"];
+};
 
 function isActivePath(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
+
+export function getProfileInitials(name: string | null) {
+  const words = name?.trim().split(/\s+/).filter(Boolean) ?? [];
+  return words.length ? `${words[0][0]}${words.length > 1 ? words.at(-1)?.[0] : ""}`.toUpperCase() : "?";
+}
+
+export async function loadVerifiedProfileName(client: ProfileClient) {
+  const { data } = await client.auth.getClaims();
+  const userId = data?.claims?.sub;
+  if (!userId) return "";
+
+  const key = `joint-profile-name:${userId}`;
+  const cached = localStorage.getItem(key);
+  if (cached !== null) return cached;
+
+  const { data: profile } = await client.from("profiles").select("full_name").eq("id", userId).maybeSingle();
+  const name = profile?.full_name?.trim() ?? "";
+  localStorage.setItem(key, name);
+  return name;
+}
+
+export function ProfileInitialAvatar({ name }: { name: string }) {
+  return (
+    <Avatar className="size-11">
+      <AvatarFallback>{getProfileInitials(name)}</AvatarFallback>
+    </Avatar>
+  );
+}
+
+function CachedProfileInitialAvatar() {
+  const [name, setName] = useState("");
+
+  useEffect(() => {
+    void loadVerifiedProfileName(createBrowserSupabaseClient()).then(setName);
+  }, []);
+
+  return <ProfileInitialAvatar name={name} />;
 }
 
 function NavigationItem({ href, label, icon: Icon }: { href: string; label: string; icon: LucideIcon }) {
@@ -52,62 +87,6 @@ function NavigationItem({ href, label, icon: Icon }: { href: string; label: stri
   );
 }
 
-function UserNotificationAvatar({ hasUnreadNotifications = false }: { hasUnreadNotifications?: boolean }) {
-  const [name, setName] = useState<string | null>(null);
-
-  useEffect(() => {
-    createBrowserSupabaseClient().from("profiles").select("full_name").maybeSingle().then(({ data }) => setName(data?.full_name ?? null));
-  }, []);
-
-  const initial = name?.trim().charAt(0).toUpperCase() || "?";
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label="Open notifications"
-          className="relative mt-auto flex size-11 items-center justify-center rounded-full outline-none transition-shadow duration-150 ease-out focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
-          <Avatar className="size-11 border border-white/60 bg-white/70 text-primary">
-            <AvatarFallback className="text-base font-bold tracking-tight">{initial}</AvatarFallback>
-            {hasUnreadNotifications ? (
-              <AvatarBadge
-                aria-label="Unread notifications"
-                className="top-0 right-0 bottom-auto size-3.5 bg-primary ring-white"
-              />
-            ) : null}
-          </Avatar>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        side="right"
-        align="end"
-        sideOffset={12}
-        className="w-72 rounded-2xl border-white/70 bg-popover/98 p-4 shadow-[0_18px_42px_rgba(15,44,55,0.22)] backdrop-blur-xl"
-      >
-        <PopoverHeader>
-          <PopoverTitle>Notifications</PopoverTitle>
-        </PopoverHeader>
-        {notifications.length ? (
-          <div className="max-h-[min(18rem,calc(100vh-7rem))] overflow-y-auto pr-1">
-            <div role="list" aria-label="Notifications" className="flex flex-col gap-2">
-              {notifications.map((notification) => (
-                <div key={notification.title} role="listitem" className="rounded-xl bg-popover p-3 text-sm shadow-sm ring-1 ring-border/60">
-                  <p className="font-medium">{notification.title}</p>
-                  <p className="mt-1 text-muted-foreground">{notification.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">No unread household updates.</p>
-        )}
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 export function WorkspaceShell({
   title,
   description,
@@ -129,7 +108,9 @@ export function WorkspaceShell({
               <NavigationItem key={href} href={href} label={label} icon={Icon} />
             ))}
           </nav>
-          <UserNotificationAvatar />
+          <div className="mt-auto">
+            <CachedProfileInitialAvatar />
+          </div>
         </aside>
         <section className="min-w-0 flex-1 p-4 pb-[calc(9rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-6 lg:p-8 animate-in fade-in-0 duration-150 ease-out">
           <header className="flex items-start justify-between gap-4">

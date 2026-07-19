@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 
 import { validationError, type ActionResult } from "@/app/actions/result";
 import { requireCurrentHousehold } from "@/lib/household";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { partnerAccessSchema } from "@/lib/validation";
 
 function ownerError(): ActionResult {
@@ -18,7 +17,7 @@ export async function setAllowedPartnerEmail(input: FormData): Promise<ActionRes
   const household = await requireCurrentHousehold();
   if (household.role !== "owner") return ownerError();
 
-  const { data, error } = await (await createServerSupabaseClient())
+  const { data, error } = await household.supabase
     .from("household_allowed_members")
     .insert({ household_id: household.householdId, email: parsed.data.email })
     .select("household_id")
@@ -35,7 +34,7 @@ export async function removePartner(): Promise<ActionResult> {
   const household = await requireCurrentHousehold();
   if (household.role !== "owner") return ownerError();
 
-  const { data: authorization, error } = await (await createServerSupabaseClient())
+  const { data: authorization, error } = await household.supabase
     .from("household_allowed_members")
     .delete()
     .eq("household_id", household.householdId)

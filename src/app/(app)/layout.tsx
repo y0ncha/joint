@@ -1,19 +1,16 @@
 import { redirect } from "next/navigation";
 
-import { getHouseholdForUser } from "@/lib/household";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getCurrentHouseholdContext } from "@/lib/household";
 
 export default async function AuthenticatedAppLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const supabase = await createServerSupabaseClient();
-  const { data: claims } = await supabase.auth.getClaims();
+  const context = await getCurrentHouseholdContext();
 
-  const userId = claims?.claims?.sub;
-  if (!userId) {
+  if (context.status === "unauthenticated") {
     redirect("/login");
     return null;
   }
 
-  if (!await getHouseholdForUser(supabase, userId)) {
+  if (context.status === "unmatched") {
     redirect("/auth/access-denied");
     return null;
   }

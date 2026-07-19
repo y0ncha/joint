@@ -4,11 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { validationError, type ActionResult } from "@/app/actions/result";
 import { requireCurrentHousehold } from "@/lib/household";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { transactionSchema } from "@/lib/validation";
 
 async function validatePaidBy(
-  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  supabase: Awaited<ReturnType<typeof requireCurrentHousehold>>["supabase"],
   householdId: string,
   paidBy: string,
 ) {
@@ -29,12 +28,11 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
   }
 
   const household = await requireCurrentHousehold();
-  const supabase = await createServerSupabaseClient();
-  if (!(await validatePaidBy(supabase, household.householdId, parsed.data.paidBy))) {
+  if (!(await validatePaidBy(household.supabase, household.householdId, parsed.data.paidBy))) {
     return { status: "error", formError: "Choose a household member for this transaction.", fieldErrors: { paidBy: "Choose a household member." } };
   }
 
-  const { error } = await supabase.from("transactions").insert({
+  const { error } = await household.supabase.from("transactions").insert({
     household_id: household.householdId,
     created_by: household.userId,
     paid_by: parsed.data.paidBy,
@@ -59,12 +57,11 @@ export async function updateTransaction(transactionId: string, input: FormData):
   const parsed = transactionSchema.safeParse(Object.fromEntries(input));
   if (!parsed.success) return validationError(parsed.error.issues);
   const household = await requireCurrentHousehold();
-  const supabase = await createServerSupabaseClient();
-  if (!(await validatePaidBy(supabase, household.householdId, parsed.data.paidBy))) {
+  if (!(await validatePaidBy(household.supabase, household.householdId, parsed.data.paidBy))) {
     return { status: "error", formError: "Choose a household member for this transaction.", fieldErrors: { paidBy: "Choose a household member." } };
   }
 
-  const { error } = await supabase.from("transactions").update({
+  const { error } = await household.supabase.from("transactions").update({
     kind: parsed.data.kind,
     amount: parsed.data.amount,
     occurred_on: parsed.data.occurredOn,
@@ -79,7 +76,7 @@ export async function updateTransaction(transactionId: string, input: FormData):
 
 export async function deleteTransaction(transactionId: string): Promise<ActionResult> {
   const household = await requireCurrentHousehold();
-  const { error } = await (await createServerSupabaseClient())
+  const { error } = await household.supabase
     .from("transactions")
     .delete()
     .eq("id", transactionId)

@@ -2,23 +2,28 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   buildMonthlyReport: vi.fn(),
-  getClaims: vi.fn(),
-  getCurrentHousehold: vi.fn(),
-  createServerSupabaseClient: vi.fn(),
+  getCurrentHouseholdContext: vi.fn(),
   from: vi.fn(),
+  householdEq: vi.fn(),
+  categoriesEq: vi.fn(),
+  transactionsEq: vi.fn(),
+  membersEq: vi.fn(),
 }));
 
 vi.mock("@/lib/financial-report", () => ({ buildMonthlyReport: mocks.buildMonthlyReport }));
-vi.mock("@/lib/household", () => ({ getCurrentHousehold: mocks.getCurrentHousehold }));
-vi.mock("@/lib/supabase/server", () => ({ createServerSupabaseClient: mocks.createServerSupabaseClient }));
+vi.mock("@/lib/household", () => ({ getCurrentHouseholdContext: mocks.getCurrentHouseholdContext }));
 
-const dashboardDataModule = await import("./dashboard-data").catch(() => null);
+const dashboardDataModule = await import("./dashboard-data");
 
 beforeEach(() => {
   vi.resetAllMocks();
-  mocks.getCurrentHousehold.mockResolvedValue({ householdId: "household-id", role: "owner" });
-  mocks.getClaims.mockResolvedValue({ data: { claims: { sub: "member-id" } } });
-  mocks.createServerSupabaseClient.mockResolvedValue({ auth: { getClaims: mocks.getClaims }, from: mocks.from });
+  mocks.getCurrentHouseholdContext.mockResolvedValue({
+    status: "member",
+    supabase: { from: mocks.from },
+    userId: "member-id",
+    householdId: "household-id",
+    role: "owner",
+  });
   mocks.buildMonthlyReport.mockReturnValue({ sharedBalance: 9275.5 });
   mocks.from.mockImplementation((table) => {
     if (table === "accounts") throw new Error("Dashboard loading must not query accounts.");
@@ -30,19 +35,26 @@ beforeEach(() => {
           ? { data: [{ id: "transaction-id", kind: "expense", amount: "125", occurred_on: "2026-07-14", category_id: "food", note: "Groceries", created_at: "2026-07-14T08:00:00Z", paid_by: "member-id" }], error: null }
           : { data: [{ user_id: "member-id", role: "owner" }], error: null };
     const query = { order: vi.fn().mockResolvedValue(result) };
-    return table === "households"
-      ? { select: vi.fn(() => ({ eq: vi.fn(() => ({ single: vi.fn().mockResolvedValue(result) })) })) }
-      : { select: vi.fn(() => ({ eq: vi.fn(() => query) })) };
+    const eq = table === "households" ? mocks.householdEq
+      : table === "categories" ? mocks.categoriesEq
+        : table === "transactions" ? mocks.transactionsEq
+          : mocks.membersEq;
+    eq.mockReturnValue(table === "households" ? { single: vi.fn().mockResolvedValue(result) } : query);
+    return { select: vi.fn(() => ({ eq })) };
   });
 });
 
-it("loads the household opening balance into an account-free shared-balance report", async () => {
-  const data = await dashboardDataModule?.getDashboardData("2026-07");
+it("loads the household opening balance through the member request context", async () => {
+  const data = await dashboardDataModule.getDashboardData("2026-07");
 
-  expect(data).toMatchObject({ report: { sharedBalance: 9275.5 } });
+  expect(data).toMatchObject({ report: { sharedBalance: 9275.5 }, currentUserId: "member-id" });
   expect(data).not.toHaveProperty("accounts");
   expect(data).not.toHaveProperty("setupRequired");
   expect(mocks.buildMonthlyReport).toHaveBeenCalledWith(expect.objectContaining({ openingBalance: 9000.5, month: "2026-07" }));
   expect(mocks.from).toHaveBeenCalledWith("households");
+  expect(mocks.householdEq).toHaveBeenCalledWith("id", "household-id");
+  expect(mocks.categoriesEq).toHaveBeenCalledWith("household_id", "household-id");
+  expect(mocks.transactionsEq).toHaveBeenCalledWith("household_id", "household-id");
+  expect(mocks.membersEq).toHaveBeenCalledWith("household_id", "household-id");
   expect(mocks.from).not.toHaveBeenCalledWith("accounts");
 });
