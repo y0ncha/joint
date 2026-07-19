@@ -98,7 +98,6 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 
 - Desktop navigation is icon-only with a clear active state and accessible label.
 - Mobile navigation exposes the same primary destinations in the bottom bar.
-- The avatar control belongs at the end of the desktop rail and opens a readable popover.
 - Navigation labels and route names must remain consistent across desktop, mobile, page titles, and tests.
 
 ### Cards, tables, and rows
@@ -121,7 +120,7 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 
 ### Settings
 
-- Appearance, notifications, and account concerns use separate section cards.
+- Appearance and account concerns use separate section cards.
 - Session and partner-access controls are rows inside the `Account` card, not separate cards.
 - Signing out is a session action, not a destructive action.
 - Partner access uses an outline `Manage partner` control, an owned `Popover`, and destructive confirmation only for removal.
