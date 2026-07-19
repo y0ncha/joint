@@ -10,6 +10,8 @@
 ![Last commit](https://shieldcn.dev/github/last-commit/y0ncha/joint.svg?variant=secondary&mode=dark)
 ![GitHub CI](https://shieldcn.dev/github/ci/y0ncha/joint.svg?workflow=CI&branch=main&variant=secondary&mode=dark)
 
+Joint makes shared finances feel simple, clear, and genuinely shared.
+
 ## What it is
 
 Joint is deliberately small: one household, one opening balance, categories, and transactions. The balance is calculated as opening balance + income − expenses, and may be negative.
