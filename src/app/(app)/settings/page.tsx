@@ -4,10 +4,9 @@ import { PartnerAccessControl, type PartnerAccessState } from "@/components/part
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getCurrentHousehold } from "@/lib/household";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { Bell, CalendarClock, ChevronRight, LogOut, Palette, UserPlus, type LucideIcon } from "lucide-react";
+import { ChevronRight, LogOut, Palette, UserPlus, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 function SettingsRow({
@@ -36,23 +35,6 @@ function SettingsRow({
       {value ? <p className="shrink-0 text-sm text-muted-foreground">{value}</p> : null}
       {chevron ? <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground/70" /> : null}
     </div>
-  );
-}
-
-function SettingsSelect({ label, value, options }: { label: string; value: string; options: string[] }) {
-  return (
-    <Select defaultValue={value}>
-      <SelectTrigger aria-label={label} size="sm" className="border-transparent bg-white/55">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectGroup>
-          {options.map((option) => (
-            <SelectItem key={option} value={option}>{option}</SelectItem>
-          ))}
-        </SelectGroup>
-      </SelectContent>
-    </Select>
   );
 }
 
@@ -91,23 +73,6 @@ export default async function SettingsPage() {
                 <div className="w-[min(22rem,55vw)]">
                   <AccentPicker showLabel={false} />
                 </div>
-              </SettingsRow>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-white/50 bg-card/90">
-          <CardHeader>
-            <CardTitle>Notifications</CardTitle>
-            <CardDescription>Choose how household updates should surface in the app.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="divide-y divide-border/70">
-              <SettingsRow icon={Bell} label="Monthly summary">
-                <SettingsSelect label="Monthly summary" value="On" options={["On", "Off"]} />
-              </SettingsRow>
-              <SettingsRow icon={CalendarClock} label="Reminder cadence">
-                <SettingsSelect label="Reminder cadence" value="Monthly" options={["Weekly", "Monthly", "Off"]} />
               </SettingsRow>
             </div>
           </CardContent>
