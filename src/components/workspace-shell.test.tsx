@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { getProfileInitials, loadVerifiedProfileName, ProfileInitialAvatar } from "./workspace-shell";
+import { getProfileInitials, loadVerifiedProfileName, ProfileInitialAvatar, WorkspaceShell } from "./workspace-shell";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/settings" }));
 
@@ -121,4 +121,18 @@ it("renders a plain profile-initial avatar", () => {
   expect(markup).not.toContain('role="link"');
   expect(markup).not.toContain("<button");
   expect(markup).not.toContain("<a ");
+});
+
+it("renders only a plain profile avatar in the desktop rail", () => {
+  const markup = renderToStaticMarkup(
+    <WorkspaceShell title="Settings">
+      <p>Content</p>
+    </WorkspaceShell>,
+  );
+
+  expect(markup).toContain('data-slot="avatar"');
+  expect(markup).not.toContain('aria-label="Open notifications"');
+  expect(markup).not.toContain("Notifications");
+  expect(markup).not.toContain('data-slot="avatar-badge"');
+  expect(markup).not.toContain("<button");
 });
