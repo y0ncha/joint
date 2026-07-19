@@ -40,10 +40,10 @@ Every product, design, architecture, or infrastructure change follows this seque
    - Make the plan executable: name exact files, ordered tasks, dependencies, validation, risks, and completion criteria.
    - Wait for explicit user approval of the plan before implementing it.
 
-3. **Create a dedicated branch**
-   - After plan approval, branch from the latest `main` as `feature/<plan-name>`.
-   - The required prefix is `feature/` (not `feautre/`).
-   - Do not overwrite, clean, or carry unrelated working-tree changes into the branch. If the checkout is not safe, stop and ask the user how to handle the existing changes.
+3. **Branch management**
+   - The user creates, names, switches, and organizes branches.
+   - Never create or switch branches without the user's explicit approval, including for approved implementation plans or small patches.
+   - Do not overwrite, clean, or carry unrelated working-tree changes into a branch. If the current checkout is not safe for the approved work, stop and ask the user how to proceed.
 
 4. **Implement and verify**
    - Follow the approved plan and keep its status current.
@@ -97,4 +97,4 @@ Every product, design, architecture, or infrastructure change follows this seque
 - Roadmap briefs under `docs/plans/features/` do not authorize implementation or change the current MVP contract.
 - Do not add deferred features opportunistically while implementing an approved plan.
 - Do not claim live authentication, OAuth, RLS, or deployment behavior without verifying it in the relevant environment. Separate implemented code, local test evidence, and unverified provider behavior in status reports.
-- Use one clean `feature/<plan-name>` branch and one feature at a time; do not create worktrees unless explicitly requested.
+- Work only on the branch selected by the user; do not create worktrees unless explicitly requested.
