@@ -98,6 +98,7 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 
 - Desktop navigation is icon-only with a clear active state and accessible label.
 - Mobile navigation exposes the same primary destinations in the bottom bar.
+- The desktop rail ends with a non-interactive avatar that shows the signed-in user's cached profile-name initials. It has no notification badge, popover, or notification behavior.
 - Navigation labels and route names must remain consistent across desktop, mobile, page titles, and tests.
 
 ### Cards, tables, and rows
