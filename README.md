@@ -2,15 +2,13 @@
 
 # Joint
 
-![Vercel](https://shieldcn.dev/badge/Vercel.svg?variant=branded&brand=vercel&mode=light)
-![Next.js](https://shieldcn.dev/badge/Next.js.svg?variant=branded&brand=nextdotjs&mode=light)
-![Bun](https://shieldcn.dev/badge/Bun.svg?variant=branded&brand=bun&mode=light)
-![Supabase](https://shieldcn.dev/badge/Supabase.svg?variant=branded&brand=supabase&mode=light)
-![Sentry badge](https://shieldcn.dev/badge/monitored%20by-Sentry-362D59.svg?logo=sentry&logoColor=fff&variant=branded&brand=sentry&mode=light)
-![shadcnblocks badge](https://shieldcn.dev/badge/built%20with-shadcnblocks-000000.svg?logo=shadcnblocks&logoColor=fff&variant=branded&brand=shadcnblocks&mode=light)
-![OpenAI](https://shieldcn.dev/badge/OpenAI-22c55e.svg?variant=branded&brand=openai&mode=light)
-![TypeScript](https://shieldcn.dev/badge/TypeScript.svg?variant=branded&brand=typescript&mode=light)
-![GitHub CI](https://shieldcn.dev/github/ci/vercel/next.js.svg?variant=secondary&mode=light)
+![Next.js](https://shieldcn.dev/badge/Next.js.svg?variant=branded&brand=nextdotjs&mode=dark)
+![Bun](https://shieldcn.dev/badge/Bun.svg?variant=branded&brand=bun&mode=dark)
+![Vercel](https://shieldcn.dev/badge/Vercel.svg?variant=branded&brand=vercel&mode=dark)
+![Supabase](https://shieldcn.dev/badge/Supabase.svg?variant=branded&brand=supabase&mode=dark)
+![Sentry badge](https://shieldcn.dev/badge/monitored%20by-Sentry-362D59.svg?logo=sentry&logoColor=fff&variant=branded&brand=sentry&mode=dark)
+![Last commit](https://shieldcn.dev/github/last-commit/y0ncha/joint.svg?variant=secondary&mode=dark)
+![GitHub CI](https://shieldcn.dev/github/ci/y0ncha/joint.svg?workflow=CI&branch=main&variant=secondary&mode=dark)
 
 Joint is a calm shared household-money app for two people. It records manual income and expenses in Israeli shekels (ILS) against one shared balance.
 
