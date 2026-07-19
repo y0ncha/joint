@@ -2,20 +2,59 @@
 
 # Joint
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
-[![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
-[![Bun](https://img.shields.io/badge/Bun-runtime-black?logo=bun)](https://bun.sh/)
-[![shadcn/ui](https://img.shields.io/badge/shadcn%2Fui-components-black?logo=shadcnui)](https://ui.shadcn.com/)
-[![Sentry](https://img.shields.io/badge/Sentry-monitoring-362D59?logo=sentry&logoColor=white)](https://sentry.io/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-styling-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![Radix UI](https://img.shields.io/badge/Radix_UI-primitives-161618?logo=radixui)](https://www.radix-ui.com/)
-[![Lucide](https://img.shields.io/badge/Lucide-icons-F56565?logo=lucide&logoColor=white)](https://lucide.dev/)
-[![Zod](https://img.shields.io/badge/Zod-validation-3068B7)](https://zod.dev/)
-[![Vitest](https://img.shields.io/badge/Vitest-tests-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev/)
-[![CVA](https://img.shields.io/badge/class--variance--authority-variants-111827)](https://cva.style/docs)
-[![clsx](https://img.shields.io/badge/clsx-class_names-111827)](https://github.com/lukeed/clsx)
-[![tailwind-merge](https://img.shields.io/badge/tailwind--merge-utilities-06B6D4)](https://github.com/dcastil/tailwind-merge)
+<p align="center">
+  <a href="https://github.com/y0ncha/joint/actions/workflows/ci.yml">
+    <img src="https://shieldcn.dev/github/ci/y0ncha/joint.svg?workflow=CI&branch=main&variant=secondary&size=sm" alt="CI status" />
+  </a>
+  <a href="LICENSE">
+    <img src="https://shieldcn.dev/github/license/y0ncha/joint.svg?variant=secondary&size=sm" alt="MIT license" />
+  </a>
+  <a href="https://nextjs.org/">
+    <img src="https://shieldcn.dev/badge/Next.js-16-000000.svg?logo=nextdotjs&variant=secondary&size=sm" alt="Next.js 16" />
+  </a>
+  <a href="https://react.dev/">
+    <img src="https://shieldcn.dev/badge/React-19-61DAFB.svg?logo=react&variant=secondary&size=sm" alt="React 19" />
+  </a>
+  <a href="https://supabase.com/">
+    <img src="https://shieldcn.dev/badge/Supabase-Postgres%20%2B%20Auth-3ECF8E.svg?logo=supabase&variant=secondary&size=sm" alt="Supabase" />
+  </a>
+  <a href="https://bun.sh/">
+    <img src="https://shieldcn.dev/badge/Bun-runtime-000000.svg?variant=secondary&size=sm" alt="Bun runtime" />
+  </a>
+  <a href="https://ui.shadcn.com/">
+    <img src="https://shieldcn.dev/badge/shadcn-components-000000.svg?variant=secondary&size=sm" alt="shadcn/ui components" />
+  </a>
+  <a href="https://sentry.io/">
+    <img src="https://shieldcn.dev/badge/Sentry-monitoring-362D59.svg?variant=secondary&size=sm" alt="Sentry monitoring" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://tailwindcss.com/">
+    <img src="https://shieldcn.dev/badge/Tailwind%20CSS-styling-06B6D4.svg?variant=secondary&size=sm" alt="Tailwind CSS" />
+  </a>
+  <a href="https://www.radix-ui.com/">
+    <img src="https://shieldcn.dev/badge/Radix%20UI-primitives-161618.svg?variant=secondary&size=sm" alt="Radix UI primitives" />
+  </a>
+  <a href="https://lucide.dev/">
+    <img src="https://shieldcn.dev/badge/Lucide-icons-F56565.svg?variant=secondary&size=sm" alt="Lucide icons" />
+  </a>
+  <a href="https://zod.dev/">
+    <img src="https://shieldcn.dev/badge/Zod-validation-3068B7.svg?variant=secondary&size=sm" alt="Zod validation" />
+  </a>
+  <a href="https://vitest.dev/">
+    <img src="https://shieldcn.dev/badge/Vitest-tests-6E9F18.svg?variant=secondary&size=sm" alt="Vitest tests" />
+  </a>
+  <a href="https://cva.style/docs">
+    <img src="https://shieldcn.dev/badge/CVA-variants-111827.svg?variant=secondary&size=sm" alt="Class Variance Authority" />
+  </a>
+  <a href="https://github.com/lukeed/clsx">
+    <img src="https://shieldcn.dev/badge/clsx-class%20names-111827.svg?variant=secondary&size=sm" alt="clsx" />
+  </a>
+  <a href="https://github.com/dcastil/tailwind-merge">
+    <img src="https://shieldcn.dev/badge/tailwind-merge-utilities-06B6D4.svg?variant=secondary&size=sm" alt="tailwind-merge" />
+  </a>
+</p>
 
 Joint is a calm shared household-money app for two people. It records manual income and expenses in Israeli shekels (ILS) against one shared balance.
 
