@@ -2,25 +2,51 @@
 
 # Joint
 
-Joint is a shared household-money workspace for two people. The MVP supports manual income and expenses in Israeli shekels, against one shared balance.
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
+[![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
+[![Bun](https://img.shields.io/badge/Bun-runtime-black?logo=bun)](https://bun.sh/)
+[![shadcn/ui](https://img.shields.io/badge/shadcn%2Fui-components-black?logo=shadcnui)](https://ui.shadcn.com/)
+[![Sentry](https://img.shields.io/badge/Sentry-monitoring-362D59?logo=sentry&logoColor=white)](https://sentry.io/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-styling-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Radix UI](https://img.shields.io/badge/Radix_UI-primitives-161618?logo=radixui)](https://www.radix-ui.com/)
+[![Lucide](https://img.shields.io/badge/Lucide-icons-F56565?logo=lucide&logoColor=white)](https://lucide.dev/)
+[![Zod](https://img.shields.io/badge/Zod-validation-3068B7)](https://zod.dev/)
+[![Vitest](https://img.shields.io/badge/Vitest-tests-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev/)
+[![CVA](https://img.shields.io/badge/class--variance--authority-variants-111827)](https://cva.style/docs)
+[![clsx](https://img.shields.io/badge/clsx-class_names-111827)](https://github.com/lukeed/clsx)
+[![tailwind-merge](https://img.shields.io/badge/tailwind--merge-utilities-06B6D4)](https://github.com/dcastil/tailwind-merge)
 
-## Start here
+Joint is a calm shared household-money app for two people. It records manual income and expenses in Israeli shekels (ILS) against one shared balance.
 
-- [Agent guide](AGENTS.md)
-- [Design system](docs/design.md)
-- [Architecture](docs/architecture.md)
-- [MVP delivery plan](docs/plans/shared-budget-mvp.md)
+## What it is
 
-## Local development
+Joint is deliberately small: one household, one opening balance, categories, and transactions. The balance is calculated as opening balance + income − expenses, and may be negative.
+
+It is not a bank connection or a personal-budgeting tool. Accounts, cards, transfers, recurring transactions, imports, attachments, and financial credentials are outside the MVP.
+
+## How to use it
+
+1. Request access from the project owner by GitHub direct message. Access requires their explicit authorization.
+2. Sign in with the authorized Google account.
+3. Open or create the household's categories and opening balance.
+4. Add income and expense transactions; the dashboard and transaction list show the shared household view.
+5. An owner can authorize one partner email in Settings. The partner can access data only after joining as a household member.
+
+There is no self-service owner onboarding. A future owner must first sign in, then an operator provisions the household using the [owner provisioning procedure](docs/architecture/operator-owner-provisioning.md).
+
+## Run locally
+
+Copy `.env.example` to `.env.local`, then set the development Supabase URL and publishable key.
 
 ```bash
 bun install
 bun run dev
 ```
 
-Open `http://127.0.0.1:3000`.
+Open `http://127.0.0.1:3000`. The development Google OAuth callback is `http://127.0.0.1:3000/auth/callback`; add new development users to the OAuth consent screen's test-user list before they sign in.
 
-## Checks
+Run the checks before submitting changes:
 
 ```bash
 bun run lint
@@ -28,24 +54,23 @@ bun run test
 bun run build
 ```
 
-## Production releases
+## Security
 
-Pull requests run lint and tests only. A successful push to `main` is the sole production release path: GitHub Actions reconciles ordered `joint-prod` migrations, then asks Vercel to perform its normal production build and deploy. Vercel Git integration is disabled, so it creates no preview or production deployments itself.
+- Google sign-in proves identity; `household_members` is the authorization boundary for household data.
+- Access is granted only after explicit approval from the project owner via GitHub direct message; GitHub is the approval channel, not the technical access control.
+- Supabase Row Level Security protects every household-owned record. Unmatched users are signed out and shown an access-denied message.
+- Persistent changes run through authenticated Server Actions. The browser receives only the Supabase publishable key—never a service-role key, database password, or provider secret.
+- Keep `.env.local` private. Optional integration-test credentials may be set locally; do not use production credentials.
+- Database changes are ordered migrations. A production rollback changes application code only; schema recovery is a forward fix or Supabase recovery.
 
-Release credentials belong only in GitHub Actions secrets. A Vercel rollback changes application code only; a database migration requires a forward fix or Supabase recovery.
+## Learn more
 
-The Google OAuth callback for development is `http://127.0.0.1:3000/auth/callback`. Before a newly authorized partner signs in, add that Google account to the development OAuth consent screen's test-user list.
+- [Agent guide](AGENTS.md) — contribution workflow and project rules.
+- [Design system](docs/design.md) — product and accessibility contract.
+- [Architecture](docs/architecture.md) — runtime, data, and security boundaries.
+- [Changelog](CHANGELOG.md) — released changes.
+- [Contributing](docs/CONTRIBUTE.md) — local setup, Supabase development, and contribution workflow.
 
-Google sign-in establishes identity; only a `household_members` row grants access to household data. Owners authorize one partner email in Settings. An unmatched account is signed out locally and shown an access-denied message—there is no self-service household onboarding or global app-access registry.
+## Credits
 
-Future owners must sign in once, then be provisioned by an operator using the transactional [owner provisioning procedure](docs/architecture/operator-owner-provisioning.md).
-
-## Environment
-
-Copy `.env.example` to `.env.local` and provide development Supabase values. Do not commit `.env.local`.
-
-Optional integration-test user credentials are listed in `.env.example`. Those tests intentionally skip when credentials are absent; do not add production credentials or a service-role key.
-
-## Project-local agent resources
-
-The `.agents/` directory is intentionally committed so the repository remains a dedicated, self-contained Codex project. It contains the local shadcn skill; operational instructions are in `AGENTS.md`.
+- Logo: [Letter J icon](https://www.flaticon.com/free-icons/letter-j) created by [Md Tanvirul Haque](https://www.flaticon.com/authors/md-tanvirul-haque) on Flaticon.

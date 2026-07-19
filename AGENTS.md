@@ -10,6 +10,7 @@ Read the sources relevant to the task before proposing or changing behavior:
 
 - `AGENTS.md` — contribution workflow, engineering rules, and product invariants.
 - `README.md` — local setup, commands, environment variables, and project-local agent resources.
+- `docs/CONTRIBUTE.md` — contributor access, Supabase setup, checks, and review workflow.
 - `docs/design.md` — product intent, visual system, interaction behavior, accessibility, and responsive layout.
 - `docs/architecture.md` — technical system overview and index of durable mechanism documentation.
 - `docs/architecture/` — focused records for implemented architecture mechanisms; plans and delivery status do not belong here.
@@ -49,6 +50,7 @@ Every product, design, architecture, or infrastructure change follows this seque
    - Follow the approved plan and keep its status current.
    - Use test-first development for domain logic and behavior changes.
    - Keep changes inside the approved scope. Return to the user for approval before changing the design, architecture, or plan materially.
+   - When an approved implementation plan is completed, add a concise dated entry to `CHANGELOG.md` describing the user-visible or operational changes.
    - Run `bun run lint`, `bun run test`, and `bun run build`. All checks must pass before requesting implementation approval.
    - Present what changed, why, remaining risks, and how the user can evaluate it. Wait for explicit implementation approval.
 
