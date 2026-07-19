@@ -2,22 +2,15 @@
 
 # Joint
 
-<p align="center">
-  <a href="https://nextjs.org/"><img src="https://img.shields.io/badge/Next.js-16-000000" alt="Next.js 16" /></a>
-  <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-61DAFB" alt="React 19" /></a>
-  <a href="https://supabase.com/"><img src="https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3ECF8E" alt="Supabase" /></a>
-  <a href="https://bun.sh/"><img src="https://img.shields.io/badge/Bun-runtime-000000" alt="Bun runtime" /></a>
-  <a href="https://ui.shadcn.com/"><img src="https://img.shields.io/badge/shadcn%2Fui-components-000000" alt="shadcn/ui components" /></a>
-  <a href="https://sentry.io/"><img src="https://img.shields.io/badge/Sentry-monitoring-362D59" alt="Sentry monitoring" /></a>
-</p>
-
-<p align="center">
-  <a href="https://www.radix-ui.com/"><img src="https://img.shields.io/badge/Radix%20UI-primitives-161618" alt="Radix UI primitives" /></a>
-  <a href="https://lucide.dev/"><img src="https://img.shields.io/badge/Lucide-icons-F56565" alt="Lucide icons" /></a>
-  <a href="https://zod.dev/"><img src="https://img.shields.io/badge/Zod-validation-3068B7" alt="Zod validation" /></a>
-  <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Vitest-tests-6E9F18" alt="Vitest tests" /></a>
-  <a href="https://github.com/dcastil/tailwind-merge"><img src="https://img.shields.io/badge/tailwind--merge-utilities-06B6D4" alt="tailwind-merge" /></a>
-</p>
+![Vercel](https://shieldcn.dev/badge/Vercel.svg?variant=branded&brand=vercel&mode=light)
+![Next.js](https://shieldcn.dev/badge/Next.js.svg?variant=branded&brand=nextdotjs&mode=light)
+![Bun](https://shieldcn.dev/badge/Bun.svg?variant=branded&brand=bun&mode=light)
+![Supabase](https://shieldcn.dev/badge/Supabase.svg?variant=branded&brand=supabase&mode=light)
+![Sentry badge](https://shieldcn.dev/badge/monitored%20by-Sentry-362D59.svg?logo=sentry&logoColor=fff&variant=branded&brand=sentry&mode=light)
+![shadcnblocks badge](https://shieldcn.dev/badge/built%20with-shadcnblocks-000000.svg?logo=shadcnblocks&logoColor=fff&variant=branded&brand=shadcnblocks&mode=light)
+![OpenAI](https://shieldcn.dev/badge/OpenAI-22c55e.svg?variant=branded&brand=openai&mode=light)
+![TypeScript](https://shieldcn.dev/badge/TypeScript.svg?variant=branded&brand=typescript&mode=light)
+![GitHub CI](https://shieldcn.dev/github/ci/vercel/next.js.svg?variant=secondary&mode=light)
 
 Joint is a calm shared household-money app for two people. It records manual income and expenses in Israeli shekels (ILS) against one shared balance.
 
