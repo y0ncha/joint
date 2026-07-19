@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { LayoutDashboard, Settings, Tags, WalletCards, type LucideIcon } from "lucide-react";
 
 import { BrandMark } from "@/components/brand-mark";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { cn } from "@/lib/utils";
 
 const navigation = [
@@ -17,6 +19,53 @@ const navigation = [
 
 function isActivePath(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
+
+type ProfileClient = {
+  auth: { getClaims: () => Promise<{ data: { claims?: { sub?: string } | null } }> };
+  from: (table: "profiles") => {
+    select: (columns: "full_name") => {
+      eq: (column: "id", value: string) => { maybeSingle: () => Promise<{ data: { full_name: string | null } | null }> };
+    };
+  };
+};
+
+export function getProfileInitials(name: string | null) {
+  const words = name?.trim().split(/\s+/).filter(Boolean) ?? [];
+  return words.length ? `${words[0][0]}${words.length > 1 ? words.at(-1)?.[0] : ""}`.toUpperCase() : "?";
+}
+
+export async function loadVerifiedProfileName(client: ProfileClient) {
+  const { data } = await client.auth.getClaims();
+  const userId = data.claims?.sub;
+  if (!userId) return "";
+
+  const key = `joint-profile-name:${userId}`;
+  const cached = localStorage.getItem(key);
+  if (cached !== null) return cached;
+
+  const { data: profile } = await client.from("profiles").select("full_name").eq("id", userId).maybeSingle();
+  const name = profile?.full_name?.trim() ?? "";
+  localStorage.setItem(key, name);
+  return name;
+}
+
+export function ProfileInitialAvatar({ name }: { name: string }) {
+  return (
+    <Avatar className="size-11">
+      <AvatarFallback>{getProfileInitials(name)}</AvatarFallback>
+    </Avatar>
+  );
+}
+
+function CachedProfileInitialAvatar() {
+  const [name, setName] = useState("");
+
+  useEffect(() => {
+    void loadVerifiedProfileName(createBrowserSupabaseClient()).then(setName);
+  }, []);
+
+  return <ProfileInitialAvatar name={name} />;
 }
 
 function NavigationItem({ href, label, icon: Icon }: { href: string; label: string; icon: LucideIcon }) {
@@ -62,6 +111,9 @@ export function WorkspaceShell({
               <NavigationItem key={href} href={href} label={label} icon={Icon} />
             ))}
           </nav>
+          <div className="mt-auto">
+            <CachedProfileInitialAvatar />
+          </div>
         </aside>
         <section className="min-w-0 flex-1 p-4 pb-[calc(9rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-6 lg:p-8 animate-in fade-in-0 duration-150 ease-out">
           <header className="flex items-start justify-between gap-4">
