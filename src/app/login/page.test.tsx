@@ -28,4 +28,11 @@ describe("Joint sign in", () => {
     expect(markup).toContain("This Google account does not have access to Joint.");
     expect(markup).toContain('role="alert"');
   });
+
+  it.each(["missing_code", "oauth_callback"])("explains when Google sign-in cannot complete (%s)", async (error) => {
+    const markup = renderToStaticMarkup(await LoginPage({ searchParams: Promise.resolve({ error }) }));
+
+    expect(markup).toContain("We couldn&#x27;t sign you in with Google. Please try again.");
+    expect(markup).toContain('role="alert"');
+  });
 });
