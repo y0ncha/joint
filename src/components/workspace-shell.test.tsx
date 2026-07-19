@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
 
@@ -5,22 +7,18 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/settings" }));
 
 const shellModule = await import("./workspace-shell").catch(() => null);
 
-it("keeps account management out of MVP navigation and shows a bottom avatar without an unread badge", () => {
+it("keeps the desktop rail to brand and primary navigation without notification or profile surfaces", async () => {
   const markup = shellModule ? renderToStaticMarkup(<shellModule.WorkspaceShell title="Settings">Content</shellModule.WorkspaceShell>) : "";
+  const source = await readFile(new URL("./workspace-shell.tsx", import.meta.url), "utf8");
 
   expect(markup).toContain("Overview");
   expect(markup).toContain("Transactions");
   expect(markup).toContain("Categories");
   expect(markup).toContain("Settings");
-  expect(markup).toContain("data-slot=\"avatar\"");
-  expect(markup).not.toContain(">Me<");
-  expect(markup).toContain("aria-label=\"Open notifications\"");
-  expect(markup).toContain("font-bold");
-  expect(markup).not.toContain("data-slot=\"avatar-badge\"");
-  expect(markup).not.toContain("aria-label=\"Unread notifications\"");
-  expect(markup).not.toContain("-top-1 -right-1");
-  expect(markup).not.toContain(">1</span>");
-  expect(markup).toContain("mt-auto");
+  expect(markup).not.toContain("aria-label=\"Open notifications\"");
+  expect(markup).not.toContain("Notifications");
+  expect(markup).not.toContain("No unread household updates.");
+  expect(source).not.toContain('from("profiles")');
   expect(markup).toContain("lg:pt-8");
   expect(markup).toContain('data-workspace-content="true"');
   expect(markup).toContain('data-workspace-content="true" class="w-full"');

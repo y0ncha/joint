@@ -39,14 +39,17 @@ beforeEach(() => {
   mocks.authorizationMaybeSingle.mockResolvedValue({ data: null, error: null });
 });
 
-it("renders settings as section cards with row-style controls", async () => {
+it("renders only Appearance and Account cards without notification controls", async () => {
   const markup = renderToStaticMarkup(await settingsModule.default());
 
-  expect((markup.match(/data-slot="card"/g) ?? []).length).toBe(3);
+  expect((markup.match(/data-slot="card"/g) ?? []).length).toBe(2);
   expect(markup).toContain("Appearance");
-  expect(markup).toContain("Monthly summary");
   expect(markup).toContain("Account");
   expect(markup).toContain("Session");
+  expect(markup).not.toContain("Notifications");
+  expect(markup).not.toContain("Monthly summary");
+  expect(markup).not.toContain("Reminder cadence");
+  expect(markup).not.toContain("data-slot=\"select-trigger\"");
   expect(markup).toContain('data-partner-state="empty"');
   expect(markup).not.toContain("profiles");
 });
