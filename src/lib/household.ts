@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { cache } from "react";
 
 import type { Database } from "@/lib/database.types";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -8,9 +9,18 @@ export type CurrentHousehold = {
   role: "owner" | "member";
 };
 
-export type RequiredHousehold = CurrentHousehold & {
+export type MemberHouseholdContext = CurrentHousehold & {
+  status: "member";
+  supabase: SupabaseClient<Database>;
   userId: string;
 };
+
+export type RequiredHousehold = MemberHouseholdContext;
+
+export type CurrentHouseholdContext =
+  | { status: "unauthenticated" }
+  | { status: "unmatched" }
+  | MemberHouseholdContext;
 
 export type VerifiedPrincipal = {
   email: string;
@@ -42,15 +52,18 @@ export async function getHouseholdForUser(
     : null;
 }
 
-export async function getCurrentHousehold(): Promise<CurrentHousehold | null> {
+export const getCurrentHouseholdContext = cache(async (): Promise<CurrentHouseholdContext> => {
   const supabase = await createServerSupabaseClient();
   const { data: claims } = await supabase.auth.getClaims();
   const userId = claims?.claims?.sub;
 
-  if (!userId) return null;
+  if (!userId) return { status: "unauthenticated" };
 
-  return getHouseholdForUser(supabase, userId);
-}
+  const household = await getHouseholdForUser(supabase, userId);
+  if (!household) return { status: "unmatched" };
+
+  return { status: "member", supabase, userId, ...household };
+});
 
 export async function ensurePartnerMembership(
   supabase: SupabaseClient<Database>,
@@ -97,14 +110,11 @@ export async function ensurePartnerMembership(
 }
 
 export async function requireCurrentHousehold(): Promise<RequiredHousehold> {
-  const supabase = await createServerSupabaseClient();
-  const { data: claims } = await supabase.auth.getClaims();
-  const userId = claims?.claims?.sub;
+  const context = await getCurrentHouseholdContext();
 
-  if (!userId) throw new Error("Please sign in before continuing.");
+  if (context.status === "unauthenticated") throw new Error("Please sign in before continuing.");
 
-  const household = await getHouseholdForUser(supabase, userId);
-  if (!household) throw new Error("This Google account does not have access to Joint.");
+  if (context.status === "unmatched") throw new Error("This Google account does not have access to Joint.");
 
-  return { ...household, userId };
+  return context;
 }

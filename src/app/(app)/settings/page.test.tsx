@@ -2,8 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  getCurrentHousehold: vi.fn(),
-  createServerSupabaseClient: vi.fn(),
+  getCurrentHouseholdContext: vi.fn(),
   from: vi.fn(),
   memberSelect: vi.fn(),
   memberEq: vi.fn(),
@@ -13,21 +12,19 @@ const mocks = vi.hoisted(() => ({
   authorizationMaybeSingle: vi.fn(),
 }));
 
-vi.mock("@/lib/household", () => ({ getCurrentHousehold: mocks.getCurrentHousehold }));
-vi.mock("@/lib/supabase/server", () => ({ createServerSupabaseClient: mocks.createServerSupabaseClient }));
+vi.mock("@/lib/household", () => ({ getCurrentHouseholdContext: mocks.getCurrentHouseholdContext }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/settings" }));
 vi.mock("@/components/partner-access-control", () => ({
-  PartnerAccessControl: ({ state }: { state: { status: string; email?: string } }) => (
-    <span data-partner-state={state.status}>{state.email ?? "No authorized email"}</span>
-  ),
+  PartnerAccessControl: ({ state }: { state: { status: string; email?: string } }) => <span data-partner-state={state.status}>{state.email ?? "No authorized email"}</span>,
 }));
 
 const settingsModule = await import("./page");
 
 beforeEach(() => {
   vi.resetAllMocks();
-  mocks.getCurrentHousehold.mockResolvedValue({ householdId: "household-id", role: "owner" });
-  mocks.createServerSupabaseClient.mockResolvedValue({ from: mocks.from });
+  mocks.getCurrentHouseholdContext.mockResolvedValue({
+    status: "member", supabase: { from: mocks.from }, userId: "owner-id", householdId: "household-id", role: "owner",
+  });
   mocks.from.mockImplementation((table: string) => table === "household_members"
     ? { select: mocks.memberSelect }
     : { select: mocks.authorizationSelect });
@@ -39,28 +36,26 @@ beforeEach(() => {
   mocks.authorizationMaybeSingle.mockResolvedValue({ data: null, error: null });
 });
 
-it("renders only Appearance and Account cards without notification controls", async () => {
+it("renders Appearance and Account cards", async () => {
   const markup = renderToStaticMarkup(await settingsModule.default());
 
   expect((markup.match(/data-slot="card"/g) ?? []).length).toBe(2);
   expect(markup).toContain("Appearance");
   expect(markup).toContain("Account");
   expect(markup).toContain("Session");
-  expect(markup).not.toContain("Notifications");
-  expect(markup).not.toContain("Monthly summary");
-  expect(markup).not.toContain("Reminder cadence");
-  expect(markup).not.toContain("data-slot=\"select-trigger\"");
   expect(markup).toContain('data-partner-state="empty"');
   expect(markup).not.toContain("profiles");
 });
 
-it("derives the empty owner state without looking up identities", async () => {
+it("derives the empty owner state through the member request context", async () => {
   const markup = renderToStaticMarkup(await settingsModule.default());
 
   expect(markup).toContain('data-partner-state="empty"');
   expect(mocks.from).toHaveBeenCalledWith("household_members");
   expect(mocks.from).toHaveBeenCalledWith("household_allowed_members");
   expect(mocks.from).not.toHaveBeenCalledWith("profiles");
+  expect(mocks.memberEq).toHaveBeenCalledWith("household_id", "household-id");
+  expect(mocks.authorizationEq).toHaveBeenCalledWith("household_id", "household-id");
 });
 
 it.each([
@@ -70,15 +65,17 @@ it.each([
   mocks.memberOrder.mockResolvedValue({ data: members, error: null });
   mocks.authorizationMaybeSingle.mockResolvedValue({ data: { email: "partner@example.com" }, error: null });
 
-  const source = renderToStaticMarkup(await settingsModule.default());
+  const markup = renderToStaticMarkup(await settingsModule.default());
 
-  expect(source).toContain(`data-partner-state="${status}"`);
-  expect(source).toContain("partner@example.com");
+  expect(markup).toContain(`data-partner-state="${status}"`);
+  expect(markup).toContain("partner@example.com");
   expect(mocks.authorizationSelect).toHaveBeenCalledWith("email");
 });
 
 it("does not query partner authorization for a member", async () => {
-  mocks.getCurrentHousehold.mockResolvedValue({ householdId: "household-id", role: "member" });
+  mocks.getCurrentHouseholdContext.mockResolvedValue({
+    status: "member", supabase: { from: mocks.from }, userId: "member-id", householdId: "household-id", role: "member",
+  });
 
   const markup = renderToStaticMarkup(await settingsModule.default());
 

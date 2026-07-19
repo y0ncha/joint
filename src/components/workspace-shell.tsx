@@ -17,18 +17,15 @@ const navigation = [
   ["/settings", "Settings", Settings],
 ] as const;
 
+type BrowserSupabaseClient = ReturnType<typeof createBrowserSupabaseClient>;
+type ProfileClient = {
+  auth: Pick<BrowserSupabaseClient["auth"], "getClaims">;
+  from: BrowserSupabaseClient["from"];
+};
+
 function isActivePath(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
-
-type ProfileClient = {
-  auth: { getClaims: () => Promise<{ data: { claims?: { sub?: string } | null } }> };
-  from: (table: "profiles") => {
-    select: (columns: "full_name") => {
-      eq: (column: "id", value: string) => { maybeSingle: () => Promise<{ data: { full_name: string | null } | null }> };
-    };
-  };
-};
 
 export function getProfileInitials(name: string | null) {
   const words = name?.trim().split(/\s+/).filter(Boolean) ?? [];
@@ -37,7 +34,7 @@ export function getProfileInitials(name: string | null) {
 
 export async function loadVerifiedProfileName(client: ProfileClient) {
   const { data } = await client.auth.getClaims();
-  const userId = data.claims?.sub;
+  const userId = data?.claims?.sub;
   if (!userId) return "";
 
   const key = `joint-profile-name:${userId}`;

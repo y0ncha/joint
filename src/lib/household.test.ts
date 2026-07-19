@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   createServerSupabaseClient: vi.fn(),
+  cache: vi.fn(),
   getClaims: vi.fn(),
   maybeSingle: vi.fn(),
   eq: vi.fn(),
@@ -13,28 +14,104 @@ vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: mocks.createServerSupabaseClient,
 }));
 
-const householdModule = await import("./household");
+vi.mock("react", () => ({ cache: mocks.cache }));
 
-describe("requireCurrentHousehold", () => {
-  beforeEach(() => {
+let householdModule: typeof import("./household");
+
+describe("getCurrentHouseholdContext", () => {
+  beforeEach(async () => {
+    vi.resetModules();
     vi.resetAllMocks();
+    mocks.cache.mockImplementation((resolve: () => unknown) => {
+      let result: unknown;
+      return () => (result ??= resolve());
+    });
     mocks.createServerSupabaseClient.mockResolvedValue({ auth: { getClaims: mocks.getClaims }, from: mocks.from });
     mocks.getClaims.mockResolvedValue({ data: { claims: { sub: "member-id" } } });
     mocks.maybeSingle.mockResolvedValue({ data: { household_id: "household-id", role: "member" }, error: null });
     mocks.eq.mockReturnValue({ maybeSingle: mocks.maybeSingle });
     mocks.select.mockReturnValue({ eq: mocks.eq });
     mocks.from.mockReturnValue({ select: mocks.select });
+    householdModule = await import("./household");
   });
 
-  it("returns verified user and membership identifiers", async () => {
+  it("returns unauthenticated without querying household membership", async () => {
+    mocks.getClaims.mockResolvedValue({ data: { claims: null } });
+
+    await expect(householdModule.getCurrentHouseholdContext()).resolves.toEqual({ status: "unauthenticated" });
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("returns unmatched for a verified identity without household membership", async () => {
+    mocks.maybeSingle.mockResolvedValue({ data: null, error: null });
+
+    await expect(householdModule.getCurrentHouseholdContext()).resolves.toEqual({ status: "unmatched" });
+    expect(mocks.eq).toHaveBeenCalledWith("user_id", "member-id");
+  });
+
+  it("returns the member context from the verified claim and getHouseholdForUser", async () => {
+    const supabase = await mocks.createServerSupabaseClient();
+    mocks.createServerSupabaseClient.mockResolvedValue(supabase);
+
+    await expect(householdModule.getCurrentHouseholdContext()).resolves.toEqual({
+      status: "member",
+      supabase,
+      userId: "member-id",
+      householdId: "household-id",
+      role: "member",
+    });
+    expect(mocks.from).toHaveBeenCalledWith("household_members");
+    expect(mocks.eq).toHaveBeenCalledWith("user_id", "member-id");
+  });
+
+  it("memoizes the resolver within one request", async () => {
+    await Promise.all([
+      householdModule.getCurrentHouseholdContext(),
+      householdModule.getCurrentHouseholdContext(),
+    ]);
+
+    expect(mocks.createServerSupabaseClient).toHaveBeenCalledTimes(1);
+    expect(mocks.getClaims).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("requireCurrentHousehold", () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.resetAllMocks();
+    mocks.cache.mockImplementation((resolve: () => unknown) => {
+      let result: unknown;
+      return () => (result ??= resolve());
+    });
+    mocks.createServerSupabaseClient.mockResolvedValue({ auth: { getClaims: mocks.getClaims }, from: mocks.from });
+    mocks.getClaims.mockResolvedValue({ data: { claims: { sub: "member-id" } } });
+    mocks.maybeSingle.mockResolvedValue({ data: { household_id: "household-id", role: "member" }, error: null });
+    mocks.eq.mockReturnValue({ maybeSingle: mocks.maybeSingle });
+    mocks.select.mockReturnValue({ eq: mocks.eq });
+    mocks.from.mockReturnValue({ select: mocks.select });
+    householdModule = await import("./household");
+  });
+
+  it("returns the member context", async () => {
+    const supabase = await mocks.createServerSupabaseClient();
+    mocks.createServerSupabaseClient.mockResolvedValue(supabase);
+
     await expect(householdModule.requireCurrentHousehold()).resolves.toEqual({
+      status: "member",
+      supabase,
       userId: "member-id",
       householdId: "household-id",
       role: "member",
     });
   });
 
-  it("denies a verified user without household membership", async () => {
+  it("uses the existing sign-in error for an unauthenticated request", async () => {
+    mocks.getClaims.mockResolvedValue({ data: { claims: null } });
+
+    await expect(householdModule.requireCurrentHousehold()).rejects.toThrow("Please sign in before continuing.");
+  });
+
+  it("uses the existing access error for an unmatched request", async () => {
     mocks.maybeSingle.mockResolvedValue({ data: null, error: null });
 
     await expect(householdModule.requireCurrentHousehold()).rejects.toThrow(
@@ -44,6 +121,12 @@ describe("requireCurrentHousehold", () => {
 });
 
 describe("ensurePartnerMembership", () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.resetAllMocks();
+    householdModule = await import("./household");
+  });
+
   it("joins the verified user when their email matches the household authorization", async () => {
     const ensurePartnerMembership = Reflect.get(householdModule, "ensurePartnerMembership");
     expect(typeof ensurePartnerMembership).toBe("function");

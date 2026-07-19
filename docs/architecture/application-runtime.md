@@ -12,8 +12,8 @@ Browser request
 src/proxy.ts → refresh Supabase session cookies
   ↓
 App Router page, layout, or route handler
-  ├─ auth.getClaims() for verified identity
-  ├─ Server Component queries through the Supabase server client
+  ├─ request-scoped household context from verified claims
+  ├─ Server Component queries through its Supabase server client
   └─ authenticated Server Actions for persistent mutations
        ↓
 Supabase Postgres → RLS evaluates the caller and household boundary
@@ -41,9 +41,15 @@ Next.js runs the application boundary; Supabase remains the persistence and fina
 
 The publishable key is intentionally available to the browser. Authorization depends on verified claims and RLS, not secrecy of that key.
 
+## Household request context
+
+`src/lib/household.ts` resolves the cookie-backed Supabase client, verified claim subject, and membership once per React server request with `cache`. The result is exactly one of `unauthenticated`, `unmatched`, or `member`; a member result includes the server client, user ID, household ID, and role. Protected layouts redirect the first two states to `/login` and `/auth/access-denied`; Server Components and Server Actions use the member result rather than accepting identity or household data from browser input.
+
+The resolver derives identity only from `auth.getClaims()` and obtains membership through `getHouseholdForUser`. OAuth partner admission stays separate: the callback continues to use its own verified principal and `ensurePartnerMembership`. `household_members` remains the authorization truth and RLS remains the final row-level check.
+
 ## Queries
 
-- Server Components query Supabase directly through the server client.
+- Server Components query Supabase through the member request context's server client.
 - Household-scoped loaders derive the caller's sole `household_members` row from verified claims; browser input does not select `household_id`.
 - `src/lib/dashboard-data.ts` loads the household opening balance, categories, transactions, and members concurrently, maps database rows to domain types, and passes them to the pure reporting layer.
 - Browser queries are limited to data allowed by RLS, such as the current profile name used by the workspace avatar.
@@ -54,7 +60,7 @@ The publishable key is intentionally available to the browser. Authorization dep
 
 - Persistent changes live in `src/app/actions/` and use the `"use server"` boundary.
 - Actions parse `FormData` with Zod schemas from `src/lib/validation.ts`.
-- Trusted user, household, and role identifiers come from verified claims and membership lookups.
+- Trusted user, household, and role identifiers come from the member request context.
 - Partner-access actions accept only the normalized email, derive the owner and household from membership, and insert or remove the single `household_allowed_members` row. Removing it also removes any joined partner membership in the same database transaction.
 - Updates and deletes include the verified household ID in their database filters.
 - Successful mutations revalidate affected routes through `revalidatePath` or redirect after setup.

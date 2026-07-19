@@ -1,13 +1,17 @@
 import { CategorySheet } from "@/components/category-form";
 import { CategoryList } from "@/components/category-list";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import { getCurrentHousehold } from "@/lib/household";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getCurrentHouseholdContext } from "@/lib/household";
 
 export default async function CategoriesPage() {
-  const household = await getCurrentHousehold();
-  if (!household) return null;
-  const { data } = await (await createServerSupabaseClient()).from("categories").select("id, name, kind, archived_at").eq("household_id", household.householdId).order("kind").order("name");
+  const household = await getCurrentHouseholdContext();
+  if (household.status !== "member") return null;
+  const categories = household.supabase
+    .from("categories")
+    .select("id, name, kind, archived_at")
+    .eq("household_id", household.householdId);
+  categories.order("kind");
+  const { data } = await categories.order("name");
   return (
     <WorkspaceShell title="Categories" description="Keep income and expense reporting clear." actions={<CategorySheet />}>
       <div className="mt-6 flex flex-col gap-4">

@@ -4,13 +4,13 @@ version: 1.0
 date_created: 2026-07-17
 last_updated: 2026-07-17
 owner: Joint
-status: In progress
+status: Completed
 tags: [architecture, refactor, finance, postgres, supabase, deletion]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
 
 This plan implements the P0 architecture recommendation to make Joint's visible one-balance product and its persisted finance model identical. The target model stores one signed opening balance on each household, accepts only income and expense transactions, calculates one shared balance, and deletes the dormant account, credit-card, transfer, card-debt, and account-management implementation. This file is a plan only; no implementation or hosted-environment change is authorized until the user explicitly approves it.
 

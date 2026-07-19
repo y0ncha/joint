@@ -1,12 +1,40 @@
-import { readFileSync } from "node:fs";
-import { expect, it } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
+import { beforeEach, expect, it, vi } from "vitest";
 
-const source = readFileSync("src/app/(app)/categories/page.tsx", "utf8");
+const mocks = vi.hoisted(() => ({
+  getCurrentHouseholdContext: vi.fn(),
+  from: vi.fn(),
+  select: vi.fn(),
+  eq: vi.fn(),
+  order: vi.fn(),
+}));
 
-it("keeps category creation in the page action sheet instead of a second card", () => {
-  expect(source).toContain('actions={<CategorySheet />}');
-  expect(source).toContain("mt-6 flex flex-col gap-4");
-  expect(source).not.toContain("lg:grid-cols-2");
-  expect(source).not.toContain("CardTitle>Add category");
-  expect(source).not.toContain("<CategoryForm");
+vi.mock("@/lib/household", () => ({ getCurrentHouseholdContext: mocks.getCurrentHouseholdContext }));
+vi.mock("@/components/category-form", () => ({ CategorySheet: () => <span data-category-sheet /> }));
+vi.mock("@/components/category-list", () => ({ CategoryList: ({ categories }: { categories: Array<{ name: string }> }) => <span data-category-list>{categories.map((category) => category.name).join(",")}</span> }));
+vi.mock("@/components/workspace-shell", () => ({ WorkspaceShell: ({ actions, children }: { actions: React.ReactNode; children: React.ReactNode }) => <main>{actions}{children}</main> }));
+
+const pageModule = await import("./page");
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  mocks.getCurrentHouseholdContext.mockResolvedValue({
+    status: "member", supabase: { from: mocks.from }, userId: "member-id", householdId: "household-id", role: "member",
+  });
+  mocks.order.mockResolvedValue({ data: [{ id: "food", name: "Food", kind: "expense", archived_at: null }] });
+  mocks.eq.mockReturnValue({ order: mocks.order });
+  mocks.select.mockReturnValue({ eq: mocks.eq });
+  mocks.from.mockReturnValue({ select: mocks.select });
+});
+
+it("loads categories through the member request context and keeps creation in the action sheet", async () => {
+  const markup = renderToStaticMarkup(await pageModule.default());
+
+  expect(markup).toContain("data-category-sheet");
+  expect(markup).toContain("data-category-list");
+  expect(markup).toContain("Food");
+  expect(mocks.from).toHaveBeenCalledWith("categories");
+  expect(mocks.eq).toHaveBeenCalledWith("household_id", "household-id");
+  expect(mocks.order).toHaveBeenCalledWith("kind");
+  expect(mocks.order).toHaveBeenCalledWith("name");
 });

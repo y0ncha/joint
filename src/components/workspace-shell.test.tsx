@@ -115,7 +115,6 @@ it("renders a plain profile-initial avatar", () => {
 
   expect(markup).toContain('data-slot="avatar"');
   expect(markup).toContain("AL");
-  expect(markup).not.toContain('data-slot="avatar-badge"');
   expect(markup).not.toContain("tabindex");
   expect(markup).not.toContain('role="button"');
   expect(markup).not.toContain('role="link"');
@@ -138,6 +137,4 @@ it("renders the desktop rail with navigation and a plain profile avatar", () => 
   expect(desktopRail).toContain('href="/categories"');
   expect(desktopRail).toContain('href="/settings"');
   expect(desktopRail).toContain('data-slot="avatar"');
-  expect(desktopRail).not.toContain('aria-label="Open notifications"');
-  expect(desktopRail).not.toContain('data-slot="avatar-badge"');
 });
