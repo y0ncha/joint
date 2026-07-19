@@ -8,9 +8,7 @@
 ![Supabase](https://shieldcn.dev/badge/Supabase.svg?variant=branded&brand=supabase&mode=dark)
 ![Sentry badge](https://shieldcn.dev/badge/monitored%20by-Sentry-362D59.svg?logo=sentry&logoColor=fff&variant=branded&brand=sentry&mode=dark)
 ![Last commit](https://shieldcn.dev/github/last-commit/y0ncha/joint.svg?variant=secondary&mode=dark)
-![GitHub CI](https://shieldcn.dev/github/ci/y0ncha/joint.svg?workflow=CI&branch=main&variant=secondary&mode=dark)
-
-Joint makes shared finances feel simple, clear, and genuinely shared.
+![CI](https://shieldcn.dev/github/ci/y0ncha/joint.svg?logo=githubactions&mode=dark)
 
 ## What it is
 
