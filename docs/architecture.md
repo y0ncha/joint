@@ -88,6 +88,7 @@ The complete visual and interaction contract remains in [`docs/design.md`](desig
 | Document | Scope |
 | --- | --- |
 | [`application-runtime.md`](architecture/application-runtime.md) | Request lifecycle, rendering boundaries, session refresh, queries, and mutations. |
+| [`ci-cd.md`](architecture/ci-cd.md) | Target pull-request CI gate and post-merge production migration/deployment boundary. |
 | [`financial-model.md`](architecture/financial-model.md) | Household-owned finance data, accounting invariants, balances, and monthly reporting. |
 | [`operator-owner-provisioning.md`](architecture/operator-owner-provisioning.md) | Operator-only creation of a future owner's household, owner membership, and opening balance. |
 
