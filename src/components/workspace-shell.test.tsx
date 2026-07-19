@@ -123,16 +123,21 @@ it("renders a plain profile-initial avatar", () => {
   expect(markup).not.toContain("<a ");
 });
 
-it("renders only a plain profile avatar in the desktop rail", () => {
+it("renders the desktop rail with navigation and a plain profile avatar", () => {
   const markup = renderToStaticMarkup(
     <WorkspaceShell title="Settings">
       <p>Content</p>
     </WorkspaceShell>,
   );
+  const desktopRail = markup.match(/<aside\b[\s\S]*?<\/aside>/)?.[0] ?? "";
 
-  expect(markup).toContain('data-slot="avatar"');
-  expect(markup).not.toContain('aria-label="Open notifications"');
-  expect(markup).not.toContain("Notifications");
-  expect(markup).not.toContain('data-slot="avatar-badge"');
-  expect(markup).not.toContain("<button");
+  expect(desktopRail).toContain('alt="Joint logo"');
+  expect(desktopRail).toContain('aria-label="Primary navigation"');
+  expect(desktopRail).toContain('href="/"');
+  expect(desktopRail).toContain('href="/transactions"');
+  expect(desktopRail).toContain('href="/categories"');
+  expect(desktopRail).toContain('href="/settings"');
+  expect(desktopRail).toContain('data-slot="avatar"');
+  expect(desktopRail).not.toContain('aria-label="Open notifications"');
+  expect(desktopRail).not.toContain('data-slot="avatar-badge"');
 });
