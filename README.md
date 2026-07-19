@@ -3,57 +3,20 @@
 # Joint
 
 <p align="center">
-  <a href="https://github.com/y0ncha/joint/actions/workflows/ci.yml">
-    <img src="https://shieldcn.dev/github/ci/y0ncha/joint.svg?workflow=CI&branch=main&variant=secondary&size=sm" alt="CI status" />
-  </a>
-  <a href="LICENSE">
-    <img src="https://shieldcn.dev/github/license/y0ncha/joint.svg?variant=secondary&size=sm" alt="MIT license" />
-  </a>
-  <a href="https://nextjs.org/">
-    <img src="https://shieldcn.dev/badge/Next.js-16-000000.svg?logo=nextdotjs&variant=secondary&size=sm" alt="Next.js 16" />
-  </a>
-  <a href="https://react.dev/">
-    <img src="https://shieldcn.dev/badge/React-19-61DAFB.svg?logo=react&variant=secondary&size=sm" alt="React 19" />
-  </a>
-  <a href="https://supabase.com/">
-    <img src="https://shieldcn.dev/badge/Supabase-Postgres%20%2B%20Auth-3ECF8E.svg?logo=supabase&variant=secondary&size=sm" alt="Supabase" />
-  </a>
-  <a href="https://bun.sh/">
-    <img src="https://shieldcn.dev/badge/Bun-runtime-000000.svg?variant=secondary&size=sm" alt="Bun runtime" />
-  </a>
-  <a href="https://ui.shadcn.com/">
-    <img src="https://shieldcn.dev/badge/shadcn-components-000000.svg?variant=secondary&size=sm" alt="shadcn/ui components" />
-  </a>
-  <a href="https://sentry.io/">
-    <img src="https://shieldcn.dev/badge/Sentry-monitoring-362D59.svg?variant=secondary&size=sm" alt="Sentry monitoring" />
-  </a>
+  <a href="https://nextjs.org/"><img src="https://img.shields.io/badge/Next.js-16-000000" alt="Next.js 16" /></a>
+  <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-61DAFB" alt="React 19" /></a>
+  <a href="https://supabase.com/"><img src="https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3ECF8E" alt="Supabase" /></a>
+  <a href="https://bun.sh/"><img src="https://img.shields.io/badge/Bun-runtime-000000" alt="Bun runtime" /></a>
+  <a href="https://ui.shadcn.com/"><img src="https://img.shields.io/badge/shadcn%2Fui-components-000000" alt="shadcn/ui components" /></a>
+  <a href="https://sentry.io/"><img src="https://img.shields.io/badge/Sentry-monitoring-362D59" alt="Sentry monitoring" /></a>
 </p>
 
 <p align="center">
-  <a href="https://tailwindcss.com/">
-    <img src="https://shieldcn.dev/badge/Tailwind%20CSS-styling-06B6D4.svg?variant=secondary&size=sm" alt="Tailwind CSS" />
-  </a>
-  <a href="https://www.radix-ui.com/">
-    <img src="https://shieldcn.dev/badge/Radix%20UI-primitives-161618.svg?variant=secondary&size=sm" alt="Radix UI primitives" />
-  </a>
-  <a href="https://lucide.dev/">
-    <img src="https://shieldcn.dev/badge/Lucide-icons-F56565.svg?variant=secondary&size=sm" alt="Lucide icons" />
-  </a>
-  <a href="https://zod.dev/">
-    <img src="https://shieldcn.dev/badge/Zod-validation-3068B7.svg?variant=secondary&size=sm" alt="Zod validation" />
-  </a>
-  <a href="https://vitest.dev/">
-    <img src="https://shieldcn.dev/badge/Vitest-tests-6E9F18.svg?variant=secondary&size=sm" alt="Vitest tests" />
-  </a>
-  <a href="https://cva.style/docs">
-    <img src="https://shieldcn.dev/badge/CVA-variants-111827.svg?variant=secondary&size=sm" alt="Class Variance Authority" />
-  </a>
-  <a href="https://github.com/lukeed/clsx">
-    <img src="https://shieldcn.dev/badge/clsx-class%20names-111827.svg?variant=secondary&size=sm" alt="clsx" />
-  </a>
-  <a href="https://github.com/dcastil/tailwind-merge">
-    <img src="https://shieldcn.dev/badge/tailwind-merge-utilities-06B6D4.svg?variant=secondary&size=sm" alt="tailwind-merge" />
-  </a>
+  <a href="https://www.radix-ui.com/"><img src="https://img.shields.io/badge/Radix%20UI-primitives-161618" alt="Radix UI primitives" /></a>
+  <a href="https://lucide.dev/"><img src="https://img.shields.io/badge/Lucide-icons-F56565" alt="Lucide icons" /></a>
+  <a href="https://zod.dev/"><img src="https://img.shields.io/badge/Zod-validation-3068B7" alt="Zod validation" /></a>
+  <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Vitest-tests-6E9F18" alt="Vitest tests" /></a>
+  <a href="https://github.com/dcastil/tailwind-merge"><img src="https://img.shields.io/badge/tailwind--merge-utilities-06B6D4" alt="tailwind-merge" /></a>
 </p>
 
 Joint is a calm shared household-money app for two people. It records manual income and expenses in Israeli shekels (ILS) against one shared balance.
