@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { getProfileInitials, loadVerifiedProfileName, WorkspaceShell } from "./workspace-shell";
+import { getProfileInitials, loadVerifiedProfileName, ProfileInitialAvatar } from "./workspace-shell";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/settings" }));
 
@@ -109,19 +109,15 @@ it.each([
   expect(getProfileInitials(name)).toBe(initials);
 });
 
-it("keeps a non-interactive avatar with no notification UI in the desktop rail", () => {
-  const markup = renderToStaticMarkup(<WorkspaceShell title="Settings">Content</WorkspaceShell>);
+it("renders a plain profile-initial avatar", () => {
+  const markup = renderToStaticMarkup(<ProfileInitialAvatar name="Ada Lovelace" />);
 
   expect(markup).toContain('data-slot="avatar"');
-  expect(markup).not.toContain('aria-label="Open notifications"');
-  expect(markup).not.toContain("Notifications");
-  expect(markup).not.toContain("No unread household updates.");
+  expect(markup).toContain("AL");
   expect(markup).not.toContain('data-slot="avatar-badge"');
+  expect(markup).not.toContain("tabindex");
   expect(markup).not.toContain('role="button"');
+  expect(markup).not.toContain('role="link"');
   expect(markup).not.toContain("<button");
-  expect(markup).toContain("Overview");
-  expect(markup).toContain("Transactions");
-  expect(markup).toContain("Categories");
-  expect(markup).toContain("Settings");
-  expect(markup).not.toContain("Accounts");
+  expect(markup).not.toContain("<a ");
 });
