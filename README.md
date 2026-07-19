@@ -28,6 +28,12 @@ bun run test
 bun run build
 ```
 
+## Production releases
+
+Pull requests run lint and tests only. A successful push to `main` is the sole production release path: GitHub Actions reconciles ordered `joint-prod` migrations, then asks Vercel to perform its normal production build and deploy. Vercel Git integration is disabled, so it creates no preview or production deployments itself.
+
+Release credentials belong only in GitHub Actions secrets. A Vercel rollback changes application code only; a database migration requires a forward fix or Supabase recovery.
+
 The Google OAuth callback for development is `http://127.0.0.1:3000/auth/callback`. Before a newly authorized partner signs in, add that Google account to the development OAuth consent screen's test-user list.
 
 Google sign-in establishes identity; only a `household_members` row grants access to household data. Owners authorize one partner email in Settings. An unmatched account is signed out locally and shown an access-denied message—there is no self-service household onboarding or global app-access registry.

@@ -73,7 +73,7 @@ Every product, design, architecture, or infrastructure change follows this seque
 - Add schema changes as new ordered files in `supabase/migrations/`. Never edit an applied migration.
 - Apply RLS to every household-owned table. Household membership is the authorization boundary.
 - Keep development and production Supabase credentials separate. Never commit `.env.local`.
-- GitHub pull requests should create Vercel previews. `main` deploys production only after the production project is available.
+- Pull requests run GitHub Actions lint/tests only; use hosted `joint-dev` for manual validation. Vercel's Git integration remains disabled, and GitHub Actions is the sole production release path: quality checks, ordered `joint-prod` migrations, then one Vercel production deployment. Production releases must serialize without cancellation. Vercel rollback does not roll back schema; database recovery is a forward fix or Supabase recovery. Confirm backup/PITR readiness in a separate production-readiness plan before real use or data entry.
 
 ## Financial invariants
 
@@ -97,3 +97,4 @@ Every product, design, architecture, or infrastructure change follows this seque
 - Roadmap briefs under `docs/plans/features/` do not authorize implementation or change the current MVP contract.
 - Do not add deferred features opportunistically while implementing an approved plan.
 - Do not claim live authentication, OAuth, RLS, or deployment behavior without verifying it in the relevant environment. Separate implemented code, local test evidence, and unverified provider behavior in status reports.
+- Use one clean `feature/<plan-name>` branch and one feature at a time; do not create worktrees unless explicitly requested.

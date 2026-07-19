@@ -34,7 +34,8 @@ The browser receives only the Supabase publishable key. No service-role key or f
 | Next.js | Verify claims, enforce route behavior, derive trusted identifiers, execute mutations, and assemble server-rendered data. |
 | Supabase Auth | Establish Google identity and maintain the authenticated session. |
 | Postgres and RLS | Store household data and reject access outside verified household membership. |
-| Vercel | Build and run the Next.js application using environment-scoped configuration. |
+| GitHub Actions | Validate pull requests and order production migration reconciliation before deployment. |
+| Vercel | Build and run the Next.js application using environment-scoped configuration; Git integration is disabled. |
 
 ## Core domains
 
@@ -80,6 +81,7 @@ The complete visual and interaction contract remains in [`docs/design.md`](desig
 - Preview and production values are managed independently in Vercel environment settings and must be verified before deployment.
 - `.env.example` contains names only. Never commit `.env.local`, service-role keys, database passwords, or provider secrets.
 - Schema work is applied through ordered migrations. Generated types in `src/lib/database.types.ts` must be regenerated after every applied migration.
+- Production releases run only from a successful `main` push: GitHub Actions runs `supabase db push` with its repository secret before one Vercel production deployment. Vercel rollback does not reverse a migration; database recovery is a forward fix or Supabase recovery.
 
 ## Architecture document index
 
