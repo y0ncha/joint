@@ -15,12 +15,13 @@ const mocks = vi.hoisted(() => ({
 }));
 
 const cache = new Map<string, string>();
+let profileName: string | null;
 const profileQuery = {
   eq: mocks.eq,
   maybeSingle: mocks.maybeSingle,
   single: mocks.single,
   then: (resolve: (value: { data: { full_name: string | null } | null; error: null }) => unknown) =>
-    resolve({ data: { full_name: "  Ada Lovelace  " }, error: null }),
+    resolve({ data: { full_name: profileName }, error: null }),
 };
 const browserClient = {
   auth: { getClaims: mocks.getClaims },
@@ -30,6 +31,7 @@ const browserClient = {
 beforeEach(() => {
   vi.resetAllMocks();
   cache.clear();
+  profileName = "  Ada Lovelace  ";
   vi.stubGlobal("localStorage", {
     getItem: vi.fn((key: string) => cache.get(key) ?? null),
     setItem: vi.fn((key: string, value: string) => cache.set(key, value)),
@@ -68,6 +70,22 @@ it("queries only the verified user on a cache miss and writes the trimmed name",
   expect(localStorage.setItem).toHaveBeenCalledWith("joint-profile-name:user-a", "Ada Lovelace");
 });
 
+it("caches an empty profile name on a cache miss", async () => {
+  profileName = null;
+
+  await expect(loadVerifiedProfileName(browserClient)).resolves.toBe("");
+
+  expect(localStorage.setItem).toHaveBeenCalledWith("joint-profile-name:user-a", "");
+});
+
+it("returns a cached empty profile name without querying profiles", async () => {
+  cache.set("joint-profile-name:user-a", "");
+
+  await expect(loadVerifiedProfileName(browserClient)).resolves.toBe("");
+
+  expect(mocks.from).not.toHaveBeenCalled();
+});
+
 it("does not reuse cached profile names between verified users", async () => {
   cache.set("joint-profile-name:user-a", "Ada Lovelace");
   cache.set("joint-profile-name:user-b", "Grace Hopper");
@@ -98,7 +116,7 @@ it("keeps a non-interactive avatar with no notification UI in the desktop rail",
   expect(markup).not.toContain('aria-label="Open notifications"');
   expect(markup).not.toContain("Notifications");
   expect(markup).not.toContain("No unread household updates.");
-  expect(markup).not.toContain("AvatarBadge");
+  expect(markup).not.toContain('data-slot="avatar-badge"');
   expect(markup).not.toContain('role="button"');
   expect(markup).not.toContain("<button");
   expect(markup).toContain("Overview");
