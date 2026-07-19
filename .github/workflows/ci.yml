@@ -67,7 +67,7 @@ jobs:
       - name: Apply production migrations
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: supabase db push --db-url "$SUPABASE_DB_URL" --yes
+        run: supabase --yes db push --db-url "$SUPABASE_DB_URL"
 
       - name: Deploy production
         env:
