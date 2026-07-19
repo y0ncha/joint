@@ -100,6 +100,7 @@ it("does not reuse cached profile names between verified users", async () => {
 });
 
 it.each([
+  [null, "?"],
   ["", "?"],
   ["   ", "?"],
   ["ada", "A"],
