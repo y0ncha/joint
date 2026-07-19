@@ -1,18 +1,18 @@
 ---
 goal: Deepen authenticated request context and remove placeholder notifications
-version: 1.0
+version: 1.1
 date_created: 2026-07-17
-last_updated: 2026-07-17
+last_updated: 2026-07-19
 owner: Joint
-status: Planned
+status: In progress
 tags: [architecture, refactor, auth, request-context, deletion, ui]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: In progress](https://img.shields.io/badge/status-In%20progress-yellow)
 
-This plan implements architecture-review recommendations P1 and P2 as one minimal change set. It makes `src/lib/household.ts` the single request-scoped source of the Supabase server client, verified principal, and membership for protected rendering and Server Actions. It also removes the non-functional notification/avatar surface and its non-persistent Settings controls. This plan does not implement the shared-balance P0 schema change; it consumes the codebase after that plan completes.
+This plan implements architecture-review recommendations P1 and P2 as one minimal change set. It makes `src/lib/household.ts` the single request-scoped source of the Supabase server client, verified principal, and membership for protected rendering and Server Actions. It removes non-functional notification UI and its Settings controls while retaining one plain, non-interactive profile-initial avatar with a per-user client cache. This plan does not implement the shared-balance P0 schema change; it consumes the codebase after that plan completes.
 
 ## 1. Requirements & Constraints
 
@@ -22,8 +22,10 @@ This plan implements architecture-review recommendations P1 and P2 as one minima
 - **REQ-004**: A Server Action MUST fail with the existing authentication or access error unless the request-scoped result is a household member. It MUST NOT accept a user ID, household ID, role, or Supabase client from browser input.
 - **REQ-005**: `ensurePartnerMembership`, the OAuth callback, the access-denied route, session refresh, RLS policies, partner-claim triggers, and `household_allowed_members` MUST remain unchanged.
 - **REQ-006**: `src/lib/household.ts` MUST use React request memoization for the request-context resolver. It MUST NOT use module-global mutable state, process-wide caching, a provider-neutral repository, a factory, or a new dependency.
-- **REQ-007**: The notification Settings card, static notification array, notification popover, avatar control, profile browser query, and owned avatar UI module MUST be deleted. No disabled or “coming soon” replacement is permitted.
-- **REQ-008**: The desktop navigation rail MUST retain only the brand mark and primary navigation after notification/avatar removal. Mobile navigation remains unchanged.
+- **REQ-007**: The notification Settings card, static notification array, notification popover, notification badge, and all notification behavior MUST be deleted. The owned avatar UI module MUST remain and MUST NOT export or render `AvatarBadge`. No disabled or “coming soon” replacement is permitted.
+- **REQ-008**: The desktop navigation rail MUST retain the brand mark, primary navigation, and one non-interactive profile-initial avatar. Mobile navigation remains unchanged.
+- **REQ-010**: The profile-initial avatar MUST derive initials from the authenticated user's `profiles.full_name`: first character of the first and last whitespace-delimited words, uppercased where applicable; use one character for one-word names and `?` for a blank or missing name.
+- **REQ-011**: The avatar MUST read a `localStorage` entry keyed exactly `joint-profile-name:<verified-user-id>`. On cache miss only, it MAY query that user's `profiles.full_name`, store the trimmed name (including an empty string for a missing value), and render the resulting initials. It MUST NOT be interactive, focusable, a notification surface, or share a cached name across user IDs.
 - **REQ-009**: `docs/design.md` MUST be updated before source implementation because P2 changes the visual and interaction contract. Architecture records MUST be updated only after implementation and verification prove the request-context mechanism.
 - **SEC-001**: `household_members` remains the only household-data authorization truth. Supabase RLS remains the final row authorization check for every query and mutation.
 - **SEC-002**: The request-context resolver MUST derive identity solely from `supabase.auth.getClaims()` and MUST use the existing cookie-backed `createServerSupabaseClient()`.
@@ -32,8 +34,8 @@ This plan implements architecture-review recommendations P1 and P2 as one minima
 - **CON-002**: P2 may execute before P1, but both changes MUST use one dedicated branch and one verification pass after this plan is explicitly approved.
 - **CON-003**: Do not create or edit Supabase migrations, generated database types, Vercel configuration, provider configuration, or hosted Supabase data.
 - **CON-004**: Use Bun commands only. Before implementation, follow `AGENTS.md`: obtain plan approval, create `feature/request-context-notification-cleanup` from current `main`, and stop if the working tree is unsafe.
-- **CON-005**: Keep the scope limited to P1 and P2. Do not add account, profile, notification, preferences, email, scheduler, repository, cache-provider, or generic Server Action infrastructure.
-- **PAT-001**: Use test-first development for the three request-context states, the protected-layout redirects, Server Action membership enforcement, and the deleted notification surface.
+- **CON-005**: Keep the scope limited to P1 and P2. Do not add account, profile-editing, notification, preferences, email, scheduler, repository, cache-provider, or generic Server Action infrastructure. The per-user `localStorage` entry in REQ-011 is the only permitted client cache.
+- **PAT-001**: Use test-first development for the three request-context states, the protected-layout redirects, Server Action membership enforcement, removed notification UI, and cached profile-initial behavior.
 
 ## 2. Implementation Steps
 
@@ -43,11 +45,11 @@ This plan implements architecture-review recommendations P1 and P2 as one minima
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-001 | Update `docs/design.md` before source implementation. Delete the `Navigation and workspace` requirement that the desktop rail ends with an avatar popover. Delete the `Settings` requirement that notifications use a separate card. Preserve desktop and mobile primary navigation, the brand mark, appearance settings, account/session controls, partner access, keyboard access, and 44px targets. | | |
-| TASK-002 | Rewrite `src/components/workspace-shell.test.tsx` and `src/app/(app)/settings/page.test.tsx` first. Assert the desktop rail has no `Open notifications` control, no notification popover content, and no profile browser query. Assert Settings has exactly Appearance and Account cards and has no notification labels or selects. Confirm both focused tests fail before implementation. | | |
-| TASK-003 | In `src/components/workspace-shell.tsx`, delete `UserNotificationAvatar`, the static `notifications` array, `useEffect`/`useState` imports, avatar imports, popover imports, and the browser Supabase client import. Delete the `<UserNotificationAvatar />` placement from the desktop rail. Keep navigation, brand mark, responsive rail/bottom-bar behavior, and all page content unchanged. | | |
-| TASK-004 | In `src/app/(app)/settings/page.tsx`, delete the Notifications card, `SettingsSelect`, the `Bell` and `CalendarClock` imports, and all owned select imports used only by `SettingsSelect`. Preserve Appearance and Account cards, including the log-out and partner-access rows. | | |
-| TASK-005 | Delete `src/components/ui/avatar.tsx`. Before deletion, run `rg -n "@/components/ui/avatar|AvatarBadge|AvatarFallback" src` and require that `src/components/workspace-shell.tsx` is the only production import. Do not delete `src/lib/supabase/browser.ts`; `src/app/login/login-card.tsx` still uses it for Google OAuth. | | |
+| TASK-001 | Update `docs/design.md` before source implementation. Define the desktop rail's retained non-interactive cached profile-initial avatar with no badge, popover, or notification behavior. Delete the separate-notifications-card requirement. Preserve desktop and mobile primary navigation, the brand mark, appearance settings, account/session controls, partner access, keyboard access, and 44px targets. | Yes | 2026-07-19 |
+| TASK-002 | Rewrite `src/components/workspace-shell.test.tsx` first. Assert the desktop rail renders a non-focusable profile-initial avatar; `localStorage` cache hit reads `joint-profile-name:<userId>` without a profile query; cache miss queries only the verified user's `profiles.full_name`, stores the trimmed result under that exact key, and shows first/last initials; a different user ID does not reuse a prior cache value. Assert there is no `Open notifications` control, notification popover, or `AvatarBadge`. Keep `src/app/(app)/settings/page.test.tsx` asserting exactly Appearance and Account cards with no notification labels/selects. Confirm the new avatar assertions fail before implementation. | | |
+| TASK-003 | In `src/components/workspace-shell.tsx`, restore a `ProfileInitialAvatar` in the desktop rail. It uses the existing browser client only to obtain verified claims and, on a user-keyed `localStorage` cache miss, query that caller's `profiles.full_name`; it stores `full_name?.trim() ?? ""`. Render `Avatar` and `AvatarFallback` as a plain non-focusable element with no button, `Popover`, notification array, or badge. Keep navigation, brand mark, responsive rail/bottom-bar behavior, and all page content unchanged. | | |
+| TASK-004 | In `src/app/(app)/settings/page.tsx`, delete the Notifications card, `SettingsSelect`, the `Bell` and `CalendarClock` imports, and all owned select imports used only by `SettingsSelect`. Preserve Appearance and Account cards, including the log-out and partner-access rows. | Yes | 2026-07-19 |
+| TASK-005 | Restore `src/components/ui/avatar.tsx` as the existing owned Avatar primitive without `AvatarBadge` or its export. Preserve `Avatar`, `AvatarImage`, `AvatarFallback`, `AvatarGroup`, and `AvatarGroupCount`. Run `rg -n "AvatarBadge|Open notifications|No unread household updates" src` and require zero matches. Do not delete `src/lib/supabase/browser.ts`; `src/app/login/login-card.tsx` still uses it for Google OAuth. | | |
 
 ### Implementation Phase 2
 
@@ -80,16 +82,17 @@ This plan implements architecture-review recommendations P1 and P2 as one minima
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
 | TASK-016 | Update `docs/architecture/application-runtime.md` only after the focused tests pass. Replace the description of repeated client/claims/membership resolution with the implemented request-context mechanism; state the three result states, request-scoped memoization, verified-claims origin, preserved OAuth separation, and RLS final authorization. Update `docs/architecture.md` only if its runtime summary needs one sentence to remain accurate. | | |
-| TASK-017 | Run `rg -n "Open notifications|No unread household updates|Monthly summary|Reminder cadence|SettingsSelect|UserNotificationAvatar|@/components/ui/avatar|AvatarBadge|AvatarFallback" src docs/design.md` and require zero matches. Run `rg -n "getCurrentHousehold\(|createServerSupabaseClient\(" src/app/'(app)' src/app/actions/categories.ts src/app/actions/transactions.ts src/app/actions/partner-access.ts src/lib/dashboard-data.ts` and require zero matches. These commands deliberately exclude OAuth, sign-out, and access-denied routes because TASK-015 preserves them. | | |
+| TASK-017 | Run `rg -n "Open notifications|No unread household updates|Monthly summary|Reminder cadence|SettingsSelect|UserNotificationAvatar|AvatarBadge" src docs/design.md` and require zero matches. Run `rg -n "getCurrentHousehold\(|createServerSupabaseClient\(" src/app/'(app)' src/app/actions/categories.ts src/app/actions/transactions.ts src/app/actions/partner-access.ts src/lib/dashboard-data.ts` and require zero matches. These commands deliberately exclude OAuth, sign-out, and access-denied routes because TASK-015 preserves them. Verify the retained `@/components/ui/avatar` import occurs only in `src/components/workspace-shell.tsx`. | | |
 | TASK-018 | Run focused Vitest files: `src/lib/household.test.ts`, `src/app/(app)/layout.test.tsx`, `src/lib/dashboard-data.test.ts`, `src/app/actions/categories.test.ts`, `src/app/actions/transactions.test.ts`, `src/app/actions/partner-access.test.ts`, `src/app/(app)/categories/page.test.tsx`, `src/app/(app)/settings/page.test.tsx`, and `src/components/workspace-shell.test.tsx`. Then run `bun run lint`, `bun run test`, `bun run build`, and `git diff --check`. Require exit code 0 for every command. | | |
-| TASK-019 | Review the final diff against REQ-001 through REQ-009 and SEC-001 through SEC-003. Present the deleted file list, changed request-context call sites, focused/full verification output, and confirmation that no migration, OAuth, RLS, or hosted-environment change occurred. Wait for explicit implementation approval; do not merge, push, deploy, or change hosted state. | | |
+| TASK-019 | Review the final diff against REQ-001 through REQ-011 and SEC-001 through SEC-003. Present the retained avatar behavior, deleted notification surface, changed request-context call sites, focused/full verification output, and confirmation that no migration, OAuth, RLS, or hosted-environment change occurred. Wait for explicit implementation approval; do not merge, push, deploy, or change hosted state. | | |
 
 ## 3. Alternatives
 
 - **ALT-001**: Add a generic repository, client factory, or provider-neutral request interface. Rejected because Supabase is the only adapter and each would create a hypothetical seam.
 - **ALT-002**: Memoize only `getCurrentHousehold`. Rejected because callers would still construct a second client and repeat claims lookup; the client, principal, and membership must have one locality-preserving interface.
 - **ALT-003**: Use module-global caching. Rejected because it can cross user/session boundaries and is unsafe for authenticated request data.
-- **ALT-004**: Leave the avatar and label the notification controls “coming soon”. Rejected because it retains a shallow interface with no persisted behavior.
+- **ALT-004**: Keep the avatar as an interactive notification control. Rejected because there is no notification persistence or delivery requirement.
+- **ALT-007**: Fetch `profiles.full_name` during every server render. Rejected because the approved per-user browser cache avoids repeated server work without adding server infrastructure.
 - **ALT-005**: Build notification persistence, delivery, scheduling, or preferences. Rejected because no approved notification requirement exists.
 - **ALT-006**: Refactor account actions and routes as part of P1. Rejected because P0 deletes them; CON-001 prevents duplicate work.
 
@@ -107,8 +110,8 @@ This plan implements architecture-review recommendations P1 and P2 as one minima
 - **FILE-003**: `src/app/(app)/layout.tsx` — redirect based on explicit request-context state.
 - **FILE-004**: `src/lib/dashboard-data.ts`, `src/app/(app)/categories/page.tsx`, `src/app/(app)/settings/page.tsx` — consume the member request context.
 - **FILE-005**: `src/app/actions/categories.ts`, `src/app/actions/transactions.ts`, `src/app/actions/partner-access.ts` — consume the member request context for authenticated mutations.
-- **FILE-006**: `src/components/workspace-shell.tsx` — delete the empty notification/avatar surface.
-- **FILE-007**: `src/components/ui/avatar.tsx` — delete after production-import verification.
+- **FILE-006**: `src/components/workspace-shell.tsx` — remove notification UI and render the retained cached profile-initial avatar.
+- **FILE-007**: `src/components/ui/avatar.tsx` — retain the owned avatar primitive and remove `AvatarBadge`.
 - **FILE-008**: `src/lib/household.test.ts`, `src/app/(app)/layout.test.tsx`, `src/lib/dashboard-data.test.ts`, affected page/action tests, `src/components/workspace-shell.test.tsx`, and `src/app/(app)/settings/page.test.tsx` — replace stale mocks and prove deletion/authorization behavior.
 - **FILE-009**: `docs/architecture/application-runtime.md` and, only if needed, `docs/architecture.md` — document the verified mechanism after implementation.
 
@@ -118,7 +121,7 @@ This plan implements architecture-review recommendations P1 and P2 as one minima
 - **TEST-002**: Prove same-request resolution constructs one server client and retrieves claims once.
 - **TEST-003**: Prove protected-layout redirects remain separate for unauthenticated and unmatched identities.
 - **TEST-004**: Prove dashboard, protected pages, and Server Actions derive IDs and client access from the member context rather than browser input or local client construction.
-- **TEST-005**: Prove the desktop rail, Settings page, and source cleanup contain no notification/avatar placeholder surface.
+- **TEST-005**: Prove the desktop rail retains a non-interactive cached profile-initial avatar, Settings has no notification surface, and source cleanup contains no notification badge or popover.
 - **TEST-006**: Run lint, full tests, production build, and whitespace validation after focused checks pass.
 
 ## 7. Risks & Assumptions
@@ -126,14 +129,15 @@ This plan implements architecture-review recommendations P1 and P2 as one minima
 - **RISK-001**: Incorrect cache scope could leak membership state across sessions. Mitigation: use React request memoization only; prohibit module-global mutable caches; prove each resolver derives identity from the current cookie-backed server client.
 - **RISK-002**: A refactor could collapse `/login` and `/auth/access-denied` into one redirect. Mitigation: represent the three explicit states and test both redirects.
 - **RISK-003**: Returning a client from the member context could encourage misuse. Mitigation: expose it only from `src/lib/household.ts`; retain RLS, verified claims, and household-scoped filters in every consumer.
-- **RISK-004**: Deleting the avatar can alter rail balance. Mitigation: the approved P2 scope deliberately removes the whole non-functional control; visual verification covers desktop and mobile navigation.
+- **RISK-004**: The cached name can be stale after a future profile edit. Mitigation: no profile-editing feature exists in scope; any future edit must update or remove its `joint-profile-name:<userId>` entry.
 - **RISK-005**: P0 may not be complete when this plan is approved. Mitigation: P2 can proceed, but P1 MUST remain `On Hold` until DEP-001 is satisfied.
 - **ASSUMPTION-001**: The app remains Google OAuth only, Supabase SSR continues to use cookie-backed server clients, and no notification behavior is required in the MVP.
-- **ASSUMPTION-002**: `src/app/login/login-card.tsx` remains the only production consumer of `src/lib/supabase/browser.ts` after P2.
+- **ASSUMPTION-002**: `src/app/login/login-card.tsx` and the retained profile-initial avatar are the only production consumers of `src/lib/supabase/browser.ts` after P2.
 
 ## 8. Related Specifications / Further Reading
 
 - Architecture review P1 and P2 decisions are incorporated directly in this self-contained plan.
+- [Cached profile-initial avatar design](../superpowers/specs/2026-07-19-profile-avatar-cache-design.md)
 - [Shared-balance architecture plan](shared-balance-architecture.md)
 - [Membership-only access plan](two-layer-access.md)
 - [Application runtime](../architecture/application-runtime.md)
