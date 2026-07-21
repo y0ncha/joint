@@ -156,14 +156,14 @@ select extensions.lives_ok(
   'a household member can replace their own card mapping'
 );
 
-select extensions.throws_like(
+select extensions.is_empty(
   $$
     update public.member_cards
     set last_four = '8765'
     where household_id = '00000000-0000-0000-0000-000000000411'
       and user_id = '00000000-0000-0000-0000-000000000403'
+    returning 1
   $$,
-  '%row-level security%',
   'a household member cannot replace another household mapping'
 );
 
