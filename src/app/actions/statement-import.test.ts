@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   parseStatementFile: vi.fn(),
   revalidatePath: vi.fn(),
   transactionInsert: vi.fn(),
-  duplicateHashMaybeSingle: vi.fn(),
+  duplicateHashLimit: vi.fn(),
   duplicateHashHouseholdEq: vi.fn(),
   duplicateHashEq: vi.fn(),
   cardMappingsEq: vi.fn(),
@@ -50,7 +50,7 @@ describe("statement import action", () => {
       userId: "importer-id",
       role: "member",
     });
-    mocks.duplicateHashMaybeSingle.mockResolvedValue({ data: null, error: null });
+    mocks.duplicateHashLimit.mockResolvedValue({ data: [], error: null });
     mocks.cardMappingsEq.mockResolvedValue({ data: [{ last_four: "4548", user_id: "payer-id" }], error: null });
     mocks.transactionInsert.mockResolvedValue({ error: null });
     mocks.parseStatementFile.mockResolvedValue(parsedStatement());
@@ -65,7 +65,7 @@ describe("statement import action", () => {
       throw new Error(`Unexpected table: ${table}`);
     });
     mocks.duplicateHashHouseholdEq.mockReturnValue({ eq: mocks.duplicateHashEq });
-    mocks.duplicateHashEq.mockReturnValue({ maybeSingle: mocks.duplicateHashMaybeSingle });
+    mocks.duplicateHashEq.mockReturnValue({ limit: mocks.duplicateHashLimit });
   });
 
   it("imports mapped and unknown cards in one normalized unassigned-safe batch", async () => {
@@ -84,6 +84,7 @@ describe("statement import action", () => {
     expect(mocks.from).toHaveBeenCalledWith("member_card_mappings");
     expect(mocks.duplicateHashHouseholdEq).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.duplicateHashEq).toHaveBeenCalledWith("import_file_hash", statementHash);
+    expect(mocks.duplicateHashLimit).toHaveBeenCalledWith(1);
     expect(mocks.cardMappingsEq).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.transactionInsert).toHaveBeenCalledTimes(1);
     expect(mocks.transactionInsert).toHaveBeenCalledWith([
@@ -130,7 +131,7 @@ describe("statement import action", () => {
   });
 
   it("rejects a previously imported file before parsing or inserting", async () => {
-    mocks.duplicateHashMaybeSingle.mockResolvedValue({ data: { id: "existing" }, error: null });
+    mocks.duplicateHashLimit.mockResolvedValue({ data: [{ id: "existing" }], error: null });
 
     await expect(actions.importStatement(null, formData(statementFile()))).resolves.toEqual({
       status: "error", formError: "This statement was already imported.", fieldErrors: { statement: "Choose a different statement file." },
@@ -140,7 +141,7 @@ describe("statement import action", () => {
   });
 
   it("sanitizes a duplicate-file lookup failure before parsing or inserting", async () => {
-    mocks.duplicateHashMaybeSingle.mockResolvedValue({ data: null, error: { message: "database details" } });
+    mocks.duplicateHashLimit.mockResolvedValue({ data: null, error: { message: "database details" } });
 
     await expect(actions.importStatement(null, formData(statementFile()))).resolves.toEqual({
       status: "error", formError: "Unable to import this statement. Please try again.", fieldErrors: {},

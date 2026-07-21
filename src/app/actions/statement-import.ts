@@ -29,12 +29,13 @@ export async function importStatement(_previousState: ActionResult | null, formD
   const bytes = new Uint8Array(fileBytes);
   const importFileHash = await hexDigest(fileBytes);
 
-  const { data: duplicate, error: duplicateError } = await household.supabase
+  const { data: duplicateMatches, error: duplicateError } = await household.supabase
     .from("transactions")
     .select("id")
     .eq("household_id", household.householdId)
     .eq("import_file_hash", importFileHash)
-    .maybeSingle();
+    .limit(1);
+  const duplicate = duplicateMatches?.[0];
 
   if (duplicateError) return { status: "error", formError: IMPORT_ERROR, fieldErrors: {} };
   if (duplicate) {
