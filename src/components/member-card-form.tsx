@@ -11,13 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
-export function MemberCardForm() {
+export function MemberCardForm({ initialLastFour, redirectTo = "/", showSkip = true }: { initialLastFour?: string; redirectTo?: string; showSkip?: boolean }) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(saveCurrentMemberCard, null);
 
   useEffect(() => {
-    if (state?.status === "success") router.replace("/");
-  }, [router, state]);
+    if (state?.status === "success") router.replace(redirectTo);
+  }, [redirectTo, router, state]);
 
   const hasLastFourError = state?.status === "error" && Boolean(state.fieldErrors.lastFour);
   const result = state?.status === "success"
@@ -40,14 +40,15 @@ export function MemberCardForm() {
             inputMode="numeric"
             pattern="[0-9]{4}"
             maxLength={4}
+            defaultValue={initialLastFour}
             autoComplete="off"
             required
             spellCheck={false}
-            className="min-h-11 font-mono tracking-[0.3em]"
+            className="min-h-11 text-center font-mono tracking-[0.3em]"
             aria-invalid={hasLastFourError}
             aria-describedby={hasLastFourError ? "card-last-four-error" : undefined}
           />
-          <FieldDescription>Joint never stores your full card number. These digits only match your statement imports.</FieldDescription>
+          <FieldDescription>Only used to match statement imports.</FieldDescription>
           {hasLastFourError ? <FieldError id="card-last-four-error">{state.fieldErrors.lastFour}</FieldError> : null}
         </Field>
         {state?.status === "error" && state.formError ? <FieldError>{state.formError}</FieldError> : null}
@@ -55,9 +56,9 @@ export function MemberCardForm() {
           {isPending ? <LoaderCircle aria-hidden="true" data-icon="inline-start" className="motion-safe:animate-spin motion-reduce:animate-none" /> : null}
           {isPending ? "Saving card…" : "Save card"}
         </Button>
-        <Button asChild variant="link" className="min-h-11 self-center">
+        {showSkip ? <Button asChild variant="link" className="min-h-11 self-center">
           <Link href="/">Skip for now</Link>
-        </Button>
+        </Button> : null}
         <p aria-live="polite" className="sr-only">{result}</p>
       </FieldGroup>
     </form>

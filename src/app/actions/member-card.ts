@@ -22,7 +22,24 @@ export async function saveCurrentMemberCard(previousState: ActionResult | null, 
   });
 
   if (error?.code === "23505" && error.message.includes("member_card_mappings_pkey")) {
-    return { status: "error", formError: "You already have a card mapping.", fieldErrors: {} };
+    const { error: updateError } = await household.supabase
+      .from("member_card_mappings")
+      .update({ last_four: parsed.data.lastFour })
+      .eq("household_id", household.householdId)
+      .eq("user_id", household.userId);
+
+    if (updateError?.code === "23505" && updateError.message.includes("member_card_mappings_household_id_last_four_key")) {
+      return {
+        status: "error",
+        formError: "Check the form details.",
+        fieldErrors: { lastFour: "These last four digits are already mapped in this household." },
+      };
+    }
+    if (updateError) return { status: "error", formError: "Unable to save the card mapping. Please try again.", fieldErrors: {} };
+    revalidatePath("/setup/card");
+    revalidatePath("/settings");
+    revalidatePath("/transactions/import");
+    return { status: "success" };
   }
   if (error?.code === "23505" && error.message.includes("member_card_mappings_household_id_last_four_key")) {
     return {
@@ -34,6 +51,7 @@ export async function saveCurrentMemberCard(previousState: ActionResult | null, 
   if (error) return { status: "error", formError: "Unable to save the card mapping. Please try again.", fieldErrors: {} };
 
   revalidatePath("/setup/card");
+  revalidatePath("/settings");
   revalidatePath("/transactions/import");
   return { status: "success" };
 }

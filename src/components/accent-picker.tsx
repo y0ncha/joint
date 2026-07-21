@@ -1,41 +1,28 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
-  ACCENT_STORAGE_KEY,
   accentOptions,
   normalizeAccentName,
+  serializeAccentCookie,
 } from "@/lib/accent";
 
-const accentChangeEvent = "joint-accent-change";
-
 function readAccent() {
-  return normalizeAccentName(window.localStorage.getItem(ACCENT_STORAGE_KEY));
-}
-
-function subscribeToAccent(callback: () => void) {
-  window.addEventListener("storage", callback);
-  window.addEventListener(accentChangeEvent, callback);
-
-  return () => {
-    window.removeEventListener("storage", callback);
-    window.removeEventListener(accentChangeEvent, callback);
-  };
+  return normalizeAccentName(document.documentElement.dataset.accent);
 }
 
 export function AccentPicker({ showLabel = true }: { showLabel?: boolean } = {}) {
-  const accent = useSyncExternalStore(subscribeToAccent, readAccent, () => "mint");
-
-  useEffect(() => {
-    document.documentElement.dataset.accent = accent;
-  }, [accent]);
+  const browserAccent = useSyncExternalStore(() => () => {}, readAccent, () => "mint");
+  const [selectedAccent, setSelectedAccent] = useState<ReturnType<typeof normalizeAccentName> | null>(null);
+  const accent = selectedAccent ?? browserAccent;
 
   function selectAccent(value: string) {
     const nextAccent = normalizeAccentName(value);
-    window.localStorage.setItem(ACCENT_STORAGE_KEY, nextAccent);
-    window.dispatchEvent(new Event(accentChangeEvent));
+    setSelectedAccent(nextAccent);
+    document.documentElement.dataset.accent = nextAccent;
+    document.cookie = serializeAccentCookie(nextAccent, window.location.protocol === "https:");
   }
 
   return (

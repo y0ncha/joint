@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ACCENT_STORAGE_KEY, accentOptions, isAccentName, normalizeAccentName } from "./accent";
+import { ACCENT_COOKIE_NAME, accentOptions, isAccentName, normalizeAccentName, serializeAccentCookie } from "./accent";
 
 describe("personal accent preferences", () => {
   it("exposes five named palette options for the appearance picker", () => {
@@ -19,7 +19,7 @@ describe("personal accent preferences", () => {
   });
 
   it("migrates renamed preferences and falls back for unknown values", () => {
-    expect(ACCENT_STORAGE_KEY).toBe("joint-accent");
+    expect(ACCENT_COOKIE_NAME).toBe("joint-accent");
     expect(isAccentName("lilac")).toBe(true);
     expect(isAccentName("neon-green")).toBe(false);
     expect(normalizeAccentName("sky")).toBe("sky");
@@ -27,5 +27,10 @@ describe("personal accent preferences", () => {
     expect(normalizeAccentName("terracotta")).toBe("clay");
     expect(normalizeAccentName("neon-green")).toBe("mint");
     expect(normalizeAccentName(null)).toBe("mint");
+  });
+
+  it("serializes a site-wide cookie and adds Secure only on HTTPS", () => {
+    expect(serializeAccentCookie("sky", true)).toBe("joint-accent=sky; Max-Age=31536000; Path=/; SameSite=Lax; Secure");
+    expect(serializeAccentCookie("invalid", false)).toBe("joint-accent=mint; Max-Age=31536000; Path=/; SameSite=Lax");
   });
 });

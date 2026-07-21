@@ -43,6 +43,10 @@ describe("surface opacity", () => {
   it("keeps card surfaces more opaque than the initial glass baseline", () => {
     expect(globalsCss).toContain("--card: rgba(255, 252, 247, 0.92);");
   });
+
+  it("uses the card base color for fully opaque popup surfaces", () => {
+    expect(globalsCss).toContain("--popover: rgb(255 252 247);");
+  });
 });
 
 describe("form input surfaces", () => {

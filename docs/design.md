@@ -31,7 +31,7 @@ The implementation source of truth is `src/app/globals.css`. Use semantic CSS to
 | `background` | `#f6d4b8` | Fallback page background. |
 | `foreground` | `#17201d` | Primary text and high-emphasis icons. |
 | `card` | `rgba(255, 252, 247, 0.92)` | Main floating surfaces. |
-| `popover` | `#fffaf5` | Opaque menus, calendars, selects, and popovers. |
+| `popover` | `rgb(255 252 247)` | Opaque menus, calendars, selects, and popovers; the same base color as cards. |
 | `muted-foreground` | `#58635e` | Supporting text and quiet icons. |
 | `border` | `rgba(23, 32, 29, 0.12)` | Low-contrast boundaries and dividers. |
 | `positive` | `#0f6b54` | Positive financial values. |
@@ -87,7 +87,7 @@ The selected accent may change primary actions, neutral emphasis, chart steps, f
 - The canvas is a fixed `135deg` peach-to-blue CSS gradient, never an image.
 - The outer workspace frame uses restrained translucency and blur.
 - Cards use the semantic `card` color, a quiet border, and a soft shadow only when separation requires it.
-- Popovers, menus, calendars, and selects use the more opaque `popover` surface.
+- Popovers, menus, calendars, and selects use the fully opaque `popover` version of the card base color.
 - Hover elevation is limited to a subtle one-pixel translation or small shadow change. Static information cards do not need to move.
 
 ## Components and composition
@@ -168,4 +168,4 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 - The primary experience exposes that shared balance, categories, manual income and expenses, statement imports, monthly reporting, recent activity, and partner access.
 - Income and expense use a segmented choice.
 - Expense entry may identify a household member who paid and defaults to the signed-in member; `Unassigned` is an explicit valid state for both manual and imported transactions.
-- A member may optionally save one card's last four digits during onboarding. Imports map a recognized last four digits to that member; unmatched cards remain unassigned. Full card numbers, bank connections, card accounts, transfers, budgets, recurring transactions, automatic categorization, attachments, financial credentials, and audit history remain outside the MVP unless a separately approved plan changes this contract.
+- A member may optionally save one card's last four digits during onboarding or later in Settings, and may replace only their own saved digits. Imports snapshot a recognized mapping into the newly saved transaction's payer; changing the mapping never changes an existing transaction's payer. Unmatched cards remain unassigned. Full card numbers, bank connections, card accounts, transfers, budgets, recurring transactions, automatic categorization, attachments, financial credentials, and audit history remain outside the MVP unless a separately approved plan changes this contract.

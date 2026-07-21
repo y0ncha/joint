@@ -55,7 +55,7 @@
   --foreground: #17201d;
   --card: rgba(255, 252, 247, 0.92);
   --card-foreground: #17201d;
-  --popover: #fffaf5;
+  --popover: rgb(255 252 247);
   --popover-foreground: #17201d;
   --primary: #0f6b54;
   --primary-foreground: #ffffff;

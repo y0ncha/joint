@@ -1,11 +1,12 @@
 import { logOut } from "@/app/actions/auth";
 import { AccentPicker } from "@/components/accent-picker";
+import { MemberCardSettingsControl } from "@/components/member-card-settings-control";
 import { PartnerAccessControl, type PartnerAccessState } from "@/components/partner-access-control";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentHouseholdContext } from "@/lib/household";
-import { ChevronRight, LogOut, Palette, UserPlus, type LucideIcon } from "lucide-react";
+import { ChevronRight, CreditCard, LogOut, Palette, UserPlus, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 function SettingsRow({
@@ -40,6 +41,13 @@ function SettingsRow({
 export default async function SettingsPage() {
   const household = await getCurrentHouseholdContext();
   if (household.status !== "member") return null;
+  const { data: cardMapping, error: cardMappingError } = await household.supabase
+    .from("member_card_mappings")
+    .select("last_four")
+    .eq("household_id", household.householdId)
+    .eq("user_id", household.userId)
+    .maybeSingle();
+  if (cardMappingError) throw new Error("Unable to load card mapping.");
   let partnerState: PartnerAccessState | null = null;
 
   if (household.role === "owner") {
@@ -79,7 +87,7 @@ export default async function SettingsPage() {
         <Card className="border-white/50 bg-card/90">
           <CardHeader>
             <CardTitle>Account</CardTitle>
-            <CardDescription>Manage this browser session and household access.</CardDescription>
+            <CardDescription>Manage this browser session, card mapping, and household access.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="divide-y divide-border/70">
@@ -89,6 +97,9 @@ export default async function SettingsPage() {
                     Log out
                   </Button>
                 </form>
+              </SettingsRow>
+              <SettingsRow icon={CreditCard} label="Card ending" description="Used only for future statement imports.">
+                <MemberCardSettingsControl lastFour={cardMapping?.last_four ?? null} />
               </SettingsRow>
               <SettingsRow icon={UserPlus} label="Partner access" description="Authorize one Google account to share this household." value={household.role === "member" ? "Managed by owner" : undefined}>
                 {partnerState ? <PartnerAccessControl state={partnerState} /> : null}

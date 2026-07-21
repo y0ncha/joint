@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(37);
+select extensions.plan(39);
 
 select extensions.hasnt_table('public', 'accounts', 'has no accounts table');
 select extensions.hasnt_type('public', 'account_kind', 'has no account kind enum');
@@ -60,9 +60,9 @@ select extensions.ok(
 select extensions.ok(
   has_table_privilege('authenticated', 'public.member_card_mappings', 'SELECT')
     and has_table_privilege('authenticated', 'public.member_card_mappings', 'INSERT')
-    and not has_table_privilege('authenticated', 'public.member_card_mappings', 'UPDATE')
+    and has_table_privilege('authenticated', 'public.member_card_mappings', 'UPDATE')
     and not has_table_privilege('authenticated', 'public.member_card_mappings', 'DELETE'),
-  'authenticated users may only select and insert member card mappings'
+  'authenticated users may select, insert, and update member card mappings'
 );
 
 select extensions.is(
@@ -144,6 +144,27 @@ select extensions.throws_like(
   $$,
   '%row-level security%',
   'a household member cannot save a mapping in another household'
+);
+
+select extensions.lives_ok(
+  $$
+    update public.member_card_mappings
+    set last_four = '4321'
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and user_id = '00000000-0000-0000-0000-000000000401'
+  $$,
+  'a household member can replace their own card mapping'
+);
+
+select extensions.throws_like(
+  $$
+    update public.member_card_mappings
+    set last_four = '8765'
+    where household_id = '00000000-0000-0000-0000-000000000411'
+      and user_id = '00000000-0000-0000-0000-000000000403'
+  $$,
+  '%row-level security%',
+  'a household member cannot replace another household mapping'
 );
 
 reset role;

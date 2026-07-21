@@ -10,12 +10,19 @@ const mocks = vi.hoisted(() => ({
   authorizationSelect: vi.fn(),
   authorizationEq: vi.fn(),
   authorizationMaybeSingle: vi.fn(),
+  cardSelect: vi.fn(),
+  cardHouseholdEq: vi.fn(),
+  cardUserEq: vi.fn(),
+  cardMaybeSingle: vi.fn(),
 }));
 
 vi.mock("@/lib/household", () => ({ getCurrentHouseholdContext: mocks.getCurrentHouseholdContext }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/settings" }));
 vi.mock("@/components/partner-access-control", () => ({
   PartnerAccessControl: ({ state }: { state: { status: string; email?: string } }) => <span data-partner-state={state.status}>{state.email ?? "No authorized email"}</span>,
+}));
+vi.mock("@/components/member-card-settings-control", () => ({
+  MemberCardSettingsControl: ({ lastFour }: { lastFour: string | null }) => <span data-card-last-four={lastFour ?? "none"} />,
 }));
 
 const settingsModule = await import("./page");
@@ -27,6 +34,8 @@ beforeEach(() => {
   });
   mocks.from.mockImplementation((table: string) => table === "household_members"
     ? { select: mocks.memberSelect }
+    : table === "member_card_mappings"
+      ? { select: mocks.cardSelect }
     : { select: mocks.authorizationSelect });
   mocks.memberSelect.mockReturnValue({ eq: mocks.memberEq });
   mocks.memberEq.mockReturnValue({ order: mocks.memberOrder });
@@ -34,6 +43,10 @@ beforeEach(() => {
   mocks.authorizationSelect.mockReturnValue({ eq: mocks.authorizationEq });
   mocks.authorizationEq.mockReturnValue({ maybeSingle: mocks.authorizationMaybeSingle });
   mocks.authorizationMaybeSingle.mockResolvedValue({ data: null, error: null });
+  mocks.cardSelect.mockReturnValue({ eq: mocks.cardHouseholdEq });
+  mocks.cardHouseholdEq.mockReturnValue({ eq: mocks.cardUserEq });
+  mocks.cardUserEq.mockReturnValue({ maybeSingle: mocks.cardMaybeSingle });
+  mocks.cardMaybeSingle.mockResolvedValue({ data: { last_four: "4548" }, error: null });
 });
 
 it("renders Appearance and Account cards", async () => {
@@ -43,6 +56,9 @@ it("renders Appearance and Account cards", async () => {
   expect(markup).toContain("Appearance");
   expect(markup).toContain("Account");
   expect(markup).toContain("Session");
+  expect(markup).toContain("Card ending");
+  expect(markup).not.toContain("Card last four");
+  expect(markup).toContain('data-card-last-four="4548"');
   expect(markup).toContain('data-partner-state="empty"');
   expect(markup).not.toContain("profiles");
 });

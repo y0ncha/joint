@@ -1,4 +1,4 @@
-export const ACCENT_STORAGE_KEY = "joint-accent";
+export const ACCENT_COOKIE_NAME = "joint-accent";
 
 export const accentOptions = [
   { name: "mint", label: "Mint", description: "Grounded green", swatch: "#0f6b54" },
@@ -18,4 +18,8 @@ export function normalizeAccentName(value: unknown): AccentName {
   if (value === "peach" || value === "terracotta") return "clay";
 
   return isAccentName(value) ? value : "mint";
+}
+
+export function serializeAccentCookie(value: unknown, secure: boolean) {
+  return `${ACCENT_COOKIE_NAME}=${normalizeAccentName(value)}; Max-Age=31536000; Path=/; SameSite=Lax${secure ? "; Secure" : ""}`;
 }

@@ -4,6 +4,9 @@ const mocks = vi.hoisted(() => ({
   requireCurrentHousehold: vi.fn(),
   from: vi.fn(),
   insert: vi.fn(),
+  update: vi.fn(),
+  updateHouseholdEq: vi.fn(),
+  updateUserEq: vi.fn(),
   revalidatePath: vi.fn(),
 }));
 
@@ -28,8 +31,11 @@ describe("member card action", () => {
       userId: "member-id",
       role: "member",
     });
-    mocks.from.mockReturnValue({ insert: mocks.insert });
+    mocks.from.mockReturnValue({ insert: mocks.insert, update: mocks.update });
     mocks.insert.mockResolvedValue({ error: null });
+    mocks.update.mockReturnValue({ eq: mocks.updateHouseholdEq });
+    mocks.updateHouseholdEq.mockReturnValue({ eq: mocks.updateUserEq });
+    mocks.updateUserEq.mockResolvedValue({ error: null });
   });
 
   it("derives a first mapping from verified membership instead of form identifiers", async () => {
@@ -49,15 +55,15 @@ describe("member card action", () => {
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
 
-  it("rejects a second mapping for the current member without exposing database details", async () => {
+  it("replaces the current member mapping when one already exists", async () => {
     mocks.insert.mockResolvedValue({ error: { code: "23505", message: "member_card_mappings_pkey" } });
 
-    await expect(actions.saveCurrentMemberCard(null, formData({ lastFour: "4548" }))).resolves.toEqual({
-      status: "error",
-      formError: "You already have a card mapping.",
-      fieldErrors: {},
-    });
-    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+    await expect(actions.saveCurrentMemberCard(null, formData({ lastFour: "4548" }))).resolves.toEqual({ status: "success" });
+
+    expect(mocks.update).toHaveBeenCalledWith({ last_four: "4548" });
+    expect(mocks.updateHouseholdEq).toHaveBeenCalledWith("household_id", "household-id");
+    expect(mocks.updateUserEq).toHaveBeenCalledWith("user_id", "member-id");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/settings");
   });
 
   it("handles a duplicate household card value as a safe field error", async () => {
