@@ -58,16 +58,16 @@ export function TransactionLedger({ transactions, categories, members }: { trans
             key={transaction.id}
             role="button"
             tabIndex={0}
-            aria-label={`Edit ${transaction.note || transaction.kind} transaction`}
+            aria-label={`Edit ${transaction.merchant || transaction.note || transaction.kind} transaction`}
             className="cursor-pointer outline-none hover:bg-muted/35 focus-visible:bg-muted/45 focus-visible:ring-3 focus-visible:ring-ring/45"
             onClick={() => openTransaction(transaction)}
             onKeyDown={(event) => openTransactionFromKeyboard(event, transaction)}
           >
             <TableCell className="font-mono text-muted-foreground">{date.format(new Date(`${transaction.occurredOn}T00:00:00Z`))}</TableCell>
             <TableCell className="capitalize">{transaction.kind}</TableCell>
-            <TableCell className="truncate">{memberNames.get(transaction.paidBy) ?? "Household member"}</TableCell>
-            <TableCell className="truncate">{categoryNames.get(transaction.categoryId!)}</TableCell>
-            <TableCell className="max-w-[14rem] truncate">{transaction.note || "-"}</TableCell>
+            <TableCell className="truncate">{memberNames.get(transaction.paidBy ?? "") ?? "Unassigned"}</TableCell>
+            <TableCell className="truncate">{categoryNames.get(transaction.categoryId ?? "") ?? "Uncategorized"}</TableCell>
+            <TableCell className="max-w-[14rem] truncate">{transaction.merchant || transaction.note || "-"}{transaction.source === "statement_import" ? " (Imported)" : ""}</TableCell>
             <TableCell className="text-right font-mono">{currency.format(transaction.amount)}</TableCell>
           </TableRow>
         ))}

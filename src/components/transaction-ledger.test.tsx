@@ -46,7 +46,7 @@ it("keeps transaction details aligned inside a constrained ledger table", () => 
   expect(markup).not.toContain("aria-label=\"Add transaction\"");
   expect(markup).not.toContain("aria-label=\"Delete");
   expect(markup).not.toContain(">Delete</button>");
-  expect(readFileSync("src/components/transaction-ledger.tsx", "utf8")).not.toContain("transaction.categoryId ?");
+  expect(readFileSync("src/components/transaction-ledger.tsx", "utf8")).not.toMatch(/transaction\.categoryId \?[^?]/);
 });
 
 it("renders imported merchant details with uncategorized and unassigned fallbacks", () => {

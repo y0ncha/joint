@@ -33,7 +33,7 @@ export function MemberCardForm({ initialLastFour, redirectTo = "/", showSkip = t
     <form action={formAction}>
       <FieldGroup>
         <Field data-invalid={hasLastFourError} className="gap-8">
-          <FieldLabel htmlFor="card-last-four" className="sr-only">Last four digits</FieldLabel>
+          <FieldLabel htmlFor="card-last-four">Last four digits</FieldLabel>
           <InputOTP
             id="card-last-four"
             name="lastFour"

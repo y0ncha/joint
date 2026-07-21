@@ -49,7 +49,12 @@ export async function importStatement(_previousState: ActionResult | null, formD
   let parsedStatement: Awaited<ReturnType<typeof parseStatementFile>>;
   try {
     parsedStatement = await parseStatementFile({ name: statement.name, type: statement.type, bytes });
-  } catch {
+  } catch (error) {
+    const row = error instanceof Error ? /^row (\d+): invalid (?:date|amount|merchant|note|card)$/.exec(error.message)?.[1] : undefined;
+    if (row) {
+      const message = `Check statement row ${row}.`;
+      return { status: "error", formError: message, fieldErrors: { statement: message } };
+    }
     return { status: "error", formError: "Unable to import this statement. Please review the file and try again.", fieldErrors: {} };
   }
 

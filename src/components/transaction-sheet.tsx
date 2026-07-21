@@ -78,9 +78,10 @@ export function TransactionSheet({
   const selectableCategories = useMemo(() => categories.filter((category) => category.kind === kind), [categories, kind]);
   const [occurredOn, setOccurredOn] = useState(transaction?.occurredOn ?? todayIso);
   const [paidBy, setPaidBy] = useState(() => transaction?.paidBy ?? currentUserId ?? members[0]?.id ?? "");
-  const [categoryId, setCategoryId] = useState(() => transaction?.categoryId ?? categories.find((category) => category.kind === initialKind)?.id ?? "");
-  const selectedCategoryId = selectableCategories.some((category) => category.id === categoryId) ? categoryId : (selectableCategories[0]?.id ?? "");
-  const selectedPaidBy = members.some((member) => member.id === paidBy) ? paidBy : (currentUserId || members[0]?.id || "");
+  const [categoryId, setCategoryId] = useState(() => transaction ? (transaction.categoryId ?? "") : (categories.find((category) => category.kind === initialKind)?.id ?? ""));
+  const isUncategorizedImport = transaction?.source === "statement_import" && categoryId === "";
+  const selectedCategoryId = isUncategorizedImport ? "" : (selectableCategories.some((category) => category.id === categoryId) ? categoryId : (selectableCategories[0]?.id ?? ""));
+  const selectedPaidBy = paidBy === "" ? "" : (members.some((member) => member.id === paidBy) ? paidBy : (currentUserId || members[0]?.id || ""));
   const shouldRenderDefaultTrigger = !isEditing && open === undefined && onOpenChange === undefined;
 
   return (
@@ -139,12 +140,13 @@ export function TransactionSheet({
             </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.paidBy)}>
               <FieldLabel>Paid by</FieldLabel>
-              <Select value={selectedPaidBy} onValueChange={setPaidBy} disabled={members.length === 0}>
+              <Select value={selectedPaidBy || "unassigned"} onValueChange={(value) => setPaidBy(value === "unassigned" ? "" : value)} disabled={members.length === 0}>
                 <SelectTrigger className="w-full" aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.paidBy)}>
                   <SelectValue placeholder="Choose member" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
                     {members.map((member) => (
                       <SelectItem key={member.id} value={member.id}>{member.label}</SelectItem>
                     ))}
@@ -155,7 +157,7 @@ export function TransactionSheet({
             </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.categoryId)}>
               <FieldLabel>Category</FieldLabel>
-              <Select value={selectedCategoryId} onValueChange={setCategoryId} disabled={selectableCategories.length === 0}>
+              {isUncategorizedImport ? <p className="text-sm text-muted-foreground">Uncategorized</p> : <Select value={selectedCategoryId} onValueChange={setCategoryId} disabled={selectableCategories.length === 0}>
                 <SelectTrigger className="w-full" aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.categoryId)}>
                   <SelectValue placeholder="Choose category" />
                 </SelectTrigger>
@@ -166,8 +168,13 @@ export function TransactionSheet({
                     ))}
                   </SelectGroup>
                 </SelectContent>
-              </Select>
+              </Select>}
               {state?.status === "error" ? <FieldError>{state.fieldErrors.categoryId}</FieldError> : null}
+            </Field>
+            <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)}>
+              <FieldLabel htmlFor="merchant">Merchant</FieldLabel>
+              <Input id="merchant" name="merchant" defaultValue={transaction?.merchant ?? undefined} aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)} />
+              {state?.status === "error" ? <FieldError>{state.fieldErrors.merchant}</FieldError> : null}
             </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.note)}>
               <FieldLabel htmlFor="note">Note</FieldLabel>

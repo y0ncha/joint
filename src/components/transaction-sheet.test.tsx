@@ -115,8 +115,8 @@ it("keeps an imported transaction uncategorized and unassigned while exposing Me
   expect(markup).toContain("Super Pharm");
   expect(markup).toContain("Unassigned");
   expect(markup).toContain("Uncategorized");
-  expect(markup).toContain('name="categoryId" type="hidden" value=""');
-  expect(markup).toContain('name="paidBy" type="hidden" value=""');
+  expect(markup).toContain('type="hidden" name="categoryId" value=""');
+  expect(markup).toContain('type="hidden" name="paidBy" value=""');
 });
 
 it("preserves the local calendar day when serializing a selected date", () => {

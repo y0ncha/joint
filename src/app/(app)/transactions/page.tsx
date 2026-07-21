@@ -1,8 +1,11 @@
+import Link from "next/link";
+
 import { LedgerMonthSelector } from "@/components/ledger-month-selector";
 import { TransactionLedger } from "@/components/transaction-ledger";
 import { TransactionSheet } from "@/components/transaction-sheet";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { getDashboardData } from "@/lib/dashboard-data";
 
 function currentMonth() { return new Date().toISOString().slice(0, 7); }
@@ -15,7 +18,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
     <WorkspaceShell
       title="Transactions"
       description="Review this month's household ledger."
-      actions={<TransactionSheet categories={data.categories.filter((category) => category.archivedAt === null).map((category) => ({ id: category.id, name: category.name, kind: category.kind }))} currentUserId={data.currentUserId} members={data.members} />}
+      actions={<><Button asChild variant="outline"><Link href="/transactions/import">Import statement</Link></Button><TransactionSheet categories={data.categories.filter((category) => category.archivedAt === null).map((category) => ({ id: category.id, name: category.name, kind: category.kind }))} currentUserId={data.currentUserId} members={data.members} /></>}
     >
       <LedgerMonthSelector month={month} />
       <Card className="mt-4 border-white/50 bg-card/90">

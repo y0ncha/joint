@@ -117,7 +117,7 @@ describe("statement import action", () => {
     mocks.parseStatementFile.mockRejectedValue(new Error("row 8: invalid date"));
 
     await expect(actions.importStatement(null, formData(statementFile()))).resolves.toEqual({
-      status: "error", formError: "Unable to import this statement. Please review the file and try again.", fieldErrors: {},
+      status: "error", formError: "Check statement row 8.", fieldErrors: { statement: "Check statement row 8." },
     });
     expect(mocks.transactionInsert).not.toHaveBeenCalled();
   });
