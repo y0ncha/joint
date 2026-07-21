@@ -1,3 +1,4 @@
+import "server-only";
 import ExcelJS from "exceljs";
 import { Readable } from "node:stream";
 
@@ -78,6 +79,10 @@ function textAt(row: ExcelJS.Row, column: number) {
   return row.getCell(column).text.trim();
 }
 
+function rawTextAt(row: ExcelJS.Row, column: number) {
+  return row.getCell(column).text;
+}
+
 function findHeader(workbook: ExcelJS.Workbook) {
   const matches: Array<{ worksheet: ExcelJS.Worksheet; rowNumber: number; columns: HeaderColumns }> = [];
 
@@ -142,7 +147,7 @@ function parseRows(header: { worksheet: ExcelJS.Worksheet; rowNumber: number; co
   header.worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
     if (rowNumber <= header.rowNumber) return;
 
-    const chargedAmount = textAt(row, header.columns["סכום החיוב"]);
+    const chargedAmount = rawTextAt(row, header.columns["סכום החיוב"]);
     if (!chargedAmount) return;
     statementRowCount += 1;
     if (statementRowCount > MAX_ROWS) invalidFile();
@@ -167,7 +172,7 @@ function parseRows(header: { worksheet: ExcelJS.Worksheet; rowNumber: number; co
       importRowNumber: rowNumber,
       cardLastFour,
       merchant,
-      occurredOn: parseDate(textAt(row, header.columns["תאריך עסקה"]), rowNumber),
+      occurredOn: parseDate(rawTextAt(row, header.columns["תאריך עסקה"]), rowNumber),
       kind: amount.kind,
       amount: amount.amount,
       note,
