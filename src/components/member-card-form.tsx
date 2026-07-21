@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
 import { LoaderCircle } from "lucide-react";
+import { REGEXP_ONLY_DIGITS } from "input-otp";
 
 import { saveCurrentMemberCard } from "@/app/actions/member-card";
 import type { ActionResult } from "@/app/actions/result";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 export function MemberCardForm({ initialLastFour, redirectTo = "/", showSkip = true }: { initialLastFour?: string; redirectTo?: string; showSkip?: boolean }) {
   const router = useRouter();
@@ -31,24 +32,31 @@ export function MemberCardForm({ initialLastFour, redirectTo = "/", showSkip = t
   return (
     <form action={formAction}>
       <FieldGroup>
-        <Field data-invalid={hasLastFourError}>
-          <FieldLabel htmlFor="card-last-four">Last four digits</FieldLabel>
-          <Input
+        <Field data-invalid={hasLastFourError} className="gap-8">
+          <FieldLabel htmlFor="card-last-four" className="sr-only">Last four digits</FieldLabel>
+          <InputOTP
             id="card-last-four"
             name="lastFour"
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]{4}"
             maxLength={4}
+            pattern={REGEXP_ONLY_DIGITS}
             defaultValue={initialLastFour}
             autoComplete="off"
             required
-            spellCheck={false}
-            className="min-h-11 text-center font-mono tracking-[0.3em]"
             aria-invalid={hasLastFourError}
             aria-describedby={hasLastFourError ? "card-last-four-error" : undefined}
-          />
-          <FieldDescription>Only used to match statement imports.</FieldDescription>
+            containerClassName="my-10 justify-center"
+          >
+            <InputOTPGroup className="gap-2">
+              <InputOTPSlot index={0} className="size-11 rounded-xl border text-lg font-mono first:rounded-xl first:border last:rounded-xl" />
+              <InputOTPSlot index={1} className="size-11 rounded-xl border text-lg font-mono first:rounded-xl first:border last:rounded-xl" />
+              <InputOTPSlot index={2} className="size-11 rounded-xl border text-lg font-mono first:rounded-xl first:border last:rounded-xl" />
+              <InputOTPSlot index={3} className="size-11 rounded-xl border text-lg font-mono first:rounded-xl first:border last:rounded-xl" />
+            </InputOTPGroup>
+          </InputOTP>
+          <FieldDescription className="flex flex-col gap-1">
+            <span>Optionally match imported statement rows to you.</span>
+            <span>Only used to match statement imports.</span>
+          </FieldDescription>
           {hasLastFourError ? <FieldError id="card-last-four-error">{state.fieldErrors.lastFour}</FieldError> : null}
         </Field>
         {state?.status === "error" && state.formError ? <FieldError>{state.formError}</FieldError> : null}
@@ -56,7 +64,7 @@ export function MemberCardForm({ initialLastFour, redirectTo = "/", showSkip = t
           {isPending ? <LoaderCircle aria-hidden="true" data-icon="inline-start" className="motion-safe:animate-spin motion-reduce:animate-none" /> : null}
           {isPending ? "Saving card…" : "Save card"}
         </Button>
-        {showSkip ? <Button asChild variant="link" className="min-h-11 self-center">
+        {showSkip ? <Button asChild variant="link" className="-mt-3 min-h-11 self-center">
           <Link href="/">Skip for now</Link>
         </Button> : null}
         <p aria-live="polite" className="sr-only">{result}</p>

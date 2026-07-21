@@ -15,20 +15,20 @@ export async function saveCurrentMemberCard(previousState: ActionResult | null, 
   if (!parsed.success) return validationError(parsed.error.issues);
 
   const household = await requireCurrentHousehold();
-  const { error } = await household.supabase.from("member_card_mappings").insert({
+  const { error } = await household.supabase.from("member_cards").insert({
     household_id: household.householdId,
     user_id: household.userId,
     last_four: parsed.data.lastFour,
   });
 
-  if (error?.code === "23505" && error.message.includes("member_card_mappings_pkey")) {
+  if (error?.code === "23505" && error.message.includes("member_cards_pkey")) {
     const { error: updateError } = await household.supabase
-      .from("member_card_mappings")
+      .from("member_cards")
       .update({ last_four: parsed.data.lastFour })
       .eq("household_id", household.householdId)
       .eq("user_id", household.userId);
 
-    if (updateError?.code === "23505" && updateError.message.includes("member_card_mappings_household_id_last_four_key")) {
+    if (updateError?.code === "23505" && updateError.message.includes("member_cards_household_id_last_four_key")) {
       return {
         status: "error",
         formError: "Check the form details.",
@@ -41,7 +41,7 @@ export async function saveCurrentMemberCard(previousState: ActionResult | null, 
     revalidatePath("/transactions/import");
     return { status: "success" };
   }
-  if (error?.code === "23505" && error.message.includes("member_card_mappings_household_id_last_four_key")) {
+  if (error?.code === "23505" && error.message.includes("member_cards_household_id_last_four_key")) {
     return {
       status: "error",
       formError: "Check the form details.",

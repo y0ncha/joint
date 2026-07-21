@@ -44,7 +44,7 @@ select extensions.ok(
   'RLS is enabled on households, categories, and transactions'
 );
 
-select extensions.has_table('public', 'member_card_mappings', 'has member card mappings');
+select extensions.has_table('public', 'member_cards', 'has member cards');
 
 select extensions.ok(
   (
@@ -52,16 +52,16 @@ select extensions.ok(
     from pg_catalog.pg_class as schema_table
     join pg_catalog.pg_namespace as table_schema on table_schema.oid = schema_table.relnamespace
     where table_schema.nspname = 'public'
-      and schema_table.relname = 'member_card_mappings'
+      and schema_table.relname = 'member_cards'
   ),
   'RLS is enabled on member card mappings'
 );
 
 select extensions.ok(
-  has_table_privilege('authenticated', 'public.member_card_mappings', 'SELECT')
-    and has_table_privilege('authenticated', 'public.member_card_mappings', 'INSERT')
-    and has_table_privilege('authenticated', 'public.member_card_mappings', 'UPDATE')
-    and not has_table_privilege('authenticated', 'public.member_card_mappings', 'DELETE'),
+  has_table_privilege('authenticated', 'public.member_cards', 'SELECT')
+    and has_table_privilege('authenticated', 'public.member_cards', 'INSERT')
+    and has_table_privilege('authenticated', 'public.member_cards', 'UPDATE')
+    and not has_table_privilege('authenticated', 'public.member_cards', 'DELETE'),
   'authenticated users may select, insert, and update member card mappings'
 );
 
@@ -97,7 +97,7 @@ values
 
 select extensions.lives_ok(
   $$
-    insert into public.member_card_mappings (household_id, user_id, last_four)
+    insert into public.member_cards (household_id, user_id, last_four)
     values ('00000000-0000-0000-0000-000000000411', '00000000-0000-0000-0000-000000000403', '1234')
   $$,
   'the same card suffix may exist in another household'
@@ -110,7 +110,7 @@ set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","e
 
 select extensions.lives_ok(
   $$
-    insert into public.member_card_mappings (household_id, user_id, last_four)
+    insert into public.member_cards (household_id, user_id, last_four)
     values ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000401', '1234')
   $$,
   'a household member can save their own card mapping'
@@ -118,7 +118,7 @@ select extensions.lives_ok(
 
 select extensions.throws_like(
   $$
-    insert into public.member_card_mappings (household_id, user_id, last_four)
+    insert into public.member_cards (household_id, user_id, last_four)
     values ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000402', '5678')
   $$,
   '%row-level security%',
@@ -126,20 +126,20 @@ select extensions.throws_like(
 );
 
 select extensions.is(
-  (select count(*) from public.member_card_mappings where household_id = '00000000-0000-0000-0000-000000000410'),
+  (select count(*) from public.member_cards where household_id = '00000000-0000-0000-0000-000000000410'),
   1::bigint,
   'a household member can read their household card mappings'
 );
 
 select extensions.is(
-  (select count(*) from public.member_card_mappings where household_id = '00000000-0000-0000-0000-000000000411'),
+  (select count(*) from public.member_cards where household_id = '00000000-0000-0000-0000-000000000411'),
   0::bigint,
   'a household member cannot read another household card mappings'
 );
 
 select extensions.throws_like(
   $$
-    insert into public.member_card_mappings (household_id, user_id, last_four)
+    insert into public.member_cards (household_id, user_id, last_four)
     values ('00000000-0000-0000-0000-000000000411', '00000000-0000-0000-0000-000000000401', '5678')
   $$,
   '%row-level security%',
@@ -148,7 +148,7 @@ select extensions.throws_like(
 
 select extensions.lives_ok(
   $$
-    update public.member_card_mappings
+    update public.member_cards
     set last_four = '4321'
     where household_id = '00000000-0000-0000-0000-000000000410'
       and user_id = '00000000-0000-0000-0000-000000000401'
@@ -158,7 +158,7 @@ select extensions.lives_ok(
 
 select extensions.throws_like(
   $$
-    update public.member_card_mappings
+    update public.member_cards
     set last_four = '8765'
     where household_id = '00000000-0000-0000-0000-000000000411'
       and user_id = '00000000-0000-0000-0000-000000000403'
@@ -174,28 +174,28 @@ set local request.jwt.claims = '{}';
 
 select extensions.throws_like(
   $$
-    insert into public.member_card_mappings (household_id, user_id, last_four)
+    insert into public.member_cards (household_id, user_id, last_four)
     values ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000401', '5678')
   $$,
-  '%member_card_mappings_pkey%',
+  '%member_cards_pkey%',
   'a household member can have only one card mapping'
 );
 
 select extensions.throws_like(
   $$
-    insert into public.member_card_mappings (household_id, user_id, last_four)
+    insert into public.member_cards (household_id, user_id, last_four)
     values ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000402', '1234')
   $$,
-  '%member_card_mappings_household_id_last_four_key%',
+  '%member_cards_household_id_last_four_key%',
   'a card suffix can map to only one member per household'
 );
 
 select extensions.throws_like(
   $$
-    insert into public.member_card_mappings (household_id, user_id, last_four)
+    insert into public.member_cards (household_id, user_id, last_four)
     values ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000402', '123')
   $$,
-  '%member_card_mappings_last_four_check%',
+  '%member_cards_last_four_check%',
   'a card mapping requires exactly four digits'
 );
 

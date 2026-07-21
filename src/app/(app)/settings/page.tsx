@@ -42,7 +42,7 @@ export default async function SettingsPage() {
   const household = await getCurrentHouseholdContext();
   if (household.status !== "member") return null;
   const { data: cardMapping, error: cardMappingError } = await household.supabase
-    .from("member_card_mappings")
+    .from("member_cards")
     .select("last_four")
     .eq("household_id", household.householdId)
     .eq("user_id", household.userId)

@@ -61,7 +61,7 @@ describe("statement import action", () => {
           insert: mocks.transactionInsert,
         };
       }
-      if (table === "member_card_mappings") return { select: vi.fn().mockReturnValue({ eq: mocks.cardMappingsEq }) };
+      if (table === "member_cards") return { select: vi.fn().mockReturnValue({ eq: mocks.cardMappingsEq }) };
       throw new Error(`Unexpected table: ${table}`);
     });
     mocks.duplicateHashHouseholdEq.mockReturnValue({ eq: mocks.duplicateHashEq });
@@ -81,7 +81,7 @@ describe("statement import action", () => {
       },
     });
 
-    expect(mocks.from).toHaveBeenCalledWith("member_card_mappings");
+    expect(mocks.from).toHaveBeenCalledWith("member_cards");
     expect(mocks.duplicateHashHouseholdEq).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.duplicateHashEq).toHaveBeenCalledWith("import_file_hash", statementHash);
     expect(mocks.duplicateHashLimit).toHaveBeenCalledWith(1);

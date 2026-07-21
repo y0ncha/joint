@@ -31,7 +31,7 @@ The implementation source of truth is `src/app/globals.css`. Use semantic CSS to
 | `background` | `#f6d4b8` | Fallback page background. |
 | `foreground` | `#17201d` | Primary text and high-emphasis icons. |
 | `card` | `rgba(255, 252, 247, 0.92)` | Main floating surfaces. |
-| `popover` | `rgb(255 252 247)` | Opaque menus, calendars, selects, and popovers; the same base color as cards. |
+| `popover` | `#fffdfb` | Fully opaque, neutral menus, calendars, selects, and popovers. |
 | `muted-foreground` | `#58635e` | Supporting text and quiet icons. |
 | `border` | `rgba(23, 32, 29, 0.12)` | Low-contrast boundaries and dividers. |
 | `positive` | `#0f6b54` | Positive financial values. |
@@ -87,7 +87,7 @@ The selected accent may change primary actions, neutral emphasis, chart steps, f
 - The canvas is a fixed `135deg` peach-to-blue CSS gradient, never an image.
 - The outer workspace frame uses restrained translucency and blur.
 - Cards use the semantic `card` color, a quiet border, and a soft shadow only when separation requires it.
-- Popovers, menus, calendars, and selects use the fully opaque `popover` version of the card base color.
+- Popovers, menus, calendars, and selects use the fully opaque, neutral `popover` surface.
 - Hover elevation is limited to a subtle one-pixel translation or small shadow change. Static information cards do not need to move.
 
 ## Components and composition

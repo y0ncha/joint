@@ -32,7 +32,8 @@ beforeEach(() => {
 it("renders card setup only for the current member without a mapping", async () => {
   const markup = renderToStaticMarkup(await pageModule.default());
 
-  expect(markup).toContain("Add your card");
+  expect(markup).toContain("Add your last four digits");
+  expect(markup).not.toContain("Optionally match imported statement rows to you.");
   expect(markup).toContain("data-member-card-form");
   expect(mocks.requireCurrentHousehold).toHaveBeenCalledOnce();
 });
@@ -40,7 +41,7 @@ it("renders card setup only for the current member without a mapping", async () 
 it("checks the mapping through the verified household and member", async () => {
   await pageModule.default();
 
-  expect(mocks.from).toHaveBeenCalledWith("member_card_mappings");
+  expect(mocks.from).toHaveBeenCalledWith("member_cards");
   expect(mocks.select).toHaveBeenCalledWith("user_id");
   expect(mocks.householdEq).toHaveBeenCalledWith("household_id", "household-id");
   expect(mocks.userEq).toHaveBeenCalledWith("user_id", "member-id");

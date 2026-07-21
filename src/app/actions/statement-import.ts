@@ -54,7 +54,7 @@ export async function importStatement(_previousState: ActionResult | null, formD
   }
 
   const { data: cardMappings, error: cardMappingsError } = await household.supabase
-    .from("member_card_mappings")
+    .from("member_cards")
     .select("last_four, user_id")
     .eq("household_id", household.householdId);
 

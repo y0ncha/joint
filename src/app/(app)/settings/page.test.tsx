@@ -34,7 +34,7 @@ beforeEach(() => {
   });
   mocks.from.mockImplementation((table: string) => table === "household_members"
     ? { select: mocks.memberSelect }
-    : table === "member_card_mappings"
+    : table === "member_cards"
       ? { select: mocks.cardSelect }
     : { select: mocks.authorizationSelect });
   mocks.memberSelect.mockReturnValue({ eq: mocks.memberEq });

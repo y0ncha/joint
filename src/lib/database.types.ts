@@ -155,7 +155,7 @@ export type Database = {
           },
         ]
       }
-      member_card_mappings: {
+      member_cards: {
         Row: {
           created_at: string
           household_id: string
@@ -176,7 +176,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "member_card_mappings_household_id_user_id_fkey"
+            foreignKeyName: "member_cards_household_id_user_id_fkey"
             columns: ["household_id", "user_id"]
             isOneToOne: true
             referencedRelation: "household_members"

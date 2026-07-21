@@ -44,8 +44,8 @@ describe("surface opacity", () => {
     expect(globalsCss).toContain("--card: rgba(255, 252, 247, 0.92);");
   });
 
-  it("uses the card base color for fully opaque popup surfaces", () => {
-    expect(globalsCss).toContain("--popover: rgb(255 252 247);");
+  it("uses a fully opaque neutral popup surface", () => {
+    expect(globalsCss).toContain("--popover: #fffdfb;");
   });
 });
 

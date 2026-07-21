@@ -42,7 +42,7 @@ describe("member card action", () => {
     await expect(actions.saveCurrentMemberCard(null, formData({ lastFour: "4548", householdId: "other-household", userId: "other-user" })))
       .resolves.toEqual({ status: "success" });
 
-    expect(mocks.from).toHaveBeenCalledWith("member_card_mappings");
+    expect(mocks.from).toHaveBeenCalledWith("member_cards");
     expect(mocks.insert).toHaveBeenCalledWith({ household_id: "household-id", user_id: "member-id", last_four: "4548" });
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/setup/card");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions/import");
@@ -56,7 +56,7 @@ describe("member card action", () => {
   });
 
   it("replaces the current member mapping when one already exists", async () => {
-    mocks.insert.mockResolvedValue({ error: { code: "23505", message: "member_card_mappings_pkey" } });
+    mocks.insert.mockResolvedValue({ error: { code: "23505", message: "member_cards_pkey" } });
 
     await expect(actions.saveCurrentMemberCard(null, formData({ lastFour: "4548" }))).resolves.toEqual({ status: "success" });
 
@@ -67,7 +67,7 @@ describe("member card action", () => {
   });
 
   it("handles a duplicate household card value as a safe field error", async () => {
-    mocks.insert.mockResolvedValue({ error: { code: "23505", message: "member_card_mappings_household_id_last_four_key" } });
+    mocks.insert.mockResolvedValue({ error: { code: "23505", message: "member_cards_household_id_last_four_key" } });
 
     await expect(actions.saveCurrentMemberCard(null, formData({ lastFour: "4548" }))).resolves.toEqual({
       status: "error",
