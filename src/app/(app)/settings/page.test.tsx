@@ -14,6 +14,9 @@ const mocks = vi.hoisted(() => ({
   cardHouseholdEq: vi.fn(),
   cardUserEq: vi.fn(),
   cardMaybeSingle: vi.fn(),
+  profileSelect: vi.fn(),
+  profileEq: vi.fn(),
+  profileMaybeSingle: vi.fn(),
 }));
 
 vi.mock("@/lib/household", () => ({ getCurrentHouseholdContext: mocks.getCurrentHouseholdContext }));
@@ -36,7 +39,9 @@ beforeEach(() => {
     ? { select: mocks.memberSelect }
     : table === "member_cards"
       ? { select: mocks.cardSelect }
-    : { select: mocks.authorizationSelect });
+      : table === "profiles"
+        ? { select: mocks.profileSelect }
+        : { select: mocks.authorizationSelect });
   mocks.memberSelect.mockReturnValue({ eq: mocks.memberEq });
   mocks.memberEq.mockReturnValue({ order: mocks.memberOrder });
   mocks.memberOrder.mockResolvedValue({ data: [{ role: "owner" }], error: null });
@@ -47,6 +52,9 @@ beforeEach(() => {
   mocks.cardHouseholdEq.mockReturnValue({ eq: mocks.cardUserEq });
   mocks.cardUserEq.mockReturnValue({ maybeSingle: mocks.cardMaybeSingle });
   mocks.cardMaybeSingle.mockResolvedValue({ data: { last_four: "4548" }, error: null });
+  mocks.profileSelect.mockReturnValue({ eq: mocks.profileEq });
+  mocks.profileEq.mockReturnValue({ maybeSingle: mocks.profileMaybeSingle });
+  mocks.profileMaybeSingle.mockResolvedValue({ data: { full_name: "Ada Lovelace" }, error: null });
 });
 
 it("renders Appearance and Account cards", async () => {
@@ -56,11 +64,16 @@ it("renders Appearance and Account cards", async () => {
   expect(markup).toContain("Appearance");
   expect(markup).toContain("Account");
   expect(markup).toContain("Session");
+  expect(markup).toContain("Name");
   expect(markup).toContain("Card ending");
   expect(markup).not.toContain("Card last four");
   expect(markup).toContain('data-card-last-four="4548"');
   expect(markup).toContain('data-partner-state="empty"');
-  expect(markup).not.toContain("profiles");
+  expect(markup).toContain("Ada Lovelace");
+  expect(markup).not.toContain(">Edit<");
+  expect(mocks.from).toHaveBeenCalledWith("profiles");
+  expect(mocks.profileEq).toHaveBeenCalledWith("id", "owner-id");
+  expect(markup.indexOf("Partner access")).toBeLessThan(markup.indexOf("Session"));
 });
 
 it("derives the empty owner state through the member request context", async () => {
@@ -69,7 +82,7 @@ it("derives the empty owner state through the member request context", async () 
   expect(markup).toContain('data-partner-state="empty"');
   expect(mocks.from).toHaveBeenCalledWith("household_members");
   expect(mocks.from).toHaveBeenCalledWith("household_allowed_members");
-  expect(mocks.from).not.toHaveBeenCalledWith("profiles");
+  expect(mocks.from).toHaveBeenCalledWith("profiles");
   expect(mocks.memberEq).toHaveBeenCalledWith("household_id", "household-id");
   expect(mocks.authorizationEq).toHaveBeenCalledWith("household_id", "household-id");
 });

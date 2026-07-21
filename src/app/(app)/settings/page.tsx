@@ -2,11 +2,12 @@ import { logOut } from "@/app/actions/auth";
 import { AccentPicker } from "@/components/accent-picker";
 import { MemberCardSettingsControl } from "@/components/member-card-settings-control";
 import { PartnerAccessControl, type PartnerAccessState } from "@/components/partner-access-control";
+import { ProfileNameSettingsControl } from "@/components/profile-name-settings-control";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentHouseholdContext } from "@/lib/household";
-import { ChevronRight, CreditCard, LogOut, Palette, UserPlus, type LucideIcon } from "lucide-react";
+import { ChevronRight, CreditCard, LogOut, Palette, UserRound, UserPlus, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 function SettingsRow({
@@ -41,13 +42,11 @@ function SettingsRow({
 export default async function SettingsPage() {
   const household = await getCurrentHouseholdContext();
   if (household.status !== "member") return null;
-  const { data: cardMapping, error: cardMappingError } = await household.supabase
-    .from("member_cards")
-    .select("last_four")
-    .eq("household_id", household.householdId)
-    .eq("user_id", household.userId)
-    .maybeSingle();
-  if (cardMappingError) throw new Error("Unable to load card mapping.");
+  const [{ data: cardMapping, error: cardMappingError }, { data: profile, error: profileError }] = await Promise.all([
+    household.supabase.from("member_cards").select("last_four").eq("household_id", household.householdId).eq("user_id", household.userId).maybeSingle(),
+    household.supabase.from("profiles").select("full_name").eq("id", household.userId).maybeSingle(),
+  ]);
+  if (cardMappingError || profileError) throw new Error("Unable to load account settings.");
   let partnerState: PartnerAccessState | null = null;
 
   if (household.role === "owner") {
@@ -87,22 +86,25 @@ export default async function SettingsPage() {
         <Card className="border-white/50 bg-card/90">
           <CardHeader>
             <CardTitle>Account</CardTitle>
-            <CardDescription>Manage this browser session, card mapping, and household access.</CardDescription>
+            <CardDescription>Manage your name, card mapping, household access, and browser session.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="divide-y divide-border/70">
-              <SettingsRow icon={LogOut} label="Session" description="End this browser session and return to sign in.">
-                <form action={logOut}>
-                  <Button type="submit" variant="outline" size="sm" className="min-h-11 border-transparent bg-white/55">
-                    Log out
-                  </Button>
-                </form>
+              <SettingsRow icon={UserRound} label="Name">
+                <ProfileNameSettingsControl fullName={profile?.full_name?.trim() ?? ""} userId={household.userId} />
               </SettingsRow>
               <SettingsRow icon={CreditCard} label="Card ending" description="Used only for future statement imports.">
                 <MemberCardSettingsControl lastFour={cardMapping?.last_four ?? null} />
               </SettingsRow>
               <SettingsRow icon={UserPlus} label="Partner access" description="Authorize one Google account to share this household." value={household.role === "member" ? "Managed by owner" : undefined}>
                 {partnerState ? <PartnerAccessControl state={partnerState} /> : null}
+              </SettingsRow>
+              <SettingsRow icon={LogOut} label="Session" description="End this browser session and return to sign in.">
+                <form action={logOut}>
+                  <Button type="submit" variant="outline" size="sm" className="min-h-11 border-transparent bg-white/55">
+                    Log out
+                  </Button>
+                </form>
               </SettingsRow>
             </div>
           </CardContent>

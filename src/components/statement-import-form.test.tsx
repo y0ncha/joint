@@ -4,20 +4,16 @@ import { expect, it } from "vitest";
 
 import { StatementImportForm } from "./statement-import-form";
 
-it("renders one accessible CSV or XLSX upload without category selection", () => {
+it("renders a large, muted CSV drop zone that preserves XLSX support", () => {
   const markup = renderToStaticMarkup(<StatementImportForm />);
 
-  expect(markup).toContain("Statement file");
+  expect(markup).toContain("Drop your file here");
+  expect(markup).toContain("Tap to browse · CSV or XLSX");
   expect(markup).toContain('type="file"');
   expect(markup).toContain('name="statement"');
   expect(markup).toContain('accept=".csv,.xlsx"');
-  expect(markup).toContain("1 MiB");
-  expect(markup).toContain("כרטיס");
-  expect(markup).toContain("בית עסק");
-  expect(markup).toContain("תאריך עסקה");
-  expect(markup).toContain("פירוט");
-  expect(markup).toContain("סכום החיוב");
-  expect(markup).toContain("unassigned");
+  expect(markup).toContain("Process file");
+  expect(markup).not.toContain("כרטיס");
   expect(markup).not.toContain('name="category"');
 });
 
@@ -29,5 +25,15 @@ it("keeps submission feedback server-driven and accessible", () => {
   expect(source).toContain("isPending");
   expect(source).toContain("FieldError");
   expect(source).not.toContain("parseStatementFile");
-  expect(source).not.toContain("Select");
+  expect(source).not.toContain("<Select");
+});
+
+it("shows the selected file in the drop zone", () => {
+  const source = readFileSync("src/components/statement-import-form.tsx", "utf8");
+
+  expect(source).toContain("Selected: {droppedFile.name}");
+  expect(source).toContain("Tap to change file");
+  expect(source).toContain("Processing file…");
+  expect(source).toContain("LoaderCircle");
+  expect(source).toContain("transactions added.");
 });

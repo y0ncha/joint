@@ -7,8 +7,8 @@ import { requireCurrentHousehold } from "@/lib/household";
 import { parseStatementFile } from "@/lib/statement-import";
 
 const MAX_FILE_BYTES = 1_048_576;
-const FILE_ERROR = "Choose a CSV or XLSX file no larger than 1 MiB.";
-const IMPORT_ERROR = "Unable to import this statement. Please try again.";
+const FILE_ERROR = "Choose a CSV or XLSX file up to 1 MB.";
+const IMPORT_ERROR = "Unable to process this file. Try again.";
 
 function fileError(): ActionResult {
   return { status: "error", formError: FILE_ERROR, fieldErrors: { statement: FILE_ERROR } };
@@ -41,8 +41,8 @@ export async function importStatement(_previousState: ActionResult | null, formD
   if (duplicate) {
     return {
       status: "error",
-      formError: "This statement was already imported.",
-      fieldErrors: { statement: "Choose a different statement file." },
+      formError: "This file was already imported.",
+      fieldErrors: { statement: "Choose a different file." },
     };
   }
 
@@ -52,10 +52,10 @@ export async function importStatement(_previousState: ActionResult | null, formD
   } catch (error) {
     const row = error instanceof Error ? /^row (\d+): invalid (?:date|amount|merchant|note|card)$/.exec(error.message)?.[1] : undefined;
     if (row) {
-      const message = `Check statement row ${row}.`;
+      const message = `Check row ${row} and try again.`;
       return { status: "error", formError: message, fieldErrors: { statement: message } };
     }
-    return { status: "error", formError: "Unable to import this statement. Please review the file and try again.", fieldErrors: {} };
+    return { status: "error", formError: "Unable to process this file. Review it and try again.", fieldErrors: {} };
   }
 
   const { data: cardMappings, error: cardMappingsError } = await household.supabase

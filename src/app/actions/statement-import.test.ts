@@ -117,14 +117,14 @@ describe("statement import action", () => {
     mocks.parseStatementFile.mockRejectedValue(new Error("row 8: invalid date"));
 
     await expect(actions.importStatement(null, formData(statementFile()))).resolves.toEqual({
-      status: "error", formError: "Check statement row 8.", fieldErrors: { statement: "Check statement row 8." },
+      status: "error", formError: "Check row 8 and try again.", fieldErrors: { statement: "Check row 8 and try again." },
     });
     expect(mocks.transactionInsert).not.toHaveBeenCalled();
   });
 
   it("rejects oversized files before parsing or writing", async () => {
     await expect(actions.importStatement(null, formData(statementFile([new Uint8Array(1024 * 1024 + 1)])))).resolves.toEqual({
-      status: "error", formError: "Choose a CSV or XLSX file no larger than 1 MiB.", fieldErrors: { statement: "Choose a CSV or XLSX file no larger than 1 MiB." },
+      status: "error", formError: "Choose a CSV or XLSX file up to 1 MB.", fieldErrors: { statement: "Choose a CSV or XLSX file up to 1 MB." },
     });
     expect(mocks.parseStatementFile).not.toHaveBeenCalled();
     expect(mocks.transactionInsert).not.toHaveBeenCalled();
@@ -134,7 +134,7 @@ describe("statement import action", () => {
     mocks.duplicateHashLimit.mockResolvedValue({ data: [{ id: "existing" }], error: null });
 
     await expect(actions.importStatement(null, formData(statementFile()))).resolves.toEqual({
-      status: "error", formError: "This statement was already imported.", fieldErrors: { statement: "Choose a different statement file." },
+      status: "error", formError: "This file was already imported.", fieldErrors: { statement: "Choose a different file." },
     });
     expect(mocks.parseStatementFile).not.toHaveBeenCalled();
     expect(mocks.transactionInsert).not.toHaveBeenCalled();
@@ -144,7 +144,7 @@ describe("statement import action", () => {
     mocks.duplicateHashLimit.mockResolvedValue({ data: null, error: { message: "database details" } });
 
     await expect(actions.importStatement(null, formData(statementFile()))).resolves.toEqual({
-      status: "error", formError: "Unable to import this statement. Please try again.", fieldErrors: {},
+      status: "error", formError: "Unable to process this file. Try again.", fieldErrors: {},
     });
     expect(mocks.parseStatementFile).not.toHaveBeenCalled();
     expect(mocks.transactionInsert).not.toHaveBeenCalled();
@@ -154,7 +154,7 @@ describe("statement import action", () => {
     mocks.cardMappingsEq.mockResolvedValue({ data: null, error: { message: "database details" } });
 
     await expect(actions.importStatement(null, formData(statementFile()))).resolves.toEqual({
-      status: "error", formError: "Unable to import this statement. Please try again.", fieldErrors: {},
+      status: "error", formError: "Unable to process this file. Try again.", fieldErrors: {},
     });
     expect(mocks.transactionInsert).not.toHaveBeenCalled();
   });
@@ -163,7 +163,7 @@ describe("statement import action", () => {
     mocks.transactionInsert.mockResolvedValue({ error: { message: "duplicate key value reveals database detail" } });
 
     await expect(actions.importStatement(null, formData(statementFile()))).resolves.toEqual({
-      status: "error", formError: "Unable to import this statement. Please try again.", fieldErrors: {},
+      status: "error", formError: "Unable to process this file. Try again.", fieldErrors: {},
     });
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });

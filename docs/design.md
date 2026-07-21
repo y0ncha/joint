@@ -108,6 +108,8 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 - Inside a settings card, use full-width rows with one muted leading icon, a label, optional short description, and exactly one right-side value or control.
 - Do not repeat the row label as the control label. Name the setting on the left and use an action verb on the control, such as `Session` and `Log out`.
 - Ordinary row controls use small selects, compact outline buttons, text values, or labelled icon buttons. Reserve primary fills for creation and destructive fills for irreversible actions.
+- Ledger `Type`, `Paid by`, and `Category` values use compact labelled capsules. Income and expense use fixed semantic positive and negative colors; unassigned and uncategorized use neutral gray; member and category capsules use their shared household pastel color.
+- The ledger card header has one subtle, labelled gear button. Its popover contains sorting, filtering, and row-selection mode; active filters remain visible through the URL. Selection mode exposes checkboxes and a destructive bulk-delete action that always requires confirmation.
 
 ### Forms and overlays
 
@@ -122,8 +124,10 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 ### Settings
 
 - Appearance and account concerns use separate section cards.
-- Session and partner-access controls are rows inside the `Account` card, not separate cards.
+- Name, card mapping, partner-access, and session controls are rows inside the `Account` card, not separate cards. A member can edit only their own two-word display name; its value is the edit control, and a saved change updates their profile and desktop avatar initials.
 - Signing out is a session action, not a destructive action.
+- The `Log out` row is the final row in the Account card.
+- Member colors are shared household settings. Categories expose the same curated pastel selection in their existing edit surface; new members and categories receive the next available pastel automatically.
 - Partner access uses an outline `Manage partner` control, an owned `Popover`, and destructive confirmation only for removal.
 - Owners see one of three partner-access states: no authorization, pending sign-in, or joined partner. Pending and joined states expose removal rather than replacement; authorizing another email requires removing the current access first.
 
