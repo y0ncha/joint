@@ -67,3 +67,58 @@ alter table public.transactions
 create unique index transactions_import_file_row_unique_idx
 on public.transactions (household_id, import_file_hash, import_row_number)
 where source = 'statement_import';
+
+create or replace function public.validate_transaction_category()
+returns trigger
+language plpgsql
+security invoker
+set search_path = pg_catalog, public
+as $$
+declare
+  category_household uuid;
+  category_type public.category_kind;
+begin
+  if new.source = 'statement_import' and new.category_id is null then
+    return new;
+  end if;
+
+  select household_id, kind
+  into category_household, category_type
+  from public.categories
+  where id = new.category_id
+  for share;
+
+  if category_household is null or category_household <> new.household_id then
+    raise exception 'Transaction category must belong to its household';
+  end if;
+
+  if category_type::text <> new.kind::text then
+    raise exception 'Transaction category kind must match transaction kind';
+  end if;
+
+  return new;
+end;
+$$;
+
+create or replace function public.validate_transaction_paid_by()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.paid_by is null then
+    return new;
+  end if;
+
+  if not exists (
+    select 1
+    from public.household_members
+    where household_id = new.household_id
+      and user_id = new.paid_by
+  ) then
+    raise exception 'Transaction payer must belong to its household';
+  end if;
+
+  return new;
+end;
+$$;
