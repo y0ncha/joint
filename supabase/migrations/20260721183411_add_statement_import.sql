@@ -37,3 +37,33 @@ with check (
       and household_members.user_id = (select auth.uid())
   )
 );
+
+create type public.transaction_source as enum ('manual', 'statement_import');
+
+alter table public.transactions
+  alter column paid_by drop not null,
+  add column source public.transaction_source not null default 'manual',
+  add column merchant text not null default '' check (char_length(merchant) <= 200),
+  add column import_file_hash text,
+  add column import_row_number integer,
+  drop constraint transactions_category_required_check,
+  add constraint transactions_category_required_check
+    check (
+      (source = 'manual' and category_id is not null)
+      or source = 'statement_import'
+    ),
+  add constraint transactions_import_metadata_check
+    check (
+      (source = 'statement_import'
+        and import_file_hash is not null
+        and import_file_hash ~ '^[0-9a-f]{64}$'
+        and import_row_number is not null
+        and import_row_number > 0)
+      or (source = 'manual'
+        and import_file_hash is null
+        and import_row_number is null)
+    );
+
+create unique index transactions_import_file_row_unique_idx
+on public.transactions (household_id, import_file_hash, import_row_number)
+where source = 'statement_import';
