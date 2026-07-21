@@ -7,10 +7,10 @@ type TargetReportTransaction = {
   kind: "income" | "expense";
   amount: number;
   occurredOn: string;
-  categoryId: string;
+  categoryId: string | null;
   note: string;
   createdAt: string;
-  paidBy: string;
+  paidBy: string | null;
 };
 
 const categories: ReportCategory[] = [
@@ -104,6 +104,22 @@ describe("buildMonthlyReport", () => {
       { categoryId: "food", categoryName: "Food", amount: 100 },
       { categoryId: "home", categoryName: "Home", amount: 100 },
     ]);
+  });
+
+  it("includes uncategorized imported expenses in household totals but not category totals", () => {
+    const report = buildMonthlyReport({
+      openingBalance: 500,
+      categories,
+      transactions: [
+        { id: "groceries", kind: "expense", amount: 100, occurredOn: "2026-07-03", categoryId: "food", note: "Groceries", createdAt: "2026-07-03T08:00:00Z", paidBy: "member-id" },
+        { id: "imported", kind: "expense", amount: 80, occurredOn: "2026-07-04", categoryId: null, note: "Statement note", createdAt: "2026-07-04T08:00:00Z", paidBy: null },
+      ],
+      month: "2026-07",
+      asOfDate: "2026-07-16",
+    });
+
+    expect(report).toMatchObject({ sharedBalance: 320, expenses: 180 });
+    expect(report.categoryTotals).toEqual([{ categoryId: "food", categoryName: "Food", amount: 100 }]);
   });
 
   it("does not calculate a percentage against a zero prior average", () => {

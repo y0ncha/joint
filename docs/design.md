@@ -164,8 +164,8 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 
 - The interface is English with logical-property-friendly layout so Hebrew and RTL can be added later.
 - Joint has exactly one shared household balance: opening balance plus income minus expenses. The shared balance may be negative.
-- The MVP accepts manual income and expenses only.
-- The primary experience exposes that shared balance, categories, manual income and expenses, monthly reporting, recent activity, and partner access.
+- The MVP accepts manual income and expenses plus authenticated CSV/XLSX statement imports using the documented Hebrew export format.
+- The primary experience exposes that shared balance, categories, manual income and expenses, statement imports, monthly reporting, recent activity, and partner access.
 - Income and expense use a segmented choice.
-- Expense entry identifies who paid and defaults to the signed-in household member.
-- Multiple accounts, credit-card debt, transfers, budgets, recurring transactions, imports, labels, attachments, financial credentials, card numbers, and audit history remain outside the MVP unless a separately approved plan changes this contract.
+- Expense entry may identify a household member who paid and defaults to the signed-in member; `Unassigned` is an explicit valid state for both manual and imported transactions.
+- A member may optionally save one card's last four digits during onboarding. Imports map a recognized last four digits to that member; unmatched cards remain unassigned. Full card numbers, bank connections, card accounts, transfers, budgets, recurring transactions, automatic categorization, attachments, financial credentials, and audit history remain outside the MVP unless a separately approved plan changes this contract.

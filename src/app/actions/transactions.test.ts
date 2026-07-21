@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   delete: vi.fn(),
   update: vi.fn(),
   revalidatePath: vi.fn(),
+  select: vi.fn(),
 }));
 
 vi.mock("@/lib/household", () => ({ requireCurrentHousehold: mocks.requireCurrentHousehold }));
@@ -26,9 +27,14 @@ function transactionForm(overrides: Record<string, string> = {}) {
   });
 }
 
-function configureContextClient({ payer = { user_id: "partner-id" }, transactionError = null }: {
+function configureContextClient({
+  payer = { user_id: "partner-id" },
+  transactionError = null,
+  existingTransaction = { source: "manual" },
+}: {
   payer?: { user_id: string } | null;
   transactionError?: unknown;
+  existingTransaction?: { source: "manual" | "statement_import" } | null;
 } = {}) {
   const payerMaybeSingle = vi.fn().mockResolvedValue({ data: payer, error: null });
   const payerEqUser = vi.fn().mockReturnValue({ maybeSingle: payerMaybeSingle });
@@ -36,17 +42,22 @@ function configureContextClient({ payer = { user_id: "partner-id" }, transaction
   const payerSelect = vi.fn().mockReturnValue({ eq: payerEqHousehold });
   const transactionEqHousehold = vi.fn().mockResolvedValue({ error: transactionError });
   const transactionEqId = vi.fn().mockReturnValue({ eq: transactionEqHousehold });
+  const sourceMaybeSingle = vi.fn().mockResolvedValue({ data: existingTransaction, error: null });
+  const sourceEqHousehold = vi.fn().mockReturnValue({ maybeSingle: sourceMaybeSingle });
+  const sourceEqId = vi.fn().mockReturnValue({ eq: sourceEqHousehold });
 
   mocks.insert.mockResolvedValue({ error: transactionError });
   mocks.update.mockReturnValue({ eq: transactionEqId });
   mocks.delete.mockReturnValue({ eq: transactionEqId });
   mocks.from.mockImplementation((table: string) => {
     if (table === "household_members") return { select: payerSelect };
-    if (table === "transactions") return { insert: mocks.insert, update: mocks.update, delete: mocks.delete };
+    if (table === "transactions") return { insert: mocks.insert, update: mocks.update, delete: mocks.delete, select: mocks.select };
     throw new Error(`Unexpected table: ${table}`);
   });
 
-  return { payerEqHousehold, transactionEqHousehold, transactionEqId };
+  mocks.select.mockReturnValue({ eq: sourceEqId });
+
+  return { payerEqHousehold, sourceEqHousehold, sourceEqId, transactionEqHousehold, transactionEqId };
 }
 
 describe("transaction actions", () => {
@@ -74,6 +85,25 @@ describe("transaction actions", () => {
     expect(mocks.from).not.toHaveBeenCalledWith("accounts");
     expect(payerEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
+  });
+
+  it("requires a category for manual creates", async () => {
+    configureContextClient();
+
+    await expect(transactionsModule.createTransaction(transactionForm({ categoryId: "" }))).resolves.toMatchObject({
+      status: "error",
+      fieldErrors: { categoryId: "Select a value." },
+    });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("creates a manual transaction without payer attribution", async () => {
+    configureContextClient();
+
+    await expect(transactionsModule.createTransaction(transactionForm({ paidBy: "" }))).resolves.toEqual({ status: "success" });
+
+    expect(mocks.from).not.toHaveBeenCalledWith("household_members");
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ paid_by: null, category_id: "food" }));
   });
 
   it("rejects a payer outside the verified household", async () => {
@@ -105,6 +135,35 @@ describe("transaction actions", () => {
     expect(payerEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.from).not.toHaveBeenCalledWith("accounts");
     expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps imported transactions uncategorized and unassigned when editing", async () => {
+    const { sourceEqHousehold, sourceEqId, transactionEqHousehold, transactionEqId } = configureContextClient({ existingTransaction: { source: "statement_import" } });
+
+    await expect(transactionsModule.updateTransaction("transaction-id", transactionForm({ categoryId: "", paidBy: "" }))).resolves.toEqual({ status: "success" });
+
+    expect(mocks.from).not.toHaveBeenCalledWith("household_members");
+    expect(mocks.select).toHaveBeenCalledWith("source");
+    expect(sourceEqId).toHaveBeenCalledWith("id", "transaction-id");
+    expect(sourceEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ category_id: null, paid_by: null }));
+    expect(mocks.update).not.toHaveBeenCalledWith(expect.objectContaining({ source: expect.anything() }));
+    expect(transactionEqId).toHaveBeenCalledWith("id", "transaction-id");
+    expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
+  });
+
+  it("rejects a blank category when updating a stored manual transaction", async () => {
+    const { sourceEqHousehold, sourceEqId } = configureContextClient({ existingTransaction: { source: "manual" } });
+
+    await expect(transactionsModule.updateTransaction("transaction-id", transactionForm({ categoryId: "", paidBy: "member-id" }))).resolves.toMatchObject({
+      status: "error",
+      fieldErrors: { categoryId: "Select a value." },
+    });
+
+    expect(mocks.select).toHaveBeenCalledWith("source");
+    expect(sourceEqId).toHaveBeenCalledWith("id", "transaction-id");
+    expect(sourceEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 
   it("sanitizes update database failures", async () => {
