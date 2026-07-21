@@ -13,5 +13,5 @@ export function categoryFromRow(row: CategoryRow) {
 }
 
 export function transactionFromRow(row: TransactionRow) {
-  return { id: row.id, kind: row.kind, amount: number(Number(row.amount)), occurredOn: row.occurred_on, categoryId: row.category_id, note: row.note, createdAt: row.created_at, paidBy: row.paid_by };
+  return { id: row.id, kind: row.kind, amount: number(Number(row.amount)), occurredOn: row.occurred_on, categoryId: row.category_id, note: row.note, merchant: row.merchant, source: row.source, createdAt: row.created_at, paidBy: row.paid_by };
 }

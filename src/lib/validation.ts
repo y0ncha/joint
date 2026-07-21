@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.");
-const identifierSchema = z.string().trim().min(1, "Select a value.");
+const optionalIdentifierSchema = z.string().trim().nullish().transform((value) => value || null);
 const amountSchema = z.coerce
   .number()
   .positive("Enter an amount greater than zero.")
@@ -21,8 +21,9 @@ const incomeSchema = z.object({
   kind: z.literal("income"),
   amount: amountSchema,
   occurredOn: dateSchema,
-  categoryId: identifierSchema,
-  paidBy: identifierSchema,
+  categoryId: optionalIdentifierSchema,
+  paidBy: optionalIdentifierSchema,
+  merchant: z.string().trim().max(200, "Use 200 characters or fewer.").optional(),
   note: noteSchema,
 });
 
@@ -30,8 +31,9 @@ const expenseSchema = z.object({
   kind: z.literal("expense"),
   amount: amountSchema,
   occurredOn: dateSchema,
-  categoryId: identifierSchema,
-  paidBy: identifierSchema,
+  categoryId: optionalIdentifierSchema,
+  paidBy: optionalIdentifierSchema,
+  merchant: z.string().trim().max(200, "Use 200 characters or fewer.").optional(),
   note: noteSchema,
 });
 

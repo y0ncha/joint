@@ -12,8 +12,10 @@ export type ReportTransaction = {
   occurredOn: string;
   categoryId: string | null;
   note: string;
+  merchant?: string;
+  source?: "manual" | "statement_import";
   createdAt: string;
-  paidBy: string;
+  paidBy: string | null;
 };
 
 export type MonthlyReport = {
