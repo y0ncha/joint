@@ -347,7 +347,8 @@ select extensions.is(
   (
     select count(*)
     from public.transactions
-    where source = 'manual'
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and source = 'manual'
       and import_file_hash is null
       and import_row_number is null
   ),
@@ -368,7 +369,7 @@ select extensions.throws_like(
       null
     )
   $$,
-  '%transactions_category_required_check%',
+  '%Transaction category must belong to its household%',
   'a manual transaction requires a category'
 );
 
