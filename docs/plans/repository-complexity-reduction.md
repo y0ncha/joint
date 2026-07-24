@@ -84,7 +84,7 @@ This plan converts the 2026-07-24 Ponytail whole-repository audit into an approv
 
 | Task | Description | Status | Date |
 |------|-------------|--------|------|
-| TASK-013 | Remove `replayIntegration`, `tracesSampleRate`, `enableLogs`, replay sample rates, `dataCollection`, and generated comments from `src/instrumentation-client.ts`, `sentry.server.config.ts`, and `sentry.edge.config.ts`, retaining only required initialization and exported Next.js hooks. | Planned |  |
+| TASK-013 | Remove `replayIntegration`, `tracesSampleRate`, `enableLogs`, replay sample rates, `dataCollection`, and generated comments from `src/instrumentation-client.ts`, `sentry.server.config.ts`, and `sentry.edge.config.ts`, retaining only required initialization and exported Next.js hooks. | Complete | 2026-07-24 |
 | TASK-014 | Remove `automaticVercelMonitors` and generated comments from `next.config.ts` while retaining `withSentryConfig`, organization, project, CI silence, widened source-map upload, `/monitoring`, and debug-log tree shaking. | Planned |  |
 | TASK-015 | After TASK-013 and TASK-014 complete, run `bun run build` and require successful Sentry configuration loading and source-map instrumentation without Replay, trace, log, or Cron Monitor configuration. | Planned |  |
 
