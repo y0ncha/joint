@@ -70,6 +70,14 @@ it("caches an empty profile name on a cache miss", async () => {
   expect(localStorage.setItem).toHaveBeenCalledWith("joint-profile-name:user-a", "");
 });
 
+it("returns a cached empty profile name without querying profiles", async () => {
+  cache.set("joint-profile-name:user-a", "");
+
+  await expect(loadVerifiedProfileName(browserClient)).resolves.toBe("");
+
+  expect(mocks.from).not.toHaveBeenCalled();
+});
+
 it("does not reuse cached profile names between verified users", async () => {
   cache.set("joint-profile-name:user-a", "Ada Lovelace");
   cache.set("joint-profile-name:user-b", "Grace Hopper");
