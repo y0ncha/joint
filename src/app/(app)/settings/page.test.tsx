@@ -71,19 +71,16 @@ beforeEach(() => {
 it("renders Appearance, Household, and Account cards", async () => {
   const markup = renderToStaticMarkup(await settingsModule.default());
 
-  expect((markup.match(/data-slot="card"/g) ?? []).length).toBe(3);
   expect(markup).toContain("Appearance");
   expect(markup).toContain("Household");
   expect(markup).toContain("Account");
   expect(markup).toContain("Session");
-  expect(markup).toContain("Name");
-  expect(markup).toContain("Card ending");
-  expect(markup).not.toContain("Card last four");
-  expect(markup).toContain('data-card-last-four="4548"');
-  expect(markup).toContain('data-partner-state="empty"');
-  expect(markup).toContain("Ada Lovelace");
-  expect(markup).toContain('data-member-colors="#dcece3"');
-  expect(markup).not.toContain(">Edit<");
+  expect(markup).not.toMatch(/>Name<\/p>/);
+  expect(markup).toContain("Last 4 digits");
+  expect(markup).not.toContain("Card ending");
+  expect(markup).toMatch(/<p[^>]*>Ada Lovelace<\/p>/);
+  expect(markup).toContain(">Edit</button>");
+  expect(markup.match(/w-\[min\(22rem,55vw\)\]/g)).toHaveLength(2);
   expect(mocks.from).toHaveBeenCalledWith("profiles");
   expect(mocks.profileEq).toHaveBeenCalledWith("id", "owner-id");
   expect(markup.indexOf("Partner access")).toBeLessThan(markup.indexOf("Session"));
@@ -101,18 +98,29 @@ it("derives the empty owner state through the member request context", async () 
   expect(mocks.authorizationEq).toHaveBeenCalledWith("household_id", "household-id");
 });
 
-it.each([
-  [[{ role: "owner" }], "pending"],
-  [[{ role: "owner" }, { role: "member" }], "joined"],
-] as const)("passes the owner partner lifecycle state to the control", async (members, status) => {
-  mocks.memberOrder.mockResolvedValue({ data: members, error: null });
+it("renders pending partner access for an owner authorization without a joined member", async () => {
   mocks.authorizationMaybeSingle.mockResolvedValue({ data: { email: "partner@example.com" }, error: null });
 
   const markup = renderToStaticMarkup(await settingsModule.default());
 
-  expect(markup).toContain(`data-partner-state="${status}"`);
+  expect(markup).toContain('data-partner-state="pending"');
   expect(markup).toContain("partner@example.com");
-  expect(mocks.authorizationSelect).toHaveBeenCalledWith("email");
+});
+
+it("renders joined partner access for an owner authorization with a joined member", async () => {
+  mocks.memberOrder.mockResolvedValue({
+    data: [
+      { user_id: "owner-id", role: "owner", color: "#dcece3" },
+      { user_id: "partner-id", role: "member", color: "#dcece3" },
+    ],
+    error: null,
+  });
+  mocks.authorizationMaybeSingle.mockResolvedValue({ data: { email: "partner@example.com" }, error: null });
+
+  const markup = renderToStaticMarkup(await settingsModule.default());
+
+  expect(markup).toContain('data-partner-state="joined"');
+  expect(markup).toContain("partner@example.com");
 });
 
 it("does not query partner authorization for a member", async () => {

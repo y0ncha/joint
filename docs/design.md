@@ -104,6 +104,7 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 ### Forms and overlays
 
 - Use `Field`, `FieldGroup`, and visible `FieldLabel` composition for forms.
+- Browser autofill preserves the established text-input surface; it must not repaint inputs blue.
 - Use `ToggleGroup` for two to seven related choices.
 - Dropdowns use searchable pill selectors: their trigger uses the same filled surface as text inputs, their menu shows labelled pills sorted lexicographically, and typing filters to matching labels. Ledger month, year, filtering, and sorting use regular selects in chronological order.
 - A transaction type change clears an incompatible category instead of silently substituting one. A manual transaction must select a matching category before save; an imported transaction may remain `Uncategorized`.
@@ -117,7 +118,7 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 
 - Appearance, household, and account concerns use separate section cards, in that order.
 - The `Household` card sits above `Account` and contains shared member-color and partner-access controls.
-- Name, card mapping, and session controls are rows inside the `Account` card, not separate cards. A member can edit only their own two-word display name; its value is the edit control, and a saved change updates their profile and desktop avatar initials.
+- Name, card mapping, and session controls are rows inside the `Account` card, not separate cards. A member can edit only their own non-empty display name; the saved name is the row label and an `Edit` action opens the editor. A saved change updates their profile and desktop avatar initials.
 - Signing out is a session action, not a destructive action.
 - The `Log out` row is the final row in the Account card.
 - Member colors are shared household settings. Categories, member colors, and the browser-local accent use `react-color` CirclePicker swatches plus a final `Custom color` circle that opens a BlockPicker. The BlockPicker includes all recent custom colors and its hex input. Category and member colors remain labelled supplemental visuals; the accent never changes financial or destructive semantics. New members receive the next available pastel until a member changes it.

@@ -72,6 +72,5 @@ This plan makes OAuth callback failures actionable without adding a failure rout
 
 ## 8. Related Specifications / Further Reading
 
-- `docs/superpowers/specs/2026-07-19-login-auth-failure-messages-design.md`
 - `src/app/auth/callback/route.ts`
 - `src/app/login/page.tsx`

@@ -137,7 +137,6 @@ This plan implements architecture-review recommendations P1 and P2 as one minima
 ## 8. Related Specifications / Further Reading
 
 - Architecture review P1 and P2 decisions are incorporated directly in this self-contained plan.
-- [Cached profile-initial avatar design](../superpowers/specs/2026-07-19-profile-avatar-cache-design.md)
 - [Shared-balance architecture plan](shared-balance-architecture.md)
 - [Membership-only access plan](two-layer-access.md)
 - [Application runtime](../architecture/application-runtime.md)

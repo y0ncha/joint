@@ -20,13 +20,13 @@ export function ColorPicker({ color, onChange, presetColors = sharedPastelColors
   }
 
   return (
-    <div className="color-picker flex w-full flex-wrap items-center justify-between" style={{ "--selected-color": color } as React.CSSProperties}>
+    <div className="color-picker flex w-full flex-wrap items-center justify-between pr-3" style={{ "--selected-color": color } as React.CSSProperties}>
       <CirclePicker color={color} colors={presetColors} onChangeComplete={(next) => onChange(next.hex)} circleSize={24} circleSpacing={0} styles={{ default: { card: { display: "contents" } } } as never} />
       <Popover open={open} onOpenChange={(nextOpen) => { setOpen(nextOpen); if (nextOpen) setPreviewColor(color); }}>
-        <div className="relative size-7">
+        <div className="relative size-6">
           <PopoverTrigger asChild>
-            <Button type="button" variant="outline" size="icon" className="absolute -inset-1.5 size-10 rounded-full border-0 bg-transparent" aria-label="Custom color">
-              <span className="flex size-7 items-center justify-center rounded-full border border-dashed border-border"><Plus aria-hidden="true" /></span>
+            <Button type="button" variant="outline" size="icon" className="absolute -inset-2 size-10 rounded-full border-0 bg-transparent" aria-label="Custom color">
+              <span className="flex size-6 items-center justify-center rounded-full border border-dashed border-border"><Plus aria-hidden="true" /></span>
             </Button>
           </PopoverTrigger>
         </div>

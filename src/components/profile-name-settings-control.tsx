@@ -23,16 +23,16 @@ export function ProfileNameSettingsControl({ fullName, userId }: { fullName: str
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button type="button" variant="outline" size="sm" className="min-h-11 border-transparent bg-white/55">{fullName || "Add name"}</Button>
+        <Button type="button" variant="outline" size="sm" className="min-h-11 border-transparent bg-white/55">Edit</Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[min(22rem,calc(100vw-2rem))] p-4">
         <PopoverHeader>
-          <PopoverTitle>Edit full name</PopoverTitle>
+          <PopoverTitle>Edit display name</PopoverTitle>
         </PopoverHeader>
         <form action={formAction} className="mt-4">
           <FieldGroup>
             <Field data-invalid={hasNameError}>
-              <FieldLabel htmlFor="profile-name">Full name</FieldLabel>
+              <FieldLabel htmlFor="profile-name">Display name</FieldLabel>
               <Input id="profile-name" name="name" defaultValue={fullName} autoComplete="name" required aria-invalid={hasNameError} aria-describedby={hasNameError ? "profile-name-error" : undefined} />
               {hasNameError ? <FieldError id="profile-name-error">{state.fieldErrors.name}</FieldError> : null}
             </Field>

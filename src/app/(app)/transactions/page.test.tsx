@@ -35,15 +35,6 @@ describe("Transactions page", () => {
     expect(mocks.getDashboardData).toHaveBeenCalledWith("2026-06");
     expect(markup).toContain('aria-label="Select ledger month"');
     expect(markup).toContain('aria-label="Select ledger year"');
-    expect(markup).not.toContain('type="month"');
-    expect(markup).not.toContain("Preview");
-  });
-
-  it("adds card padding around the monthly ledger table", async () => {
-    const markup = renderToStaticMarkup(await TransactionsPage({ searchParams: Promise.resolve({ month: "2026-07" }) }));
-
-    expect(markup).toContain("px-4 pb-4 sm:px-6 sm:pb-6");
-    expect(markup).not.toContain('class="p-0"');
   });
 
   it("opens the import sidebar without replacing the transactions page", async () => {

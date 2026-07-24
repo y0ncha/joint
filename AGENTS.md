@@ -17,8 +17,7 @@ Read the sources relevant to the task before proposing or changing behavior:
 - `docs/plans/` — approved or proposed implementation plans and their delivery status.
   - `docs/plans/shared-budget-mvp.md` — core MVP implementation plan.
   - `docs/plans/two-layer-access.md` — two-layer access implementation plan.
-  - `docs/plans/features/` — post-MVP roadmap briefs. These are product directions, not approved implementation plans, and do not expand MVP scope by themselves.
-- `docs/superpowers/specs/` — historical design specifications created during earlier work.
+  - `docs/roadmap.md` — directional post-MVP roadmap. It does not authorize implementation or expand the current MVP contract.
 - `docs/superpowers/plans/` — historical execution plans. New source implementation plans belong in `docs/plans/`.
 - `.agents/skills/shadcn/SKILL.md` — project-local shadcn/ui guidance. Read it before adding or materially changing UI components.
 
@@ -88,7 +87,7 @@ Every product, design, architecture, or infrastructure change follows this seque
 
 ## Scope discipline
 
-- Roadmap briefs under `docs/plans/features/` do not authorize implementation or change the current MVP contract.
+- The directional roadmap does not authorize implementation or change the current MVP contract.
 - Do not add deferred features opportunistically while implementing an approved plan.
 - Do not claim live authentication, OAuth, RLS, or deployment behavior without verifying it in the relevant environment. Separate implemented code, local test evidence, and unverified provider behavior in status reports.
 - Work only on the branch selected by the user; do not create worktrees unless explicitly requested.

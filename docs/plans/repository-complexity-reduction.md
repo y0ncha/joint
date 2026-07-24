@@ -2,15 +2,15 @@
 goal: Reduce repository complexity without changing Joint's financial, access, or UI contracts
 version: 1.1
 date_created: 2026-07-24
-last_updated: 2026-07-24
+last_updated: 2026-07-25
 owner: Joint
-status: On Hold
+status: Completed
 tags: [chore, refactor, deletion, tests, documentation, observability]
 ---
 
 # Introduction
 
-![Status: On Hold](https://img.shields.io/badge/status-On%20Hold-orange)
+![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
 
 This plan converts the 2026-07-24 Ponytail whole-repository audit into an approval-gated deletion and simplification change set. It consolidates five fragmented feature briefs into one ordered roadmap before deleting their source directory, and it removes superseded documentation, source-coupled tests, one obsolete redirect route, duplicated validation and type code, and optional Sentry features while preserving core exception reporting, the current product contract, authenticated behavior, Supabase authorization, database history, and owned UI choices.
 
@@ -51,10 +51,10 @@ This plan converts the 2026-07-24 Ponytail whole-repository audit into an approv
 
 | Task | Description | Status | Date |
 |------|-------------|--------|------|
-| TASK-001 | Verify `docs/plans/transactions-statement-import.md` is `Completed`, run its required focused tests plus `bun run lint`, `bun run test`, and `bun run build`, and set this plan to `On Hold` if any prerequisite is not satisfied. | Blocked — statement-import plan is In progress | 2026-07-24 |
-| TASK-002 | Create `docs/roadmap.md` with an implementation-disclaimer introduction and an `Order`, `Feature`, `Description`, `Depends on`, and `Status` table implementing RDM-001 through RDM-005 exactly. | Planned |  |
-| TASK-003 | Delete all Markdown files under `docs/superpowers/specs/` after mapping each implemented requirement to `docs/design.md`, `docs/architecture/`, or its source plan, and require `rg -n "docs/superpowers/specs|superpowers/specs" AGENTS.md README.md docs --glob "!docs/plans/repository-complexity-reduction.md"` to return no stale reference. | Planned |  |
-| TASK-004 | After TASK-002 and TASK-003 complete, delete `docs/architecture/features/`, update `AGENTS.md` and `docs/architecture.md` to index `docs/roadmap.md`, remove stale feature-brief links from `docs/plans/transactions-statement-import.md`, and require no Markdown link outside this plan to target `docs/architecture/features/` or `docs/plans/features/`. | Planned |  |
+| TASK-001 | Verify `docs/plans/transactions-statement-import.md` is `Completed`, run its required focused tests plus `bun run lint`, `bun run test`, and `bun run build`, and set this plan to `On Hold` if any prerequisite is not satisfied. | Complete | 2026-07-24 |
+| TASK-002 | Create `docs/roadmap.md` with an implementation-disclaimer introduction and an `Order`, `Feature`, `Description`, `Depends on`, and `Status` table implementing RDM-001 through RDM-005 exactly. | Complete | 2026-07-24 |
+| TASK-003 | Delete all Markdown files under `docs/superpowers/specs/` after mapping each implemented requirement to `docs/design.md`, `docs/architecture/`, or its source plan, and require `rg -n "docs/superpowers/specs|superpowers/specs" AGENTS.md README.md docs --glob "!docs/plans/repository-complexity-reduction.md"` to return no stale reference. | Complete | 2026-07-24 |
+| TASK-004 | After TASK-002 and TASK-003 complete, delete `docs/architecture/features/`, update `AGENTS.md` and `docs/architecture.md` to index `docs/roadmap.md`, remove stale feature-brief links from `docs/plans/transactions-statement-import.md`, and require no Markdown link outside this plan to target `docs/architecture/features/` or `docs/plans/features/`. | Complete | 2026-07-24 |
 
 ### Implementation Phase 2
 
@@ -62,10 +62,10 @@ This plan converts the 2026-07-24 Ponytail whole-repository audit into an approv
 
 | Task | Description | Status | Date |
 |------|-------------|--------|------|
-| TASK-005 | Delete `src/components/ui-alignment.test.ts`, `src/components/ui/card.test.ts`, `src/components/ui/sheet.test.tsx`, and `src/app/globals.test.ts` after preserving any user-visible or semantic-token contract in `docs/design.md`, and require the remaining suite to pass without replacement source scans. | Planned |  |
-| TASK-006 | Remove every `readFileSync`-based assertion from component and page tests under `src/`, retaining rendered labels, roles, names, values, live regions, keyboard semantics, and action results, and require `rg -n "readFileSync" src --glob "**/*.test.*"` to return zero matches. | Planned |  |
-| TASK-007 | Remove assertions against exact Tailwind utility strings, internal component identifiers, and obsolete negative identifiers from remaining render tests, retaining only assertions whose failure represents a visible behavior or accessibility regression. | Planned |  |
-| TASK-008 | After TASK-005 through TASK-007 complete, run the focused tests for every modified test file and require each file to pass before Phase 3 starts. | Planned |  |
+| TASK-005 | Delete `src/components/ui-alignment.test.ts`, `src/components/ui/card.test.ts`, `src/components/ui/sheet.test.tsx`, and `src/app/globals.test.ts` after preserving any user-visible or semantic-token contract in `docs/design.md`, and require the remaining suite to pass without replacement source scans. | Complete | 2026-07-24 |
+| TASK-006 | Remove every `readFileSync`-based assertion from component and page tests under `src/`, retaining rendered labels, roles, names, values, live regions, keyboard semantics, and action results, and require `rg -n "readFileSync" src --glob "**/*.test.*"` to return zero matches. | Complete | 2026-07-24 |
+| TASK-007 | Remove assertions against exact Tailwind utility strings, internal component identifiers, and obsolete negative identifiers from remaining render tests, retaining only assertions whose failure represents a visible behavior or accessibility regression. | Complete | 2026-07-24 |
+| TASK-008 | After TASK-005 through TASK-007 complete, run the focused tests for every modified test file and require each file to pass before Phase 3 starts. | Complete | 2026-07-24 |
 
 ### Implementation Phase 3
 
@@ -73,10 +73,10 @@ This plan converts the 2026-07-24 Ponytail whole-repository audit into an approv
 
 | Task | Description | Status | Date |
 |------|-------------|--------|------|
-| TASK-009 | Delete `src/app/(app)/transactions/import/page.tsx` and `page.test.tsx`, remove `/transactions/import` revalidation from `src/app/actions/member-card.ts` and its tests, and verify all internal import links use `/transactions?import=1`. | Planned |  |
-| TASK-010 | Replace `incomeSchema`, `expenseSchema`, and their discriminated union in `src/lib/validation.ts` with one exported `transactionSchema` object using `kind: z.enum(["income", "expense"])`, and require existing validation and transaction-action tests to pass unchanged in behavior. | Planned |  |
-| TASK-011 | Replace the one-query `Promise.all` in `src/app/(app)/settings/page.tsx` with a direct awaited authorization query, and require owner-empty, owner-pending, owner-joined, and member Settings tests to pass. | Planned |  |
-| TASK-012 | Delete `RequiredHousehold` from `src/lib/household.ts`, return `Promise<MemberHouseholdContext>` from `requireCurrentHousehold`, and require household and authenticated-action TypeScript tests to pass. | Planned |  |
+| TASK-009 | Delete `src/app/(app)/transactions/import/page.tsx` and `page.test.tsx`, remove `/transactions/import` revalidation from `src/app/actions/member-card.ts` and its tests, and verify all internal import links use `/transactions?import=1`. | Complete | 2026-07-24 |
+| TASK-010 | Replace `incomeSchema`, `expenseSchema`, and their discriminated union in `src/lib/validation.ts` with one exported `transactionSchema` object using `kind: z.enum(["income", "expense"])`, and require existing validation and transaction-action tests to pass unchanged in behavior. | Complete | 2026-07-24 |
+| TASK-011 | Replace the one-query `Promise.all` in `src/app/(app)/settings/page.tsx` with a direct awaited authorization query, and require owner-empty, owner-pending, owner-joined, and member Settings tests to pass. | Complete | 2026-07-24 |
+| TASK-012 | Delete `RequiredHousehold` from `src/lib/household.ts`, return `Promise<MemberHouseholdContext>` from `requireCurrentHousehold`, and require household and authenticated-action TypeScript tests to pass. | Complete | 2026-07-24 |
 
 ### Implementation Phase 4
 
@@ -84,9 +84,9 @@ This plan converts the 2026-07-24 Ponytail whole-repository audit into an approv
 
 | Task | Description | Status | Date |
 |------|-------------|--------|------|
-| TASK-013 | Remove `replayIntegration`, `tracesSampleRate`, `enableLogs`, replay sample rates, `dataCollection`, and generated comments from `src/instrumentation-client.ts`, `sentry.server.config.ts`, and `sentry.edge.config.ts`, retaining only required initialization and exported Next.js hooks. | Planned |  |
-| TASK-014 | Remove `automaticVercelMonitors` and generated comments from `next.config.ts` while retaining `withSentryConfig`, organization, project, CI silence, widened source-map upload, `/monitoring`, and debug-log tree shaking. | Planned |  |
-| TASK-015 | After TASK-013 and TASK-014 complete, run `bun run build` and require successful Sentry configuration loading and source-map instrumentation without Replay, trace, log, or Cron Monitor configuration. | Planned |  |
+| TASK-013 | Remove `replayIntegration`, `tracesSampleRate`, `enableLogs`, replay sample rates, `dataCollection`, and generated comments from `src/instrumentation-client.ts`, `sentry.server.config.ts`, and `sentry.edge.config.ts`, retaining only required initialization and exported Next.js hooks. | Complete | 2026-07-24 |
+| TASK-014 | Remove `automaticVercelMonitors` and generated comments from `next.config.ts` while retaining `withSentryConfig`, organization, project, CI silence, widened source-map upload, `/monitoring`, and debug-log tree shaking. | Complete | 2026-07-24 |
+| TASK-015 | After TASK-013 and TASK-014 complete, run `bun run build` and require successful Sentry configuration loading and source-map instrumentation without Replay, trace, log, or Cron Monitor configuration. | Complete | 2026-07-25 |
 
 ### Implementation Phase 5
 
@@ -94,10 +94,10 @@ This plan converts the 2026-07-24 Ponytail whole-repository audit into an approv
 
 | Task | Description | Status | Date |
 |------|-------------|--------|------|
-| TASK-016 | Run focused tests for validation, household context, Settings, member-card actions, Transactions import-sheet behavior, and every modified render-test file, requiring exit code 0. | Planned |  |
-| TASK-017 | Run `bun run lint`, `bun run test`, `bun run build`, and `git diff --check`, requiring exit code 0 for every command. | Planned |  |
-| TASK-018 | Measure `git diff --numstat` excluding `docs/plans/repository-complexity-reduction.md`, require at least 500 net deleted tracked lines and zero added dependency entries, and remove additional source-coupled assertions rather than production safeguards if the target is not met. | Planned |  |
-| TASK-019 | Review the final diff against REQ-001 through REQ-010, RDM-001 through RDM-005, SEC-001 through SEC-002, and CON-001 through CON-007, report retained behavior and removed complexity, and wait for explicit implementation approval without merging, pushing, deploying, or mutating hosted state. | Planned |  |
+| TASK-016 | Run focused tests for validation, household context, Settings, member-card actions, Transactions import-sheet behavior, and every modified render-test file, requiring exit code 0. | Complete | 2026-07-24 |
+| TASK-017 | Run `bun run lint`, `bun run test`, `bun run build`, and `git diff --check`, requiring exit code 0 for every command. | Complete | 2026-07-25 |
+| TASK-018 | Measure `git diff --numstat` excluding `docs/plans/repository-complexity-reduction.md`, require at least 500 net deleted tracked lines and zero added dependency entries, and remove additional source-coupled assertions rather than production safeguards if the target is not met. | Complete | 2026-07-25 |
+| TASK-019 | Review the final diff against REQ-001 through REQ-010, RDM-001 through RDM-005, SEC-001 through SEC-002, and CON-001 through CON-007, report retained behavior and removed complexity, and wait for explicit implementation approval without merging, pushing, deploying, or mutating hosted state. | Complete | 2026-07-25 |
 
 ## 3. Alternatives
 

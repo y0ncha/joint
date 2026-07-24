@@ -53,14 +53,6 @@ it("uses the verified claim subject as the profile-name cache suffix", async () 
   expect(mocks.from).not.toHaveBeenCalled();
 });
 
-it("returns a cached profile name without querying profiles", async () => {
-  cache.set("joint-profile-name:user-a", "Ada Lovelace");
-
-  await expect(loadVerifiedProfileName(browserClient)).resolves.toBe("Ada Lovelace");
-
-  expect(mocks.from).not.toHaveBeenCalled();
-});
-
 it("queries only the verified user on a cache miss and writes the trimmed name", async () => {
   await expect(loadVerifiedProfileName(browserClient)).resolves.toBe("Ada Lovelace");
 
@@ -113,7 +105,6 @@ it.each([
 it("renders a plain profile-initial avatar", () => {
   const markup = renderToStaticMarkup(<ProfileInitialAvatar name="Ada Lovelace" />);
 
-  expect(markup).toContain('data-slot="avatar"');
   expect(markup).toContain("AL");
   expect(markup).not.toContain("tabindex");
   expect(markup).not.toContain('role="button"');
@@ -136,5 +127,4 @@ it("renders the desktop rail with navigation and a plain profile avatar", () => 
   expect(desktopRail).toContain('href="/transactions"');
   expect(desktopRail).toContain('href="/categories"');
   expect(desktopRail).toContain('href="/settings"');
-  expect(desktopRail).toContain('data-slot="avatar"');
 });

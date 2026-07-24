@@ -52,9 +52,11 @@ export default async function SettingsPage() {
   let partnerState: PartnerAccessState | null = null;
 
   if (household.role === "owner") {
-    const [{ data: authorization, error: authorizationError }] = await Promise.all([
-      household.supabase.from("household_allowed_members").select("email").eq("household_id", household.householdId).maybeSingle(),
-    ]);
+    const { data: authorization, error: authorizationError } = await household.supabase
+      .from("household_allowed_members")
+      .select("email")
+      .eq("household_id", household.householdId)
+      .maybeSingle();
 
     if (authorizationError) throw new Error("Unable to load partner access.");
 
@@ -92,7 +94,9 @@ export default async function SettingsPage() {
           <CardContent>
             <div className="divide-y divide-border/70">
               <SettingsRow icon={Tag} label="User colors">
-                <MemberColorSettingsControl members={(members ?? []).map((member) => ({ id: member.user_id, color: member.color, label: member.user_id === household.userId ? "You" : member.role === "owner" ? "Owner" : "Partner" }))} />
+                <div className="w-[min(22rem,55vw)]">
+                  <MemberColorSettingsControl members={(members ?? []).map((member) => ({ id: member.user_id, color: member.color, label: member.user_id === household.userId ? "You" : member.role === "owner" ? "Owner" : "Partner" }))} />
+                </div>
               </SettingsRow>
               <SettingsRow icon={UserPlus} label="Partner access" description="Authorize one Google account to share this household." value={household.role === "member" ? "Managed by owner" : undefined}>
                 {partnerState ? <PartnerAccessControl state={partnerState} /> : null}
@@ -108,10 +112,10 @@ export default async function SettingsPage() {
           </CardHeader>
           <CardContent>
             <div className="divide-y divide-border/70">
-              <SettingsRow icon={UserRound} label="Name">
+              <SettingsRow icon={UserRound} label={profile?.full_name?.trim() || "Name"}>
                 <ProfileNameSettingsControl fullName={profile?.full_name?.trim() ?? ""} userId={household.userId} />
               </SettingsRow>
-              <SettingsRow icon={CreditCard} label="Card ending" description="Used only for future statement imports.">
+              <SettingsRow icon={CreditCard} label="Last 4 digits" description="Used only for future statement imports.">
                 <MemberCardSettingsControl lastFour={cardMapping?.last_four ?? null} />
               </SettingsRow>
               <SettingsRow icon={LogOut} label="Session" description="End this browser session and return to sign in.">

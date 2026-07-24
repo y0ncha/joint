@@ -17,8 +17,8 @@ export const partnerAccessSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email address."),
 });
 
-const incomeSchema = z.object({
-  kind: z.literal("income"),
+export const transactionSchema = z.object({
+  kind: z.enum(["income", "expense"], "Invalid discriminator value. Expected 'income' | 'expense'"),
   amount: amountSchema,
   occurredOn: dateSchema,
   categoryId: optionalIdentifierSchema,
@@ -26,18 +26,3 @@ const incomeSchema = z.object({
   merchant: z.string().trim().max(200, "Use 200 characters or fewer.").optional(),
   note: noteSchema,
 });
-
-const expenseSchema = z.object({
-  kind: z.literal("expense"),
-  amount: amountSchema,
-  occurredOn: dateSchema,
-  categoryId: optionalIdentifierSchema,
-  paidBy: optionalIdentifierSchema,
-  merchant: z.string().trim().max(200, "Use 200 characters or fewer.").optional(),
-  note: noteSchema,
-});
-
-export const transactionSchema = z.discriminatedUnion("kind", [
-  incomeSchema,
-  expenseSchema,
-]);

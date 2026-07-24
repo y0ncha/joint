@@ -38,7 +38,6 @@ export async function saveCurrentMemberCard(previousState: ActionResult | null, 
     if (updateError) return { status: "error", formError: "Unable to save the card mapping. Please try again.", fieldErrors: {} };
     revalidatePath("/setup/card");
     revalidatePath("/settings");
-    revalidatePath("/transactions/import");
     return { status: "success" };
   }
   if (error?.code === "23505" && error.message.includes("member_cards_household_id_last_four_key")) {
@@ -52,6 +51,5 @@ export async function saveCurrentMemberCard(previousState: ActionResult | null, 
 
   revalidatePath("/setup/card");
   revalidatePath("/settings");
-  revalidatePath("/transactions/import");
   return { status: "success" };
 }

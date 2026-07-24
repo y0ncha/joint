@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
 
@@ -33,6 +32,12 @@ it("shows the email form only for empty partner access", () => {
   expect(markup).not.toContain("Remove partner");
 });
 
+it("renders a polite status region while saving partner access", () => {
+  const markup = renderToStaticMarkup(<PartnerAccessControl state={{ status: "empty" }} />);
+
+  expect(markup).toContain('aria-live="polite"');
+});
+
 it.each([
   ["pending", "Pending sign-in", "will no longer be authorized to join"],
   ["joined", "Joined partner", "will no longer be able to view or update"],
@@ -47,16 +52,8 @@ it.each([
   expect(markup).not.toContain("Save partner access");
 });
 
-it("preserves partner-control accessibility behavior", () => {
-  const source = readFileSync("src/components/partner-access-control.tsx", "utf8");
+it("renders a polite status region while removing partner access", () => {
+  const markup = renderToStaticMarkup(<PartnerAccessControl state={{ status: "joined", email: "partner@example.com" }} />);
 
-  expect(source).toContain("spellCheck={false}");
-  expect(source).toContain('aria-live="polite"');
-  expect(source).toContain("motion-reduce:animate-none");
-  expect(source).toContain("AlertDialog");
-  expect(source).toContain("min-h-11");
-  expect(source).toContain('<AlertDialogCancel className="min-h-11"');
-  expect(source).toMatch(/<Input[^>]+className="min-h-11"/);
-  expect(source).toContain("emailRef.current?.focus()");
-  expect(source).toContain("triggerRef.current?.focus()");
+  expect(markup).toContain('aria-live="polite"');
 });

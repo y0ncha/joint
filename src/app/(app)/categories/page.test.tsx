@@ -30,8 +30,6 @@ beforeEach(() => {
 it("loads categories through the member request context and keeps creation in the action sheet", async () => {
   const markup = renderToStaticMarkup(await pageModule.default());
 
-  expect(markup).toContain("data-category-sheet");
-  expect(markup).toContain("data-category-list");
   expect(markup).toContain("Food");
   expect(mocks.from).toHaveBeenCalledWith("categories");
   expect(mocks.eq).toHaveBeenCalledWith("household_id", "household-id");

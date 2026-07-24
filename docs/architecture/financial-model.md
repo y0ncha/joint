@@ -59,4 +59,4 @@ For a selected `YYYY-MM` month, the shared balance includes transactions before 
 ## Non-goals
 
 - No double-entry ledger, bank connection, financial credential, attachment, budget, recurring transaction, automatic categorization, or audit-history model is implemented. CSV/XLSX statement import is supported, but source files and full card details are never stored.
-- Roadmap briefs under `docs/plans/features/` do not change these invariants.
+- The directional roadmap does not change these invariants.

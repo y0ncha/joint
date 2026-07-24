@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(50);
+select extensions.plan(52);
 
 select extensions.hasnt_table('public', 'accounts', 'has no accounts table');
 select extensions.hasnt_type('public', 'account_kind', 'has no account kind enum');
@@ -722,6 +722,17 @@ select extensions.is(
   (select color from public.household_members where household_id = '00000000-0000-0000-0000-000000000410' and user_id = '00000000-0000-0000-0000-000000000402'),
   '#dcecf2',
   'a same-household member color update persists'
+);
+
+select extensions.lives_ok(
+  $$ select public.set_household_member_color('00000000-0000-0000-0000-000000000402', '#0f6b54') $$,
+  'a household member can select a non-palette hex color'
+);
+
+select extensions.is(
+  (select color from public.household_members where household_id = '00000000-0000-0000-0000-000000000410' and user_id = '00000000-0000-0000-0000-000000000402'),
+  '#0f6b54',
+  'a non-palette member color persists'
 );
 
 select extensions.throws_like(

@@ -65,14 +65,14 @@ export function TransactionLedger({ transactions, categories, filterKind = "all"
 
   return (
     <>
-    <Table className="min-w-[680px] table-fixed">
+    <Table className="min-w-[840px] table-fixed">
       <colgroup>
         <col className="w-11" />
         <col className="w-[16%]" />
         <col className="w-[13%]" />
-        <col className="w-[15%]" />
+        <col className="w-[20%]" />
         <col className="w-[16%]" />
-        <col className="w-[25%]" />
+        <col className="w-[20%]" />
         <col className="w-[15%]" />
         <col className="w-11" />
       </colgroup>

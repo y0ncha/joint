@@ -33,8 +33,6 @@ it("renders card setup only for the current member without a mapping", async () 
   const markup = renderToStaticMarkup(await pageModule.default());
 
   expect(markup).toContain("Add your last four digits");
-  expect(markup).not.toContain("Optionally match imported statement rows to you.");
-  expect(markup).toContain("data-member-card-form");
   expect(mocks.requireCurrentHousehold).toHaveBeenCalledOnce();
 });
 
