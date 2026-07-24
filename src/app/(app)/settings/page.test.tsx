@@ -94,6 +94,31 @@ it("derives the empty owner state through the member request context", async () 
   expect(mocks.authorizationEq).toHaveBeenCalledWith("household_id", "household-id");
 });
 
+it("renders pending partner access for an owner authorization without a joined member", async () => {
+  mocks.authorizationMaybeSingle.mockResolvedValue({ data: { email: "partner@example.com" }, error: null });
+
+  const markup = renderToStaticMarkup(await settingsModule.default());
+
+  expect(markup).toContain('data-partner-state="pending"');
+  expect(markup).toContain("partner@example.com");
+});
+
+it("renders joined partner access for an owner authorization with a joined member", async () => {
+  mocks.memberOrder.mockResolvedValue({
+    data: [
+      { user_id: "owner-id", role: "owner", color: "#dcece3" },
+      { user_id: "partner-id", role: "member", color: "#dcece3" },
+    ],
+    error: null,
+  });
+  mocks.authorizationMaybeSingle.mockResolvedValue({ data: { email: "partner@example.com" }, error: null });
+
+  const markup = renderToStaticMarkup(await settingsModule.default());
+
+  expect(markup).toContain('data-partner-state="joined"');
+  expect(markup).toContain("partner@example.com");
+});
+
 it("does not query partner authorization for a member", async () => {
   mocks.getCurrentHouseholdContext.mockResolvedValue({
     status: "member", supabase: { from: mocks.from }, userId: "member-id", householdId: "household-id", role: "member",

@@ -52,9 +52,11 @@ export default async function SettingsPage() {
   let partnerState: PartnerAccessState | null = null;
 
   if (household.role === "owner") {
-    const [{ data: authorization, error: authorizationError }] = await Promise.all([
-      household.supabase.from("household_allowed_members").select("email").eq("household_id", household.householdId).maybeSingle(),
-    ]);
+    const { data: authorization, error: authorizationError } = await household.supabase
+      .from("household_allowed_members")
+      .select("email")
+      .eq("household_id", household.householdId)
+      .maybeSingle();
 
     if (authorizationError) throw new Error("Unable to load partner access.");
 
