@@ -11,7 +11,7 @@ describe("transactionSchema", () => {
       categoryId: "food",
       paidBy: "member-id",
       note: "Card payment",
-    })).toThrow();
+    })).toThrowError("Invalid discriminator value. Expected 'income' | 'expense'");
   });
 
   it("accepts an expense without a submitted account id", () => {

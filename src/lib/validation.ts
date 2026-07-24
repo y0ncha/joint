@@ -18,7 +18,7 @@ export const partnerAccessSchema = z.object({
 });
 
 export const transactionSchema = z.object({
-  kind: z.enum(["income", "expense"]),
+  kind: z.enum(["income", "expense"], "Invalid discriminator value. Expected 'income' | 'expense'"),
   amount: amountSchema,
   occurredOn: dateSchema,
   categoryId: optionalIdentifierSchema,
