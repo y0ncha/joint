@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 
 import { saveMemberColor } from "@/app/actions/profile";
-import { accentPresetColors } from "@/lib/accent";
 import { ColorPicker } from "@/components/color-picker";
 
 type Member = { id: string; label: string; color: string };
@@ -26,7 +25,7 @@ export function MemberColorSettingsControl({ members }: { members: Member[] }) {
       {selectedMembers.map((member) => (
         <div key={member.id} aria-label={`${member.label} paid by color`}>
           <span className="sr-only">{member.label} paid by color</span>
-          <ColorPicker color={member.color} onChange={(color) => selectColor(member.id, color)} presetColors={accentPresetColors} recentColors={selectedMembers.map((member) => member.color)} />
+          <ColorPicker color={member.color} onChange={(color) => selectColor(member.id, color)} recentColors={selectedMembers.map((member) => member.color)} />
         </div>
       ))}
     </div>
