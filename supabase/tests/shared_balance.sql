@@ -241,7 +241,7 @@ select extensions.throws_like(
 select extensions.throws_like(
   $$
     insert into public.member_cards (household_id, user_id, last_four)
-    values ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000402', '1234')
+    values ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000402', '4321')
   $$,
   '%member_cards_household_id_last_four_key%',
   'a card suffix can map to only one member per household'
