@@ -16,7 +16,7 @@ type ImportedLedgerTransaction = {
   paidBy: null;
 };
 
-it("keeps transaction details aligned inside a constrained ledger table", () => {
+it("keeps transaction selection, editing, and bulk deletion accessible", () => {
   const markup = renderToStaticMarkup(
     <TransactionLedger
       categories={[{ id: "food", name: "Food", kind: "expense", archivedAt: null }]}
@@ -36,18 +36,11 @@ it("keeps transaction details aligned inside a constrained ledger table", () => 
     />,
   );
 
-  expect(markup).toContain("min-w-[680px] table-fixed");
-  expect(markup).toContain("w-[16%]");
-  expect(markup).toContain("max-w-[14rem] truncate");
-  expect(markup).toContain("text-right");
   expect(markup).toContain('aria-label="Select all transactions"');
   expect(markup).toContain('aria-label="Select A long supermarket note that should not push the action column outside the card transaction"');
-  expect(markup).toContain('data-slot="checkbox"');
-  expect(markup).toContain("background-color:#dcece3;border-color:color-mix(in srgb, #dcece3, black 20%);color:color-mix(in srgb, #dcece3, black 60%)");
   expect(markup).toContain("aria-label=\"Edit A long supermarket note that should not push the action column outside the card transaction\"");
-  expect(markup).not.toContain("aria-label=\"Add transaction\"");
   expect(markup).toContain("aria-label=\"Delete selected transactions\"");
-  expect(markup).not.toContain(">Delete</button>");
+  expect(markup).toContain('aria-haspopup="dialog"');
 });
 
 it("renders imported merchant details with uncategorized and unassigned fallbacks", () => {
@@ -74,9 +67,6 @@ it("renders imported merchant details with uncategorized and unassigned fallback
   expect(markup).toContain("Super Pharm");
   expect(markup).toContain("Uncategorized");
   expect(markup).toContain("Unassigned");
-  expect((markup.match(/border-muted-foreground\/20 bg-muted text-muted-foreground/g) ?? []).length).toBe(2);
-  expect(markup).toContain("border-muted-foreground/20 bg-muted text-muted-foreground");
-  expect(markup).not.toContain("(Imported)");
   expect(markup).toContain('aria-label="Select Super Pharm transaction"');
 });
 

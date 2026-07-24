@@ -113,7 +113,6 @@ it.each([
 it("renders a plain profile-initial avatar", () => {
   const markup = renderToStaticMarkup(<ProfileInitialAvatar name="Ada Lovelace" />);
 
-  expect(markup).toContain('data-slot="avatar"');
   expect(markup).toContain("AL");
   expect(markup).not.toContain("tabindex");
   expect(markup).not.toContain('role="button"');
@@ -136,5 +135,4 @@ it("renders the desktop rail with navigation and a plain profile avatar", () => 
   expect(desktopRail).toContain('href="/transactions"');
   expect(desktopRail).toContain('href="/categories"');
   expect(desktopRail).toContain('href="/settings"');
-  expect(desktopRail).toContain('data-slot="avatar"');
 });

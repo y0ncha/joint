@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 
 import { AccentPicker } from "./accent-picker";
 
-it("uses circles with a custom BlockPicker popover for the browser-local accent", () => {
+it("labels the browser-local accent control", () => {
   const markup = renderToStaticMarkup(<AccentPicker />);
 
   expect(markup).toContain("Accent color");

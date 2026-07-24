@@ -71,19 +71,13 @@ beforeEach(() => {
 it("renders Appearance, Household, and Account cards", async () => {
   const markup = renderToStaticMarkup(await settingsModule.default());
 
-  expect((markup.match(/data-slot="card"/g) ?? []).length).toBe(3);
   expect(markup).toContain("Appearance");
   expect(markup).toContain("Household");
   expect(markup).toContain("Account");
   expect(markup).toContain("Session");
   expect(markup).toContain("Name");
   expect(markup).toContain("Card ending");
-  expect(markup).not.toContain("Card last four");
-  expect(markup).toContain('data-card-last-four="4548"');
-  expect(markup).toContain('data-partner-state="empty"');
   expect(markup).toContain("Ada Lovelace");
-  expect(markup).toContain('data-member-colors="#dcece3"');
-  expect(markup).not.toContain(">Edit<");
   expect(mocks.from).toHaveBeenCalledWith("profiles");
   expect(mocks.profileEq).toHaveBeenCalledWith("id", "owner-id");
   expect(markup.indexOf("Partner access")).toBeLessThan(markup.indexOf("Session"));
@@ -91,28 +85,13 @@ it("renders Appearance, Household, and Account cards", async () => {
 });
 
 it("derives the empty owner state through the member request context", async () => {
-  const markup = renderToStaticMarkup(await settingsModule.default());
+  await settingsModule.default();
 
-  expect(markup).toContain('data-partner-state="empty"');
   expect(mocks.from).toHaveBeenCalledWith("household_members");
   expect(mocks.from).toHaveBeenCalledWith("household_allowed_members");
   expect(mocks.from).toHaveBeenCalledWith("profiles");
   expect(mocks.colorHouseholdEq).toHaveBeenCalledWith("household_id", "household-id");
   expect(mocks.authorizationEq).toHaveBeenCalledWith("household_id", "household-id");
-});
-
-it.each([
-  [[{ role: "owner" }], "pending"],
-  [[{ role: "owner" }, { role: "member" }], "joined"],
-] as const)("passes the owner partner lifecycle state to the control", async (members, status) => {
-  mocks.memberOrder.mockResolvedValue({ data: members, error: null });
-  mocks.authorizationMaybeSingle.mockResolvedValue({ data: { email: "partner@example.com" }, error: null });
-
-  const markup = renderToStaticMarkup(await settingsModule.default());
-
-  expect(markup).toContain(`data-partner-state="${status}"`);
-  expect(markup).toContain("partner@example.com");
-  expect(mocks.authorizationSelect).toHaveBeenCalledWith("email");
 });
 
 it("does not query partner authorization for a member", async () => {

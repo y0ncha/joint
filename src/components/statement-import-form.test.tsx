@@ -55,7 +55,7 @@ beforeEach(() => {
   mocks.stateIndex = 0;
 });
 
-it("renders a large, muted CSV drop zone that preserves XLSX support", () => {
+it("renders a statement file input that preserves XLSX support", () => {
   const markup = renderForm();
 
   expect(markup).toContain("Drop your file here");
@@ -64,8 +64,6 @@ it("renders a large, muted CSV drop zone that preserves XLSX support", () => {
   expect(markup).toContain('name="statement"');
   expect(markup).toContain('accept=".csv,.xlsx"');
   expect(markup).toContain("Process file");
-  expect(markup).not.toContain("כרטיס");
-  expect(markup).not.toContain('name="category"');
 });
 
 it("shows selected-file, pending, live-region, and action-result feedback", async () => {

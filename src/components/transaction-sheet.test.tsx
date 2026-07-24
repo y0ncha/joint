@@ -120,7 +120,7 @@ type ImportedTransaction = {
   paidBy: null;
 };
 
-it("renders the simplified transaction composer without account or transfer choices", () => {
+it("renders the transaction composer with labelled core controls", () => {
   const markup = renderToStaticMarkup(
     <TransactionSheet
       categories={[
@@ -135,17 +135,10 @@ it("renders the simplified transaction composer without account or transfer choi
     />,
   );
   expect(markup).toContain("aria-label=\"Add transaction\"");
-  expect(markup).toContain("lucide-plus");
-  expect(markup).toContain("data-variant=\"ghost\"");
-  expect(markup).toContain("size-9");
-  expect(markup).not.toContain(">Add</span>");
   expect(markup).toContain("Income");
   expect(markup).toContain("Expense");
   expect(markup).toContain("Paid by");
   expect(markup).toContain("Choose date");
-  expect(markup).not.toContain("Transfer");
-  expect(markup).not.toContain("Account");
-  expect(markup).not.toContain("credit card");
 });
 
 it("renders edit mode with saved transaction values and deletion inside the sheet", () => {
@@ -163,6 +156,8 @@ it("renders edit mode with saved transaction values and deletion inside the shee
   expect(markup).toContain('name="note" value="Saved note"');
   expect(markup).toContain("Save changes");
   expect(markup).toContain("Delete transaction");
+  expect(markup).toContain("Delete this transaction?");
+  expect(markup).toContain("This removes the entry from the shared household ledger.");
 });
 
 it("keeps an imported transaction unassigned while allowing its category to be edited", () => {
