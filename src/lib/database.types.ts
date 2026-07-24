@@ -93,7 +93,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          color: string
+          color?: string
           household_id: string
           joined_at?: string
           role?: Database["public"]["Enums"]["household_role"]

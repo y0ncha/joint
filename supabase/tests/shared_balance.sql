@@ -105,8 +105,9 @@ select extensions.lives_ok(
 );
 
 select extensions.ok(
-  (select color ~ '^#[0-9A-Fa-f]{6}$' from public.categories where household_id = '00000000-0000-0000-0000-000000000410' and name = 'Generated color'),
-  'a generated category color is a six-digit hex value'
+  (select color ~ '^#[0-9A-Fa-f]{6}$' from public.categories where household_id = '00000000-0000-0000-0000-000000000410' and name = 'Generated color')
+  and (select color ~ '^#[0-9A-Fa-f]{6}$' from public.household_members where household_id = '00000000-0000-0000-0000-000000000410' and user_id = '00000000-0000-0000-0000-000000000402'),
+  'omitted category and member colors receive six-digit hex values'
 );
 
 select extensions.lives_ok(
