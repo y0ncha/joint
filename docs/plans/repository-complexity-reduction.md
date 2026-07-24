@@ -2,7 +2,7 @@
 goal: Reduce repository complexity without changing Joint's financial, access, or UI contracts
 version: 1.1
 date_created: 2026-07-24
-last_updated: 2026-07-24
+last_updated: 2026-07-25
 owner: Joint
 status: In progress
 tags: [chore, refactor, deletion, tests, documentation, observability]
@@ -10,7 +10,7 @@ tags: [chore, refactor, deletion, tests, documentation, observability]
 
 # Introduction
 
-![Status: On Hold](https://img.shields.io/badge/status-On%20Hold-orange)
+![Status: In progress](https://img.shields.io/badge/status-In%20progress-blue)
 
 This plan converts the 2026-07-24 Ponytail whole-repository audit into an approval-gated deletion and simplification change set. It consolidates five fragmented feature briefs into one ordered roadmap before deleting their source directory, and it removes superseded documentation, source-coupled tests, one obsolete redirect route, duplicated validation and type code, and optional Sentry features while preserving core exception reporting, the current product contract, authenticated behavior, Supabase authorization, database history, and owned UI choices.
 
