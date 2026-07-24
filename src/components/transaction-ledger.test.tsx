@@ -41,6 +41,9 @@ it("keeps transaction selection, editing, and bulk deletion accessible", () => {
   expect(markup).toContain("aria-label=\"Edit A long supermarket note that should not push the action column outside the card transaction\"");
   expect(markup).toContain("aria-label=\"Delete selected transactions\"");
   expect(markup).toContain('aria-haspopup="dialog"');
+  expect(markup).toContain('class="w-[20%]"');
+  expect(markup).toContain("capitalize");
+  expect(markup).toContain("min-w-[840px]");
 });
 
 it("renders imported merchant details with uncategorized and unassigned fallbacks", () => {

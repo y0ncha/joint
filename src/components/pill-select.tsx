@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 export type PillOption = { value: string; label: string; color?: string };
 
@@ -29,7 +30,7 @@ export function PillSelect({ ariaLabel, defaultValue, disabled, emptyLabel = "Ch
       {name ? <input name={name} type="hidden" value={selectedValue} /> : null}
       <PopoverTrigger asChild>
         <Button type="button" variant="outline" disabled={disabled} className="h-11 w-full justify-start rounded-xl" aria-label={ariaLabel} onKeyDown={(event) => { if (event.key.length === 1) { setQuery(event.key); setOpen(true); } }}>
-          {selected ? <Badge variant="outline" color={selected.color} className="max-w-full truncate">{selected.label}</Badge> : <span className="text-muted-foreground">{emptyLabel}</span>}
+          {selected ? <Badge variant="outline" color={selected.color} className={cn("max-w-full truncate", !selected.color && "border-muted-foreground/20 bg-muted text-muted-foreground")}>{selected.label}</Badge> : <span className="text-muted-foreground">{emptyLabel}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-(--radix-popover-trigger-width) p-2">
@@ -37,7 +38,7 @@ export function PillSelect({ ariaLabel, defaultValue, disabled, emptyLabel = "Ch
         <div className="flex max-h-56 flex-col gap-1 overflow-y-auto">
           {visibleOptions.map((option) => (
             <Button key={option.value} type="button" variant="ghost" className="h-11 justify-start" onClick={() => select(option.value)}>
-              <Badge variant="outline" color={option.color} className="max-w-full truncate">{option.label}</Badge>
+              <Badge variant="outline" color={option.color} className={cn("max-w-full truncate", !option.color && "border-muted-foreground/20 bg-muted text-muted-foreground")}>{option.label}</Badge>
             </Button>
           ))}
           {visibleOptions.length === 0 ? <p className="px-2 py-3 text-sm text-muted-foreground">No matching options.</p> : null}
