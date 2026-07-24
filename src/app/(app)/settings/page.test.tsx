@@ -85,8 +85,9 @@ it("renders Appearance, Household, and Account cards", async () => {
 });
 
 it("derives the empty owner state through the member request context", async () => {
-  await settingsModule.default();
+  const markup = renderToStaticMarkup(await settingsModule.default());
 
+  expect(markup).toContain('data-partner-state="empty"');
   expect(mocks.from).toHaveBeenCalledWith("household_members");
   expect(mocks.from).toHaveBeenCalledWith("household_allowed_members");
   expect(mocks.from).toHaveBeenCalledWith("profiles");

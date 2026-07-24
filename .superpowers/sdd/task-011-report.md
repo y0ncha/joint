@@ -30,3 +30,8 @@
 ## Concerns
 
 - None. This is a no-behavior refactor; verification is local only.
+
+## Follow-up coverage fix
+
+- The owner-empty test now renders Settings and asserts `data-partner-state="empty"` while retaining its authorization-query assertions.
+- `/Users/yonatan/.bun/bin/bunx vitest run 'src/app/(app)/settings/page.test.tsx' src/components/member-color-settings-control.test.tsx` — 2 files, 6 tests passed.
