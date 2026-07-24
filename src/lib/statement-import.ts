@@ -68,7 +68,7 @@ function fileKind(input: StatementInput): "csv" | "xlsx" {
 async function loadWorkbook(kind: "csv" | "xlsx", bytes: Uint8Array) {
   const workbook = new ExcelJS.Workbook();
   if (kind === "xlsx") {
-    await workbook.xlsx.load(Buffer.from(bytes));
+    await workbook.xlsx.load(Buffer.from(bytes) as unknown as Parameters<typeof workbook.xlsx.load>[0]);
   } else {
     await workbook.csv.read(Readable.from([Buffer.from(bytes)]), { map: (value) => value });
   }
