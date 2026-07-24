@@ -15,8 +15,6 @@ export type MemberHouseholdContext = CurrentHousehold & {
   userId: string;
 };
 
-export type RequiredHousehold = MemberHouseholdContext;
-
 export type CurrentHouseholdContext =
   | { status: "unauthenticated" }
   | { status: "unmatched" }
@@ -109,7 +107,7 @@ export async function ensurePartnerMembership(
   throw error;
 }
 
-export async function requireCurrentHousehold(): Promise<RequiredHousehold> {
+export async function requireCurrentHousehold(): Promise<MemberHouseholdContext> {
   const context = await getCurrentHouseholdContext();
 
   if (context.status === "unauthenticated") throw new Error("Please sign in before continuing.");

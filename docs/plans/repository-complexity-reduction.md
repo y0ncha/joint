@@ -76,7 +76,7 @@ This plan converts the 2026-07-24 Ponytail whole-repository audit into an approv
 | TASK-009 | Delete `src/app/(app)/transactions/import/page.tsx` and `page.test.tsx`, remove `/transactions/import` revalidation from `src/app/actions/member-card.ts` and its tests, and verify all internal import links use `/transactions?import=1`. | Complete | 2026-07-24 |
 | TASK-010 | Replace `incomeSchema`, `expenseSchema`, and their discriminated union in `src/lib/validation.ts` with one exported `transactionSchema` object using `kind: z.enum(["income", "expense"])`, and require existing validation and transaction-action tests to pass unchanged in behavior. | Complete | 2026-07-24 |
 | TASK-011 | Replace the one-query `Promise.all` in `src/app/(app)/settings/page.tsx` with a direct awaited authorization query, and require owner-empty, owner-pending, owner-joined, and member Settings tests to pass. | Complete | 2026-07-24 |
-| TASK-012 | Delete `RequiredHousehold` from `src/lib/household.ts`, return `Promise<MemberHouseholdContext>` from `requireCurrentHousehold`, and require household and authenticated-action TypeScript tests to pass. | Planned |  |
+| TASK-012 | Delete `RequiredHousehold` from `src/lib/household.ts`, return `Promise<MemberHouseholdContext>` from `requireCurrentHousehold`, and require household and authenticated-action TypeScript tests to pass. | Complete | 2026-07-24 |
 
 ### Implementation Phase 4
 
