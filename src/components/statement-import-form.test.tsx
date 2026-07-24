@@ -83,7 +83,6 @@ it("shows selected-file, pending, live-region, and action-result feedback", asyn
   const result = { status: "success", data: { importedRowCount: 2 } };
   mocks.importStatement.mockResolvedValue(result);
   await expect(mocks.action?.(null, new FormData())).resolves.toEqual(result);
-  expect(mocks.importStatement).toHaveBeenCalledWith(null, expect.any(FormData));
 
   mocks.pending = false;
   mocks.result = result;

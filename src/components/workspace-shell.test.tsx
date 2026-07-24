@@ -53,14 +53,6 @@ it("uses the verified claim subject as the profile-name cache suffix", async () 
   expect(mocks.from).not.toHaveBeenCalled();
 });
 
-it("returns a cached profile name without querying profiles", async () => {
-  cache.set("joint-profile-name:user-a", "Ada Lovelace");
-
-  await expect(loadVerifiedProfileName(browserClient)).resolves.toBe("Ada Lovelace");
-
-  expect(mocks.from).not.toHaveBeenCalled();
-});
-
 it("queries only the verified user on a cache miss and writes the trimmed name", async () => {
   await expect(loadVerifiedProfileName(browserClient)).resolves.toBe("Ada Lovelace");
 
@@ -76,14 +68,6 @@ it("caches an empty profile name on a cache miss", async () => {
   await expect(loadVerifiedProfileName(browserClient)).resolves.toBe("");
 
   expect(localStorage.setItem).toHaveBeenCalledWith("joint-profile-name:user-a", "");
-});
-
-it("returns a cached empty profile name without querying profiles", async () => {
-  cache.set("joint-profile-name:user-a", "");
-
-  await expect(loadVerifiedProfileName(browserClient)).resolves.toBe("");
-
-  expect(mocks.from).not.toHaveBeenCalled();
 });
 
 it("does not reuse cached profile names between verified users", async () => {

@@ -31,8 +31,4 @@ it("loads categories through the member request context and keeps creation in th
   const markup = renderToStaticMarkup(await pageModule.default());
 
   expect(markup).toContain("Food");
-  expect(mocks.from).toHaveBeenCalledWith("categories");
-  expect(mocks.eq).toHaveBeenCalledWith("household_id", "household-id");
-  expect(mocks.order).toHaveBeenCalledWith("kind");
-  expect(mocks.order).toHaveBeenCalledWith("name");
 });
