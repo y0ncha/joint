@@ -7,4 +7,8 @@ it("labels the custom color control", () => {
   const markup = renderToStaticMarkup(<ColorPicker color="#123456" onChange={() => {}} presetColors={["#0f6b54"]} recentColors={["#abcdef"]} />);
 
   expect(markup).toContain('aria-label="Custom color"');
+  expect(markup).toContain("display:contents");
+  expect(markup).toContain("margin-right:0");
+  expect(markup).toContain("pr-3");
+  expect(markup).toContain("flex size-6 items-center justify-center");
 });

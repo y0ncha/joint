@@ -94,7 +94,9 @@ export default async function SettingsPage() {
           <CardContent>
             <div className="divide-y divide-border/70">
               <SettingsRow icon={Tag} label="User colors">
-                <MemberColorSettingsControl members={(members ?? []).map((member) => ({ id: member.user_id, color: member.color, label: member.user_id === household.userId ? "You" : member.role === "owner" ? "Owner" : "Partner" }))} />
+                <div className="w-[min(22rem,55vw)]">
+                  <MemberColorSettingsControl members={(members ?? []).map((member) => ({ id: member.user_id, color: member.color, label: member.user_id === household.userId ? "You" : member.role === "owner" ? "Owner" : "Partner" }))} />
+                </div>
               </SettingsRow>
               <SettingsRow icon={UserPlus} label="Partner access" description="Authorize one Google account to share this household." value={household.role === "member" ? "Managed by owner" : undefined}>
                 {partnerState ? <PartnerAccessControl state={partnerState} /> : null}

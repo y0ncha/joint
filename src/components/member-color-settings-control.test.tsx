@@ -9,4 +9,5 @@ it("labels the member color controls", () => {
     : "";
 
   expect(markup).toContain('aria-label="Paid by colors"');
+  expect(markup).not.toContain("sm:grid-cols-2");
 });

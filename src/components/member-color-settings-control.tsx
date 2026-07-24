@@ -24,7 +24,7 @@ export function MemberColorSettingsControl({ members }: { members: Member[] }) {
   }
 
   return (
-    <div aria-label="Paid by colors" className="grid w-[min(20rem,55vw)] grid-cols-1 gap-2 sm:grid-cols-2">
+    <div aria-label="Paid by colors" className="flex flex-col gap-2">
       {selectedMembers.map((member) => (
         <div key={member.id} aria-label={`${member.label} paid by color`}>
           <span className="sr-only">{member.label} paid by color</span>

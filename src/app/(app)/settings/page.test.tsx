@@ -78,6 +78,7 @@ it("renders Appearance, Household, and Account cards", async () => {
   expect(markup).toContain("Name");
   expect(markup).toContain("Card ending");
   expect(markup).toContain("Ada Lovelace");
+  expect(markup.match(/w-\[min\(22rem,55vw\)\]/g)).toHaveLength(2);
   expect(mocks.from).toHaveBeenCalledWith("profiles");
   expect(mocks.profileEq).toHaveBeenCalledWith("id", "owner-id");
   expect(markup.indexOf("Partner access")).toBeLessThan(markup.indexOf("Session"));
