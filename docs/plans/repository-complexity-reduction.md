@@ -95,7 +95,7 @@ This plan converts the 2026-07-24 Ponytail whole-repository audit into an approv
 | Task | Description | Status | Date |
 |------|-------------|--------|------|
 | TASK-016 | Run focused tests for validation, household context, Settings, member-card actions, Transactions import-sheet behavior, and every modified render-test file, requiring exit code 0. | Complete | 2026-07-24 |
-| TASK-017 | Run `bun run lint`, `bun run test`, `bun run build`, and `git diff --check`, requiring exit code 0 for every command. | Planned |  |
+| TASK-017 | Run `bun run lint`, `bun run test`, `bun run build`, and `git diff --check`, requiring exit code 0 for every command. | Blocked — required build remains blocked by Task 015 timeout and `.next/lock` | 2026-07-24 |
 | TASK-018 | Measure `git diff --numstat` excluding `docs/plans/repository-complexity-reduction.md`, require at least 500 net deleted tracked lines and zero added dependency entries, and remove additional source-coupled assertions rather than production safeguards if the target is not met. | Complete | 2026-07-24 |
 | TASK-019 | Review the final diff against REQ-001 through REQ-010, RDM-001 through RDM-005, SEC-001 through SEC-002, and CON-001 through CON-007, report retained behavior and removed complexity, and wait for explicit implementation approval without merging, pushing, deploying, or mutating hosted state. | Planned |  |
 
