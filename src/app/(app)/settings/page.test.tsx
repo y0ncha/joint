@@ -75,9 +75,11 @@ it("renders Appearance, Household, and Account cards", async () => {
   expect(markup).toContain("Household");
   expect(markup).toContain("Account");
   expect(markup).toContain("Session");
-  expect(markup).toContain("Name");
-  expect(markup).toContain("Card ending");
-  expect(markup).toContain("Ada Lovelace");
+  expect(markup).not.toMatch(/>Name<\/p>/);
+  expect(markup).toContain("Last 4 digits");
+  expect(markup).not.toContain("Card ending");
+  expect(markup).toMatch(/<p[^>]*>Ada Lovelace<\/p>/);
+  expect(markup).toContain(">Edit</button>");
   expect(markup.match(/w-\[min\(22rem,55vw\)\]/g)).toHaveLength(2);
   expect(mocks.from).toHaveBeenCalledWith("profiles");
   expect(mocks.profileEq).toHaveBeenCalledWith("id", "owner-id");

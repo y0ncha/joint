@@ -46,13 +46,12 @@ describe("profile action", () => {
     expect(mocks.update).not.toHaveBeenCalled();
   });
 
-  it("requires a first and last name before writing", async () => {
-    await expect(actions.saveCurrentProfileName(null, formData({ name: "Yonatan" }))).resolves.toMatchObject({
-      status: "error",
-      fieldErrors: { name: "Enter your first and last name." },
+  it("accepts a single-word display name", async () => {
+    await expect(actions.saveCurrentProfileName(null, formData({ name: "Yonatan" }))).resolves.toEqual({
+      status: "success", data: { fullName: "Yonatan" },
     });
 
-    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.update).toHaveBeenCalledWith({ full_name: "Yonatan" });
   });
 
   it("saves a household member's selected hex color", async () => {

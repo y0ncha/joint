@@ -112,10 +112,10 @@ export default async function SettingsPage() {
           </CardHeader>
           <CardContent>
             <div className="divide-y divide-border/70">
-              <SettingsRow icon={UserRound} label="Name">
+              <SettingsRow icon={UserRound} label={profile?.full_name?.trim() || "Name"}>
                 <ProfileNameSettingsControl fullName={profile?.full_name?.trim() ?? ""} userId={household.userId} />
               </SettingsRow>
-              <SettingsRow icon={CreditCard} label="Card ending" description="Used only for future statement imports.">
+              <SettingsRow icon={CreditCard} label="Last 4 digits" description="Used only for future statement imports.">
                 <MemberCardSettingsControl lastFour={cardMapping?.last_four ?? null} />
               </SettingsRow>
               <SettingsRow icon={LogOut} label="Session" description="End this browser session and return to sign in.">

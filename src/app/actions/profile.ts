@@ -8,7 +8,7 @@ import { requireCurrentHousehold } from "@/lib/household";
 import { isHexColor } from "@/lib/shared-colors";
 
 const profileNameSchema = z.object({
-  name: z.string().trim().regex(/^\S+\s+\S+$/, "Enter your first and last name."),
+  name: z.string().trim().min(1, "Enter a display name."),
 });
 
 export async function saveCurrentProfileName(previousState: ActionResult | null, formData: FormData): Promise<ActionResult> {
