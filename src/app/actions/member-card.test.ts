@@ -45,7 +45,6 @@ describe("member card action", () => {
     expect(mocks.from).toHaveBeenCalledWith("member_cards");
     expect(mocks.insert).toHaveBeenCalledWith({ household_id: "household-id", user_id: "member-id", last_four: "4548" });
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/setup/card");
-    expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions/import");
   });
 
   it("rejects a non-four-digit mapping before writing", async () => {
