@@ -73,7 +73,7 @@ The complete visual and interaction contract remains in [`docs/design.md`](desig
 | `supabase/tests/` | Database-level behavior and security verification. |
 | `docs/architecture/` | Durable explanations of implemented technical mechanisms. |
 | `docs/plans/` | Proposed and active implementation plans, tasks, and completion evidence. |
-| `docs/plans/features/` | Deferred roadmap briefs that do not authorize implementation. |
+| `docs/roadmap.md` | Directional post-MVP roadmap that does not authorize implementation. |
 
 ## Environments
 

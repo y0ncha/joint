@@ -14,7 +14,7 @@ tags: [feature, transactions, import, csv, xlsx, supabase, onboarding]
 
 Implement an authenticated CSV/XLSX statement import based on the supplied workbook. A household member uploads one Bank Hapoalim-style card statement, Joint validates it on the server, optionally maps recognized card last-four digits to joined household members, and atomically saves every valid non-zero row to the shared ledger. Unrecognized cards remain unassigned. The import returns a read-only digest of what was saved. Imported transactions may remain uncategorized, or a member may assign, change, or clear their category later.
 
-This plan supersedes the non-persistence decision in `docs/plans/features/transactions-csv-digest.md`. It does not add bank connections, full card numbers, card accounts, automatic categorization, or persistent source files.
+This plan supersedes the former non-persistence CSV-digest direction, recorded as superseded in the [roadmap](../roadmap.md). It does not add bank connections, full card numbers, card accounts, automatic categorization, or persistent source files.
 
 ## 1. Requirements & Constraints
 
@@ -177,7 +177,6 @@ This plan supersedes the non-persistence decision in `docs/plans/features/transa
 
 ## 8. Related Specifications / Further Reading
 
-- [Original transaction CSV digest roadmap brief](features/transactions-csv-digest.md)
 - [Joint design system](../design.md)
 - [Joint architecture overview](../architecture.md)
 - [Financial model](../architecture/financial-model.md)
