@@ -65,7 +65,7 @@ This plan converts the 2026-07-24 Ponytail whole-repository audit into an approv
 | TASK-005 | Delete `src/components/ui-alignment.test.ts`, `src/components/ui/card.test.ts`, `src/components/ui/sheet.test.tsx`, and `src/app/globals.test.ts` after preserving any user-visible or semantic-token contract in `docs/design.md`, and require the remaining suite to pass without replacement source scans. | Complete | 2026-07-24 |
 | TASK-006 | Remove every `readFileSync`-based assertion from component and page tests under `src/`, retaining rendered labels, roles, names, values, live regions, keyboard semantics, and action results, and require `rg -n "readFileSync" src --glob "**/*.test.*"` to return zero matches. | Complete | 2026-07-24 |
 | TASK-007 | Remove assertions against exact Tailwind utility strings, internal component identifiers, and obsolete negative identifiers from remaining render tests, retaining only assertions whose failure represents a visible behavior or accessibility regression. | Complete | 2026-07-24 |
-| TASK-008 | After TASK-005 through TASK-007 complete, run the focused tests for every modified test file and require each file to pass before Phase 3 starts. | Planned |  |
+| TASK-008 | After TASK-005 through TASK-007 complete, run the focused tests for every modified test file and require each file to pass before Phase 3 starts. | Complete | 2026-07-24 |
 
 ### Implementation Phase 3
 
