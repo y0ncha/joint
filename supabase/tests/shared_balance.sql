@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(48);
+select extensions.plan(47);
 
 select extensions.hasnt_table('public', 'accounts', 'has no accounts table');
 select extensions.hasnt_type('public', 'account_kind', 'has no account kind enum');
