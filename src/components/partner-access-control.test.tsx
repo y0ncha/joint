@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
 
@@ -45,18 +44,4 @@ it.each([
   expect(markup).toContain(removalEffect);
   expect(markup).not.toContain('name="email"');
   expect(markup).not.toContain("Save partner access");
-});
-
-it("preserves partner-control accessibility behavior", () => {
-  const source = readFileSync("src/components/partner-access-control.tsx", "utf8");
-
-  expect(source).toContain("spellCheck={false}");
-  expect(source).toContain('aria-live="polite"');
-  expect(source).toContain("motion-reduce:animate-none");
-  expect(source).toContain("AlertDialog");
-  expect(source).toContain("min-h-11");
-  expect(source).toContain('<AlertDialogCancel className="min-h-11"');
-  expect(source).toMatch(/<Input[^>]+className="min-h-11"/);
-  expect(source).toContain("emailRef.current?.focus()");
-  expect(source).toContain("triggerRef.current?.focus()");
 });

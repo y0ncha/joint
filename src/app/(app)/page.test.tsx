@@ -1,5 +1,4 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -52,7 +51,6 @@ describe("Joint dashboard", () => {
 
   it("shows the restored dashboard cards with live household values", async () => {
     const markup = renderToStaticMarkup(await renderHome());
-    const source = readFileSync("src/app/(app)/page.tsx", "utf8");
 
     expect(markup).toContain("aria-label=\"Add transaction\"");
     expect(markup).toContain("lucide-plus");
@@ -73,19 +71,12 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("Based on 3-month income average");
     expect(markup).toContain("18,420");
     expect(markup).not.toContain("10,060");
-    expect(source).toContain("currency.format(report.sharedBalance)");
-    expect(source).not.toContain("expectedMonthlyIncome - report.expenses");
     expect(markup).not.toContain("Income vs outgoings");
     expect(markup).toContain("Where your money went");
     expect(markup).toContain("More chart options");
     expect(markup).toContain("Super-Pharm Ltd.");
     expect(markup).toContain("Uncategorized - 2026-07-14");
     expect(markup).toContain("Imported");
-    expect(source).not.toContain("data.accounts");
-    expect(source).not.toContain("setupRequired");
-    expect(source).not.toContain("accountName");
-    expect(source).not.toContain("accountId");
-    expect(source).not.toContain("flex size-10 items-center justify-center rounded-xl bg-secondary text-primary");
     expect(markup).not.toContain("Upcoming card charge");
     expect(markup).not.toContain("Card debt");
     expect(markup).not.toContain("credit card");

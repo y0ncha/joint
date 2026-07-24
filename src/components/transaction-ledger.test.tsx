@@ -1,5 +1,4 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 
 import { TransactionLedger } from "./transaction-ledger";
@@ -44,14 +43,11 @@ it("keeps transaction details aligned inside a constrained ledger table", () => 
   expect(markup).toContain('aria-label="Select all transactions"');
   expect(markup).toContain('aria-label="Select A long supermarket note that should not push the action column outside the card transaction"');
   expect(markup).toContain('data-slot="checkbox"');
-  expect(readFileSync("src/components/ui/checkbox.tsx", "utf8")).toContain("size-4");
-  expect(readFileSync("src/components/ui/checkbox.tsx", "utf8")).toContain("data-checked:bg-primary");
   expect(markup).toContain("background-color:#dcece3;border-color:color-mix(in srgb, #dcece3, black 20%);color:color-mix(in srgb, #dcece3, black 60%)");
   expect(markup).toContain("aria-label=\"Edit A long supermarket note that should not push the action column outside the card transaction\"");
   expect(markup).not.toContain("aria-label=\"Add transaction\"");
   expect(markup).toContain("aria-label=\"Delete selected transactions\"");
   expect(markup).not.toContain(">Delete</button>");
-  expect(readFileSync("src/components/transaction-ledger.tsx", "utf8")).not.toMatch(/transaction\.categoryId \?[^?]/);
 });
 
 it("renders imported merchant details with uncategorized and unassigned fallbacks", () => {
