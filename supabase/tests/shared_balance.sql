@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(47);
+select extensions.plan(50);
 
 select extensions.hasnt_table('public', 'accounts', 'has no accounts table');
 select extensions.hasnt_type('public', 'account_kind', 'has no account kind enum');
@@ -132,6 +132,9 @@ select extensions.lives_ok(
   'the same card suffix may exist in another household'
 );
 
+insert into public.member_cards (household_id, user_id, last_four)
+values ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000402', '5678');
+
 set local role authenticated;
 set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000401';
 set local request.jwt.claim.email = 'first-owner@example.test';
@@ -156,7 +159,7 @@ select extensions.throws_like(
 
 select extensions.is(
   (select count(*) from public.member_cards where household_id = '00000000-0000-0000-0000-000000000410'),
-  1::bigint,
+  2::bigint,
   'a household member can read their household card mappings'
 );
 
@@ -189,6 +192,28 @@ select extensions.is_empty(
   $$
     update public.member_cards
     set last_four = '8765'
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and user_id = '00000000-0000-0000-0000-000000000402'
+    returning 1
+  $$,
+  'a household member cannot replace another member mapping in the same household'
+);
+
+select extensions.throws_like(
+  $$
+    update public.member_cards
+    set user_id = '00000000-0000-0000-0000-000000000402'
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and user_id = '00000000-0000-0000-0000-000000000401'
+  $$,
+  '%row-level security%',
+  'a household member cannot reassign their own card mapping'
+);
+
+select extensions.is_empty(
+  $$
+    update public.member_cards
+    set last_four = '8765'
     where household_id = '00000000-0000-0000-0000-000000000411'
       and user_id = '00000000-0000-0000-0000-000000000403'
     returning 1
@@ -197,6 +222,9 @@ select extensions.is_empty(
 );
 
 reset role;
+delete from public.member_cards
+where household_id = '00000000-0000-0000-0000-000000000410'
+  and user_id = '00000000-0000-0000-0000-000000000402';
 set local request.jwt.claim.sub = '';
 set local request.jwt.claim.email = '';
 set local request.jwt.claims = '{}';
