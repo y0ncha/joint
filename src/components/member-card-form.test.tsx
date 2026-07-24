@@ -18,3 +18,9 @@ it("offers an accessible four-digit card mapping form", () => {
   expect(markup).toContain("Save card");
   expect(markup).toContain('href="/"');
 });
+
+it("renders a polite status region for card-save feedback", () => {
+  const markup = renderToStaticMarkup(<MemberCardForm />);
+
+  expect(markup).toContain('aria-live="polite"');
+});

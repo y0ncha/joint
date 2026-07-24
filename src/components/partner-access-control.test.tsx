@@ -32,6 +32,12 @@ it("shows the email form only for empty partner access", () => {
   expect(markup).not.toContain("Remove partner");
 });
 
+it("renders a polite status region while saving partner access", () => {
+  const markup = renderToStaticMarkup(<PartnerAccessControl state={{ status: "empty" }} />);
+
+  expect(markup).toContain('aria-live="polite"');
+});
+
 it.each([
   ["pending", "Pending sign-in", "will no longer be authorized to join"],
   ["joined", "Joined partner", "will no longer be able to view or update"],
@@ -44,4 +50,10 @@ it.each([
   expect(markup).toContain(removalEffect);
   expect(markup).not.toContain('name="email"');
   expect(markup).not.toContain("Save partner access");
+});
+
+it("renders a polite status region while removing partner access", () => {
+  const markup = renderToStaticMarkup(<PartnerAccessControl state={{ status: "joined", email: "partner@example.com" }} />);
+
+  expect(markup).toContain('aria-live="polite"');
 });
