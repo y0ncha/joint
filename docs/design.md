@@ -104,6 +104,7 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 ### Forms and overlays
 
 - Use `Field`, `FieldGroup`, and visible `FieldLabel` composition for forms.
+- Browser autofill preserves the established text-input surface; it must not repaint inputs blue.
 - Use `ToggleGroup` for two to seven related choices.
 - Dropdowns use searchable pill selectors: their trigger uses the same filled surface as text inputs, their menu shows labelled pills sorted lexicographically, and typing filters to matching labels. Ledger month, year, filtering, and sorting use regular selects in chronological order.
 - A transaction type change clears an incompatible category instead of silently substituting one. A manual transaction must select a matching category before save; an imported transaction may remain `Uncategorized`.
