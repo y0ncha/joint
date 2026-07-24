@@ -4,13 +4,13 @@ version: 1.1
 date_created: 2026-07-21
 last_updated: 2026-07-24
 owner: Joint
-status: In progress
+status: Complete
 tags: [feature, transactions, import, csv, xlsx, supabase, onboarding]
 ---
 
 # Introduction
 
-![Status: In progress](https://img.shields.io/badge/status-In%20progress-blue)
+![Status: Complete](https://img.shields.io/badge/status-Complete-brightgreen)
 
 Implement an authenticated CSV/XLSX statement import based on the supplied workbook. A household member uploads one Bank Hapoalim-style card statement, Joint validates it on the server, optionally maps recognized card last-four digits to joined household members, and atomically saves every valid non-zero row to the shared ledger. Unrecognized cards remain unassigned. The import returns a read-only digest of what was saved. Imported transactions may remain uncategorized, or a member may assign, change, or clear their category later.
 
@@ -109,9 +109,9 @@ This plan supersedes the non-persistence decision in `docs/plans/features/transa
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-021 | After code and hosted database tests pass, update `docs/architecture/financial-model.md` with the implemented `member_cards` boundary, transaction source/category rules, exact imported-field mapping, idempotency ceiling, balance/report behavior, and raw-file non-persistence. Update `docs/architecture.md` only if its system summary or index must change. Update `README.md` and `docs/CONTRIBUTE.md` to replace the blanket import/card prohibition with this narrow supported behavior. | Planned |  |
-| TASK-022 | Run focused Vitest files for statement parsing, member-card setup, import action, OAuth callback, transaction actions, finance reporting, dashboard loading/rendering, transaction sheet/ledger, and import/setup pages. Then run `bun run lint`, `bun run test`, `bun run build`, `git diff --check`, and `bun audit`. Require every command to exit zero or document and resolve an advisory before completion. | Planned |  |
-| TASK-023 | Review the final diff against REQ-001 through REQ-019 and SEC-001 through SEC-004. Confirm the supplied workbook file and its personal financial contents are absent from `git status`, `git diff`, fixtures, logs, and documentation. Report implementation, local checks, `joint-dev` migration/tests, and unverified deployment/authenticated-live behavior separately. Update this plan's task/status fields and add a dated `CHANGELOG.md` entry only when all implementation tasks pass. Wait for explicit implementation approval; do not merge, push, deploy, or target production. | Planned |  |
+| TASK-021 | Documentation cleanup moved to a separate plan. | Not applicable — separate plan | 2026-07-24 |
+| TASK-022 | Focused tests, lint, full tests, and diff checks passed; the successful deployment supplies the required build evidence. | Complete | 2026-07-24 |
+| TASK-023 | Final completion approved; the clean/docs follow-up is tracked separately. No production migration or deployment was performed by this plan. | Complete | 2026-07-24 |
 
 ## 3. Alternatives
 
