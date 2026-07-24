@@ -20,14 +20,14 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { PillSelect } from "@/components/pill-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { ReportTransaction } from "@/lib/financial-report";
 
-type Category = { id: string; name: string; kind: "income" | "expense" };
-type Member = { id: string; label: string };
+type Category = { id: string; name: string; kind: "income" | "expense"; color?: string };
+type Member = { id: string; label: string; color?: string };
 
 const displayDate = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
 const transactionKindItemClassName = "transition-[background-color,border-color,color,box-shadow] duration-300 ease-in-out motion-reduce:transition-none data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm hover:data-[state=on]:bg-primary hover:data-[state=on]:text-primary-foreground";
@@ -79,8 +79,7 @@ export function TransactionSheet({
   const [occurredOn, setOccurredOn] = useState(transaction?.occurredOn ?? todayIso);
   const [paidBy, setPaidBy] = useState(() => transaction?.paidBy ?? currentUserId ?? members[0]?.id ?? "");
   const [categoryId, setCategoryId] = useState(() => transaction ? (transaction.categoryId ?? "") : (categories.find((category) => category.kind === initialKind)?.id ?? ""));
-  const isUncategorizedImport = transaction?.source === "statement_import" && categoryId === "";
-  const selectedCategoryId = isUncategorizedImport ? "" : (selectableCategories.some((category) => category.id === categoryId) ? categoryId : (selectableCategories[0]?.id ?? ""));
+  const selectedCategoryId = selectableCategories.some((category) => category.id === categoryId) ? categoryId : "";
   const selectedPaidBy = paidBy === "" ? "" : (members.some((member) => member.id === paidBy) ? paidBy : (currentUserId || members[0]?.id || ""));
   const shouldRenderDefaultTrigger = !isEditing && open === undefined && onOpenChange === undefined;
 
@@ -108,7 +107,7 @@ export function TransactionSheet({
             <input name="paidBy" type="hidden" value={selectedPaidBy} />
             <Field>
               <FieldLabel id="transaction-kind-label">Type</FieldLabel>
-              <ToggleGroup aria-labelledby="transaction-kind-label" type="single" value={kind} onValueChange={(value) => value && setKind(value as typeof kind)} variant="outline" spacing={0}>
+              <ToggleGroup aria-labelledby="transaction-kind-label" type="single" value={kind} onValueChange={(value) => { if (value) { setKind(value as typeof kind); setCategoryId(""); } }} variant="outline" spacing={0}>
                 <ToggleGroupItem value="income" className={transactionKindItemClassName}>Income</ToggleGroupItem>
                 <ToggleGroupItem value="expense" className={transactionKindItemClassName}>Expense</ToggleGroupItem>
               </ToggleGroup>
@@ -140,35 +139,12 @@ export function TransactionSheet({
             </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.paidBy)}>
               <FieldLabel>Paid by</FieldLabel>
-              <Select value={selectedPaidBy || "unassigned"} onValueChange={(value) => setPaidBy(value === "unassigned" ? "" : value)} disabled={members.length === 0}>
-                <SelectTrigger className="w-full" aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.paidBy)}>
-                  <SelectValue placeholder="Choose member" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="unassigned">Unassigned</SelectItem>
-                    {members.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>{member.label}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              <PillSelect ariaLabel="Members" value={selectedPaidBy || "unassigned"} onValueChange={(value) => setPaidBy(value === "unassigned" ? "" : value)} disabled={members.length === 0} options={[{ value: "unassigned", label: "Unassigned" }, ...members.map((member) => ({ value: member.id, label: member.label, color: member.color }))]} />
               {state?.status === "error" ? <FieldError>{state.fieldErrors.paidBy}</FieldError> : null}
             </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.categoryId)}>
               <FieldLabel>Category</FieldLabel>
-              {isUncategorizedImport ? <p className="text-sm text-muted-foreground">Uncategorized</p> : <Select value={selectedCategoryId} onValueChange={setCategoryId} disabled={selectableCategories.length === 0}>
-                <SelectTrigger className="w-full" aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.categoryId)}>
-                  <SelectValue placeholder="Choose category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {selectableCategories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>}
+              <PillSelect ariaLabel="Categories" value={selectedCategoryId} onValueChange={setCategoryId} disabled={selectableCategories.length === 0} emptyLabel="Uncategorized" options={selectableCategories.map((category) => ({ value: category.id, label: category.name, color: category.color }))} />
               {state?.status === "error" ? <FieldError>{state.fieldErrors.categoryId}</FieldError> : null}
             </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)}>

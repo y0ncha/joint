@@ -65,6 +65,7 @@ it("renders the simplified transaction composer without account or transfer choi
   expect(source).toContain("data-[state=on]:bg-primary");
   expect(source).toContain("data-[state=on]:text-primary-foreground");
   expect(source).toContain("Paid by");
+  expect(source).toContain("PillSelect");
   expect(source).toContain("Choose date");
   expect(source).toContain("h-dvh w-full max-w-none");
   expect(source).toContain("md:w-3/4 md:max-w-lg");
@@ -90,7 +91,7 @@ it("renders edit mode with saved transaction values and deletion inside the shee
   expect(source).toContain("Delete transaction");
 });
 
-it("keeps an imported transaction uncategorized and unassigned while exposing Merchant", () => {
+it("keeps an imported transaction unassigned while allowing its category to be edited", () => {
   const transaction: ImportedTransaction = {
     id: "imported-id",
     kind: "expense",
@@ -114,9 +115,16 @@ it("keeps an imported transaction uncategorized and unassigned while exposing Me
   expect(markup).toContain("Merchant");
   expect(markup).toContain("Super Pharm");
   expect(markup).toContain("Unassigned");
-  expect(markup).toContain("Uncategorized");
+  expect(readFileSync("src/components/transaction-sheet.tsx", "utf8")).toContain('ariaLabel="Categories"');
   expect(markup).toContain('type="hidden" name="categoryId" value=""');
   expect(markup).toContain('type="hidden" name="paidBy" value=""');
+});
+
+it("clears an incompatible category when transaction type changes", () => {
+  const source = readFileSync("src/components/transaction-sheet.tsx", "utf8");
+
+  expect(source).toContain("setCategoryId(\"\")");
+  expect(source).not.toContain("selectableCategories[0]?.id");
 });
 
 it("preserves the local calendar day when serializing a selected date", () => {

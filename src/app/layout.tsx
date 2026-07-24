@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Analytics } from "@vercel/analytics/next";
-import { ACCENT_COOKIE_NAME, normalizeAccentName } from "@/lib/accent";
+import { ACCENT_COOKIE_NAME, accentForeground, normalizeAccentColor } from "@/lib/accent";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -26,12 +26,22 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const accent = normalizeAccentName((await cookies()).get(ACCENT_COOKIE_NAME)?.value);
+  const accent = normalizeAccentColor((await cookies()).get(ACCENT_COOKIE_NAME)?.value);
+  const accentStyle = {
+    "--primary": accent,
+    "--primary-foreground": accentForeground(accent),
+    "--ring": accent,
+    "--chart-1": accent,
+    "--accent": `color-mix(in srgb, ${accent} 12%, white)`,
+    "--sidebar-primary": accent,
+    "--sidebar-primary-foreground": accentForeground(accent),
+    "--sidebar-ring": accent,
+  } as React.CSSProperties;
 
   return (
     <html
       lang="en"
-      data-accent={accent}
+      style={accentStyle}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">

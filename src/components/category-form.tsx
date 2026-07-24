@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import { createCategory } from "@/app/actions/categories";
 import type { ActionResult } from "@/app/actions/result";
 import { Button } from "@/components/ui/button";
+import { ColorPicker } from "@/components/color-picker";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -13,7 +14,19 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const categoryKindItemClassName = "transition-[background-color,border-color,color,box-shadow] duration-300 ease-in-out motion-reduce:transition-none data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm hover:data-[state=on]:bg-primary hover:data-[state=on]:text-primary-foreground";
 
-export function CategoryForm() {
+export function CategoryColorPicker({ defaultColor = "#dcece3", recentColors = [] }: { defaultColor?: string; recentColors?: string[] }) {
+  const [color, setColor] = useState(defaultColor);
+
+  return (
+    <Field>
+      <FieldLabel id="category-color-label">Color</FieldLabel>
+      <input name="color" type="hidden" value={color} />
+      <div aria-labelledby="category-color-label"><ColorPicker color={color} onChange={setColor} recentColors={recentColors} /></div>
+    </Field>
+  );
+}
+
+export function CategoryForm({ recentColors = [] }: { recentColors?: string[] }) {
   const [kind, setKind] = useState("expense");
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(async (_state, formData) => createCategory(formData), null);
 
@@ -33,6 +46,7 @@ export function CategoryForm() {
             <ToggleGroupItem value="income" className={categoryKindItemClassName}>Income</ToggleGroupItem>
           </ToggleGroup>
         </Field>
+        <CategoryColorPicker recentColors={recentColors} />
         {state?.status === "error" ? <FieldError>{state.formError}</FieldError> : null}
         <Button disabled={isPending} type="submit">Add category</Button>
       </FieldGroup>
@@ -40,7 +54,7 @@ export function CategoryForm() {
   );
 }
 
-export function CategorySheet() {
+export function CategorySheet({ recentColors = [] }: { recentColors?: string[] }) {
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -56,7 +70,7 @@ export function CategorySheet() {
           <SheetDescription>Create the categories used in monthly reporting.</SheetDescription>
         </SheetHeader>
         <div className="px-6 pb-6">
-          <CategoryForm />
+          <CategoryForm recentColors={recentColors} />
         </div>
       </SheetContent>
     </Sheet>

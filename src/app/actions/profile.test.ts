@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   requireCurrentHousehold: vi.fn(),
   from: vi.fn(),
   update: vi.fn(),
+  rpc: vi.fn(),
   eq: vi.fn(),
   revalidatePath: vi.fn(),
 }));
@@ -22,10 +23,11 @@ function formData(values: Record<string, string>) {
 describe("profile action", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mocks.requireCurrentHousehold.mockResolvedValue({ userId: "member-id", supabase: { from: mocks.from } });
+    mocks.requireCurrentHousehold.mockResolvedValue({ userId: "member-id", supabase: { from: mocks.from, rpc: mocks.rpc } });
     mocks.from.mockReturnValue({ update: mocks.update });
     mocks.update.mockReturnValue({ eq: mocks.eq });
     mocks.eq.mockResolvedValue({ error: null });
+    mocks.rpc.mockResolvedValue({ error: null });
   });
 
   it("updates only the verified member profile with a trimmed name", async () => {
@@ -51,5 +53,18 @@ describe("profile action", () => {
     });
 
     expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("saves a household member's selected hex color", async () => {
+    await expect(actions.saveMemberColor("partner-id", "#123456")).resolves.toEqual({ status: "success" });
+
+    expect(mocks.rpc).toHaveBeenCalledWith("set_household_member_color", { target_user_id: "partner-id", target_color: "#123456" });
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/settings");
+  });
+
+  it("rejects malformed member colors", async () => {
+    await expect(actions.saveMemberColor("partner-id", "blue")).resolves.toMatchObject({ status: "error" });
+
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 });

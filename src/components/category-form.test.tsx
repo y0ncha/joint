@@ -7,12 +7,24 @@ it("offers an accessible expense category form", () => {
   const source = readFileSync("src/components/category-form.tsx", "utf8");
   expect(markup).toContain("Category name");
   expect(markup).toContain("Category type");
+  expect(markup).toContain("Color");
+  expect(markup).toContain('name="color"');
+  expect(source).toContain("ColorPicker");
   expect(source).toContain("transition-[background-color,border-color,color,box-shadow]");
   expect(source).toContain("duration-300");
   expect(source).toContain("motion-reduce:transition-none");
   expect(source).toContain("data-[state=on]:bg-primary");
   expect(source).toContain("data-[state=on]:text-primary-foreground");
   expect(markup).toContain("Add category");
+});
+
+it("uses circles with a custom popover for category colors", () => {
+  const markup = categoryFormModule
+    ? renderToStaticMarkup(<categoryFormModule.CategoryColorPicker recentColors={["#123456"]} />)
+    : "";
+
+  expect(markup).toContain('name="color"');
+  expect(markup).toContain("Custom color");
 });
 
 it("opens category creation from a right-side sheet trigger", () => {

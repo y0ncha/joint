@@ -9,7 +9,7 @@ function number(value: number) {
 }
 
 export function categoryFromRow(row: CategoryRow) {
-  return { id: row.id, name: row.name, kind: row.kind, archivedAt: row.archived_at };
+  return { id: row.id, name: row.name, kind: row.kind, archivedAt: row.archived_at, color: row.color };
 }
 
 export function transactionFromRow(row: TransactionRow) {

@@ -1,13 +1,14 @@
 import { logOut } from "@/app/actions/auth";
 import { AccentPicker } from "@/components/accent-picker";
 import { MemberCardSettingsControl } from "@/components/member-card-settings-control";
+import { MemberColorSettingsControl } from "@/components/member-color-settings-control";
 import { PartnerAccessControl, type PartnerAccessState } from "@/components/partner-access-control";
 import { ProfileNameSettingsControl } from "@/components/profile-name-settings-control";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentHouseholdContext } from "@/lib/household";
-import { ChevronRight, CreditCard, LogOut, Palette, UserRound, UserPlus, type LucideIcon } from "lucide-react";
+import { ChevronRight, CreditCard, LogOut, Palette, Tag, UserRound, UserPlus, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 function SettingsRow({
@@ -42,20 +43,20 @@ function SettingsRow({
 export default async function SettingsPage() {
   const household = await getCurrentHouseholdContext();
   if (household.status !== "member") return null;
-  const [{ data: cardMapping, error: cardMappingError }, { data: profile, error: profileError }] = await Promise.all([
+  const [{ data: cardMapping, error: cardMappingError }, { data: profile, error: profileError }, { data: members, error: membersError }] = await Promise.all([
     household.supabase.from("member_cards").select("last_four").eq("household_id", household.householdId).eq("user_id", household.userId).maybeSingle(),
     household.supabase.from("profiles").select("full_name").eq("id", household.userId).maybeSingle(),
+    household.supabase.from("household_members").select("user_id, role, color").eq("household_id", household.householdId).order("joined_at"),
   ]);
-  if (cardMappingError || profileError) throw new Error("Unable to load account settings.");
+  if (cardMappingError || profileError || membersError) throw new Error("Unable to load account settings.");
   let partnerState: PartnerAccessState | null = null;
 
   if (household.role === "owner") {
-    const [{ data: members, error: membersError }, { data: authorization, error: authorizationError }] = await Promise.all([
-      household.supabase.from("household_members").select("role").eq("household_id", household.householdId).order("joined_at"),
+    const [{ data: authorization, error: authorizationError }] = await Promise.all([
       household.supabase.from("household_allowed_members").select("email").eq("household_id", household.householdId).maybeSingle(),
     ]);
 
-    if (membersError || authorizationError) throw new Error("Unable to load partner access.");
+    if (authorizationError) throw new Error("Unable to load partner access.");
 
     const hasPartner = (members ?? []).some((member) => member.role === "member");
     if (hasPartner && !authorization) throw new Error("Joined partner authorization is missing.");
@@ -85,8 +86,25 @@ export default async function SettingsPage() {
 
         <Card className="border-white/50 bg-card/90">
           <CardHeader>
+            <CardTitle>Household</CardTitle>
+            <CardDescription>Manage shared members and household access.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y divide-border/70">
+              <SettingsRow icon={Tag} label="User colors">
+                <MemberColorSettingsControl members={(members ?? []).map((member) => ({ id: member.user_id, color: member.color, label: member.user_id === household.userId ? "You" : member.role === "owner" ? "Owner" : "Partner" }))} />
+              </SettingsRow>
+              <SettingsRow icon={UserPlus} label="Partner access" description="Authorize one Google account to share this household." value={household.role === "member" ? "Managed by owner" : undefined}>
+                {partnerState ? <PartnerAccessControl state={partnerState} /> : null}
+              </SettingsRow>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-white/50 bg-card/90">
+          <CardHeader>
             <CardTitle>Account</CardTitle>
-            <CardDescription>Manage your name, card mapping, household access, and browser session.</CardDescription>
+            <CardDescription>Manage your name, card mapping, and browser session.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="divide-y divide-border/70">
@@ -95,9 +113,6 @@ export default async function SettingsPage() {
               </SettingsRow>
               <SettingsRow icon={CreditCard} label="Card ending" description="Used only for future statement imports.">
                 <MemberCardSettingsControl lastFour={cardMapping?.last_four ?? null} />
-              </SettingsRow>
-              <SettingsRow icon={UserPlus} label="Partner access" description="Authorize one Google account to share this household." value={household.role === "member" ? "Managed by owner" : undefined}>
-                {partnerState ? <PartnerAccessControl state={partnerState} /> : null}
               </SettingsRow>
               <SettingsRow icon={LogOut} label="Session" description="End this browser session and return to sign in.">
                 <form action={logOut}>

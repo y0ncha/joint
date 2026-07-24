@@ -101,3 +101,18 @@ export async function deleteTransaction(transactionId: string): Promise<ActionRe
   for (const path of ["/", "/transactions", "/categories"]) revalidatePath(path);
   return { status: "success" };
 }
+
+export async function deleteTransactions(transactionIds: string[]): Promise<ActionResult> {
+  const ids = [...new Set(transactionIds.filter((id) => typeof id === "string" && id.length > 0))];
+  if (ids.length === 0) return { status: "error", formError: "Select at least one transaction.", fieldErrors: {} };
+
+  const household = await requireCurrentHousehold();
+  const { error } = await household.supabase
+    .from("transactions")
+    .delete()
+    .in("id", ids)
+    .eq("household_id", household.householdId);
+  if (error) return { status: "error", formError: "Unable to delete the selected transactions. Please try again.", fieldErrors: {} };
+  for (const path of ["/", "/transactions", "/categories"]) revalidatePath(path);
+  return { status: "success" };
+}

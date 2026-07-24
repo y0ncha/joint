@@ -86,18 +86,21 @@ export type Database = {
       }
       household_members: {
         Row: {
+          color: string
           household_id: string
           joined_at: string
           role: Database["public"]["Enums"]["household_role"]
           user_id: string
         }
         Insert: {
+          color?: string
           household_id: string
           joined_at?: string
           role?: Database["public"]["Enums"]["household_role"]
           user_id: string
         }
         Update: {
+          color?: string
           household_id?: string
           joined_at?: string
           role?: Database["public"]["Enums"]["household_role"]
@@ -303,6 +306,10 @@ export type Database = {
       is_household_owner: {
         Args: { target_household_id: string }
         Returns: boolean
+      }
+      set_household_member_color: {
+        Args: { target_color: string; target_user_id: string }
+        Returns: undefined
       }
     }
     Enums: {

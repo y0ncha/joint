@@ -17,6 +17,10 @@ const mocks = vi.hoisted(() => ({
   profileSelect: vi.fn(),
   profileEq: vi.fn(),
   profileMaybeSingle: vi.fn(),
+  colorSelect: vi.fn(),
+  colorHouseholdEq: vi.fn(),
+  colorUserEq: vi.fn(),
+  colorMaybeSingle: vi.fn(),
 }));
 
 vi.mock("@/lib/household", () => ({ getCurrentHouseholdContext: mocks.getCurrentHouseholdContext }));
@@ -26,6 +30,9 @@ vi.mock("@/components/partner-access-control", () => ({
 }));
 vi.mock("@/components/member-card-settings-control", () => ({
   MemberCardSettingsControl: ({ lastFour }: { lastFour: string | null }) => <span data-card-last-four={lastFour ?? "none"} />,
+}));
+vi.mock("@/components/member-color-settings-control", () => ({
+  MemberColorSettingsControl: ({ members }: { members: Array<{ id: string; color: string }> }) => <span data-member-colors={members.map((member) => member.color).join(",")} />,
 }));
 
 const settingsModule = await import("./page");
@@ -44,7 +51,11 @@ beforeEach(() => {
         : { select: mocks.authorizationSelect });
   mocks.memberSelect.mockReturnValue({ eq: mocks.memberEq });
   mocks.memberEq.mockReturnValue({ order: mocks.memberOrder });
-  mocks.memberOrder.mockResolvedValue({ data: [{ role: "owner" }], error: null });
+  mocks.memberOrder.mockResolvedValue({ data: [{ user_id: "owner-id", role: "owner", color: "#dcece3" }], error: null });
+  mocks.memberSelect.mockImplementation((columns: string) => columns === "user_id, role, color"
+    ? { eq: mocks.colorHouseholdEq }
+    : { eq: mocks.memberEq });
+  mocks.colorHouseholdEq.mockReturnValue({ order: mocks.memberOrder });
   mocks.authorizationSelect.mockReturnValue({ eq: mocks.authorizationEq });
   mocks.authorizationEq.mockReturnValue({ maybeSingle: mocks.authorizationMaybeSingle });
   mocks.authorizationMaybeSingle.mockResolvedValue({ data: null, error: null });
@@ -57,11 +68,12 @@ beforeEach(() => {
   mocks.profileMaybeSingle.mockResolvedValue({ data: { full_name: "Ada Lovelace" }, error: null });
 });
 
-it("renders Appearance and Account cards", async () => {
+it("renders Appearance, Household, and Account cards", async () => {
   const markup = renderToStaticMarkup(await settingsModule.default());
 
-  expect((markup.match(/data-slot="card"/g) ?? []).length).toBe(2);
+  expect((markup.match(/data-slot="card"/g) ?? []).length).toBe(3);
   expect(markup).toContain("Appearance");
+  expect(markup).toContain("Household");
   expect(markup).toContain("Account");
   expect(markup).toContain("Session");
   expect(markup).toContain("Name");
@@ -70,10 +82,12 @@ it("renders Appearance and Account cards", async () => {
   expect(markup).toContain('data-card-last-four="4548"');
   expect(markup).toContain('data-partner-state="empty"');
   expect(markup).toContain("Ada Lovelace");
+  expect(markup).toContain('data-member-colors="#dcece3"');
   expect(markup).not.toContain(">Edit<");
   expect(mocks.from).toHaveBeenCalledWith("profiles");
   expect(mocks.profileEq).toHaveBeenCalledWith("id", "owner-id");
   expect(markup.indexOf("Partner access")).toBeLessThan(markup.indexOf("Session"));
+  expect(markup.indexOf("Household")).toBeLessThan(markup.indexOf("Account"));
 });
 
 it("derives the empty owner state through the member request context", async () => {
@@ -83,7 +97,7 @@ it("derives the empty owner state through the member request context", async () 
   expect(mocks.from).toHaveBeenCalledWith("household_members");
   expect(mocks.from).toHaveBeenCalledWith("household_allowed_members");
   expect(mocks.from).toHaveBeenCalledWith("profiles");
-  expect(mocks.memberEq).toHaveBeenCalledWith("household_id", "household-id");
+  expect(mocks.colorHouseholdEq).toHaveBeenCalledWith("household_id", "household-id");
   expect(mocks.authorizationEq).toHaveBeenCalledWith("household_id", "household-id");
 });
 

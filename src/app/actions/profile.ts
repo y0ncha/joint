@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { validationError, type ActionResult } from "@/app/actions/result";
 import { requireCurrentHousehold } from "@/lib/household";
+import { isHexColor } from "@/lib/shared-colors";
 
 const profileNameSchema = z.object({
   name: z.string().trim().regex(/^\S+\s+\S+$/, "Enter your first and last name."),
@@ -20,4 +21,16 @@ export async function saveCurrentProfileName(previousState: ActionResult | null,
 
   revalidatePath("/settings");
   return { status: "success", data: { fullName: parsed.data.name } };
+}
+
+export async function saveMemberColor(userId: string, color: string): Promise<ActionResult> {
+  if (!isHexColor(color)) return { status: "error", formError: "Choose a valid color.", fieldErrors: {} };
+
+  const household = await requireCurrentHousehold();
+  const { error } = await household.supabase.rpc("set_household_member_color", { target_user_id: userId, target_color: color });
+  if (error) return { status: "error", formError: "Unable to save your color. Please try again.", fieldErrors: {} };
+
+  revalidatePath("/settings");
+  revalidatePath("/transactions");
+  return { status: "success" };
 }

@@ -3,6 +3,7 @@ export type ReportCategory = {
   name: string;
   kind: "income" | "expense";
   archivedAt: string | null;
+  color?: string;
 };
 
 export type ReportTransaction = {

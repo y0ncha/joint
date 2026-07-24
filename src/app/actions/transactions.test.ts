@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   insert: vi.fn(),
   delete: vi.fn(),
   update: vi.fn(),
+  transactionIn: vi.fn(),
   revalidatePath: vi.fn(),
   select: vi.fn(),
 }));
@@ -42,13 +43,14 @@ function configureContextClient({
   const payerSelect = vi.fn().mockReturnValue({ eq: payerEqHousehold });
   const transactionEqHousehold = vi.fn().mockResolvedValue({ error: transactionError });
   const transactionEqId = vi.fn().mockReturnValue({ eq: transactionEqHousehold });
+  const transactionIn = vi.fn().mockReturnValue({ eq: transactionEqHousehold });
   const sourceMaybeSingle = vi.fn().mockResolvedValue({ data: existingTransaction, error: null });
   const sourceEqHousehold = vi.fn().mockReturnValue({ maybeSingle: sourceMaybeSingle });
   const sourceEqId = vi.fn().mockReturnValue({ eq: sourceEqHousehold });
 
   mocks.insert.mockResolvedValue({ error: transactionError });
   mocks.update.mockReturnValue({ eq: transactionEqId });
-  mocks.delete.mockReturnValue({ eq: transactionEqId });
+  mocks.delete.mockReturnValue({ eq: transactionEqId, in: transactionIn });
   mocks.from.mockImplementation((table: string) => {
     if (table === "household_members") return { select: payerSelect };
     if (table === "transactions") return { insert: mocks.insert, update: mocks.update, delete: mocks.delete, select: mocks.select };
@@ -57,7 +59,7 @@ function configureContextClient({
 
   mocks.select.mockReturnValue({ eq: sourceEqId });
 
-  return { payerEqHousehold, sourceEqHousehold, sourceEqId, transactionEqHousehold, transactionEqId };
+  return { payerEqHousehold, sourceEqHousehold, sourceEqId, transactionEqHousehold, transactionEqId, transactionIn };
 }
 
 describe("transaction actions", () => {
@@ -190,6 +192,16 @@ describe("transaction actions", () => {
     await expect(transactionsModule.deleteTransaction("transaction-id")).resolves.toEqual({
       status: "error", formError: "Unable to delete the transaction. Please try again.", fieldErrors: {},
     });
+  });
+
+  it("bulk deletes only selected transactions in the verified household", async () => {
+    const { transactionEqHousehold, transactionIn } = configureContextClient();
+
+    await expect(transactionsModule.deleteTransactions(["transaction-a", "transaction-b"])).resolves.toEqual({ status: "success" });
+
+    expect(transactionIn).toHaveBeenCalledWith("id", ["transaction-a", "transaction-b"]);
+    expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
   });
 
   it("rejects transfer submissions at the validation boundary", async () => {

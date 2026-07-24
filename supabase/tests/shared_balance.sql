@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(39);
+select extensions.plan(48);
 
 select extensions.hasnt_table('public', 'accounts', 'has no accounts table');
 select extensions.hasnt_type('public', 'account_kind', 'has no account kind enum');
@@ -83,7 +83,8 @@ values
   ('00000000-0000-0000-0000-000000000401', 'first-owner@example.test', now(), '{"provider":"google"}'),
   ('00000000-0000-0000-0000-000000000402', 'first-member@example.test', now(), '{"provider":"google"}'),
   ('00000000-0000-0000-0000-000000000403', 'second-owner@example.test', now(), '{"provider":"google"}'),
-  ('00000000-0000-0000-0000-000000000404', 'second-member@example.test', now(), '{"provider":"google"}');
+  ('00000000-0000-0000-0000-000000000404', 'second-member@example.test', now(), '{"provider":"google"}'),
+  ('00000000-0000-0000-0000-000000000405', 'outsider@example.test', now(), '{"provider":"google"}');
 
 insert into public.households (id, name, created_by, opening_balance)
 values
@@ -94,6 +95,34 @@ insert into public.household_members (household_id, user_id, role)
 values
   ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000402', 'member'),
   ('00000000-0000-0000-0000-000000000411', '00000000-0000-0000-0000-000000000404', 'member');
+
+select extensions.lives_ok(
+  $$
+    insert into public.categories (household_id, name, kind)
+    values ('00000000-0000-0000-0000-000000000410', 'Generated color', 'expense')
+  $$,
+  'a new category receives a generated color'
+);
+
+select extensions.ok(
+  (select color ~ '^#[0-9A-Fa-f]{6}$' from public.categories where household_id = '00000000-0000-0000-0000-000000000410' and name = 'Generated color'),
+  'a generated category color is a six-digit hex value'
+);
+
+select extensions.lives_ok(
+  $$
+    update public.categories
+    set color = '#123456'
+    where household_id = '00000000-0000-0000-0000-000000000410' and name = 'Generated color'
+  $$,
+  'a category accepts a custom six-digit hex color'
+);
+
+select extensions.is(
+  (select color from public.categories where household_id = '00000000-0000-0000-0000-000000000410' and name = 'Generated color'),
+  '#123456',
+  'a custom category color is preserved'
+);
 
 select extensions.lives_ok(
   $$
@@ -627,5 +656,51 @@ select extensions.throws_like(
   'a non-member payer fails'
 );
 
+reset role;
+set local request.jwt.claim.sub = '';
+set local request.jwt.claim.email = '';
+set local request.jwt.claims = '{}';
+set local role anon;
+
+select extensions.throws_like(
+  $$ select public.set_household_member_color('00000000-0000-0000-0000-000000000402', '#dcecf2') $$,
+  '%permission denied%',
+  'an anonymous caller cannot change a member color'
+);
+
+reset role;
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000405';
+set local request.jwt.claim.email = 'outsider@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000405","email":"outsider@example.test"}';
+
+select extensions.throws_like(
+  $$ select public.set_household_member_color('00000000-0000-0000-0000-000000000402', '#dcecf2') $$,
+  '%Not allowed%',
+  'an authenticated non-member cannot change a member color'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000401';
+set local request.jwt.claim.email = 'first-owner@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
+
+select extensions.lives_ok(
+  $$ select public.set_household_member_color('00000000-0000-0000-0000-000000000402', '#dcecf2') $$,
+  'a household member can change another member color in the same household'
+);
+
+select extensions.is(
+  (select color from public.household_members where household_id = '00000000-0000-0000-0000-000000000410' and user_id = '00000000-0000-0000-0000-000000000402'),
+  '#dcecf2',
+  'a same-household member color update persists'
+);
+
+select extensions.throws_like(
+  $$ select public.set_household_member_color('00000000-0000-0000-0000-000000000404', '#dcecf2') $$,
+  '%Not allowed%',
+  'a household member cannot change a member color in another household'
+);
+
+reset role;
 select * from extensions.finish();
 rollback;
