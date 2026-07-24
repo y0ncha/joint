@@ -9,3 +9,13 @@ script = ""
 name = "Dev"
 icon = "run"
 command = "bun run dev"
+
+[[actions]]
+name = "Build"
+icon = "tool"
+command = "bun run build"
+
+[[actions]]
+name = "Test"
+icon = "test"
+command = "bun run test && bun run lint"

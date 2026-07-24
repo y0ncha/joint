@@ -4,13 +4,13 @@ version: 1.1
 date_created: 2026-07-24
 last_updated: 2026-07-25
 owner: Joint
-status: In progress
+status: Completed
 tags: [chore, refactor, deletion, tests, documentation, observability]
 ---
 
 # Introduction
 
-![Status: In progress](https://img.shields.io/badge/status-In%20progress-blue)
+![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
 
 This plan converts the 2026-07-24 Ponytail whole-repository audit into an approval-gated deletion and simplification change set. It consolidates five fragmented feature briefs into one ordered roadmap before deleting their source directory, and it removes superseded documentation, source-coupled tests, one obsolete redirect route, duplicated validation and type code, and optional Sentry features while preserving core exception reporting, the current product contract, authenticated behavior, Supabase authorization, database history, and owned UI choices.
 
@@ -97,7 +97,7 @@ This plan converts the 2026-07-24 Ponytail whole-repository audit into an approv
 | TASK-016 | Run focused tests for validation, household context, Settings, member-card actions, Transactions import-sheet behavior, and every modified render-test file, requiring exit code 0. | Complete | 2026-07-24 |
 | TASK-017 | Run `bun run lint`, `bun run test`, `bun run build`, and `git diff --check`, requiring exit code 0 for every command. | Complete | 2026-07-25 |
 | TASK-018 | Measure `git diff --numstat` excluding `docs/plans/repository-complexity-reduction.md`, require at least 500 net deleted tracked lines and zero added dependency entries, and remove additional source-coupled assertions rather than production safeguards if the target is not met. | Complete | 2026-07-25 |
-| TASK-019 | Review the final diff against REQ-001 through REQ-010, RDM-001 through RDM-005, SEC-001 through SEC-002, and CON-001 through CON-007, report retained behavior and removed complexity, and wait for explicit implementation approval without merging, pushing, deploying, or mutating hosted state. | In progress | 2026-07-25 |
+| TASK-019 | Review the final diff against REQ-001 through REQ-010, RDM-001 through RDM-005, SEC-001 through SEC-002, and CON-001 through CON-007, report retained behavior and removed complexity, and wait for explicit implementation approval without merging, pushing, deploying, or mutating hosted state. | Complete | 2026-07-25 |
 
 ## 3. Alternatives
 
