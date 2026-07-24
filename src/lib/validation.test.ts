@@ -3,6 +3,15 @@ import { describe, expect, it } from "vitest";
 import { categorySchema, partnerAccessSchema, transactionSchema } from "./validation";
 
 describe("transactionSchema", () => {
+  const validTransaction = {
+    amount: "12.34",
+    occurredOn: "2026-07-14",
+    categoryId: "food",
+    paidBy: "member-id",
+    merchant: "Grocer",
+    note: "Groceries",
+  };
+
   it("rejects transfers because the visible MVP only supports income and expense", () => {
     expect(() => transactionSchema.parse({
       kind: "transfer",
@@ -14,26 +23,31 @@ describe("transactionSchema", () => {
     })).toThrowError("Invalid discriminator value. Expected 'income' | 'expense'");
   });
 
-  it("accepts an expense without a submitted account id", () => {
-    expect(transactionSchema.parse({
-      kind: "expense",
-      amount: "12.34",
-      occurredOn: "2026-07-14",
-      categoryId: "food",
-      paidBy: "member-id",
-      note: "Groceries",
-    })).toMatchObject({ kind: "expense", amount: 12.34 });
+  it.each(["income", "expense"] as const)("accepts a valid %s transaction", (kind) => {
+    expect(transactionSchema.parse({ kind, ...validTransaction })).toMatchObject({ kind, amount: 12.34 });
   });
 
-  it("rejects an amount with more than two decimal places", () => {
-    expect(() => transactionSchema.parse({
+  it.each([
+    ["amount", "12.345", "Use no more than two decimal places."],
+    ["occurredOn", "14-07-2026", "Use YYYY-MM-DD."],
+    ["categoryId", 1, "Invalid input: expected string, received number"],
+    ["paidBy", 1, "Invalid input: expected string, received number"],
+    ["merchant", "x".repeat(201), "Use 200 characters or fewer."],
+    ["note", "x".repeat(501), "Use 500 characters or fewer."],
+  ])("rejects an invalid %s with its existing message", (field, value, message) => {
+    const result = transactionSchema.safeParse({ kind: "expense", ...validTransaction, [field]: value });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues).toContainEqual(expect.objectContaining({ path: [field], message }));
+  });
+
+  it("accepts the merchant and note length boundaries", () => {
+    expect(transactionSchema.parse({
       kind: "expense",
-      amount: "12.345",
-      occurredOn: "2026-07-14",
-      categoryId: "food",
-      paidBy: "member-id",
-      note: "Groceries",
-    })).toThrow();
+      ...validTransaction,
+      merchant: "x".repeat(200),
+      note: "x".repeat(500),
+    })).toMatchObject({ merchant: "x".repeat(200), note: "x".repeat(500) });
   });
 });
 

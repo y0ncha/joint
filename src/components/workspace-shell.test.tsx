@@ -123,4 +123,8 @@ it("renders the desktop rail with navigation and a plain profile avatar", () => 
 
   expect(desktopRail).toContain('alt="Joint logo"');
   expect(desktopRail).toContain('aria-label="Primary navigation"');
+  expect(desktopRail).toContain('href="/"');
+  expect(desktopRail).toContain('href="/transactions"');
+  expect(desktopRail).toContain('href="/categories"');
+  expect(desktopRail).toContain('href="/settings"');
 });
