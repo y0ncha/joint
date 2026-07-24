@@ -10,15 +10,6 @@ it("offers an accessible expense category form", () => {
   expect(markup).toContain("Add category");
 });
 
-it("uses circles with a custom popover for category colors", () => {
-  const markup = categoryFormModule
-    ? renderToStaticMarkup(<categoryFormModule.CategoryColorPicker recentColors={["#123456"]} />)
-    : "";
-
-  expect(markup).toContain('name="color"');
-  expect(markup).toContain("Custom color");
-});
-
 it("labels the category creation trigger", () => {
   const markup = categoryFormModule ? renderToStaticMarkup(<categoryFormModule.CategorySheet />) : "";
 

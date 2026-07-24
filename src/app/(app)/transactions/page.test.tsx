@@ -32,6 +32,7 @@ describe("Transactions page", () => {
   it("loads the selected ledger month and renders month and year selectors", async () => {
     const markup = renderToStaticMarkup(await TransactionsPage({ searchParams: Promise.resolve({ month: "2026-06" }) }));
 
+    expect(mocks.getDashboardData).toHaveBeenCalledWith("2026-06");
     expect(markup).toContain('aria-label="Select ledger month"');
     expect(markup).toContain('aria-label="Select ledger year"');
   });

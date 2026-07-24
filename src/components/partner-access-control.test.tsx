@@ -51,3 +51,9 @@ it.each([
   expect(markup).not.toContain('name="email"');
   expect(markup).not.toContain("Save partner access");
 });
+
+it("renders a polite status region while removing partner access", () => {
+  const markup = renderToStaticMarkup(<PartnerAccessControl state={{ status: "joined", email: "partner@example.com" }} />);
+
+  expect(markup).toContain('aria-live="polite"');
+});
