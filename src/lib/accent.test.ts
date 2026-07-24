@@ -1,31 +1,23 @@
 import { describe, expect, it } from "vitest";
 
-import { ACCENT_STORAGE_KEY, accentOptions, isAccentName, normalizeAccentName } from "./accent";
+import { ACCENT_COOKIE_NAME, accentPresetColors, normalizeAccentColor, serializeAccentCookie } from "./accent";
 
 describe("personal accent preferences", () => {
-  it("exposes five named palette options for the appearance picker", () => {
-    expect(accentOptions.map((accent) => accent.name)).toEqual([
-      "mint",
-      "sky",
-      "lilac",
-      "clay",
-      "blush",
-    ]);
+  it("accepts hex colors, migrates named preferences, and falls back for invalid values", () => {
+    expect(ACCENT_COOKIE_NAME).toBe("joint-accent");
+    expect(normalizeAccentColor("#123456")).toBe("#123456");
+    expect(normalizeAccentColor("sky")).toBe("#236a8d");
+    expect(normalizeAccentColor("peach")).toBe("#aa583e");
+    expect(normalizeAccentColor("neon-green")).toBe("#0f6b54");
+    expect(normalizeAccentColor(null)).toBe("#0f6b54");
   });
 
-  it("defines a swatch color for every palette option", () => {
-    expect(accentOptions.every((accent) => "swatch" in accent)).toBe(true);
-    expect(accentOptions.find((accent) => accent.name === "clay")).toMatchObject({ swatch: "#aa583e" });
+  it("keeps the original five accent swatches as presets", () => {
+    expect(accentPresetColors).toEqual(["#0f6b54", "#236a8d", "#7056a3", "#aa583e", "#a14b78"]);
   });
 
-  it("migrates renamed preferences and falls back for unknown values", () => {
-    expect(ACCENT_STORAGE_KEY).toBe("joint-accent");
-    expect(isAccentName("lilac")).toBe(true);
-    expect(isAccentName("neon-green")).toBe(false);
-    expect(normalizeAccentName("sky")).toBe("sky");
-    expect(normalizeAccentName("peach")).toBe("clay");
-    expect(normalizeAccentName("terracotta")).toBe("clay");
-    expect(normalizeAccentName("neon-green")).toBe("mint");
-    expect(normalizeAccentName(null)).toBe("mint");
+  it("serializes a site-wide cookie and adds Secure only on HTTPS", () => {
+    expect(serializeAccentCookie("#123456", true)).toBe("joint-accent=%23123456; Max-Age=31536000; Path=/; SameSite=Lax; Secure");
+    expect(serializeAccentCookie("invalid", false)).toBe("joint-accent=%230f6b54; Max-Age=31536000; Path=/; SameSite=Lax");
   });
 });

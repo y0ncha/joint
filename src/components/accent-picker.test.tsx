@@ -1,19 +1,21 @@
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 
 import { AccentPicker } from "./accent-picker";
 
-it("shows accent options inline without a popover trigger", () => {
+it("uses circles with a custom BlockPicker popover for the browser-local accent", () => {
   const markup = renderToStaticMarkup(<AccentPicker />);
+  const source = readFileSync("src/components/accent-picker.tsx", "utf8");
 
   expect(markup).toContain("Accent color");
-  expect(markup).toContain("Mint");
-  expect(markup).toContain("Sky");
-  expect(markup).toContain("Lilac");
-  expect(markup).toContain("Clay");
-  expect(markup).toContain("Blush");
-  expect(markup).not.toContain("bg-white/45");
-  expect(markup).not.toContain("Choose your accent color");
-  expect(markup).not.toContain("data-slot=\"popover-trigger\"");
-  expect(markup).not.toContain("data-slot=\"popover-content\"");
+  expect(source).toContain("ColorPicker");
+  expect(source).toContain("presetColors={accentPresetColors}");
+});
+
+it("caches the recent-color snapshot used by the external store", () => {
+  const source = readFileSync("src/components/accent-picker.tsx", "utf8");
+
+  expect(source).toContain("let recentColorsSnapshot = [];");
+  expect(source).toContain("if (rawColors === recentColorsRaw) return recentColorsSnapshot;");
 });

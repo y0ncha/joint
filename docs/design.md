@@ -31,7 +31,7 @@ The implementation source of truth is `src/app/globals.css`. Use semantic CSS to
 | `background` | `#f6d4b8` | Fallback page background. |
 | `foreground` | `#17201d` | Primary text and high-emphasis icons. |
 | `card` | `rgba(255, 252, 247, 0.92)` | Main floating surfaces. |
-| `popover` | `#fffaf5` | Opaque menus, calendars, selects, and popovers. |
+| `popover` | `#fffdfb` | Fully opaque, neutral menus, calendars, selects, and popovers. |
 | `muted-foreground` | `#58635e` | Supporting text and quiet icons. |
 | `border` | `rgba(23, 32, 29, 0.12)` | Low-contrast boundaries and dividers. |
 | `positive` | `#0f6b54` | Positive financial values. |
@@ -40,19 +40,9 @@ The implementation source of truth is `src/app/globals.css`. Use semantic CSS to
 
 Color must reinforce meaning rather than carry it alone. Text, values, labels, or icons must communicate the same meaning without color.
 
-### Personal accent palettes
+### Personal accent color
 
-Each browser may select one curated accent. The preference is stored locally as `joint-accent`; it is not shared household data.
-
-| Palette | Primary | Soft accent | Character |
-| --- | --- | --- | --- |
-| Mint | `#0f6b54` | `#dcece3` | Default, calm green. |
-| Sky | `#236a8d` | `#dcecf2` | Cool blue. |
-| Lilac | `#7056a3` | `#ece5f4` | Muted violet. |
-| Clay | `#aa583e` | `#f6e3dc` | Warm terracotta. |
-| Blush | `#a14b78` | `#f5e2eb` | Soft rose. |
-
-The selected accent may change primary actions, neutral emphasis, chart steps, focus rings, and active navigation. It must not change positive, negative, expense, or destructive meaning. Palette controls name every option in text; a color dot is insufficient.
+Each browser may select any hex accent with a `react-color` BlockPicker. The preference is stored locally as `joint-accent`; it is not shared household data. The selected accent may change primary actions, neutral emphasis, chart steps, focus rings, and active navigation. It must not change positive, negative, expense, or destructive meaning.
 
 ### Contrast
 
@@ -87,7 +77,7 @@ The selected accent may change primary actions, neutral emphasis, chart steps, f
 - The canvas is a fixed `135deg` peach-to-blue CSS gradient, never an image.
 - The outer workspace frame uses restrained translucency and blur.
 - Cards use the semantic `card` color, a quiet border, and a soft shadow only when separation requires it.
-- Popovers, menus, calendars, and selects use the more opaque `popover` surface.
+- Popovers, menus, calendars, and selects use the fully opaque, neutral `popover` surface.
 - Hover elevation is limited to a subtle one-pixel translation or small shadow change. Static information cards do not need to move.
 
 ## Components and composition
@@ -108,11 +98,15 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 - Inside a settings card, use full-width rows with one muted leading icon, a label, optional short description, and exactly one right-side value or control.
 - Do not repeat the row label as the control label. Name the setting on the left and use an action verb on the control, such as `Session` and `Log out`.
 - Ordinary row controls use small selects, compact outline buttons, text values, or labelled icon buttons. Reserve primary fills for creation and destructive fills for irreversible actions.
+- Pills are compact labelled `Badge` capsules with a one-pixel low-contrast border. Income and expense use fixed semantic positive and negative colors; unassigned and uncategorized use neutral gray; member and category pills use their shared household pastel color. Pills always include their text label; color is supplemental.
+- The ledger card header has one subtle, labelled gear button. Its right-side Sheet contains sorting and filtering; active filters remain visible through the URL. Ledger rows always expose warm-neutral checkboxes that use the selected accent when checked, plus a destructive bulk-delete action that always requires confirmation.
 
 ### Forms and overlays
 
 - Use `Field`, `FieldGroup`, and visible `FieldLabel` composition for forms.
 - Use `ToggleGroup` for two to seven related choices.
+- Dropdowns use searchable pill selectors: their trigger uses the same filled surface as text inputs, their menu shows labelled pills sorted lexicographically, and typing filters to matching labels. Ledger month, year, filtering, and sorting use regular selects in chronological order.
+- A transaction type change clears an incompatible category instead of silently substituting one. A manual transaction must select a matching category before save; an imported transaction may remain `Uncategorized`.
 - Use `Sheet` for desktop transaction entry and a full-height mobile presentation.
 - Use `Popover` with the owned `Calendar` for dates; do not use the browser-native date picker in transaction entry.
 - Use `AlertDialog` for irreversible deletion, removal, or archival unless a reliable undo path exists.
@@ -121,9 +115,12 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 
 ### Settings
 
-- Appearance and account concerns use separate section cards.
-- Session and partner-access controls are rows inside the `Account` card, not separate cards.
+- Appearance, household, and account concerns use separate section cards, in that order.
+- The `Household` card sits above `Account` and contains shared member-color and partner-access controls.
+- Name, card mapping, and session controls are rows inside the `Account` card, not separate cards. A member can edit only their own two-word display name; its value is the edit control, and a saved change updates their profile and desktop avatar initials.
 - Signing out is a session action, not a destructive action.
+- The `Log out` row is the final row in the Account card.
+- Member colors are shared household settings. Categories, member colors, and the browser-local accent use `react-color` CirclePicker swatches plus a final `Custom color` circle that opens a BlockPicker. The BlockPicker includes all recent custom colors and its hex input. Category and member colors remain labelled supplemental visuals; the accent never changes financial or destructive semantics. New members receive the next available pastel until a member changes it.
 - Partner access uses an outline `Manage partner` control, an owned `Popover`, and destructive confirmation only for removal.
 - Owners see one of three partner-access states: no authorization, pending sign-in, or joined partner. Pending and joined states expose removal rather than replacement; authorizing another email requires removing the current access first.
 
@@ -164,8 +161,9 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 
 - The interface is English with logical-property-friendly layout so Hebrew and RTL can be added later.
 - Joint has exactly one shared household balance: opening balance plus income minus expenses. The shared balance may be negative.
-- The MVP accepts manual income and expenses only.
-- The primary experience exposes that shared balance, categories, manual income and expenses, monthly reporting, recent activity, and partner access.
+- The MVP accepts manual income and expenses plus authenticated CSV/XLSX statement imports using the documented Hebrew export format.
+- The primary experience exposes that shared balance, categories, manual income and expenses, statement imports, monthly reporting, recent activity, and partner access.
 - Income and expense use a segmented choice.
-- Expense entry identifies who paid and defaults to the signed-in household member.
-- Multiple accounts, credit-card debt, transfers, budgets, recurring transactions, imports, labels, attachments, financial credentials, card numbers, and audit history remain outside the MVP unless a separately approved plan changes this contract.
+- Expense entry may identify a household member who paid and defaults to the signed-in member; `Unassigned` is an explicit valid state for both manual and imported transactions.
+- Imported transactions may remain `Uncategorized`. Opening an imported transaction lets a member assign a matching category later, change it, or return it to `Uncategorized`; import itself never asks for a category.
+- A member may optionally save one card's last four digits during onboarding or later in Settings, and may replace only their own saved digits. Imports snapshot a recognized mapping into the newly saved transaction's payer; changing the mapping never changes an existing transaction's payer. Unmatched cards remain unassigned. Full card numbers, bank connections, card accounts, transfers, budgets, recurring transactions, automatic categorization, attachments, financial credentials, and audit history remain outside the MVP unless a separately approved plan changes this contract.

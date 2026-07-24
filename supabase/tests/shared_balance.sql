@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(14);
+select extensions.plan(48);
 
 select extensions.hasnt_table('public', 'accounts', 'has no accounts table');
 select extensions.hasnt_type('public', 'account_kind', 'has no account kind enum');
@@ -44,12 +44,47 @@ select extensions.ok(
   'RLS is enabled on households, categories, and transactions'
 );
 
+select extensions.has_table('public', 'member_cards', 'has member cards');
+
+select extensions.ok(
+  (
+    select schema_table.relrowsecurity
+    from pg_catalog.pg_class as schema_table
+    join pg_catalog.pg_namespace as table_schema on table_schema.oid = schema_table.relnamespace
+    where table_schema.nspname = 'public'
+      and schema_table.relname = 'member_cards'
+  ),
+  'RLS is enabled on member card mappings'
+);
+
+select extensions.ok(
+  has_table_privilege('authenticated', 'public.member_cards', 'SELECT')
+    and has_table_privilege('authenticated', 'public.member_cards', 'INSERT')
+    and has_table_privilege('authenticated', 'public.member_cards', 'UPDATE')
+    and not has_table_privilege('authenticated', 'public.member_cards', 'DELETE'),
+  'authenticated users may select, insert, and update member card mappings'
+);
+
+select extensions.is(
+  (
+    select array_agg(enum_value.enumlabel::text order by enum_value.enumsortorder)
+    from pg_catalog.pg_enum as enum_value
+    join pg_catalog.pg_type as enum_type on enum_type.oid = enum_value.enumtypid
+    join pg_catalog.pg_namespace as enum_schema on enum_schema.oid = enum_type.typnamespace
+    where enum_schema.nspname = 'public'
+      and enum_type.typname = 'transaction_source'
+  ),
+  array['manual', 'statement_import'],
+  'transaction sources contain exactly manual and statement import'
+);
+
 insert into auth.users (id, email, email_confirmed_at, raw_app_meta_data)
 values
   ('00000000-0000-0000-0000-000000000401', 'first-owner@example.test', now(), '{"provider":"google"}'),
   ('00000000-0000-0000-0000-000000000402', 'first-member@example.test', now(), '{"provider":"google"}'),
   ('00000000-0000-0000-0000-000000000403', 'second-owner@example.test', now(), '{"provider":"google"}'),
-  ('00000000-0000-0000-0000-000000000404', 'second-member@example.test', now(), '{"provider":"google"}');
+  ('00000000-0000-0000-0000-000000000404', 'second-member@example.test', now(), '{"provider":"google"}'),
+  ('00000000-0000-0000-0000-000000000405', 'outsider@example.test', now(), '{"provider":"google"}');
 
 insert into public.households (id, name, created_by, opening_balance)
 values
@@ -60,6 +95,138 @@ insert into public.household_members (household_id, user_id, role)
 values
   ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000402', 'member'),
   ('00000000-0000-0000-0000-000000000411', '00000000-0000-0000-0000-000000000404', 'member');
+
+select extensions.lives_ok(
+  $$
+    insert into public.categories (household_id, name, kind)
+    values ('00000000-0000-0000-0000-000000000410', 'Generated color', 'expense')
+  $$,
+  'a new category receives a generated color'
+);
+
+select extensions.ok(
+  (select color ~ '^#[0-9A-Fa-f]{6}$' from public.categories where household_id = '00000000-0000-0000-0000-000000000410' and name = 'Generated color'),
+  'a generated category color is a six-digit hex value'
+);
+
+select extensions.lives_ok(
+  $$
+    update public.categories
+    set color = '#123456'
+    where household_id = '00000000-0000-0000-0000-000000000410' and name = 'Generated color'
+  $$,
+  'a category accepts a custom six-digit hex color'
+);
+
+select extensions.is(
+  (select color from public.categories where household_id = '00000000-0000-0000-0000-000000000410' and name = 'Generated color'),
+  '#123456',
+  'a custom category color is preserved'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.member_cards (household_id, user_id, last_four)
+    values ('00000000-0000-0000-0000-000000000411', '00000000-0000-0000-0000-000000000403', '1234')
+  $$,
+  'the same card suffix may exist in another household'
+);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000401';
+set local request.jwt.claim.email = 'first-owner@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
+
+select extensions.lives_ok(
+  $$
+    insert into public.member_cards (household_id, user_id, last_four)
+    values ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000401', '1234')
+  $$,
+  'a household member can save their own card mapping'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.member_cards (household_id, user_id, last_four)
+    values ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000402', '5678')
+  $$,
+  '%row-level security%',
+  'a household member cannot save another member card mapping'
+);
+
+select extensions.is(
+  (select count(*) from public.member_cards where household_id = '00000000-0000-0000-0000-000000000410'),
+  1::bigint,
+  'a household member can read their household card mappings'
+);
+
+select extensions.is(
+  (select count(*) from public.member_cards where household_id = '00000000-0000-0000-0000-000000000411'),
+  0::bigint,
+  'a household member cannot read another household card mappings'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.member_cards (household_id, user_id, last_four)
+    values ('00000000-0000-0000-0000-000000000411', '00000000-0000-0000-0000-000000000401', '5678')
+  $$,
+  '%row-level security%',
+  'a household member cannot save a mapping in another household'
+);
+
+select extensions.lives_ok(
+  $$
+    update public.member_cards
+    set last_four = '4321'
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and user_id = '00000000-0000-0000-0000-000000000401'
+  $$,
+  'a household member can replace their own card mapping'
+);
+
+select extensions.is_empty(
+  $$
+    update public.member_cards
+    set last_four = '8765'
+    where household_id = '00000000-0000-0000-0000-000000000411'
+      and user_id = '00000000-0000-0000-0000-000000000403'
+    returning 1
+  $$,
+  'a household member cannot replace another household mapping'
+);
+
+reset role;
+set local request.jwt.claim.sub = '';
+set local request.jwt.claim.email = '';
+set local request.jwt.claims = '{}';
+
+select extensions.throws_like(
+  $$
+    insert into public.member_cards (household_id, user_id, last_four)
+    values ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000401', '5678')
+  $$,
+  '%member_cards_pkey%',
+  'a household member can have only one card mapping'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.member_cards (household_id, user_id, last_four)
+    values ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000402', '1234')
+  $$,
+  '%member_cards_household_id_last_four_key%',
+  'a card suffix can map to only one member per household'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.member_cards (household_id, user_id, last_four)
+    values ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000402', '123')
+  $$,
+  '%member_cards_last_four_check%',
+  'a card mapping requires exactly four digits'
+);
 
 insert into public.categories (id, household_id, name, kind)
 values
@@ -226,6 +393,252 @@ select extensions.throws_like(
   'a mismatched category kind fails'
 );
 
+select extensions.is(
+  (
+    select count(*)
+    from public.transactions
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and source = 'manual'
+      and import_file_hash is null
+      and import_row_number is null
+  ),
+  2::bigint,
+  'transactions default to manual without import metadata'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (household_id, kind, amount, occurred_on, category_id, created_by, paid_by)
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10.00,
+      date '2026-07-03',
+      null,
+      '00000000-0000-0000-0000-000000000401',
+      null
+    )
+  $$,
+  '%Transaction category must belong to its household%',
+  'a manual transaction requires a category'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.transactions (
+      household_id,
+      kind,
+      amount,
+      occurred_on,
+      category_id,
+      created_by,
+      paid_by,
+      source,
+      import_file_hash,
+      import_row_number
+    )
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10.00,
+      date '2026-07-03',
+      null,
+      '00000000-0000-0000-0000-000000000401',
+      null,
+      'statement_import',
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      7
+    )
+  $$,
+  'an imported transaction may be uncategorized and unassigned'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.transactions (household_id, kind, amount, occurred_on, category_id, created_by, paid_by)
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10.00,
+      date '2026-07-03',
+      '00000000-0000-0000-0000-000000000421',
+      '00000000-0000-0000-0000-000000000401',
+      null
+    )
+  $$,
+  'a manual transaction may be unassigned'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (household_id, kind, amount, occurred_on, category_id, created_by, paid_by, source)
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10.00,
+      date '2026-07-03',
+      null,
+      '00000000-0000-0000-0000-000000000401',
+      null,
+      'statement_import'
+    )
+  $$,
+  '%transactions_import_metadata_check%',
+  'an imported transaction requires import metadata'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (
+      household_id,
+      kind,
+      amount,
+      occurred_on,
+      category_id,
+      created_by,
+      paid_by,
+      import_file_hash,
+      import_row_number
+    )
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10.00,
+      date '2026-07-03',
+      '00000000-0000-0000-0000-000000000421',
+      '00000000-0000-0000-0000-000000000401',
+      null,
+      'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      8
+    )
+  $$,
+  '%transactions_import_metadata_check%',
+  'a manual transaction cannot carry import metadata'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (
+      household_id,
+      kind,
+      amount,
+      occurred_on,
+      category_id,
+      created_by,
+      paid_by,
+      source,
+      import_file_hash,
+      import_row_number
+    )
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10.00,
+      date '2026-07-03',
+      null,
+      '00000000-0000-0000-0000-000000000401',
+      null,
+      'statement_import',
+      'NOT-A-SHA-256-DIGEST',
+      8
+    )
+  $$,
+  '%transactions_import_metadata_check%',
+  'an imported transaction requires a lowercase SHA-256 digest'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (
+      household_id,
+      kind,
+      amount,
+      occurred_on,
+      category_id,
+      created_by,
+      paid_by,
+      source,
+      import_file_hash,
+      import_row_number
+    )
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10.00,
+      date '2026-07-03',
+      null,
+      '00000000-0000-0000-0000-000000000401',
+      null,
+      'statement_import',
+      'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      0
+    )
+  $$,
+  '%transactions_import_metadata_check%',
+  'an imported transaction requires a positive source row number'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (
+      household_id,
+      kind,
+      amount,
+      occurred_on,
+      category_id,
+      created_by,
+      paid_by,
+      source,
+      import_file_hash,
+      import_row_number
+    )
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'income',
+      10.00,
+      date '2026-07-04',
+      null,
+      '00000000-0000-0000-0000-000000000401',
+      null,
+      'statement_import',
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      7
+    )
+  $$,
+  '%transactions_import_file_row_unique_idx%',
+  'an imported file row cannot be inserted twice in one household'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.transactions (
+      household_id,
+      kind,
+      amount,
+      occurred_on,
+      category_id,
+      created_by,
+      paid_by,
+      source,
+      import_file_hash,
+      import_row_number
+    )
+    values (
+      '00000000-0000-0000-0000-000000000411',
+      'income',
+      10.00,
+      date '2026-07-04',
+      null,
+      '00000000-0000-0000-0000-000000000403',
+      null,
+      'statement_import',
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      7
+    )
+  $$,
+  'the same imported file row may exist in another household'
+);
+
 select extensions.throws_like(
   $$
     insert into public.transactions (household_id, kind, amount, occurred_on, category_id, created_by, paid_by)
@@ -243,5 +656,51 @@ select extensions.throws_like(
   'a non-member payer fails'
 );
 
+reset role;
+set local request.jwt.claim.sub = '';
+set local request.jwt.claim.email = '';
+set local request.jwt.claims = '{}';
+set local role anon;
+
+select extensions.throws_like(
+  $$ select public.set_household_member_color('00000000-0000-0000-0000-000000000402', '#dcecf2') $$,
+  '%permission denied%',
+  'an anonymous caller cannot change a member color'
+);
+
+reset role;
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000405';
+set local request.jwt.claim.email = 'outsider@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000405","email":"outsider@example.test"}';
+
+select extensions.throws_like(
+  $$ select public.set_household_member_color('00000000-0000-0000-0000-000000000402', '#dcecf2') $$,
+  '%Not allowed%',
+  'an authenticated non-member cannot change a member color'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000401';
+set local request.jwt.claim.email = 'first-owner@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
+
+select extensions.lives_ok(
+  $$ select public.set_household_member_color('00000000-0000-0000-0000-000000000402', '#dcecf2') $$,
+  'a household member can change another member color in the same household'
+);
+
+select extensions.is(
+  (select color from public.household_members where household_id = '00000000-0000-0000-0000-000000000410' and user_id = '00000000-0000-0000-0000-000000000402'),
+  '#dcecf2',
+  'a same-household member color update persists'
+);
+
+select extensions.throws_like(
+  $$ select public.set_household_member_color('00000000-0000-0000-0000-000000000404', '#dcecf2') $$,
+  '%Not allowed%',
+  'a household member cannot change a member color in another household'
+);
+
+reset role;
 select * from extensions.finish();
 rollback;

@@ -9,9 +9,9 @@ function number(value: number) {
 }
 
 export function categoryFromRow(row: CategoryRow) {
-  return { id: row.id, name: row.name, kind: row.kind, archivedAt: row.archived_at };
+  return { id: row.id, name: row.name, kind: row.kind, archivedAt: row.archived_at, color: row.color };
 }
 
 export function transactionFromRow(row: TransactionRow) {
-  return { id: row.id, kind: row.kind, amount: number(Number(row.amount)), occurredOn: row.occurred_on, categoryId: row.category_id, note: row.note, createdAt: row.created_at, paidBy: row.paid_by };
+  return { id: row.id, kind: row.kind, amount: number(Number(row.amount)), occurredOn: row.occurred_on, categoryId: row.category_id, note: row.note, merchant: row.merchant, source: row.source, createdAt: row.created_at, paidBy: row.paid_by };
 }

@@ -33,11 +33,17 @@ beforeEach(() => {
 });
 
 describe("category actions", () => {
-  it("uses the verified household and its request client", async () => {
-    await expect(actions.createCategory(formData({ householdId: "other", name: "Food", kind: "expense" }))).resolves.toEqual({ status: "success" });
+  it("creates a category with the selected color in the verified household", async () => {
+    await expect(actions.createCategory(formData({ householdId: "other", name: "Food", kind: "expense", color: "#dcece3" }))).resolves.toEqual({ status: "success" });
 
     expect(mocks.from).toHaveBeenCalledWith("categories");
-    expect(mocks.insert).toHaveBeenCalledWith({ household_id: "household-id", name: "Food", kind: "expense" });
+    expect(mocks.insert).toHaveBeenCalledWith({ household_id: "household-id", name: "Food", kind: "expense", color: "#dcece3" });
+  });
+
+  it("rejects malformed category colors before creating", async () => {
+    await expect(actions.createCategory(formData({ name: "Food", kind: "expense", color: "blue" }))).resolves.toMatchObject({ status: "error" });
+
+    expect(mocks.from).not.toHaveBeenCalled();
   });
 
   it("archives only a category in the verified household through its request client", async () => {
@@ -50,21 +56,27 @@ describe("category actions", () => {
     expect(mocks.eq).toHaveBeenCalledWith("household_id", "household-id");
   });
 
-  it("updates only a category in the verified household through its request client", async () => {
+  it("accepts any valid hex color while updating only the verified household category", async () => {
     mocks.eq.mockResolvedValue({ error: null });
     mocks.update.mockReturnValue({ eq: vi.fn().mockReturnValue({ eq: mocks.eq }) });
 
-    await expect(actions.updateCategory("category-id", formData({ name: "Meals", kind: "expense" }))).resolves.toEqual({ status: "success" });
+    await expect(actions.updateCategory("category-id", formData({ name: "Meals", kind: "expense", color: "#123456" }))).resolves.toEqual({ status: "success" });
 
     expect(mocks.from).toHaveBeenCalledWith("categories");
-    expect(mocks.update).toHaveBeenCalledWith({ name: "Meals", kind: "expense" });
+    expect(mocks.update).toHaveBeenCalledWith({ name: "Meals", kind: "expense", color: "#123456" });
     expect(mocks.eq).toHaveBeenCalledWith("household_id", "household-id");
+  });
+
+  it("rejects malformed category colors before touching data", async () => {
+    await expect(actions.updateCategory("category-id", formData({ name: "Meals", kind: "expense", color: "blue" }))).resolves.toMatchObject({ status: "error" });
+
+    expect(mocks.from).not.toHaveBeenCalled();
   });
 
   it("fails before touching data for an unmatched request", async () => {
     mocks.requireCurrentHousehold.mockRejectedValue(new Error("This Google account does not have access to Joint."));
 
-    await expect(actions.createCategory(formData({ name: "Food", kind: "expense" }))).rejects.toThrow(
+    await expect(actions.createCategory(formData({ name: "Food", kind: "expense", color: "#dcece3" }))).rejects.toThrow(
       "This Google account does not have access to Joint.",
     );
     expect(mocks.from).not.toHaveBeenCalled();

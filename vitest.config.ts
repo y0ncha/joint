@@ -9,6 +9,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.join(rootDir, "src"),
+      "server-only": "next/dist/compiled/server-only/empty",
     },
   },
 });

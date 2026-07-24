@@ -156,8 +156,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                 {report.recentTransactions.length ? report.recentTransactions.map((transaction) => (
                   <div key={transaction.id} className="flex items-center gap-3 py-4 first:pt-0 last:pb-0">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{transaction.note || transaction.kind}</p>
-                      <p className="text-sm text-muted-foreground">{categoryName.get(transaction.categoryId!)} - {transaction.occurredOn}</p>
+                      <p className="truncate text-sm font-medium">{transaction.merchant || transaction.note || transaction.kind}</p>
+                      <p className="text-sm text-muted-foreground">{transaction.categoryId ? categoryName.get(transaction.categoryId) : "Uncategorized"} - {transaction.occurredOn}{transaction.source === "statement_import" ? " - Imported" : ""}</p>
                     </div>
                     <p className={cn("font-mono text-sm font-semibold", transaction.kind === "income" ? "text-positive" : "text-negative")}>
                       {transaction.kind === "income" ? "+" : "-"}{currency.format(transaction.amount)}

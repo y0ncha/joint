@@ -50,11 +50,8 @@ export function LedgerMonthSelector({ month }: { month: string }) {
     <div className="mt-6 flex flex-wrap items-end gap-3" aria-label="Ledger month controls">
       <label className="flex flex-col gap-1 text-sm font-medium text-muted-foreground">
         Month
-        <Select
-          value={selectedMonth}
-          onValueChange={(nextMonth) => router.push(buildLedgerMonthPath(selectedYear, nextMonth))}
-        >
-          <SelectTrigger aria-label="Select ledger month" className="h-11 min-w-36 rounded-xl border-transparent bg-white/55">
+        <Select value={selectedMonth} onValueChange={(nextMonth) => router.push(buildLedgerMonthPath(selectedYear, nextMonth))}>
+          <SelectTrigger aria-label="Select ledger month" className="h-11 min-w-36 rounded-xl">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -68,11 +65,8 @@ export function LedgerMonthSelector({ month }: { month: string }) {
       </label>
       <label className="flex flex-col gap-1 text-sm font-medium text-muted-foreground">
         Year
-        <Select
-          value={selectedYear}
-          onValueChange={(nextYear) => router.push(buildLedgerMonthPath(nextYear, selectedMonth))}
-        >
-          <SelectTrigger aria-label="Select ledger year" className="h-11 min-w-28 rounded-xl border-transparent bg-white/55">
+        <Select value={selectedYear} onValueChange={(nextYear) => router.push(buildLedgerMonthPath(nextYear, selectedMonth))}>
+          <SelectTrigger aria-label="Select ledger year" className="h-11 min-w-28 rounded-xl">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

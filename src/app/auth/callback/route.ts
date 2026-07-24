@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
   if (provider === "google" && typeof userId === "string" && userId && email) {
     const membership = await ensurePartnerMembership(supabase, { userId, email });
-    if (membership !== "unmatched") return NextResponse.redirect(new URL("/", url.origin));
+    if (membership !== "unmatched") return NextResponse.redirect(new URL("/setup/card", url.origin));
   }
 
   await supabase.auth.signOut({ scope: "local" });

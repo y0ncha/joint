@@ -1,21 +1,31 @@
-export const ACCENT_STORAGE_KEY = "joint-accent";
+import { isHexColor } from "@/lib/shared-colors";
 
-export const accentOptions = [
-  { name: "mint", label: "Mint", description: "Grounded green", swatch: "#0f6b54" },
-  { name: "sky", label: "Sky", description: "Calm blue", swatch: "#236a8d" },
-  { name: "lilac", label: "Lilac", description: "Soft violet", swatch: "#7056a3" },
-  { name: "clay", label: "Clay", description: "Warm earth", swatch: "#aa583e" },
-  { name: "blush", label: "Blush", description: "Dusty rose", swatch: "#a14b78" },
-] as const;
+export const ACCENT_COOKIE_NAME = "joint-accent";
+export const DEFAULT_ACCENT = "#0f6b54";
 
-export type AccentName = (typeof accentOptions)[number]["name"];
+const legacyAccents: Record<string, string> = {
+  mint: DEFAULT_ACCENT,
+  sky: "#236a8d",
+  lilac: "#7056a3",
+  clay: "#aa583e",
+  blush: "#a14b78",
+  peach: "#aa583e",
+  terracotta: "#aa583e",
+};
 
-export function isAccentName(value: unknown): value is AccentName {
-  return typeof value === "string" && accentOptions.some((accent) => accent.name === value);
+export const accentPresetColors = [...new Set(Object.values(legacyAccents))];
+
+export function normalizeAccentColor(value: unknown) {
+  if (isHexColor(value)) return value.toLowerCase();
+
+  return typeof value === "string" ? legacyAccents[value] ?? DEFAULT_ACCENT : DEFAULT_ACCENT;
 }
 
-export function normalizeAccentName(value: unknown): AccentName {
-  if (value === "peach" || value === "terracotta") return "clay";
+export function accentForeground(color: string) {
+  const [red, green, blue] = color.slice(1).match(/.{2}/g)!.map((part) => Number.parseInt(part, 16));
+  return red * 0.299 + green * 0.587 + blue * 0.114 > 160 ? "#17201d" : "#ffffff";
+}
 
-  return isAccentName(value) ? value : "mint";
+export function serializeAccentCookie(value: unknown, secure: boolean) {
+  return `${ACCENT_COOKIE_NAME}=${encodeURIComponent(normalizeAccentColor(value))}; Max-Age=31536000; Path=/; SameSite=Lax${secure ? "; Secure" : ""}`;
 }

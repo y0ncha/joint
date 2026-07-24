@@ -38,10 +38,12 @@ describe("Joint dashboard", () => {
             id: "transaction-id",
             kind: "expense",
             amount: 186,
-            categoryId: "home-category-id",
+            categoryId: null,
             note: "Super Pharm",
+            merchant: "Super-Pharm Ltd.",
+            source: "statement_import",
             occurredOn: "2026-07-14",
-            paidBy: "member-id",
+            paidBy: null,
           },
         ],
       },
@@ -76,8 +78,9 @@ describe("Joint dashboard", () => {
     expect(markup).not.toContain("Income vs outgoings");
     expect(markup).toContain("Where your money went");
     expect(markup).toContain("More chart options");
-    expect(markup).toContain("Super Pharm");
-    expect(markup).toContain("Home - 2026-07-14");
+    expect(markup).toContain("Super-Pharm Ltd.");
+    expect(markup).toContain("Uncategorized - 2026-07-14");
+    expect(markup).toContain("Imported");
     expect(source).not.toContain("data.accounts");
     expect(source).not.toContain("setupRequired");
     expect(source).not.toContain("accountName");

@@ -45,4 +45,11 @@ describe("Transactions page", () => {
     expect(markup).toContain("px-4 pb-4 sm:px-6 sm:pb-6");
     expect(markup).not.toContain('class="p-0"');
   });
+
+  it("opens the import sidebar without replacing the transactions page", async () => {
+    const markup = renderToStaticMarkup(await TransactionsPage({ searchParams: Promise.resolve({ import: "1" }) }));
+
+    expect(markup).toContain('aria-expanded="true"');
+    expect(markup).toContain('aria-label="Add transaction"');
+  });
 });

@@ -1,66 +1,67 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
-
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useState, useSyncExternalStore } from "react";
 import {
-  ACCENT_STORAGE_KEY,
-  accentOptions,
-  normalizeAccentName,
+  accentForeground,
+  accentPresetColors,
+  normalizeAccentColor,
+  serializeAccentCookie,
 } from "@/lib/accent";
+import { ColorPicker } from "@/components/color-picker";
 
-const accentChangeEvent = "joint-accent-change";
+const ACCENT_RECENT_COLORS_KEY = "joint-accent-recent-colors";
+let recentColorsRaw: string | null = null;
+let recentColorsSnapshot = [];
 
 function readAccent() {
-  return normalizeAccentName(window.localStorage.getItem(ACCENT_STORAGE_KEY));
+  return normalizeAccentColor(document.cookie.split("; ").find((cookie) => cookie.startsWith("joint-accent="))?.split("=")[1]);
 }
 
-function subscribeToAccent(callback: () => void) {
-  window.addEventListener("storage", callback);
-  window.addEventListener(accentChangeEvent, callback);
+function readRecentColors() {
+  const rawColors = localStorage.getItem(ACCENT_RECENT_COLORS_KEY);
+  if (rawColors === recentColorsRaw) return recentColorsSnapshot;
 
-  return () => {
-    window.removeEventListener("storage", callback);
-    window.removeEventListener(accentChangeEvent, callback);
-  };
+  recentColorsRaw = rawColors;
+  try {
+    const colors = JSON.parse(rawColors ?? "[]");
+    recentColorsSnapshot = Array.isArray(colors) ? colors.filter((color): color is string => /^#[0-9A-Fa-f]{6}$/.test(color)) : [];
+  } catch {
+    recentColorsSnapshot = [];
+  }
+
+  return recentColorsSnapshot;
 }
 
 export function AccentPicker({ showLabel = true }: { showLabel?: boolean } = {}) {
-  const accent = useSyncExternalStore(subscribeToAccent, readAccent, () => "mint");
-
-  useEffect(() => {
-    document.documentElement.dataset.accent = accent;
-  }, [accent]);
+  const browserAccent = useSyncExternalStore(() => () => {}, readAccent, () => "#0f6b54");
+  const [selectedAccent, setSelectedAccent] = useState<string | null>(null);
+  const storedRecentColors = useSyncExternalStore(() => () => {}, readRecentColors, () => recentColorsSnapshot);
+  const [recentColors, setRecentColors] = useState<string[]>([]);
+  const accent = selectedAccent ?? browserAccent;
 
   function selectAccent(value: string) {
-    const nextAccent = normalizeAccentName(value);
-    window.localStorage.setItem(ACCENT_STORAGE_KEY, nextAccent);
-    window.dispatchEvent(new Event(accentChangeEvent));
+    const nextAccent = normalizeAccentColor(value);
+    setSelectedAccent(nextAccent);
+    document.documentElement.style.setProperty("--primary", nextAccent);
+    document.documentElement.style.setProperty("--primary-foreground", accentForeground(nextAccent));
+    document.documentElement.style.setProperty("--ring", nextAccent);
+    document.documentElement.style.setProperty("--chart-1", nextAccent);
+    document.documentElement.style.setProperty("--accent", `color-mix(in srgb, ${nextAccent} 12%, white)`);
+    document.documentElement.style.setProperty("--sidebar-primary", nextAccent);
+    document.documentElement.style.setProperty("--sidebar-primary-foreground", accentForeground(nextAccent));
+    document.documentElement.style.setProperty("--sidebar-ring", nextAccent);
+    document.cookie = serializeAccentCookie(nextAccent, window.location.protocol === "https:");
+    setRecentColors((current) => {
+      const nextColors = [nextAccent, ...current, ...storedRecentColors.filter((color) => color !== nextAccent)];
+      localStorage.setItem(ACCENT_RECENT_COLORS_KEY, JSON.stringify(nextColors));
+      return nextColors;
+    });
   }
 
   return (
     <div className="flex flex-col gap-2">
-      {showLabel ? <p className="text-sm text-muted-foreground">Accent</p> : null}
-      <ToggleGroup
-        type="single"
-        value={accent}
-        onValueChange={selectAccent}
-        aria-label="Accent color"
-        className="grid w-full grid-cols-2 gap-2 sm:grid-cols-5"
-      >
-        {accentOptions.map((option) => (
-          <ToggleGroupItem
-            key={option.name}
-            value={option.name}
-            aria-label={`${option.label}: ${option.description}`}
-            className="h-auto min-h-11 flex-col gap-1.5 rounded-xl bg-transparent px-2 py-2 text-xs hover:bg-white/35 data-[state=on]:bg-transparent"
-            title={option.label}
-          >
-            <span aria-hidden="true" className="size-5 rounded-full border border-black/10" style={{ backgroundColor: option.swatch }} />
-            {option.label}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+      {showLabel ? <p id="accent-color-label" className="text-sm text-muted-foreground">Accent</p> : null}
+      <div aria-label="Accent color" aria-labelledby={showLabel ? "accent-color-label" : undefined}><ColorPicker color={accent} onChange={selectAccent} presetColors={accentPresetColors} recentColors={[...recentColors, ...storedRecentColors]} /></div>
     </div>
   );
 }

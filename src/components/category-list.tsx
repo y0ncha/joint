@@ -10,6 +10,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { CategoryColorPicker } from "@/components/category-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,42 +24,32 @@ import {
 } from "@/components/ui/sheet";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PillSelect } from "@/components/pill-select";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
-import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 
-type Category = { id: string; name: string; kind: "income" | "expense"; archived_at: string | null };
+type Category = { id: string; name: string; kind: "income" | "expense"; color?: string; transactionCount: number; archived_at: string | null };
 
-function CategoryKindBadge({ category }: { category: Category }) {
-  const label = category.archived_at ? "Archived" : category.kind === "income" ? "Income" : "Expense";
-  const Icon = category.kind === "income" ? ArrowDownRight : ArrowUpRight;
-
+function CategoryNameBadge({ category }: { category: Category }) {
   return (
     <Badge
       variant="outline"
-      className={cn(
-        "rounded-full px-2.5 py-1 text-xs",
-        category.archived_at
-          ? "border-border text-muted-foreground"
-          : category.kind === "income"
-            ? "border-primary/20 bg-primary/10 text-primary"
-            : "border-negative/20 bg-negative/10 text-negative",
-      )}
+      color={category.color}
+      className="max-w-full truncate"
     >
-      {category.archived_at ? null : <Icon aria-hidden="true" data-icon="inline-start" />}
-      {label}
+      {category.name}
     </Badge>
   );
 }
 
 function CategorySection({
   categories,
+  recentColors,
   description,
   emptyLabel,
   title,
 }: {
   categories: Category[];
+  recentColors: string[];
   description: string;
   emptyLabel: string;
   title: string;
@@ -78,8 +69,8 @@ function CategorySection({
               <li key={category.id}>
                 {category.archived_at ? (
                   <div className="flex min-h-14 items-center justify-between gap-4 py-4">
-                    <p className="min-w-0 truncate font-medium">{category.name}</p>
-                    <CategoryKindBadge category={category} />
+                    <CategoryNameBadge category={category} />
+                    <span className="text-sm text-muted-foreground">{category.transactionCount} {category.transactionCount === 1 ? "transaction" : "transactions"}</span>
                   </div>
                 ) : (
                   <Sheet>
@@ -88,8 +79,8 @@ function CategorySection({
                         type="button"
                         className="flex min-h-14 w-full cursor-pointer items-center justify-between gap-4 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                       >
-                        <span className="min-w-0 truncate font-medium">{category.name}</span>
-                        <CategoryKindBadge category={category} />
+                        <CategoryNameBadge category={category} />
+                        <span className="text-sm text-muted-foreground">{category.transactionCount} {category.transactionCount === 1 ? "transaction" : "transactions"}</span>
                       </button>
                     </SheetTrigger>
                     <SheetContent side="right" className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg">
@@ -106,18 +97,9 @@ function CategorySection({
                             </Field>
                             <Field>
                               <FieldLabel>Category type</FieldLabel>
-                              <Select name="kind" defaultValue={category.kind} required>
-                                <SelectTrigger className="w-full">
-                                  <SelectValue placeholder="Choose category type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectGroup>
-                                    <SelectItem value="income">Income</SelectItem>
-                                    <SelectItem value="expense">Expense</SelectItem>
-                                  </SelectGroup>
-                                </SelectContent>
-                              </Select>
+                              <PillSelect ariaLabel="Category type" name="kind" defaultValue={category.kind} options={[{ value: "income", label: "Income" }, { value: "expense", label: "Expense" }]} />
                             </Field>
+                            <CategoryColorPicker defaultColor={category.color} recentColors={recentColors} />
                             <Button type="submit" variant="outline">Save category</Button>
                           </FieldGroup>
                         </form>
@@ -152,7 +134,7 @@ function CategorySection({
   );
 }
 
-export function CategoryList({ categories }: { categories: Category[] }) {
+export function CategoryList({ categories, recentColors = [] }: { categories: Category[]; recentColors?: string[] }) {
   const expenseCategories = categories.filter((category) => category.kind === "expense");
   const incomeCategories = categories.filter((category) => category.kind === "income");
 
@@ -160,12 +142,14 @@ export function CategoryList({ categories }: { categories: Category[] }) {
     <>
       <CategorySection
         categories={expenseCategories}
+        recentColors={recentColors}
         description="Categories used for shared spending."
         emptyLabel="No expense categories yet"
         title="Expense categories"
       />
       <CategorySection
         categories={incomeCategories}
+        recentColors={recentColors}
         description="Categories used for shared income."
         emptyLabel="No income categories yet"
         title="Income categories"

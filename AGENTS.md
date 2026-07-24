@@ -35,28 +35,20 @@ Every product, design, architecture, or infrastructure change follows this seque
    - Resolve decisions and assumptions with the user. Do not start implementation while product or technical decisions remain open.
    - Update `docs/design.md` or `docs/architecture.md` first when the approved decision changes either contract.
 
-2. **Write the implementation plan**
-   - Use the `$create-implementation-plan` skill.
-   - Create a new source plan at `docs/plans/<plan-name>.md`; do not place new plans in `docs/superpowers/plans/`.
-   - Make the plan executable: name exact files, ordered tasks, dependencies, validation, risks, and completion criteria.
-   - Wait for explicit user approval of the plan before implementing it.
-
-3. **Branch management**
+2. **Branch management**
    - The user creates, names, switches, and organizes branches.
-   - Never create or switch branches without the user's explicit approval, including for approved implementation plans or small patches.
+   - Never create or switch branches without the user's explicit approval, including for small patches.
    - Do not overwrite, clean, or carry unrelated working-tree changes into a branch. If the current checkout is not safe for the approved work, stop and ask the user how to proceed.
 
-4. **Implement and verify**
-   - Follow the approved plan and keep its status current.
+3. **Implement and verify**
    - Use test-first development for domain logic and behavior changes.
    - Keep changes inside the approved scope. Return to the user for approval before changing the design, architecture, or plan materially.
-   - When an approved implementation plan is completed, add a concise dated entry to `CHANGELOG.md` describing the user-visible or operational changes.
    - Run `bun run lint`, `bun run test`, and `bun run build`. All checks must pass before requesting implementation approval.
    - Present what changed, why, remaining risks, and how the user can evaluate it. Wait for explicit implementation approval.
 
-5. **Merge and synchronize**
+4. **Merge and synchronize**
    - After implementation approval, ask for explicit permission to merge into `main` and push. Approval of the implementation alone is not permission to merge or push.
-   - Once permission is granted, update local `main` from its remote with a fast-forward-only pull, merge `feature/<plan-name>`, and push `main`.
+   - Once permission is granted, update local `main` from its remote with a fast-forward-only pull, merge the selected feature branch, and push `main`.
    - If `main` changed after verification, resolve the integration and rerun all required checks before pushing.
    - Finish on `main` and update it to the latest remote `main`. Confirm the final branch, commit, and clean/dirty working-tree state.
 

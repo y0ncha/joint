@@ -86,18 +86,21 @@ export type Database = {
       }
       household_members: {
         Row: {
+          color: string
           household_id: string
           joined_at: string
           role: Database["public"]["Enums"]["household_role"]
           user_id: string
         }
         Insert: {
+          color?: string
           household_id: string
           joined_at?: string
           role?: Database["public"]["Enums"]["household_role"]
           user_id: string
         }
         Update: {
+          color?: string
           household_id?: string
           joined_at?: string
           role?: Database["public"]["Enums"]["household_role"]
@@ -155,6 +158,35 @@ export type Database = {
           },
         ]
       }
+      member_cards: {
+        Row: {
+          created_at: string
+          household_id: string
+          last_four: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          last_four: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          last_four?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_cards_household_id_user_id_fkey"
+            columns: ["household_id", "user_id"]
+            isOneToOne: true
+            referencedRelation: "household_members"
+            referencedColumns: ["household_id", "user_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -187,10 +219,14 @@ export type Database = {
           created_by: string
           household_id: string
           id: string
+          import_file_hash: string | null
+          import_row_number: number | null
           kind: Database["public"]["Enums"]["transaction_kind"]
+          merchant: string
           note: string
           occurred_on: string
-          paid_by: string
+          paid_by: string | null
+          source: Database["public"]["Enums"]["transaction_source"]
           updated_at: string
         }
         Insert: {
@@ -200,10 +236,14 @@ export type Database = {
           created_by: string
           household_id: string
           id?: string
+          import_file_hash?: string | null
+          import_row_number?: number | null
           kind: Database["public"]["Enums"]["transaction_kind"]
+          merchant?: string
           note?: string
           occurred_on: string
-          paid_by: string
+          paid_by?: string | null
+          source?: Database["public"]["Enums"]["transaction_source"]
           updated_at?: string
         }
         Update: {
@@ -213,10 +253,14 @@ export type Database = {
           created_by?: string
           household_id?: string
           id?: string
+          import_file_hash?: string | null
+          import_row_number?: number | null
           kind?: Database["public"]["Enums"]["transaction_kind"]
+          merchant?: string
           note?: string
           occurred_on?: string
-          paid_by?: string
+          paid_by?: string | null
+          source?: Database["public"]["Enums"]["transaction_source"]
           updated_at?: string
         }
         Relationships: [
@@ -263,11 +307,16 @@ export type Database = {
         Args: { target_household_id: string }
         Returns: boolean
       }
+      set_household_member_color: {
+        Args: { target_color: string; target_user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       category_kind: "income" | "expense"
       household_role: "owner" | "member"
       transaction_kind: "income" | "expense"
+      transaction_source: "manual" | "statement_import"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -398,6 +447,7 @@ export const Constants = {
       category_kind: ["income", "expense"],
       household_role: ["owner", "member"],
       transaction_kind: ["income", "expense"],
+      transaction_source: ["manual", "statement_import"],
     },
   },
 } as const

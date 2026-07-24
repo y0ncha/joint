@@ -32,7 +32,7 @@ beforeEach(() => {
       : table === "categories"
         ? { data: [{ id: "food", name: "Food", kind: "expense", archived_at: null }], error: null }
         : table === "transactions"
-          ? { data: [{ id: "transaction-id", kind: "expense", amount: "125", occurred_on: "2026-07-14", category_id: "food", note: "Groceries", created_at: "2026-07-14T08:00:00Z", paid_by: "member-id" }], error: null }
+          ? { data: [{ id: "transaction-id", kind: "expense", amount: "125", occurred_on: "2026-07-14", category_id: null, note: "Statement note", merchant: "Super Pharm", source: "statement_import", created_at: "2026-07-14T08:00:00Z", paid_by: null }], error: null }
           : { data: [{ user_id: "member-id", role: "owner" }], error: null };
     const query = { order: vi.fn().mockResolvedValue(result) };
     const eq = table === "households" ? mocks.householdEq
@@ -57,4 +57,17 @@ it("loads the household opening balance through the member request context", asy
   expect(mocks.transactionsEq).toHaveBeenCalledWith("household_id", "household-id");
   expect(mocks.membersEq).toHaveBeenCalledWith("household_id", "household-id");
   expect(mocks.from).not.toHaveBeenCalledWith("accounts");
+});
+
+it("keeps imported merchant, uncategorized, and unassigned fields for report rendering", async () => {
+  await dashboardDataModule.getDashboardData("2026-07");
+
+  expect(mocks.buildMonthlyReport).toHaveBeenCalledWith(expect.objectContaining({
+    transactions: [expect.objectContaining({
+      categoryId: null,
+      paidBy: null,
+      merchant: "Super Pharm",
+      source: "statement_import",
+    })],
+  }));
 });

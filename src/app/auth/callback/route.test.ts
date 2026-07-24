@@ -51,7 +51,7 @@ describe("GET /auth/callback", () => {
       userId: "partner-id",
       email: "partner@example.com",
     });
-    expect(response.headers.get("location")).toBe("https://joint.test/");
+    expect(response.headers.get("location")).toBe("https://joint.test/setup/card");
   });
 
   it("sends existing members to their household", async () => {
@@ -59,7 +59,7 @@ describe("GET /auth/callback", () => {
 
     const response = await GET(new Request("https://joint.test/auth/callback?code=code"));
 
-    expect(response.headers.get("location")).toBe("https://joint.test/");
+    expect(response.headers.get("location")).toBe("https://joint.test/setup/card");
     expect(mocks.signOut).not.toHaveBeenCalled();
   });
 

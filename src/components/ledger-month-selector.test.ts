@@ -12,12 +12,12 @@ describe("ledger month selector helpers", () => {
     expect(getLedgerYearOptions(2030, 2026)).toContain("2030");
   });
 
-  it("uses SelectValue so each menu stays anchored to its trigger", () => {
+  it("uses regular selects for month and year", () => {
     const source = readFileSync("src/components/ledger-month-selector.tsx", "utf8");
 
-    expect(source).toContain("SelectValue");
-    expect(source).toContain("<SelectValue />");
-    expect(source).not.toContain("<span>{selectedMonthLabel}</span>");
-    expect(source).not.toContain("<span>{selectedYear}</span>");
+    expect(source).toContain("SelectTrigger");
+    expect(source).toContain('aria-label="Select ledger month"');
+    expect(source).toContain('aria-label="Select ledger year"');
+    expect(source).not.toContain("PillSelect");
   });
 });

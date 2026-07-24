@@ -60,6 +60,9 @@ function CachedProfileInitialAvatar() {
 
   useEffect(() => {
     void loadVerifiedProfileName(createBrowserSupabaseClient()).then(setName);
+    const refreshName = () => void loadVerifiedProfileName(createBrowserSupabaseClient()).then(setName);
+    window.addEventListener("joint-profile-name-updated", refreshName);
+    return () => window.removeEventListener("joint-profile-name-updated", refreshName);
   }, []);
 
   return <ProfileInitialAvatar name={name} />;
