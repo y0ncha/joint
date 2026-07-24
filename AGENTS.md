@@ -18,7 +18,6 @@ Read the sources relevant to the task before proposing or changing behavior:
   - `docs/plans/shared-budget-mvp.md` — core MVP implementation plan.
   - `docs/plans/two-layer-access.md` — two-layer access implementation plan.
   - `docs/plans/features/` — post-MVP roadmap briefs. These are product directions, not approved implementation plans, and do not expand MVP scope by themselves.
-- `docs/superpowers/specs/` — historical design specifications created during earlier work.
 - `docs/superpowers/plans/` — historical execution plans. New source implementation plans belong in `docs/plans/`.
 - `.agents/skills/shadcn/SKILL.md` — project-local shadcn/ui guidance. Read it before adding or materially changing UI components.
 
