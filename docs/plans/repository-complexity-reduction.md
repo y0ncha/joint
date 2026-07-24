@@ -52,7 +52,7 @@ This plan converts the 2026-07-24 Ponytail whole-repository audit into an approv
 | Task | Description | Status | Date |
 |------|-------------|--------|------|
 | TASK-001 | Verify `docs/plans/transactions-statement-import.md` is `Completed`, run its required focused tests plus `bun run lint`, `bun run test`, and `bun run build`, and set this plan to `On Hold` if any prerequisite is not satisfied. | Complete | 2026-07-24 |
-| TASK-002 | Create `docs/roadmap.md` with an implementation-disclaimer introduction and an `Order`, `Feature`, `Description`, `Depends on`, and `Status` table implementing RDM-001 through RDM-005 exactly. | Planned |  |
+| TASK-002 | Create `docs/roadmap.md` with an implementation-disclaimer introduction and an `Order`, `Feature`, `Description`, `Depends on`, and `Status` table implementing RDM-001 through RDM-005 exactly. | Complete | 2026-07-24 |
 | TASK-003 | Delete all Markdown files under `docs/superpowers/specs/` after mapping each implemented requirement to `docs/design.md`, `docs/architecture/`, or its source plan, and require `rg -n "docs/superpowers/specs|superpowers/specs" AGENTS.md README.md docs --glob "!docs/plans/repository-complexity-reduction.md"` to return no stale reference. | Planned |  |
 | TASK-004 | After TASK-002 and TASK-003 complete, delete `docs/architecture/features/`, update `AGENTS.md` and `docs/architecture.md` to index `docs/roadmap.md`, remove stale feature-brief links from `docs/plans/transactions-statement-import.md`, and require no Markdown link outside this plan to target `docs/architecture/features/` or `docs/plans/features/`. | Planned |  |
 
