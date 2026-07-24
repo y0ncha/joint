@@ -27,7 +27,7 @@ export type Database = {
         }
         Insert: {
           archived_at?: string | null
-          color?: string
+          color: string
           created_at?: string
           household_id: string
           id?: string

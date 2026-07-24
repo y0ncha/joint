@@ -16,6 +16,6 @@ it("uses circles with a custom BlockPicker popover for the browser-local accent"
 it("caches the recent-color snapshot used by the external store", () => {
   const source = readFileSync("src/components/accent-picker.tsx", "utf8");
 
-  expect(source).toContain("let recentColorsSnapshot = [];");
+  expect(source).toContain("let recentColorsSnapshot: string[] = [];");
   expect(source).toContain("if (rawColors === recentColorsRaw) return recentColorsSnapshot;");
 });

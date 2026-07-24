@@ -11,7 +11,7 @@ import { ColorPicker } from "@/components/color-picker";
 
 const ACCENT_RECENT_COLORS_KEY = "joint-accent-recent-colors";
 let recentColorsRaw: string | null = null;
-let recentColorsSnapshot = [];
+let recentColorsSnapshot: string[] = [];
 
 function readAccent() {
   return normalizeAccentColor(document.cookie.split("; ").find((cookie) => cookie.startsWith("joint-accent="))?.split("=")[1]);

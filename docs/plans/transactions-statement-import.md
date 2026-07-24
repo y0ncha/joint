@@ -2,7 +2,7 @@
 goal: Import Hebrew card statements into the shared transaction ledger
 version: 1.1
 date_created: 2026-07-21
-last_updated: 2026-07-22
+last_updated: 2026-07-24
 owner: Joint
 status: In progress
 tags: [feature, transactions, import, csv, xlsx, supabase, onboarding]
@@ -10,7 +10,7 @@ tags: [feature, transactions, import, csv, xlsx, supabase, onboarding]
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: In progress](https://img.shields.io/badge/status-In%20progress-blue)
 
 Implement an authenticated CSV/XLSX statement import based on the supplied workbook. A household member uploads one Bank Hapoalim-style card statement, Joint validates it on the server, optionally maps recognized card last-four digits to joined household members, and atomically saves every valid non-zero row to the shared ledger. Unrecognized cards remain unassigned. The import returns a read-only digest of what was saved. Imported transactions may remain uncategorized, or a member may assign, change, or clear their category later.
 
@@ -99,7 +99,7 @@ This plan supersedes the non-persistence decision in `docs/plans/features/transa
 | TASK-018 | Create `src/app/(app)/transactions/import/page.tsx` and `src/components/statement-import-form.tsx`. Require member context and render one `.csv,.xlsx` file input regardless of mapping status, explicit text that submission saves transactions and leaves unmatched cards unassigned, supported-header/size guidance, an accessible pending state, row-numbered sanitized errors, and the REQ-018 success digest in an `aria-live` region. Do not render a category control or pre-import client parser. | Complete | 2026-07-22 |
 | TASK-019 | Update `src/app/(app)/transactions/page.tsx` to expose an accessible `Import statement` action beside the existing add action. Update `src/components/transaction-sheet.tsx` with optional Merchant input, an `Unassigned` payer option, and imported-null-category edit behavior. Update `src/components/transaction-ledger.tsx` and `src/app/(app)/page.tsx` to show Merchant as the primary description when present, `Uncategorized` for null categories, and `Unassigned` for null payers. Preserve keyboard row activation and horizontal table usability. | Complete | 2026-07-22 |
 | TASK-020 | Complete all tests from TASK-003 through TASK-005 and add focused rendering tests for `/setup/card` skip/setup paths, the OAuth redirect, import-page semantics without a mapping, upload form semantics, sanitized row errors, digest rendering, and 44px/keyboard-accessible controls. Do not add Playwright or another test framework. | Complete | 2026-07-22 |
-| TASK-024 | Add `supabase/migrations/<timestamp>_allow_member_card_mapping_updates.sql` through the Supabase CLI. Grant authenticated `UPDATE` on `public.member_cards` and add a self-only policy with both `USING` and `WITH CHECK` predicates for `user_id = (select auth.uid())`; retain the existing household membership, SELECT, INSERT, uniqueness, and no-DELETE boundaries. | Blocked — applied to joint-dev; Docker-free hosted pgTAP run has one unresolved failing assertion | 2026-07-22 |
+| TASK-024 | Add `supabase/migrations/<timestamp>_allow_member_card_mapping_updates.sql` through the Supabase CLI. Grant authenticated `UPDATE` on `public.member_cards` and add a self-only policy with both `USING` and `WITH CHECK` predicates for `user_id = (select auth.uid())`; retain the existing household membership, SELECT, INSERT, uniqueness, and no-DELETE boundaries. | Complete | 2026-07-24 |
 | TASK-025 | Extend `src/app/actions/member-card.ts` and its tests with an authenticated upsert-style Settings mutation that derives the current household and user, inserts when no mapping exists, otherwise updates only the current member row, returns the existing safe duplicate-suffix field error, and revalidates `/settings` and `/transactions/import`. | Complete | 2026-07-21 |
 | TASK-026 | Add a Settings card row and focused tests that display the member's current last four digits, let that member add or replace them through the existing accessible form primitives, and explain that only future statement imports use the change. | Complete | 2026-07-21 |
 
@@ -109,9 +109,9 @@ This plan supersedes the non-persistence decision in `docs/plans/features/transa
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-021 | After code and hosted database tests pass, update `docs/architecture/financial-model.md` with the implemented `member_cards` boundary, transaction source/category rules, exact imported-field mapping, idempotency ceiling, balance/report behavior, and raw-file non-persistence. Update `docs/architecture.md` only if its system summary or index must change. Update `README.md` and `docs/CONTRIBUTE.md` to replace the blanket import/card prohibition with this narrow supported behavior. |  |  |
-| TASK-022 | Run focused Vitest files for statement parsing, member-card setup, import action, OAuth callback, transaction actions, finance reporting, dashboard loading/rendering, transaction sheet/ledger, and import/setup pages. Then run `bun run lint`, `bun run test`, `bun run build`, `git diff --check`, and `bun audit`. Require every command to exit zero or document and resolve an advisory before completion. |  |  |
-| TASK-023 | Review the final diff against REQ-001 through REQ-019 and SEC-001 through SEC-004. Confirm the supplied workbook file and its personal financial contents are absent from `git status`, `git diff`, fixtures, logs, and documentation. Report implementation, local checks, `joint-dev` migration/tests, and unverified deployment/authenticated-live behavior separately. Update this plan's task/status fields and add a dated `CHANGELOG.md` entry only when all implementation tasks pass. Wait for explicit implementation approval; do not merge, push, deploy, or target production. |  |  |
+| TASK-021 | After code and hosted database tests pass, update `docs/architecture/financial-model.md` with the implemented `member_cards` boundary, transaction source/category rules, exact imported-field mapping, idempotency ceiling, balance/report behavior, and raw-file non-persistence. Update `docs/architecture.md` only if its system summary or index must change. Update `README.md` and `docs/CONTRIBUTE.md` to replace the blanket import/card prohibition with this narrow supported behavior. | Planned |  |
+| TASK-022 | Run focused Vitest files for statement parsing, member-card setup, import action, OAuth callback, transaction actions, finance reporting, dashboard loading/rendering, transaction sheet/ledger, and import/setup pages. Then run `bun run lint`, `bun run test`, `bun run build`, `git diff --check`, and `bun audit`. Require every command to exit zero or document and resolve an advisory before completion. | Planned |  |
+| TASK-023 | Review the final diff against REQ-001 through REQ-019 and SEC-001 through SEC-004. Confirm the supplied workbook file and its personal financial contents are absent from `git status`, `git diff`, fixtures, logs, and documentation. Report implementation, local checks, `joint-dev` migration/tests, and unverified deployment/authenticated-live behavior separately. Update this plan's task/status fields and add a dated `CHANGELOG.md` entry only when all implementation tasks pass. Wait for explicit implementation approval; do not merge, push, deploy, or target production. | Planned |  |
 
 ## 3. Alternatives
 
