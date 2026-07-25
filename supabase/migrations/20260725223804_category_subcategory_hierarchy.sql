@@ -16,6 +16,9 @@ create table public.subcategories (
     references public.categories (household_id, id) on delete cascade
 );
 
+alter table public.subcategories
+  add constraint subcategories_household_id_id_key unique (household_id, id);
+
 create trigger subcategories_set_updated_at
 before update on public.subcategories
 for each row execute procedure public.set_updated_at();
@@ -29,3 +32,26 @@ create policy "Members can manage subcategories"
 on public.subcategories for all to authenticated
 using (private.is_household_member(household_id))
 with check (private.is_household_member(household_id));
+
+drop trigger transactions_validate_category on public.transactions;
+drop function public.validate_transaction_category();
+
+alter table public.transactions
+  drop constraint transactions_category_id_fkey,
+  drop constraint transactions_category_required_check,
+  drop column category_id,
+  add column subcategory_id uuid,
+  add constraint transactions_household_id_subcategory_id_fkey
+    foreign key (household_id, subcategory_id)
+    references public.subcategories (household_id, id),
+  add constraint transactions_subcategory_required_check
+    check (
+      (source = 'manual' and subcategory_id is not null)
+      or source = 'statement_import'
+    );
+
+drop index public.transactions_category_occurred_on_idx;
+
+create index transactions_subcategory_occurred_on_idx
+on public.transactions (subcategory_id, occurred_on desc)
+where subcategory_id is not null;
