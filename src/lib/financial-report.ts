@@ -6,12 +6,19 @@ export type ReportCategory = {
   color?: string;
 };
 
+export type ReportSubcategory = {
+  id: string;
+  name: string;
+  categoryId: string;
+  archivedAt: string | null;
+};
+
 export type ReportTransaction = {
   id: string;
   kind: "income" | "expense";
   amount: number;
   occurredOn: string;
-  categoryId: string | null;
+  subcategoryId: string | null;
   note: string;
   merchant?: string;
   source?: "manual" | "statement_import";
@@ -100,15 +107,18 @@ function priorPeriods(from: string, to: string, earliestDate: string | undefined
 export function buildRangeReport({
   openingBalance,
   categories,
+  subcategories,
   transactions,
   from,
   to,
 }: {
   openingBalance: number;
   categories: ReportCategory[];
+  subcategories: ReportSubcategory[];
   transactions: ReportTransaction[];
 } & DateRange): MonthlyReport {
   const categoriesById = new Map(categories.map((category) => [category.id, category]));
+  const subcategoriesById = new Map(subcategories.map((subcategory) => [subcategory.id, subcategory]));
   const rangeTransactions = transactions
     .filter((transaction) => transaction.occurredOn >= from && transaction.occurredOn <= to)
     .sort((left, right) => right.occurredOn.localeCompare(left.occurredOn) || right.createdAt.localeCompare(left.createdAt));
@@ -125,8 +135,10 @@ export function buildRangeReport({
   const categoryTotals = new Map<string, number>();
 
   for (const transaction of rangeTransactions) {
-    if (transaction.kind !== "expense" || !transaction.categoryId) continue;
-    categoryTotals.set(transaction.categoryId, (categoryTotals.get(transaction.categoryId) ?? 0) + transaction.amount);
+    if (transaction.kind !== "expense" || !transaction.subcategoryId) continue;
+    const category = categoriesById.get(subcategoriesById.get(transaction.subcategoryId)?.categoryId ?? "");
+    if (!category) continue;
+    categoryTotals.set(category.id, (categoryTotals.get(category.id) ?? 0) + transaction.amount);
   }
 
   return {
@@ -151,12 +163,14 @@ export function buildRangeReport({
 export function buildMonthlyReport({
   openingBalance,
   categories,
+  subcategories,
   transactions,
   month,
   asOfDate = localToday(),
 }: {
   openingBalance: number;
   categories: ReportCategory[];
+  subcategories: ReportSubcategory[];
   transactions: ReportTransaction[];
   month: string;
   asOfDate?: string;
@@ -164,6 +178,7 @@ export function buildMonthlyReport({
   const monthStart = `${month}-01`;
   const monthEnd = nextMonth(month);
   const categoriesById = new Map(categories.map((category) => [category.id, category]));
+  const subcategoriesById = new Map(subcategories.map((subcategory) => [subcategory.id, subcategory]));
   const sharedBalance = transactions
     .filter((transaction) => transaction.occurredOn < monthEnd)
     .reduce(
@@ -191,8 +206,9 @@ export function buildMonthlyReport({
     if (transaction.kind !== "expense") continue;
 
     expenses += transaction.amount;
-    if (transaction.categoryId) {
-      categoryTotals.set(transaction.categoryId, (categoryTotals.get(transaction.categoryId) ?? 0) + transaction.amount);
+    if (transaction.subcategoryId) {
+      const category = categoriesById.get(subcategoriesById.get(transaction.subcategoryId)?.categoryId ?? "");
+      if (category) categoryTotals.set(category.id, (categoryTotals.get(category.id) ?? 0) + transaction.amount);
     }
   }
 
