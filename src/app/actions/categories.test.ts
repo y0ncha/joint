@@ -124,7 +124,10 @@ describe("subcategory actions", () => {
     mocks.update.mockReturnValue({ eq: eqId });
 
     await expect(
-      actions.updateSubcategory("subcategory-id", formData({ name: " Household groceries ", categoryId: "other-category" })),
+      actions.updateSubcategory(
+        "subcategory-id",
+        formData({ householdId: "other-household", name: " Household groceries ", categoryId: "other-category" }),
+      ),
     ).resolves.toEqual({
       status: "success",
     });
