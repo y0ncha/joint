@@ -52,6 +52,60 @@ alter table public.transactions
       or source = 'statement_import'
     );
 
+create function public.validate_transaction_subcategory()
+returns trigger
+language plpgsql
+security invoker
+set search_path = pg_catalog, public
+as $$
+declare
+  subcategory_household uuid;
+  subcategory_archived_at timestamptz;
+  category_type public.category_kind;
+  category_archived_at timestamptz;
+begin
+  if new.subcategory_id is null then
+    return new;
+  end if;
+
+  select subcategory.household_id,
+         subcategory.archived_at,
+         category.kind,
+         category.archived_at
+  into subcategory_household,
+       subcategory_archived_at,
+       category_type,
+       category_archived_at
+  from public.subcategories as subcategory
+  join public.categories as category
+    on category.id = subcategory.category_id
+  where subcategory.id = new.subcategory_id
+  for share of subcategory, category;
+
+  if subcategory_household is null or subcategory_household <> new.household_id then
+    raise exception 'Transaction subcategory must belong to its household';
+  end if;
+
+  if category_type::text <> new.kind::text then
+    raise exception 'Transaction category kind must match transaction kind';
+  end if;
+
+  if subcategory_archived_at is not null then
+    raise exception 'Transaction subcategory cannot be archived';
+  end if;
+
+  if category_archived_at is not null then
+    raise exception 'Transaction category cannot be archived';
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger transactions_validate_subcategory
+before insert or update on public.transactions
+for each row execute function public.validate_transaction_subcategory();
+
 drop index public.transactions_category_occurred_on_idx;
 
 create index transactions_subcategory_occurred_on_idx
