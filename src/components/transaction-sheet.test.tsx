@@ -36,7 +36,10 @@ vi.mock("@/app/actions/transactions", () => ({
   updateTransaction: vi.fn(),
 }));
 vi.mock("@/components/pill-select", () => ({
-  PillSelect: ({ ariaLabel, emptyLabel, options, value }: { ariaLabel: string; emptyLabel?: string; options: Array<{ label: string; value: string }>; value?: string }) => <button aria-label={ariaLabel}>{options.find((option) => option.value === value)?.label ?? emptyLabel}</button>,
+  PillSelect: ({ ariaLabel, emptyLabel, onValueChange, options, value }: { ariaLabel: string; emptyLabel?: string; onValueChange?: (value: string) => void; options: Array<{ label: string; value: string }>; value?: string }) => {
+    if (ariaLabel === "Type") mocks.kindChange = onValueChange;
+    return <button aria-label={ariaLabel}>{options.find((option) => option.value === value)?.label ?? emptyLabel}</button>;
+  },
 }));
 vi.mock("@/components/ui/calendar", () => ({
   Calendar: ({ onSelect }: { onSelect: (date: Date | undefined) => void }) => {
@@ -69,7 +72,10 @@ vi.mock("@/components/ui/alert-dialog", () => ({
 }));
 
 vi.mock("@/components/ui/select", () => ({
-  Select: ({ children }: { children: ReactNode }) => children,
+  Select: ({ children, onValueChange }: { children: ReactNode; onValueChange: (value: string) => void }) => {
+    mocks.kindChange = onValueChange;
+    return <button data-select="transaction-kind" type="button">{children}</button>;
+  },
   SelectContent: ({ children }: { children: ReactNode }) => children,
   SelectGroup: ({ children }: { children: ReactNode }) => children,
   SelectItem: ({ children }: { children: ReactNode }) => children,
@@ -135,10 +141,16 @@ it("renders the transaction composer with labelled core controls", () => {
     />,
   );
   expect(markup).toContain("aria-label=\"Add transaction\"");
-  expect(markup).toContain("Income");
+  expect(markup).toContain('aria-label="Type"');
   expect(markup).toContain("Expense");
   expect(markup).toContain("Paid by");
   expect(markup).toContain("Choose date");
+  expect(markup.indexOf("Amount")).toBeLessThan(markup.indexOf("transaction-date-label"));
+  expect(markup.indexOf("transaction-date-label")).toBeLessThan(markup.indexOf('aria-label="Type"'));
+  expect(markup.indexOf('aria-label="Type"')).toBeLessThan(markup.indexOf("Paid by"));
+  expect(markup.indexOf("Paid by")).toBeLessThan(markup.indexOf("Category"));
+  expect(markup.indexOf("Category")).toBeLessThan(markup.indexOf("Merchant"));
+  expect(markup.indexOf("Merchant")).toBeLessThan(markup.indexOf("Note"));
 });
 
 it("renders edit mode with saved transaction values and deletion inside the sheet", () => {
@@ -153,7 +165,10 @@ it("renders edit mode with saved transaction values and deletion inside the shee
   expect(markup).toContain("Edit transaction");
   expect(markup).toContain("Update or remove this shared ledger entry.");
   expect(markup).toContain('name="amount" value="50"');
-  expect(markup).toContain('name="note" value="Saved note"');
+  expect(markup).toContain('<textarea');
+  expect(markup).toMatch(/<textarea[^>]*bg-white\/55/);
+  expect(markup).toContain('name="note" rows="4"');
+  expect(markup).toContain('>Saved note</textarea>');
   expect(markup).toContain("Save changes");
   expect(markup).toContain("Delete transaction");
   expect(markup).toContain("Delete this transaction?");

@@ -63,6 +63,80 @@ function percentageChange(value: number, average: number) {
   return average === 0 ? null : ((value - average) / average) * 100;
 }
 
+function shiftDate(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function periodTotals(transactions: ReportTransaction[], from: string, to: string) {
+  return transactions.reduce((totals, transaction) => {
+    if (transaction.occurredOn < from || transaction.occurredOn > to) return totals;
+    if (transaction.kind === "income") totals.income += transaction.amount;
+    else totals.expenses += transaction.amount;
+    return totals;
+  }, { income: 0, expenses: 0 });
+}
+
+function priorPeriods(from: string, to: string, earliestDate: string | undefined) {
+  if (!earliestDate) return [];
+  const periodDays = Math.round((new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime()) / 86_400_000) + 1;
+  const periods: Array<{ from: string; to: string }> = [];
+  let periodEnd = shiftDate(from, -1);
+
+  while (periods.length < 3 && periodEnd >= earliestDate) {
+    const periodStart = shiftDate(periodEnd, 1 - periodDays);
+    if (periodStart < earliestDate) break;
+    periods.push({ from: periodStart, to: periodEnd });
+    periodEnd = shiftDate(periodStart, -1);
+  }
+
+  return periods;
+}
+
+export function buildRangeReport({
+  openingBalance,
+  categories,
+  transactions,
+  from,
+  to,
+}: {
+  openingBalance: number;
+  categories: ReportCategory[];
+  transactions: ReportTransaction[];
+} & DateRange): MonthlyReport {
+  const categoriesById = new Map(categories.map((category) => [category.id, category]));
+  const rangeTransactions = transactions
+    .filter((transaction) => transaction.occurredOn >= from && transaction.occurredOn <= to)
+    .sort((left, right) => right.occurredOn.localeCompare(left.occurredOn) || right.createdAt.localeCompare(left.createdAt));
+  const { income, expenses } = periodTotals(transactions, from, to);
+  const historicalTotals = priorPeriods(from, to, transactions.map((transaction) => transaction.occurredOn).sort()[0])
+    .map((period) => periodTotals(transactions, period.from, period.to));
+  const averageIncome = historicalTotals.length ? historicalTotals.reduce((total, period) => total + period.income, 0) / historicalTotals.length : 0;
+  const averageExpenses = historicalTotals.length ? historicalTotals.reduce((total, period) => total + period.expenses, 0) / historicalTotals.length : 0;
+  const categoryTotals = new Map<string, number>();
+
+  for (const transaction of rangeTransactions) {
+    if (transaction.kind !== "expense" || !transaction.categoryId) continue;
+    categoryTotals.set(transaction.categoryId, (categoryTotals.get(transaction.categoryId) ?? 0) + transaction.amount);
+  }
+
+  return {
+    sharedBalance: transactions
+      .filter((transaction) => transaction.occurredOn <= to)
+      .reduce((balance, transaction) => transaction.kind === "income" ? balance + transaction.amount : balance - transaction.amount, openingBalance),
+    income,
+    expenses,
+    incomeChangePercentage: historicalTotals.length ? percentageChange(income, averageIncome) : null,
+    expenseChangePercentage: historicalTotals.length ? percentageChange(expenses, averageExpenses) : null,
+    expectedMonthlyIncome: historicalTotals.length ? averageIncome : null,
+    categoryTotals: [...categoryTotals.entries()]
+      .map(([categoryId, amount]) => ({ categoryId, categoryName: categoriesById.get(categoryId)?.name ?? "Archived category", amount }))
+      .sort((left, right) => right.amount - left.amount || left.categoryName.localeCompare(right.categoryName)),
+    recentTransactions: rangeTransactions,
+  };
+}
+
 export function buildMonthlyReport({
   openingBalance,
   categories,
@@ -143,3 +217,4 @@ export function buildMonthlyReport({
     recentTransactions: monthlyTransactions,
   };
 }
+import type { DateRange } from "@/lib/date-range";

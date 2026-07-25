@@ -23,15 +23,13 @@ import { Input } from "@/components/ui/input";
 import { PillSelect } from "@/components/pill-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Textarea } from "@/components/ui/textarea";
 import type { ReportTransaction } from "@/lib/financial-report";
 
 type Category = { id: string; name: string; kind: "income" | "expense"; color?: string };
 type Member = { id: string; label: string; color?: string };
 
 const displayDate = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
-const transactionKindItemClassName = "transition-[background-color,border-color,color,box-shadow] duration-300 ease-in-out motion-reduce:transition-none data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm hover:data-[state=on]:bg-primary hover:data-[state=on]:text-primary-foreground";
-
 function todayIso() {
   return dateOnlyFromLocalDate(new Date());
 }
@@ -105,13 +103,6 @@ export function TransactionSheet({
             <input name="occurredOn" type="hidden" value={occurredOn} />
             <input name="categoryId" type="hidden" value={selectedCategoryId} />
             <input name="paidBy" type="hidden" value={selectedPaidBy} />
-            <Field>
-              <FieldLabel id="transaction-kind-label">Type</FieldLabel>
-              <ToggleGroup aria-labelledby="transaction-kind-label" type="single" value={kind} onValueChange={(value) => { if (value) { setKind(value as typeof kind); setCategoryId(""); } }} variant="outline" spacing={0}>
-                <ToggleGroupItem value="income" className={transactionKindItemClassName}>Income</ToggleGroupItem>
-                <ToggleGroupItem value="expense" className={transactionKindItemClassName}>Expense</ToggleGroupItem>
-              </ToggleGroup>
-            </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.amount)}>
               <FieldLabel htmlFor="amount">Amount</FieldLabel>
               <Input id="amount" name="amount" inputMode="decimal" required defaultValue={transaction?.amount ?? undefined} aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.amount)} />
@@ -137,6 +128,10 @@ export function TransactionSheet({
               </Popover>
               {state?.status === "error" ? <FieldError>{state.fieldErrors.occurredOn}</FieldError> : null}
             </Field>
+            <Field>
+              <FieldLabel>Type</FieldLabel>
+              <PillSelect ariaLabel="Type" value={kind} onValueChange={(value) => { setKind(value as typeof kind); setCategoryId(""); }} options={[{ value: "income", label: "Income", className: "border-positive/20 bg-positive/10 text-positive" }, { value: "expense", label: "Expense", className: "border-negative/20 bg-negative/10 text-negative" }]} />
+            </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.paidBy)}>
               <FieldLabel>Paid by</FieldLabel>
               <PillSelect ariaLabel="Members" value={selectedPaidBy || "unassigned"} onValueChange={(value) => setPaidBy(value === "unassigned" ? "" : value)} disabled={members.length === 0} options={[{ value: "unassigned", label: "Unassigned" }, ...members.map((member) => ({ value: member.id, label: member.label, color: member.color }))]} />
@@ -154,7 +149,7 @@ export function TransactionSheet({
             </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.note)}>
               <FieldLabel htmlFor="note">Note</FieldLabel>
-              <Input id="note" name="note" defaultValue={transaction?.note ?? undefined} aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.note)} />
+              <Textarea id="note" name="note" rows={4} className="bg-white/55" defaultValue={transaction?.note ?? undefined} aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.note)} />
               {state?.status === "error" ? <FieldError>{state.fieldErrors.note}</FieldError> : null}
             </Field>
             {state?.status === "error" ? <FieldError>{state.formError}</FieldError> : null}

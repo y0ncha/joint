@@ -17,6 +17,11 @@ const mocks = vi.hoisted(() => ({
   profileSelect: vi.fn(),
   profileEq: vi.fn(),
   profileMaybeSingle: vi.fn(),
+  partnerProfileEq: vi.fn(),
+  partnerProfileMaybeSingle: vi.fn(),
+  householdSelect: vi.fn(),
+  householdEq: vi.fn(),
+  householdMaybeSingle: vi.fn(),
   colorSelect: vi.fn(),
   colorHouseholdEq: vi.fn(),
   colorUserEq: vi.fn(),
@@ -32,7 +37,7 @@ vi.mock("@/components/member-card-settings-control", () => ({
   MemberCardSettingsControl: ({ lastFour }: { lastFour: string | null }) => <span data-card-last-four={lastFour ?? "none"} />,
 }));
 vi.mock("@/components/member-color-settings-control", () => ({
-  MemberColorSettingsControl: ({ members }: { members: Array<{ id: string; color: string }> }) => <span data-member-colors={members.map((member) => member.color).join(",")} />,
+  MemberColorSettingsControl: ({ color }: { color: string }) => <span data-member-color={color} />,
 }));
 
 const settingsModule = await import("./page");
@@ -46,9 +51,11 @@ beforeEach(() => {
     ? { select: mocks.memberSelect }
     : table === "member_cards"
       ? { select: mocks.cardSelect }
-      : table === "profiles"
-        ? { select: mocks.profileSelect }
-        : { select: mocks.authorizationSelect });
+    : table === "profiles"
+      ? { select: mocks.profileSelect }
+      : table === "households"
+        ? { select: mocks.householdSelect }
+      : { select: mocks.authorizationSelect });
   mocks.memberSelect.mockReturnValue({ eq: mocks.memberEq });
   mocks.memberEq.mockReturnValue({ order: mocks.memberOrder });
   mocks.memberOrder.mockResolvedValue({ data: [{ user_id: "owner-id", role: "owner", color: "#dcece3" }], error: null });
@@ -63,9 +70,16 @@ beforeEach(() => {
   mocks.cardHouseholdEq.mockReturnValue({ eq: mocks.cardUserEq });
   mocks.cardUserEq.mockReturnValue({ maybeSingle: mocks.cardMaybeSingle });
   mocks.cardMaybeSingle.mockResolvedValue({ data: { last_four: "4548" }, error: null });
-  mocks.profileSelect.mockReturnValue({ eq: mocks.profileEq });
+  mocks.profileSelect.mockImplementation((columns: string) => columns === "id, full_name"
+    ? { eq: mocks.partnerProfileEq }
+    : { eq: mocks.profileEq });
   mocks.profileEq.mockReturnValue({ maybeSingle: mocks.profileMaybeSingle });
   mocks.profileMaybeSingle.mockResolvedValue({ data: { full_name: "Ada Lovelace" }, error: null });
+  mocks.partnerProfileEq.mockReturnValue({ maybeSingle: mocks.partnerProfileMaybeSingle });
+  mocks.partnerProfileMaybeSingle.mockResolvedValue({ data: { id: "partner-id", full_name: "Grace Hopper" }, error: null });
+  mocks.householdSelect.mockReturnValue({ eq: mocks.householdEq });
+  mocks.householdEq.mockReturnValue({ maybeSingle: mocks.householdMaybeSingle });
+  mocks.householdMaybeSingle.mockResolvedValue({ data: { name: "The Lovelaces" }, error: null });
 });
 
 it("renders Appearance, Household, and Account cards", async () => {
@@ -74,6 +88,8 @@ it("renders Appearance, Household, and Account cards", async () => {
   expect(markup).toContain("Appearance");
   expect(markup).toContain("Household");
   expect(markup).toContain("Account");
+  expect(markup).toContain("The Lovelaces");
+  expect(markup).toContain("User color");
   expect(markup).toContain("Session");
   expect(markup).not.toMatch(/>Name<\/p>/);
   expect(markup).toContain("Last 4 digits");
@@ -82,6 +98,7 @@ it("renders Appearance, Household, and Account cards", async () => {
   expect(markup).toContain(">Edit</button>");
   expect(markup.match(/w-\[min\(22rem,55vw\)\]/g)).toHaveLength(2);
   expect(mocks.from).toHaveBeenCalledWith("profiles");
+  expect(mocks.from).toHaveBeenCalledWith("households");
   expect(mocks.profileEq).toHaveBeenCalledWith("id", "owner-id");
   expect(markup.indexOf("Partner access")).toBeLessThan(markup.indexOf("Session"));
   expect(markup.indexOf("Household")).toBeLessThan(markup.indexOf("Account"));
@@ -111,7 +128,7 @@ it("renders joined partner access for an owner authorization with a joined membe
   mocks.memberOrder.mockResolvedValue({
     data: [
       { user_id: "owner-id", role: "owner", color: "#dcece3" },
-      { user_id: "partner-id", role: "member", color: "#dcece3" },
+      { user_id: "partner-id", role: "member", color: "#123456" },
     ],
     error: null,
   });
@@ -120,7 +137,14 @@ it("renders joined partner access for an owner authorization with a joined membe
   const markup = renderToStaticMarkup(await settingsModule.default());
 
   expect(markup).toContain('data-partner-state="joined"');
+  expect(markup).toMatch(/>Name<\/p>/);
+  expect(markup).toContain("Grace Hopper");
+  expect(markup).toContain("User color");
+  expect(markup).toContain("#123456");
   expect(markup).toContain("partner@example.com");
+  expect(markup).toMatch(/>Role<\/p>/);
+  expect(markup).toContain("Member");
+  expect(mocks.partnerProfileEq).toHaveBeenCalledWith("id", "partner-id");
 });
 
 it("does not query partner authorization for a member", async () => {
@@ -130,6 +154,6 @@ it("does not query partner authorization for a member", async () => {
 
   const markup = renderToStaticMarkup(await settingsModule.default());
 
-  expect(markup).toContain("Managed by owner");
+  expect(markup).not.toContain("Partner access");
   expect(mocks.authorizationSelect).not.toHaveBeenCalled();
 });

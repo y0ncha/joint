@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 
-import { TransactionLedger } from "./transaction-ledger";
+import { getLedgerShortcutAction, TransactionLedger } from "./transaction-ledger";
 
 type ImportedLedgerTransaction = {
   id: string;
@@ -15,6 +15,13 @@ type ImportedLedgerTransaction = {
   createdAt: string;
   paidBy: null;
 };
+
+it("maps ledger shortcuts only when transactions are selected", () => {
+  expect(getLedgerShortcutAction("Delete", 1)).toBe("confirm-delete");
+  expect(getLedgerShortcutAction("Backspace", 1)).toBe("confirm-delete");
+  expect(getLedgerShortcutAction("Escape", 1)).toBe("clear-selection");
+  expect(getLedgerShortcutAction("Delete", 0)).toBeNull();
+});
 
 it("keeps transaction selection, editing, and bulk deletion accessible", () => {
   const markup = renderToStaticMarkup(
@@ -68,6 +75,64 @@ it("renders imported merchant details with uncategorized and unassigned fallback
   expect(markup).toContain("Uncategorized");
   expect(markup).toContain("Unassigned");
   expect(markup).toContain('aria-label="Select Super Pharm transaction"');
+});
+
+it("sizes ledger columns from their contents", () => {
+  const markup = renderToStaticMarkup(
+    <TransactionLedger
+      categories={[]}
+      members={[]}
+      transactions={[{ id: "transaction-id", kind: "expense", amount: 50, occurredOn: "2026-07-15", categoryId: null, note: "Groceries", createdAt: "2026-07-15T08:00:00Z", paidBy: null }]}
+    />,
+  );
+
+  expect(markup).not.toContain("table-fixed");
+  expect(markup).not.toContain("<colgroup>");
+});
+
+it("limits rows to the selected custom date range", () => {
+  const markup = renderToStaticMarkup(
+    <TransactionLedger
+      categories={[]}
+      members={[]}
+      dateRange={{ from: "2026-06-10", to: "2026-06-20" }}
+      transactions={[
+        { id: "outside", kind: "expense", amount: 10, occurredOn: "2026-06-01", categoryId: null, note: "Outside range", createdAt: "2026-06-01T08:00:00Z", paidBy: null },
+        { id: "inside", kind: "expense", amount: 10, occurredOn: "2026-06-15", categoryId: null, note: "Inside range", createdAt: "2026-06-15T08:00:00Z", paidBy: null },
+      ]}
+    />,
+  );
+
+  expect(markup).toContain("Inside range");
+  expect(markup).not.toContain("Outside range");
+});
+
+it("names an empty custom range accurately", () => {
+  const markup = renderToStaticMarkup(
+    <TransactionLedger categories={[]} members={[]} dateRange={{ from: "2026-06-10", to: "2026-06-20" }} transactions={[]} />,
+  );
+
+  expect(markup).toContain("No transactions for this date range.");
+});
+
+it("filters by selected categories and payers", () => {
+  const markup = renderToStaticMarkup(
+    <TransactionLedger
+      categories={[]}
+      members={[]}
+      categoryIds={["food"]}
+      paidByIds={["you"]}
+      transactions={[
+        { id: "match", kind: "expense", amount: 10, occurredOn: "2026-06-15", categoryId: "food", note: "Matches filters", createdAt: "2026-06-15T08:00:00Z", paidBy: "you" },
+        { id: "category", kind: "expense", amount: 10, occurredOn: "2026-06-15", categoryId: "other", note: "Wrong category", createdAt: "2026-06-15T08:00:00Z", paidBy: "you" },
+        { id: "payer", kind: "expense", amount: 10, occurredOn: "2026-06-15", categoryId: "food", note: "Wrong payer", createdAt: "2026-06-15T08:00:00Z", paidBy: "them" },
+      ]}
+    />,
+  );
+
+  expect(markup).toContain("Matches filters");
+  expect(markup).not.toContain("Wrong category");
+  expect(markup).not.toContain("Wrong payer");
 });
 
 it("filters, sorts, and exposes selection controls without making rows editable", () => {

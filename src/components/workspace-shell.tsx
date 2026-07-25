@@ -102,8 +102,8 @@ export function WorkspaceShell({
   children: ReactNode;
 }) {
   return (
-    <main className="min-h-screen px-3 py-3 text-foreground sm:px-5 sm:py-5 lg:px-8 lg:py-8">
-      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-[1500px] overflow-hidden rounded-[2rem] border border-white/40 bg-white/24 shadow-[0_24px_80px_rgba(15,44,55,0.25)] backdrop-blur-sm lg:min-h-[calc(100vh-4rem)]">
+    <main className="min-h-screen p-0 text-foreground sm:px-5 sm:py-5 lg:px-8 lg:py-8">
+      <div className="mx-auto flex min-h-screen max-w-[1500px] overflow-hidden bg-white/24 shadow-[0_24px_80px_rgba(15,44,55,0.25)] backdrop-blur-sm sm:min-h-[calc(100vh-2.5rem)] sm:rounded-[2rem] sm:border sm:border-white/40 lg:min-h-[calc(100vh-4rem)]">
         <aside className="hidden w-[92px] shrink-0 flex-col items-center border-r border-white/35 bg-white/28 px-0 pt-6 pb-6 backdrop-blur-xl md:flex lg:pt-8 lg:pb-8">
           <BrandMark size={44} />
           <nav aria-label="Primary navigation" className="mt-10 flex flex-col gap-3">
@@ -128,12 +128,12 @@ export function WorkspaceShell({
             {children}
           </div>
         </section>
-        <nav aria-label="Primary navigation" className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] flex h-16 items-center justify-around rounded-[calc(2rem-0.75rem)] border border-white/60 bg-white/80 px-3 shadow-lg backdrop-blur-xl md:hidden">
-          {navigation.map(([href, label, Icon]) => (
-            <NavigationItem key={href} href={href} label={label} icon={Icon} />
-          ))}
-        </nav>
       </div>
+      <nav aria-label="Primary navigation" className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] flex h-16 items-center justify-around rounded-[calc(2rem-0.75rem)] border border-white/60 bg-white/80 px-3 shadow-lg backdrop-blur-xl md:hidden">
+        {navigation.map(([href, label, Icon]) => (
+          <NavigationItem key={href} href={href} label={label} icon={Icon} />
+        ))}
+      </nav>
     </main>
   );
 }

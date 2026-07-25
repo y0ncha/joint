@@ -3,12 +3,12 @@ import { expect, it } from "vitest";
 
 const colorControlModule = await import("./member-color-settings-control").catch(() => null);
 
-it("labels the member color controls", () => {
+it("labels the current member color control", () => {
   const markup = colorControlModule
-    ? renderToStaticMarkup(<colorControlModule.MemberColorSettingsControl members={[{ id: "member-id", label: "You", color: "#dcece3" }]} />)
+    ? renderToStaticMarkup(<colorControlModule.MemberColorSettingsControl color="#dcece3" />)
     : "";
 
-  expect(markup).toContain('aria-label="Paid by colors"');
+  expect(markup).toContain('aria-label="User color"');
   expect(markup).toContain("#f5e2eb");
   expect(markup).not.toContain("sm:grid-cols-2");
 });

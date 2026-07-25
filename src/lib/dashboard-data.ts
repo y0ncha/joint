@@ -1,8 +1,9 @@
-import { buildMonthlyReport } from "@/lib/financial-report";
+import { buildMonthlyReport, buildRangeReport } from "@/lib/financial-report";
+import type { DateRange } from "@/lib/date-range";
 import { categoryFromRow, transactionFromRow } from "@/lib/finance-types";
 import { getCurrentHouseholdContext } from "@/lib/household";
 
-export async function getDashboardData(month: string) {
+export async function getDashboardData(month: string, range?: DateRange) {
   const household = await getCurrentHouseholdContext();
   if (household.status !== "member") throw new Error("Create or join a household before viewing the dashboard.");
   const { supabase } = household;
@@ -21,5 +22,6 @@ export async function getDashboardData(month: string) {
     color: member.color,
     label: member.user_id === currentUserId ? "You" : member.role === "owner" ? "Owner" : "Partner",
   }));
-  return { household, currentUserId, members, categories, report: buildMonthlyReport({ openingBalance: Number(householdResult.data.opening_balance), categories, transactions, month }) };
+  const openingBalance = Number(householdResult.data.opening_balance);
+  return { household, currentUserId, members, categories, transactions, report: range ? buildRangeReport({ openingBalance, categories, transactions, ...range }) : buildMonthlyReport({ openingBalance, categories, transactions, month }) };
 }

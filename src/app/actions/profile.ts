@@ -23,14 +23,28 @@ export async function saveCurrentProfileName(previousState: ActionResult | null,
   return { status: "success", data: { fullName: parsed.data.name } };
 }
 
-export async function saveMemberColor(userId: string, color: string): Promise<ActionResult> {
+export async function saveCurrentMemberColor(color: string): Promise<ActionResult> {
   if (!isHexColor(color)) return { status: "error", formError: "Choose a valid color.", fieldErrors: {} };
 
   const household = await requireCurrentHousehold();
-  const { error } = await household.supabase.rpc("set_household_member_color", { target_user_id: userId, target_color: color });
+  const { error } = await household.supabase.rpc("set_current_household_member_color", { target_color: color });
   if (error) return { status: "error", formError: "Unable to save your color. Please try again.", fieldErrors: {} };
 
   revalidatePath("/settings");
   revalidatePath("/transactions");
   return { status: "success" };
+}
+
+export async function saveCurrentHouseholdName(previousState: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const parsed = profileNameSchema.safeParse({ name: formData.get("name") });
+  if (!parsed.success) return validationError(parsed.error.issues);
+
+  const household = await requireCurrentHousehold();
+  if (household.role !== "owner") return { status: "error", formError: "Only the household owner can change its name.", fieldErrors: {} };
+
+  const { error } = await household.supabase.from("households").update({ name: parsed.data.name }).eq("id", household.householdId);
+  if (error) return { status: "error", formError: "Unable to save the household name. Please try again.", fieldErrors: {} };
+
+  revalidatePath("/settings");
+  return { status: "success", data: { name: parsed.data.name } };
 }

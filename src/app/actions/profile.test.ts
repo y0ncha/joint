@@ -23,7 +23,7 @@ function formData(values: Record<string, string>) {
 describe("profile action", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mocks.requireCurrentHousehold.mockResolvedValue({ userId: "member-id", supabase: { from: mocks.from, rpc: mocks.rpc } });
+    mocks.requireCurrentHousehold.mockResolvedValue({ userId: "member-id", householdId: "household-id", role: "owner", supabase: { from: mocks.from, rpc: mocks.rpc } });
     mocks.from.mockReturnValue({ update: mocks.update });
     mocks.update.mockReturnValue({ eq: mocks.eq });
     mocks.eq.mockResolvedValue({ error: null });
@@ -54,16 +54,34 @@ describe("profile action", () => {
     expect(mocks.update).toHaveBeenCalledWith({ full_name: "Yonatan" });
   });
 
-  it("saves a household member's selected hex color", async () => {
-    await expect(actions.saveMemberColor("partner-id", "#123456")).resolves.toEqual({ status: "success" });
+  it("saves the current member's selected hex color without a target user", async () => {
+    await expect(actions.saveCurrentMemberColor("#123456")).resolves.toEqual({ status: "success" });
 
-    expect(mocks.rpc).toHaveBeenCalledWith("set_household_member_color", { target_user_id: "partner-id", target_color: "#123456" });
+    expect(mocks.rpc).toHaveBeenCalledWith("set_current_household_member_color", { target_color: "#123456" });
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/settings");
   });
 
-  it("rejects malformed member colors", async () => {
-    await expect(actions.saveMemberColor("partner-id", "blue")).resolves.toMatchObject({ status: "error" });
+  it("rejects malformed current member colors", async () => {
+    await expect(actions.saveCurrentMemberColor("blue")).resolves.toMatchObject({ status: "error" });
 
     expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("lets an owner rename the verified household", async () => {
+    await expect(actions.saveCurrentHouseholdName(null, formData({ name: "  The Lovelaces  " }))).resolves.toEqual({
+      status: "success", data: { name: "The Lovelaces" },
+    });
+
+    expect(mocks.from).toHaveBeenCalledWith("households");
+    expect(mocks.update).toHaveBeenCalledWith({ name: "The Lovelaces" });
+    expect(mocks.eq).toHaveBeenCalledWith("id", "household-id");
+  });
+
+  it("rejects household renames from members before writing", async () => {
+    mocks.requireCurrentHousehold.mockResolvedValue({ userId: "member-id", householdId: "household-id", role: "member", supabase: { from: mocks.from, rpc: mocks.rpc } });
+
+    await expect(actions.saveCurrentHouseholdName(null, formData({ name: "Other household" }))).resolves.toMatchObject({ status: "error" });
+
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 });
