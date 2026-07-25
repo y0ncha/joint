@@ -1,6 +1,7 @@
 export type DateRange = { from: string; to: string };
 
-const rangeDate = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+const rangeDate = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+const shortRangeDate = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "UTC" });
 
 function isCanonicalIsoDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -19,4 +20,8 @@ export function currentMonth() {
 
 export function formatDateRange(range: DateRange) {
   return `${rangeDate.format(new Date(`${range.from}T00:00:00Z`))} – ${rangeDate.format(new Date(`${range.to}T00:00:00Z`))}`;
+}
+
+export function formatShortDateRange(range: DateRange) {
+  return `${shortRangeDate.format(new Date(`${range.from}T00:00:00Z`))} – ${shortRangeDate.format(new Date(`${range.to}T00:00:00Z`))}`;
 }

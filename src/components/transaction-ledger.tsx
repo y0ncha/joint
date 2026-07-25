@@ -89,7 +89,7 @@ export function TransactionLedger({ transactions, categories, categoryIds = [], 
   }, [isDeleteDialogOpen, selectedIds.length]);
 
   if (visibleTransactions.length === 0) {
-    return <p className="text-sm text-muted-foreground">No transactions for this month.</p>;
+    return <p className="text-sm text-muted-foreground">{dateRange ? "No transactions for this date range." : "No transactions for this month."}</p>;
   }
 
   return (

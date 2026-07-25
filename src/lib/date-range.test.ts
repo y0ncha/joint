@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDateRange, getValidDateRange } from "./date-range";
+import { formatDateRange, formatShortDateRange, getValidDateRange } from "./date-range";
 
 describe("getValidDateRange", () => {
   it("accepts canonical chronological ISO dates", () => {
@@ -16,6 +16,7 @@ describe("getValidDateRange", () => {
   });
 
   it("formats a date range consistently", () => {
-    expect(formatDateRange({ from: "2026-07-01", to: "2026-07-15" })).toBe("01 Jul 2026 – 15 Jul 2026");
+    expect(formatDateRange({ from: "2026-07-01", to: "2026-07-15" })).toBe("01/07/2026 – 15/07/2026");
+    expect(formatShortDateRange({ from: "2026-07-01", to: "2026-07-15" })).toBe("01/07/26 – 15/07/26");
   });
 });

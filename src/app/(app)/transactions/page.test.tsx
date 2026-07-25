@@ -70,6 +70,8 @@ describe("Transactions page", () => {
 
     expect(markup).toContain("Inside range");
     expect(markup).not.toContain("Outside range");
+    expect(markup).toContain("Review your household ledger from 10/06/2026 – 20/06/2026.");
+    expect(markup).toContain("Date range ledger");
   });
 
   it("ignores an impossible custom date range", async () => {

@@ -107,6 +107,14 @@ it("limits rows to the selected custom date range", () => {
   expect(markup).not.toContain("Outside range");
 });
 
+it("names an empty custom range accurately", () => {
+  const markup = renderToStaticMarkup(
+    <TransactionLedger categories={[]} members={[]} dateRange={{ from: "2026-06-10", to: "2026-06-20" }} transactions={[]} />,
+  );
+
+  expect(markup).toContain("No transactions for this date range.");
+});
+
 it("filters by selected categories and payers", () => {
   const markup = renderToStaticMarkup(
     <TransactionLedger

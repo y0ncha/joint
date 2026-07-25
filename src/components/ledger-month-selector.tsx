@@ -8,7 +8,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
-import { formatDateRange, type DateRange as IsoDateRange } from "@/lib/date-range";
+import { formatShortDateRange, type DateRange as IsoDateRange } from "@/lib/date-range";
 import {
   Select,
   SelectContent,
@@ -115,11 +115,11 @@ export function LedgerMonthSelector({ month, range }: { month: string; range?: I
           </SelectGroup>
         </SelectContent>
       </Select>
-      <Popover open={rangeOpen} onOpenChange={(open) => { setRangeOpen(open); if (open) setPendingRange(selectedRange); }}>
+      <Popover open={rangeOpen} onOpenChange={(open) => { setRangeOpen(open); if (open) setPendingRange(undefined); }}>
         <PopoverTrigger asChild>
           <Button type="button" variant="outline" className="min-h-11 min-w-48 justify-start rounded-xl shadow-[0_8px_22px_-10px] shadow-foreground/10" aria-label="Choose custom date range">
             <CalendarDays data-icon="inline-start" />
-            {range ? formatDateRange(range) : "Start date – End date"}
+            {range ? formatShortDateRange(range) : "Start date – End date"}
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-auto rounded-2xl border-white/70 bg-popover p-3 shadow-[0_20px_60px_rgba(15,44,55,0.18)]">

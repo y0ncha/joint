@@ -77,9 +77,10 @@ describe("Joint dashboard", () => {
   });
 
   it("passes a selected custom range to the dashboard report", async () => {
-    renderToStaticMarkup(await renderHome({ from: "2026-07-01", to: "2026-07-15" }));
+    const markup = renderToStaticMarkup(await renderHome({ from: "2026-07-01", to: "2026-07-15" }));
 
     expect(mocks.getDashboardData).toHaveBeenCalledWith(expect.any(String), { from: "2026-07-01", to: "2026-07-15" });
+    expect(markup).toContain("01/07/2026 – 15/07/2026");
   });
 
   it("ignores an impossible custom range", async () => {
