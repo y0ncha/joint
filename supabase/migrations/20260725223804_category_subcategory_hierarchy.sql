@@ -35,6 +35,8 @@ with check (private.is_household_member(household_id));
 
 drop trigger transactions_validate_category on public.transactions;
 drop function public.validate_transaction_category();
+drop trigger categories_validate_transaction_links on public.categories;
+drop function public.validate_category_transaction_links();
 
 alter table public.transactions
   drop constraint transactions_category_id_fkey,
