@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -34,22 +34,24 @@ export type PartnerAccessState =
 type Member = { name: string; email: string; color: string; joinedAt?: string; cardLastFour?: string };
 
 function MemberIdentity({ member }: { member: Member }) {
-  return <div className="flex min-w-0 items-center gap-3">
-      <Avatar className="size-10 border" style={{ backgroundColor: member.color, borderColor: `color-mix(in srgb, ${member.color}, black 35%)` }}>
-        <AvatarFallback style={{ color: `color-mix(in srgb, ${member.color}, black 35%)` }}>{getProfileInitials(member.name)}</AvatarFallback>
-      </Avatar>
+  return <div className="flex min-w-0 items-center justify-between gap-3 px-0.5 pt-1.5">
       <div className="min-w-0">
-        <CardTitle className="truncate">{member.name}</CardTitle>
-        <CardDescription className="truncate">{member.email}</CardDescription>
+        <CardTitle className="truncate !text-xl !leading-7">{member.name}</CardTitle>
       </div>
+      <Avatar className="size-10 shrink-0">
+        <AvatarFallback>{getProfileInitials(member.name)}</AvatarFallback>
+      </Avatar>
     </div>;
 }
 
 function MemberMetadata({ member }: { member: Member }) {
-  return member.joinedAt || member.cardLastFour ? <CardContent className="grid gap-1 pt-0 text-xs text-muted-foreground">
-      {member.joinedAt ? <p>Joined {member.joinedAt.slice(0, 10)}</p> : null}
-      {member.cardLastFour ? <p>Card ending {member.cardLastFour}</p> : null}
-    </CardContent> : null;
+  return <CardContent className="px-3.5 pt-4 text-sm">
+    <dl className="divide-y divide-border/70">
+      <div className="grid grid-cols-[7rem_1fr] gap-3 px-3 py-2"><dt className="font-medium text-muted-foreground">Email</dt><dd className="min-w-0 truncate font-medium">{member.email}</dd></div>
+      {member.joinedAt ? <div className="grid grid-cols-[7rem_1fr] gap-3 px-3 py-2"><dt className="font-medium text-muted-foreground">Joined</dt><dd className="font-medium">{member.joinedAt.slice(0, 10).split("-").reverse().join("/")}</dd></div> : null}
+      {member.cardLastFour ? <div className="grid grid-cols-[7rem_1fr] gap-3 px-3 py-2"><dt className="font-medium text-muted-foreground">Card ending</dt><dd className="font-medium">{member.cardLastFour}</dd></div> : null}
+    </dl>
+  </CardContent>;
 }
 
 export function MemberManagementSheet({ owner, partner, member }: { owner: Member; partner: PartnerAccessState; member?: Member }) {
@@ -104,6 +106,9 @@ export function MemberManagementSheet({ owner, partner, member }: { owner: Membe
           <Card size="sm" className="border-white/50 bg-card/90">
             <CardHeader><MemberIdentity member={owner} /></CardHeader>
             <MemberMetadata member={owner} />
+            <CardContent className="flex justify-end pt-0">
+              <Button type="button" variant="ghost" size="icon" className="size-11 text-muted-foreground/40" aria-label="Owner cannot be removed" title="Owner cannot be removed" disabled><Trash2 aria-hidden="true" /></Button>
+            </CardContent>
           </Card>
 
           {partner.status === "empty" ? (
@@ -132,34 +137,34 @@ export function MemberManagementSheet({ owner, partner, member }: { owner: Membe
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"><UserRound aria-hidden="true" /></div>
                   <div className="min-w-0"><CardTitle className="truncate">{partner.status === "joined" ? "Joined member" : "Invitation pending"}</CardTitle><CardDescription className="truncate">{partner.email}</CardDescription></div>
                 </div>}
-                <CardAction>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button type="button" variant="ghost" size="icon" className="size-11 text-destructive hover:bg-destructive/10 hover:text-destructive" aria-label="Remove member"><Trash2 aria-hidden="true" /></Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Remove partner access?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          {partner.status === "joined"
-                            ? "This person will no longer be able to view or update this household. Financial history stays unchanged."
-                            : `${partner.email} will no longer be authorized to join this household.`}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <form action={removeAction}>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel className="min-h-11" disabled={removing}>Cancel</AlertDialogCancel>
-                          <Button type="submit" variant="destructive" disabled={removing} className="min-h-11">
-                            {removing ? <LoaderCircle aria-hidden="true" data-icon="inline-start" className="motion-safe:animate-spin motion-reduce:animate-none" /> : null}
-                            Remove member
-                          </Button>
-                        </AlertDialogFooter>
-                      </form>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </CardAction>
               </CardHeader>
               {partner.status === "joined" && member ? <MemberMetadata member={member} /> : null}
+              <CardContent className="flex justify-end pt-0">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button type="button" variant="ghost" size="icon" className="size-11 text-destructive hover:bg-destructive/10 hover:text-destructive" aria-label="Remove member"><Trash2 aria-hidden="true" /></Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Remove partner access?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {partner.status === "joined"
+                          ? "This person will no longer be able to view or update this household. Financial history stays unchanged."
+                          : `${partner.email} will no longer be authorized to join this household.`}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <form action={removeAction}>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="min-h-11" disabled={removing}>Cancel</AlertDialogCancel>
+                        <Button type="submit" variant="destructive" disabled={removing} className="min-h-11">
+                          {removing ? <LoaderCircle aria-hidden="true" data-icon="inline-start" className="motion-safe:animate-spin motion-reduce:animate-none" /> : null}
+                          Remove member
+                        </Button>
+                      </AlertDialogFooter>
+                    </form>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
             </Card>
           )}
         </div>

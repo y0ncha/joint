@@ -78,13 +78,20 @@ it("uses a side sheet for member management", () => {
   expect(markup).toContain('aria-label="Manage members"');
 });
 
-it("renders the joined member as a colored card", () => {
+it("renders the joined member with a standard avatar", () => {
   const markup = renderToStaticMarkup(<MemberManagementSheet {...{ owner: { ...owner, joinedAt: "2026-07-20T12:00:00Z", cardLastFour: "4548" }, partner: { status: "joined" as const, email: "partner@example.com" }, member: { name: "Grace Hopper", email: "partner@example.com", color: "#123456", joinedAt: "2026-07-21T12:00:00Z", cardLastFour: "1234" } }} />);
 
   expect(markup).toContain("Grace Hopper");
-  expect(markup).toContain("background-color:#123456");
-  expect(markup).toContain("Joined 2026-07-20");
-  expect(markup).toContain("Card ending 4548");
-  expect(markup).toContain("Joined 2026-07-21");
-  expect(markup).toContain("Card ending 1234");
+  expect(markup).toContain("!text-xl !leading-7");
+  expect(markup).toContain("GH");
+  expect(markup).not.toContain("background-color:#123456");
+  expect(markup).not.toContain("color-mix(in srgb, #123456");
+  expect(markup).toContain("Email</dt><dd");
+  expect(markup).toContain("Joined</dt><dd");
+  expect(markup).toContain("20/07/2026");
+  expect(markup).toContain("Card ending</dt><dd");
+  expect(markup).toContain("4548");
+  expect(markup).toContain("21/07/2026");
+  expect(markup).toContain("1234");
+  expect(markup).toContain('aria-label="Owner cannot be removed"');
 });

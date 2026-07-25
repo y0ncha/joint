@@ -1,4 +1,4 @@
-import { PenLine } from "lucide-react";
+import { Pencil } from "lucide-react";
 
 import { MemberCardForm } from "@/components/member-card-form";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,8 @@ export function MemberCardSettingsControl({ lastFour }: { lastFour: string | nul
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <Button type="button" variant="ghost" size="icon" className="size-11 text-foreground hover:bg-transparent hover:text-foreground" aria-label="Edit last four digits">
-              <PenLine aria-hidden="true" />
+            <Button type="button" variant="ghost" size="icon" className="size-11" aria-label="Edit last four digits">
+              <Pencil aria-hidden="true" />
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
