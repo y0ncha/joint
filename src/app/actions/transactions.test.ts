@@ -27,7 +27,7 @@ function transactionForm(overrides: Record<string, string> = {}) {
     kind: "expense",
     amount: "50",
     occurredOn: "2026-07-14",
-    categoryId: "food",
+    subcategoryId: "groceries",
     paidBy: "partner-id",
     note: "Groceries",
     ...overrides,
@@ -95,7 +95,7 @@ describe("transaction actions", () => {
       kind: "expense",
       amount: 50,
       occurred_on: "2026-07-14",
-      category_id: "food",
+      subcategory_id: "groceries",
       note: "Groceries",
     });
     expect(mocks.from).not.toHaveBeenCalledWith("accounts");
@@ -103,12 +103,15 @@ describe("transaction actions", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
   });
 
-  it("requires a category for manual creates", async () => {
+  it.each(["", undefined])("requires a subcategory for manual creates when it is %s", async (subcategoryId) => {
     configureContextClient();
+    const input = transactionForm();
+    if (subcategoryId === undefined) input.delete("subcategoryId");
+    else input.set("subcategoryId", subcategoryId);
 
-    await expect(transactionsModule.createTransaction(transactionForm({ categoryId: "" }))).resolves.toMatchObject({
+    await expect(transactionsModule.createTransaction(input)).resolves.toMatchObject({
       status: "error",
-      fieldErrors: { categoryId: "Select a value." },
+      fieldErrors: { subcategoryId: "Select a value." },
     });
     expect(mocks.insert).not.toHaveBeenCalled();
   });
@@ -119,7 +122,7 @@ describe("transaction actions", () => {
     await expect(transactionsModule.createTransaction(transactionForm({ paidBy: "" }))).resolves.toEqual({ status: "success" });
 
     expect(mocks.from).not.toHaveBeenCalledWith("household_members");
-    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ paid_by: null, category_id: "food" }));
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ paid_by: null, subcategory_id: "groceries" }));
   });
 
   it("rejects a payer outside the verified household", async () => {
@@ -156,7 +159,7 @@ describe("transaction actions", () => {
       amount: 51,
       occurred_on: "2026-07-14",
       paid_by: "member-id",
-      category_id: "food",
+      subcategory_id: "groceries",
       note: "Updated",
     });
     expect(transactionEqId).toHaveBeenCalledWith("id", "transaction-id");
@@ -171,7 +174,7 @@ describe("transaction actions", () => {
       existingTransaction: { source: "statement_import" },
     });
 
-    await expect(transactionsModule.updateTransaction("transaction-id", transactionForm({ categoryId: "", paidBy: "" }))).resolves.toEqual({
+    await expect(transactionsModule.updateTransaction("transaction-id", transactionForm({ subcategoryId: "", paidBy: "" }))).resolves.toEqual({
       status: "success",
     });
 
@@ -179,20 +182,21 @@ describe("transaction actions", () => {
     expect(mocks.select).toHaveBeenCalledWith("source");
     expect(sourceEqId).toHaveBeenCalledWith("id", "transaction-id");
     expect(sourceEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
-    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ category_id: null, paid_by: null }));
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ subcategory_id: null, paid_by: null }));
     expect(mocks.update).not.toHaveBeenCalledWith(expect.objectContaining({ source: expect.anything() }));
     expect(transactionEqId).toHaveBeenCalledWith("id", "transaction-id");
     expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
   });
 
-  it("rejects a blank category when updating a stored manual transaction", async () => {
+  it.each(["", undefined])("rejects a %s subcategory when updating a stored manual transaction", async (subcategoryId) => {
     const { sourceEqHousehold, sourceEqId } = configureContextClient({ existingTransaction: { source: "manual" } });
+    const input = transactionForm({ paidBy: "member-id" });
+    if (subcategoryId === undefined) input.delete("subcategoryId");
+    else input.set("subcategoryId", subcategoryId);
 
-    await expect(
-      transactionsModule.updateTransaction("transaction-id", transactionForm({ categoryId: "", paidBy: "member-id" })),
-    ).resolves.toMatchObject({
+    await expect(transactionsModule.updateTransaction("transaction-id", input)).resolves.toMatchObject({
       status: "error",
-      fieldErrors: { categoryId: "Select a value." },
+      fieldErrors: { subcategoryId: "Select a value." },
     });
 
     expect(mocks.select).toHaveBeenCalledWith("source");

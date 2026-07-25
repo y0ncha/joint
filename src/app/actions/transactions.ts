@@ -26,8 +26,8 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
   if (!parsed.success) {
     return validationError(parsed.error.issues);
   }
-  if (!parsed.data.categoryId) {
-    return { status: "error", formError: "Check the form details.", fieldErrors: { categoryId: "Select a value." } };
+  if (!parsed.data.subcategoryId) {
+    return { status: "error", formError: "Check the form details.", fieldErrors: { subcategoryId: "Select a value." } };
   }
 
   const household = await requireCurrentHousehold();
@@ -46,7 +46,7 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
     kind: parsed.data.kind,
     amount: parsed.data.amount,
     occurred_on: parsed.data.occurredOn,
-    category_id: parsed.data.categoryId,
+    subcategory_id: parsed.data.subcategoryId,
     note: parsed.data.note,
     ...(parsed.data.merchant === undefined ? {} : { merchant: parsed.data.merchant }),
   });
@@ -74,8 +74,8 @@ export async function updateTransaction(transactionId: string, input: FormData):
 
   const parsed = transactionSchema.safeParse(Object.fromEntries(input));
   if (!parsed.success) return validationError(parsed.error.issues);
-  if (existingTransaction.source === "manual" && !parsed.data.categoryId) {
-    return { status: "error", formError: "Check the form details.", fieldErrors: { categoryId: "Select a value." } };
+  if (existingTransaction.source === "manual" && !parsed.data.subcategoryId) {
+    return { status: "error", formError: "Check the form details.", fieldErrors: { subcategoryId: "Select a value." } };
   }
   if (parsed.data.paidBy && !(await validatePaidBy(household.supabase, household.householdId, parsed.data.paidBy))) {
     return {
@@ -92,7 +92,7 @@ export async function updateTransaction(transactionId: string, input: FormData):
       amount: parsed.data.amount,
       occurred_on: parsed.data.occurredOn,
       paid_by: parsed.data.paidBy,
-      category_id: parsed.data.categoryId,
+      subcategory_id: parsed.data.subcategoryId,
       note: parsed.data.note,
       ...(parsed.data.merchant === undefined ? {} : { merchant: parsed.data.merchant }),
     })

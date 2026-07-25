@@ -25,7 +25,7 @@ export const transactionSchema = z.object({
   kind: z.enum(["income", "expense"], "Invalid discriminator value. Expected 'income' | 'expense'"),
   amount: amountSchema,
   occurredOn: dateSchema,
-  categoryId: optionalIdentifierSchema,
+  subcategoryId: optionalIdentifierSchema,
   paidBy: optionalIdentifierSchema,
   merchant: z.string().trim().max(200, "Use 200 characters or fewer.").optional(),
   note: noteSchema,
