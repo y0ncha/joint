@@ -1,8 +1,8 @@
 ---
 goal: "Replace transaction categories with category-owned subcategories and expand automatic category colors"
-version: "1.0"
+version: "1.1"
 date_created: "2026-07-25"
-last_updated: "2026-07-25"
+last_updated: "2026-07-26"
 owner: "Joint"
 status: "Planned"
 tags: ["feature", "database", "categories", "subcategories", "ui", "breaking-change"]
@@ -27,9 +27,11 @@ Replace the single-level category model with top-level categories and their subc
 - **REQ-009**: Keep the existing five-color member palette and browser-local accent palette unchanged.
 - **SEC-001**: Enable RLS on `public.subcategories` and allow only household members to manage rows using the same membership predicate as `public.categories`.
 - **SEC-002**: Use composite household foreign keys and database triggers to reject cross-household subcategory references and kind mismatches independently of Server Action validation.
+- **SEC-003**: Explicitly grant authenticated application access to `public.subcategories` while keeping `anon` access revoked; RLS remains the household row boundary.
 - **CON-001**: The migration is intentionally breaking and must `TRUNCATE public.transactions, public.categories CASCADE` before it creates the new transaction-subcategory relation; do not migrate or fabricate legacy assignments.
 - **CON-002**: Add a new ordered migration; never edit an applied migration.
 - **CON-003**: Preserve the current unrelated dirty transaction/ledger worktree changes and stage only files belonging to this plan.
+- **CON-004**: When this plan conflicts with intentional codebase changes present at execution time, preserve the codebase behavior and adapt this plan's implementation around it.
 - **GUD-001**: Use Bun and run `bun run lint`, `bun run test`, and `bun run build` before implementation approval.
 - **PAT-001**: Define `categoryPastelColors` exactly as `#f1f5f9`, `#e2e8f0`, `#f3f4f6`, `#e5e7eb`, `#f4f4f5`, `#e4e4e7`, `#f5f5f5`, `#e5e5e5`, `#f5f5f4`, `#e7e5e4`, `#fee2e2`, `#fecaca`, `#ffedd5`, `#fed7aa`, `#fef3c7`, `#fde68a`, `#fef9c3`, `#fef08a`, `#ecfccb`, `#d9f99d`, `#dcfce7`, `#bbf7d0`, `#d1fae5`, `#a7f3d0`, `#ccfbf1`, `#99f6e4`, `#cffafe`, `#a5f3fc`, `#e0f2fe`, `#bae6fd`, `#dbeafe`, `#bfdbfe`, `#e0e7ff`, `#c7d2fe`, `#ede9fe`, `#ddd6fe`, `#f3e8ff`, `#e9d5ff`, `#fae8ff`, `#f5d0fe`, `#fce7f3`, `#fbcfe8`, `#ffe4e6`, `#fecdd3`, `#dcece3`, and `#ece5f4`; use these exact lowercase values in TypeScript and SQL.
 
@@ -41,7 +43,7 @@ Replace the single-level category model with top-level categories and their subc
 
 | Task     | Description                                                                                                                                                                                                                                                                           | Status  | Date |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
-| TASK-001 | Add one new `supabase/migrations/<timestamp>_category_subcategory_hierarchy.sql` migration that truncates `public.transactions` and `public.categories` with cascade, creates `public.subcategories`, enables its RLS policy, and verifies the table has no `color` or `kind` column. | Planned |      |
+| TASK-001 | Add one new `supabase/migrations/<timestamp>_category_subcategory_hierarchy.sql` migration that truncates `public.transactions` and `public.categories` with cascade, creates `public.subcategories`, explicitly grants authenticated application access while keeping `anon` revoked, enables its RLS policy, and verifies the table has no `color` or `kind` column. | Planned |      |
 | TASK-002 | Replace `transactions.category_id` with `transactions.subcategory_id` in the migration, add the transaction check constraints and partial index, and verify manual rows require a subcategory while imported rows may use `NULL`.                                                     | Planned |      |
 | TASK-003 | Replace `public.validate_transaction_category()` with a subcategory-aware validator that locks the subcategory and parent category, verifies household and kind, and rejects references to archived categories or subcategories.                                                      | Planned |      |
 | TASK-004 | Add database guards that reject changing a category household or kind, or changing a subcategory household or parent category, after a transaction references the subcategory.                                                                                                        | Planned |      |
@@ -81,7 +83,7 @@ Replace the single-level category model with top-level categories and their subc
 | TASK-017 | Update `docs/design.md` and `docs/architecture.md` to define the two-level taxonomy, inherited color rule, subcategory-only assignment, parent-category reporting, and destructive recreation/re-import workflow. | Planned |      |
 | TASK-018 | Extend `supabase/tests/shared_balance.sql` to prove RLS, parent ownership, kind enforcement, archive rejection, random-unused category color assignment, and permitted imported uncategorized rows.               | Planned |      |
 | TASK-019 | Run the focused TypeScript and SQL tests, then run `bun run lint`, `bun run test`, and `bun run build`; mark every completed task only after its stated checks pass.                                              | Planned |      |
-| TASK-020 | Apply and verify the migration only against `joint-dev`, confirm the active project before every linked Supabase command, and present the destructive impact before requesting implementation approval.           | Planned |      |
+| TASK-020 | After TASK-005, apply and verify the migration only against `joint-dev`, confirming the active project before every linked Supabase command; then complete TASK-006 type generation. Destructive impact and data deletion were approved on 2026-07-26. | Planned |      |
 
 ## 3. Alternatives
 
