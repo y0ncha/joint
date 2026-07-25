@@ -307,8 +307,8 @@ export type Database = {
         Args: { target_household_id: string }
         Returns: boolean
       }
-      set_household_member_color: {
-        Args: { target_color: string; target_user_id: string }
+      set_current_household_member_color: {
+        Args: { target_color: string }
         Returns: undefined
       }
     }

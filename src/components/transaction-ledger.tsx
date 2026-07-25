@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 
 import { deleteTransactions } from "@/app/actions/transactions";
@@ -26,11 +26,18 @@ import type { ReportCategory, ReportTransaction } from "@/lib/financial-report";
 const currency = new Intl.NumberFormat("en-IL", { style: "currency", currency: "ILS" });
 const date = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 
-export function TransactionLedger({ transactions, categories, filterKind = "all", members, sort = "date-desc" }: { transactions: ReportTransaction[]; categories: ReportCategory[]; filterKind?: LedgerFilterKind; members: Array<{ id: string; label: string; color?: string }>; sort?: LedgerSort }) {
+export function getLedgerShortcutAction(key: string, selectedCount: number) {
+  if (selectedCount === 0) return null;
+  if (key === "Delete" || key === "Backspace") return "confirm-delete";
+  return key === "Escape" ? "clear-selection" : null;
+}
+
+export function TransactionLedger({ transactions, categories, categoryIds = [], dateRange, filterKind = "all", members, paidByIds = [], sort = "date-desc" }: { transactions: ReportTransaction[]; categories: ReportCategory[]; categoryIds?: string[]; dateRange?: { from: string; to: string }; filterKind?: LedgerFilterKind; members: Array<{ id: string; label: string; color?: string }>; paidByIds?: string[]; sort?: LedgerSort }) {
   const categoryNames = new Map(categories.map((category) => [category.id, category]));
   const memberNames = new Map(members.map((member) => [member.id, member]));
   const [selectedTransaction, setSelectedTransaction] = useState<ReportTransaction | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [isDeleting, startDeleting] = useTransition();
   const editableCategories = categories
@@ -42,7 +49,10 @@ export function TransactionLedger({ transactions, categories, filterKind = "all"
   }
 
   const visibleTransactions = transactions
+    .filter((transaction) => !dateRange || (transaction.occurredOn >= dateRange.from && transaction.occurredOn <= dateRange.to))
     .filter((transaction) => filterKind === "all" || transaction.kind === filterKind)
+    .filter((transaction) => categoryIds.length === 0 || categoryIds.includes(transaction.categoryId ?? "uncategorized"))
+    .filter((transaction) => paidByIds.length === 0 || paidByIds.includes(transaction.paidBy ?? "unassigned"))
     .sort((left, right) => sort === "date-asc"
       ? left.occurredOn.localeCompare(right.occurredOn) || left.createdAt.localeCompare(right.createdAt)
       : sort === "amount-desc"
@@ -59,23 +69,31 @@ export function TransactionLedger({ transactions, categories, filterKind = "all"
     setSelectedIds(selectedIds.length === visibleTransactions.length ? [] : visibleTransactions.map((transaction) => transaction.id));
   }
 
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (isDeleteDialogOpen || !(event.target instanceof HTMLElement) || event.target.closest("input, textarea, select, [contenteditable='true']")) return;
+      const action = getLedgerShortcutAction(event.key, selectedIds.length);
+      if (action === "confirm-delete") {
+        event.preventDefault();
+        setIsDeleteDialogOpen(true);
+      }
+      if (action === "clear-selection") {
+        event.preventDefault();
+        setSelectedIds([]);
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isDeleteDialogOpen, selectedIds.length]);
+
   if (visibleTransactions.length === 0) {
     return <p className="text-sm text-muted-foreground">No transactions for this month.</p>;
   }
 
   return (
     <>
-    <Table className="min-w-[840px] table-fixed">
-      <colgroup>
-        <col className="w-11" />
-        <col className="w-[16%]" />
-        <col className="w-[13%]" />
-        <col className="w-[20%]" />
-        <col className="w-[16%]" />
-        <col className="w-[20%]" />
-        <col className="w-[15%]" />
-        <col className="w-11" />
-      </colgroup>
+    <Table className="min-w-[840px]">
       <TableHeader>
         <TableRow>
           <TableHead><div className="flex min-h-11 min-w-11 items-center justify-center"><Checkbox aria-label="Select all transactions" checked={selectedIds.length > 0 && selectedIds.length === visibleTransactions.length} onCheckedChange={toggleAll} className="after:-inset-4" /></div></TableHead>
@@ -83,7 +101,7 @@ export function TransactionLedger({ transactions, categories, filterKind = "all"
           <TableHead>Type</TableHead>
           <TableHead>Paid by</TableHead>
           <TableHead>Category</TableHead>
-          <TableHead>Note</TableHead>
+          <TableHead>Merchant</TableHead>
           <TableHead className="text-right">Amount</TableHead>
           <TableHead><span className="sr-only">Actions</span></TableHead>
         </TableRow>
@@ -96,7 +114,7 @@ export function TransactionLedger({ transactions, categories, filterKind = "all"
             <TableCell><Badge className={transaction.kind === "income" ? "border-positive/20 bg-positive/10 text-positive" : "border-negative/20 bg-negative/10 text-negative"}>{transaction.kind}</Badge></TableCell>
             <TableCell className="truncate">{(() => { const member = memberNames.get(transaction.paidBy ?? ""); return <Badge color={member?.color} className={member ? "max-w-full truncate" : "max-w-full truncate border-muted-foreground/20 bg-muted text-muted-foreground"}>{member?.label ?? "Unassigned"}</Badge>; })()}</TableCell>
             <TableCell className="truncate">{(() => { const category = categoryNames.get(transaction.categoryId ?? ""); return <Badge color={category?.color} className={category ? "max-w-full truncate" : "max-w-full truncate border-muted-foreground/20 bg-muted text-muted-foreground"}>{category?.name ?? "Uncategorized"}</Badge>; })()}</TableCell>
-            <TableCell className="max-w-[14rem] truncate">{transaction.merchant || transaction.note || "-"}</TableCell>
+            <TableCell className="max-w-[14rem] truncate">{transaction.merchant || "-"}</TableCell>
             <TableCell className="text-right font-mono">{currency.format(transaction.amount)}</TableCell>
             <TableCell><Button type="button" size="icon" variant="ghost" className="size-11" aria-label={`Edit ${transaction.merchant || transaction.note || transaction.kind} transaction`} onClick={() => openTransaction(transaction)}><Pencil aria-hidden="true" /></Button></TableCell>
           </TableRow>
@@ -105,7 +123,7 @@ export function TransactionLedger({ transactions, categories, filterKind = "all"
     </Table>
     <div className="mt-4 flex flex-wrap items-center justify-between gap-3" aria-live="polite">
       <p className="text-sm text-muted-foreground">{selectedIds.length} selected</p>
-      <AlertDialog>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogTrigger asChild>
           <Button type="button" variant="ghost" size="icon" className="size-11 text-destructive hover:bg-destructive/10 hover:text-destructive" aria-label="Delete selected transactions" disabled={selectedIds.length === 0 || isDeleting}><Trash2 aria-hidden="true" /></Button>
         </AlertDialogTrigger>

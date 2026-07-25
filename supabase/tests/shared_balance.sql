@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(52);
+select extensions.plan(53);
 
 select extensions.hasnt_table('public', 'accounts', 'has no accounts table');
 select extensions.hasnt_type('public', 'account_kind', 'has no account kind enum');
@@ -692,7 +692,7 @@ set local request.jwt.claims = '{}';
 set local role anon;
 
 select extensions.throws_like(
-  $$ select public.set_household_member_color('00000000-0000-0000-0000-000000000402', '#dcecf2') $$,
+  $$ select public.set_current_household_member_color('#dcecf2') $$,
   '%permission denied%',
   'an anonymous caller cannot change a member color'
 );
@@ -704,7 +704,7 @@ set local request.jwt.claim.email = 'outsider@example.test';
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000405","email":"outsider@example.test"}';
 
 select extensions.throws_like(
-  $$ select public.set_household_member_color('00000000-0000-0000-0000-000000000402', '#dcecf2') $$,
+  $$ select public.set_current_household_member_color('#dcecf2') $$,
   '%Not allowed%',
   'an authenticated non-member cannot change a member color'
 );
@@ -714,31 +714,37 @@ set local request.jwt.claim.email = 'first-owner@example.test';
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
 
 select extensions.lives_ok(
-  $$ select public.set_household_member_color('00000000-0000-0000-0000-000000000402', '#dcecf2') $$,
-  'a household member can change another member color in the same household'
+  $$ select public.set_current_household_member_color('#dcecf2') $$,
+  'a household member can change their own color'
+);
+
+select extensions.is(
+  (select color from public.household_members where household_id = '00000000-0000-0000-0000-000000000410' and user_id = '00000000-0000-0000-0000-000000000401'),
+  '#dcecf2',
+  'a current member color update persists'
 );
 
 select extensions.is(
   (select color from public.household_members where household_id = '00000000-0000-0000-0000-000000000410' and user_id = '00000000-0000-0000-0000-000000000402'),
-  '#dcecf2',
-  'a same-household member color update persists'
+  '#dcece3',
+  'a current member color update leaves the partner unchanged'
 );
 
 select extensions.lives_ok(
-  $$ select public.set_household_member_color('00000000-0000-0000-0000-000000000402', '#0f6b54') $$,
+  $$ select public.set_current_household_member_color('#0f6b54') $$,
   'a household member can select a non-palette hex color'
 );
 
 select extensions.is(
-  (select color from public.household_members where household_id = '00000000-0000-0000-0000-000000000410' and user_id = '00000000-0000-0000-0000-000000000402'),
+  (select color from public.household_members where household_id = '00000000-0000-0000-0000-000000000410' and user_id = '00000000-0000-0000-0000-000000000401'),
   '#0f6b54',
   'a non-palette member color persists'
 );
 
 select extensions.throws_like(
-  $$ select public.set_household_member_color('00000000-0000-0000-0000-000000000404', '#dcecf2') $$,
-  '%Not allowed%',
-  'a household member cannot change a member color in another household'
+  $$ select public.set_current_household_member_color('blue') $$,
+  '%Invalid color%',
+  'a household member cannot select an invalid color'
 );
 
 reset role;

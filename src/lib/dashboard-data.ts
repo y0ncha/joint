@@ -21,5 +21,5 @@ export async function getDashboardData(month: string) {
     color: member.color,
     label: member.user_id === currentUserId ? "You" : member.role === "owner" ? "Owner" : "Partner",
   }));
-  return { household, currentUserId, members, categories, report: buildMonthlyReport({ openingBalance: Number(householdResult.data.opening_balance), categories, transactions, month }) };
+  return { household, currentUserId, members, categories, transactions, report: buildMonthlyReport({ openingBalance: Number(householdResult.data.opening_balance), categories, transactions, month }) };
 }

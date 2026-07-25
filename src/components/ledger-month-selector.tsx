@@ -1,7 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { CalendarDays } from "lucide-react";
+import type { DateRange } from "react-day-picker";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -30,6 +36,14 @@ export function buildLedgerMonthPath(year: string, month: string) {
   return `/transactions?month=${year}-${month}`;
 }
 
+export function buildLedgerRangePath(from: string, to: string) {
+  return `/transactions?from=${from}&to=${to}`;
+}
+
+export function isCompleteLedgerRange(range: DateRange | undefined) {
+  return Boolean(range?.from && range.to && range.from.getTime() !== range.to.getTime());
+}
+
 export function getLedgerYearOptions(selectedYear: number, currentYear = new Date().getFullYear()) {
   const years = new Set<number>();
 
@@ -41,16 +55,54 @@ export function getLedgerYearOptions(selectedYear: number, currentYear = new Dat
   return [...years].sort((left, right) => right - left).map(String);
 }
 
-export function LedgerMonthSelector({ month }: { month: string }) {
+function dateFromIso(value: string) {
+  return new Date(`${value}T00:00:00`);
+}
+
+function dateToIso(value: Date) {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+}
+
+const rangeDate = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+export function LedgerMonthSelector({ month, range }: { month: string; range?: { from: string; to: string } }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [selectedYear, selectedMonth] = month.split("-");
   const years = getLedgerYearOptions(Number(selectedYear));
+  const selectedRange = range ? { from: dateFromIso(range.from), to: dateFromIso(range.to) } : undefined;
+  const [pendingRange, setPendingRange] = useState<DateRange | undefined>(selectedRange);
+  const [rangeOpen, setRangeOpen] = useState(false);
+
+  function update(params: URLSearchParams) {
+    router.push(`${pathname}?${params}`);
+  }
+
+  function selectMonth(year: string, nextMonth: string) {
+    const params = new URLSearchParams(searchParams);
+    params.set("month", `${year}-${nextMonth}`);
+    params.delete("from");
+    params.delete("to");
+    update(params);
+  }
+
+  function selectRange(nextRange: DateRange | undefined) {
+    setPendingRange(nextRange);
+    if (!isCompleteLedgerRange(nextRange)) return;
+    const params = new URLSearchParams(searchParams);
+    params.delete("month");
+    params.set("from", dateToIso(nextRange.from));
+    params.set("to", dateToIso(nextRange.to));
+    update(params);
+    setRangeOpen(false);
+  }
 
   return (
     <div className="mt-6 flex flex-wrap items-end gap-3" aria-label="Ledger month controls">
       <label className="flex flex-col gap-1 text-sm font-medium text-muted-foreground">
         Month
-        <Select value={selectedMonth} onValueChange={(nextMonth) => router.push(buildLedgerMonthPath(selectedYear, nextMonth))}>
+        <Select value={selectedMonth} onValueChange={(nextMonth) => selectMonth(selectedYear, nextMonth)}>
           <SelectTrigger aria-label="Select ledger month" className="h-11 min-w-36 rounded-xl">
             <SelectValue />
           </SelectTrigger>
@@ -65,7 +117,7 @@ export function LedgerMonthSelector({ month }: { month: string }) {
       </label>
       <label className="flex flex-col gap-1 text-sm font-medium text-muted-foreground">
         Year
-        <Select value={selectedYear} onValueChange={(nextYear) => router.push(buildLedgerMonthPath(nextYear, selectedMonth))}>
+        <Select value={selectedYear} onValueChange={(nextYear) => selectMonth(nextYear, selectedMonth)}>
           <SelectTrigger aria-label="Select ledger year" className="h-11 min-w-28 rounded-xl">
             <SelectValue />
           </SelectTrigger>
@@ -78,6 +130,24 @@ export function LedgerMonthSelector({ month }: { month: string }) {
           </SelectContent>
         </Select>
       </label>
+      <div className="flex flex-col gap-1 text-sm font-medium text-muted-foreground">
+        <span>Custom range</span>
+        <Popover open={rangeOpen} onOpenChange={(open) => { setRangeOpen(open); if (open) setPendingRange(selectedRange); }}>
+          <PopoverTrigger asChild>
+            <Button type="button" variant="outline" className="h-8 min-w-48 justify-start rounded-xl" aria-label="Choose custom date range">
+              <CalendarDays data-icon="inline-start" />
+              {range ? `${rangeDate.format(selectedRange!.from)} – ${rangeDate.format(selectedRange!.to)}` : "Start date – End date"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-auto rounded-2xl border-white/70 bg-popover p-3 shadow-[0_20px_60px_rgba(15,44,55,0.18)]">
+            <PopoverHeader>
+              <PopoverTitle>Select date range</PopoverTitle>
+            </PopoverHeader>
+            <Calendar mode="range" min={1} selected={pendingRange} onSelect={selectRange} numberOfMonths={2} buttonVariant="ghost" />
+            {range ? <Button type="button" variant="ghost" onClick={() => { const params = new URLSearchParams(searchParams); params.delete("from"); params.delete("to"); params.set("month", month); setPendingRange(undefined); update(params); setRangeOpen(false); }}>Clear range</Button> : null}
+          </PopoverContent>
+        </Popover>
+      </div>
     </div>
   );
 }
