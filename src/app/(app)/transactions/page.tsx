@@ -33,7 +33,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
           <LedgerControls categories={data.categories} categoryIds={categoryIds} filterKind={filterKind} importRequested={importRequested === "1"} members={data.members} month={month} paidByIds={paidByIds} sort={ledgerSort} />
         </CardHeader>
         <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
-          <TransactionLedger transactions={dateRange ? data.transactions : data.report.recentTransactions} categories={data.categories} categoryIds={categoryIds} dateRange={dateRange} filterKind={filterKind} members={data.members} paidByIds={paidByIds} sort={ledgerSort} />
+          <TransactionLedger key={[month, dateRange?.from, dateRange?.to, filterKind, categoryIds.join(","), paidByIds.join(",")].join(":")} transactions={dateRange ? data.transactions : data.report.recentTransactions} categories={data.categories} categoryIds={categoryIds} dateRange={dateRange} filterKind={filterKind} members={data.members} paidByIds={paidByIds} sort={ledgerSort} />
         </CardContent>
       </Card>
     </WorkspaceShell>

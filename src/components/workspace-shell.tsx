@@ -128,12 +128,12 @@ export function WorkspaceShell({
             {children}
           </div>
         </section>
-        <nav aria-label="Primary navigation" className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] flex h-16 items-center justify-around rounded-[calc(2rem-0.75rem)] border border-white/60 bg-white/80 px-3 shadow-lg backdrop-blur-xl md:hidden">
-          {navigation.map(([href, label, Icon]) => (
-            <NavigationItem key={href} href={href} label={label} icon={Icon} />
-          ))}
-        </nav>
       </div>
+      <nav aria-label="Primary navigation" className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] flex h-16 items-center justify-around rounded-[calc(2rem-0.75rem)] border border-white/60 bg-white/80 px-3 shadow-lg backdrop-blur-xl md:hidden">
+        {navigation.map(([href, label, Icon]) => (
+          <NavigationItem key={href} href={href} label={label} icon={Icon} />
+        ))}
+      </nav>
     </main>
   );
 }

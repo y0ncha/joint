@@ -3,17 +3,28 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getDashboardData: vi.fn(),
+  ledgerKeys: [] as string[],
   push: vi.fn(),
 }));
 
 vi.mock("@/lib/dashboard-data", () => ({ getDashboardData: mocks.getDashboardData }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/transactions", useRouter: () => ({ push: mocks.push }), useSearchParams: () => new URLSearchParams() }));
+vi.mock("@/components/ui/card", () => ({
+  Card: ({ children }: { children: React.ReactNode }) => <section>{children}</section>,
+  CardContent: ({ children }: { children: React.ReactNode }) => {
+    mocks.ledgerKeys.push(String((children as { key?: unknown }).key ?? ""));
+    return <div>{children}</div>;
+  },
+  CardHeader: ({ children }: { children: React.ReactNode }) => <header>{children}</header>,
+  CardTitle: ({ children }: { children: React.ReactNode }) => <h1>{children}</h1>,
+}));
 
 import TransactionsPage from "./page";
 
 describe("Transactions page", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    mocks.ledgerKeys.length = 0;
     mocks.getDashboardData.mockResolvedValue({
       categories: [{ id: "food", name: "Food", kind: "expense", archivedAt: null }],
       currentUserId: "member-id",
@@ -39,6 +50,12 @@ describe("Transactions page", () => {
     expect(mocks.getDashboardData).toHaveBeenCalledWith("2026-06");
     expect(markup).toContain('aria-label="Select ledger month"');
     expect(markup).toContain('aria-label="Select ledger year"');
+    expect(markup).not.toContain(">Month<");
+    expect(markup).not.toContain(">Year<");
+    expect(markup).not.toContain(">Custom range<");
+    expect(markup.match(/<button[^>]*aria-label="Select ledger month"[^>]*>/)?.[0]).toContain("min-h-11");
+    expect(markup.match(/<button[^>]*aria-label="Select ledger year"[^>]*>/)?.[0]).toContain("min-h-11");
+    expect(markup.match(/<button[^>]*aria-label="Choose custom date range"[^>]*>/)?.[0]).toContain("min-h-11");
   });
 
   it("opens the import sidebar without replacing the transactions page", async () => {
@@ -53,5 +70,12 @@ describe("Transactions page", () => {
 
     expect(markup).toContain("Inside range");
     expect(markup).not.toContain("Outside range");
+  });
+
+  it("resets the ledger instance when the visible scope changes", async () => {
+    renderToStaticMarkup(await TransactionsPage({ searchParams: Promise.resolve({ month: "2026-06" }) }));
+    renderToStaticMarkup(await TransactionsPage({ searchParams: Promise.resolve({ month: "2026-06", filter: "expense" }) }));
+
+    expect(new Set(mocks.ledgerKeys).size).toBe(2);
   });
 });
