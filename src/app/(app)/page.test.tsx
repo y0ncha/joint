@@ -6,12 +6,12 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/dashboard-data", () => ({ getDashboardData: mocks.getDashboardData }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => ({ push: vi.fn() }) }));
 
 import Home from "./page";
 
-function renderHome() {
-  return Home({ searchParams: Promise.resolve({}) });
+function renderHome(searchParams: { month?: string } = {}) {
+  return Home({ searchParams: Promise.resolve(searchParams) });
 }
 
 describe("Joint dashboard", () => {
@@ -24,6 +24,7 @@ describe("Joint dashboard", () => {
       ],
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
+      transactions: [{ occurredOn: "2026-07-14" }],
       report: {
         sharedBalance: 18420,
         income: 16400,
@@ -54,6 +55,7 @@ describe("Joint dashboard", () => {
 
     expect(markup).toContain("aria-label=\"Add transaction\"");
     expect(markup).toContain("Income");
+    expect(markup).toContain('aria-label="Select dashboard month"');
     expect(markup).toContain("Outgoings");
     expect(markup).toContain("13% above prior 3-month average");
     expect(markup).toContain("8% below prior 3-month average");
@@ -68,11 +70,18 @@ describe("Joint dashboard", () => {
     expect(markup).toContain('alt="Joint logo"');
   });
 
+  it("renders a directly selected inactive month and queries its report", async () => {
+    renderToStaticMarkup(await renderHome({ month: "2026-06" }));
+
+    expect(mocks.getDashboardData).toHaveBeenCalledWith("2026-06");
+  });
+
   it("shows no available income when there is no recent income average", async () => {
     mocks.getDashboardData.mockResolvedValueOnce({
       categories: [],
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
+      transactions: [],
       report: {
         sharedBalance: 7000,
         income: 0,
@@ -97,6 +106,7 @@ describe("Joint dashboard", () => {
       categories: [],
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
+      transactions: [],
       report: {
         sharedBalance: 7000,
         income: 1000,

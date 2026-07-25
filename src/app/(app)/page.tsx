@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, MoreHorizontal } from "lucide-react";
 
+import { DashboardMonthSelector } from "@/components/dashboard-month-selector";
 import { TransactionSheet } from "@/components/transaction-sheet";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -25,7 +25,8 @@ function comparisonLabel(change: number | null) {
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
   const requestedMonth = (await searchParams).month;
-  const month = requestedMonth && /^\d{4}-\d{2}$/.test(requestedMonth) ? requestedMonth : currentMonth();
+  const current = currentMonth();
+  const month = requestedMonth && /^\d{4}-\d{2}$/.test(requestedMonth) ? requestedMonth : current;
   const data = await getDashboardData(month);
   const { report } = data;
   const activeCategories = data.categories.filter((category) => category.archivedAt === null);
@@ -41,7 +42,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       actions={<TransactionSheet categories={transactionCategories} currentUserId={data.currentUserId} members={data.members} />}
     >
       <div className="mt-6 flex items-center gap-3">
-        <Badge variant="secondary" className="rounded-full bg-white/65 px-3 py-1.5 text-sm font-medium text-foreground">{month}</Badge>
+        <DashboardMonthSelector currentMonth={current} month={month} transactionDates={data.transactions.map((transaction) => transaction.occurredOn)} />
       </div>
 
       <>

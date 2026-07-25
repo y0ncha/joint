@@ -101,7 +101,7 @@ export function LedgerMonthSelector({ month, range }: { month: string; range?: {
   return (
     <div className="mt-6 flex flex-wrap items-end gap-3" aria-label="Ledger month controls">
       <Select value={selectedMonth} onValueChange={(nextMonth) => selectMonth(selectedYear, nextMonth)}>
-        <SelectTrigger aria-label="Select ledger month" className="min-h-11 min-w-36 rounded-xl">
+        <SelectTrigger aria-label="Select ledger month" className="min-h-11 min-w-36 rounded-xl font-medium shadow-sm">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -113,7 +113,7 @@ export function LedgerMonthSelector({ month, range }: { month: string; range?: {
         </SelectContent>
       </Select>
       <Select value={selectedYear} onValueChange={(nextYear) => selectMonth(nextYear, selectedMonth)}>
-        <SelectTrigger aria-label="Select ledger year" className="min-h-11 min-w-28 rounded-xl">
+        <SelectTrigger aria-label="Select ledger year" className="min-h-11 min-w-28 rounded-xl font-medium shadow-sm">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -126,7 +126,7 @@ export function LedgerMonthSelector({ month, range }: { month: string; range?: {
       </Select>
       <Popover open={rangeOpen} onOpenChange={(open) => { setRangeOpen(open); if (open) setPendingRange(selectedRange); }}>
         <PopoverTrigger asChild>
-          <Button type="button" variant="outline" className="min-h-11 min-w-48 justify-start rounded-xl" aria-label="Choose custom date range">
+          <Button type="button" variant="outline" className="min-h-11 min-w-48 justify-start rounded-xl shadow-sm" aria-label="Choose custom date range">
             <CalendarDays data-icon="inline-start" />
             {range ? `${rangeDate.format(selectedRange!.from)} – ${rangeDate.format(selectedRange!.to)}` : "Start date – End date"}
           </Button>
