@@ -7,4 +7,5 @@ it("labels the browser-local accent control", () => {
   const markup = renderToStaticMarkup(<AccentPicker />);
 
   expect(markup).toContain("Accent color");
+  expect(markup).toContain('name="accentColor"');
 });

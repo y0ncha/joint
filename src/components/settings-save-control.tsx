@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { logOut } from "@/app/actions/auth";
 import { saveSettings } from "@/app/actions/profile";
 import type { ActionResult } from "@/app/actions/result";
+import { serializeAccentCookie } from "@/lib/accent";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -26,6 +27,8 @@ export function hasUnsavedSettings(formData: FormData) {
     ["profileName", "initialProfileName"],
     ["householdName", "initialHouseholdName"],
     ["color", "initialColor"],
+    ["accentColor", "initialAccentColor"],
+    ["lastFour", "initialLastFour"],
   ].some(([name, initialName]) => String(formData.get(name) ?? "").trim() !== String(formData.get(initialName) ?? "").trim());
 }
 
@@ -46,6 +49,11 @@ export function SettingsSaveControl({ userId }: { userId: string }) {
   }, [state, userId]);
 
   useEffect(() => {
+    if (state?.status === "success") {
+      const form = document.getElementById("settings-save-form") as HTMLFormElement | null;
+      const accent = form?.elements.namedItem("accentColor");
+      if (accent instanceof HTMLInputElement) document.cookie = serializeAccentCookie(accent.value, window.location.protocol === "https:");
+    }
     if (state?.status === "success") toast.success("Saved", { id: "settings-save" });
     if (state?.status === "error") toast.error(state.formError, { id: "settings-save" });
   }, [state]);

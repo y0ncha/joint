@@ -41,6 +41,8 @@ describe("profile action", () => {
           initialHouseholdName: "Household",
           color: "#123456",
           initialColor: "#dcece3",
+          lastFour: "4548",
+          initialLastFour: "",
         }),
       ),
     ).resolves.toEqual({ status: "success", data: { fullName: "Ada Lovelace" } });
@@ -50,6 +52,7 @@ describe("profile action", () => {
       profile_name: "Ada Lovelace",
       household_name: "The Lovelaces",
       member_color: "#123456",
+      member_card_last_four: "4548",
     });
     expect(mocks.from).not.toHaveBeenCalled();
   });
@@ -74,6 +77,7 @@ describe("profile action", () => {
       profile_name: "Ada Lovelace",
       household_name: null,
       member_color: null,
+      member_card_last_four: null,
     });
     expect(mocks.from).not.toHaveBeenCalled();
   });
@@ -95,5 +99,15 @@ describe("profile action", () => {
 
     expect(mocks.from).not.toHaveBeenCalled();
     expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("keeps the existing duplicate card-mapping error", async () => {
+    mocks.rpc.mockResolvedValue({ error: { code: "23505", message: "member_cards_household_id_last_four_key" } });
+
+    await expect(actions.saveSettings(null, formData({ lastFour: "4548", initialLastFour: "" }))).resolves.toEqual({
+      status: "error",
+      formError: "Check the form details.",
+      fieldErrors: { lastFour: "These last four digits are already mapped in this household." },
+    });
   });
 });
