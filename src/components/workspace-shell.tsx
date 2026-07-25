@@ -7,6 +7,7 @@ import { LayoutDashboard, Settings, Tags, WalletCards, type LucideIcon } from "l
 
 import { BrandMark } from "@/components/brand-mark";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { getProfileInitials } from "@/lib/profile";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { cn } from "@/lib/utils";
 
@@ -25,11 +26,6 @@ type ProfileClient = {
 
 function isActivePath(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
-}
-
-export function getProfileInitials(name: string | null) {
-  const words = name?.trim().split(/\s+/).filter(Boolean) ?? [];
-  return words.length ? `${words[0][0]}${words.length > 1 ? words.at(-1)?.[0] : ""}`.toUpperCase() : "?";
 }
 
 export async function loadVerifiedProfileName(client: ProfileClient) {

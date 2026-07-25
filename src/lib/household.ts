@@ -10,6 +10,7 @@ export type CurrentHousehold = {
 };
 
 export type MemberHouseholdContext = CurrentHousehold & {
+  email: string;
   status: "member";
   supabase: SupabaseClient<Database>;
   userId: string;
@@ -54,13 +55,15 @@ export const getCurrentHouseholdContext = cache(async (): Promise<CurrentHouseho
   const supabase = await createServerSupabaseClient();
   const { data: claims } = await supabase.auth.getClaims();
   const userId = claims?.claims?.sub;
+  const rawEmail = claims?.claims?.email;
+  const email = typeof rawEmail === "string" ? rawEmail.trim() : "";
 
   if (!userId) return { status: "unauthenticated" };
 
   const household = await getHouseholdForUser(supabase, userId);
   if (!household) return { status: "unmatched" };
 
-  return { status: "member", supabase, userId, ...household };
+  return { status: "member", supabase, userId, email, ...household };
 });
 
 export async function ensurePartnerMembership(

@@ -1,7 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { getProfileInitials, loadVerifiedProfileName, ProfileInitialAvatar, WorkspaceShell } from "./workspace-shell";
+import { getProfileInitials } from "@/lib/profile";
+
+import { loadVerifiedProfileName, ProfileInitialAvatar, WorkspaceShell } from "./workspace-shell";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/settings" }));
 

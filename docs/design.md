@@ -119,12 +119,11 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 
 - Appearance, household, and account concerns use separate section cards, in that order.
 - The `Household` card sits above `Account` and contains the owner-editable household name and partner-access controls. Members may view the household name but cannot edit it.
-- Name, user color, card mapping, and session controls are rows inside the `Account` card, not separate cards. A member can edit only their own non-empty display name; the saved name is the row label and an `Edit` action opens the editor. A saved change updates their profile and desktop avatar initials.
+- User name, user color, card mapping, and session controls are rows inside the `Account` card, not separate cards. User name uses an inline populated input and accessible icon-only submit button; a member can edit only their own display name. A saved change updates their profile and desktop avatar initials.
 - Signing out is a session action, not a destructive action.
 - The `Log out` row is the final row in the Account card.
 - A member may select only their own user color from Account. The selection is shared household data and changes that member's supplemental color everywhere it appears. Categories, user colors, and the browser-local accent use `react-color` CirclePicker swatches plus a final `Custom color` circle that opens a BlockPicker. The BlockPicker includes all recent custom colors and its hex input. Category and user colors remain labelled supplemental visuals; the accent never changes financial or destructive semantics. New members receive the next available pastel until they change it.
-- Only the household owner sees Partner access. It uses an outline `Manage partner` control, an owned `Popover`, and destructive confirmation only for removal.
-- Owners see one of three partner-access states: no authorization, pending sign-in, or joined partner. A joined partner expands into read-only Name, User color, Email, and Role (`Member`) subrows. Pending access exposes its fixed email and pending status only. Pending and joined states expose removal rather than replacement; authorizing another email requires removing the current access first.
+- Only the household owner sees the `Members` field with the `UsersRound` icon, a short management description, and an accessible icon-only edit control. It opens the established right-side Sheet with read-only owner and partner-access cards. Joined household summaries show both people with avatars and display names (falling back to the known email); do not show role pills. The owner may invite one Google email, or remove a pending or joined partner after confirmation; authorizing another email requires removal first. A member never sees household member details or controls in Settings.
 
 ### Sign-in and access denial
 

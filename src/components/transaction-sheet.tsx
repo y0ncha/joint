@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useMemo, useState, type ReactNode } from "react";
+import { useActionState, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Plus } from "lucide-react";
+import { toast } from "sonner";
 
 import { createTransaction, deleteTransaction, updateTransaction } from "@/app/actions/transactions";
 import type { ActionResult } from "@/app/actions/result";
@@ -73,6 +74,10 @@ export function TransactionSheet({
     async (_state, formData) => (transaction ? updateTransaction(transaction.id, formData) : createTransaction(formData)),
     null,
   );
+  useEffect(() => {
+    if (state?.status === "success") toast.success(isEditing ? "Transaction updated" : "Transaction added", { id: "transaction-save" });
+    if (state?.status === "error") toast.error(state.formError, { id: "transaction-save" });
+  }, [isEditing, state]);
   const selectableCategories = useMemo(() => categories.filter((category) => category.kind === kind), [categories, kind]);
   const [occurredOn, setOccurredOn] = useState(transaction?.occurredOn ?? todayIso);
   const [paidBy, setPaidBy] = useState(() => transaction?.paidBy ?? currentUserId ?? members[0]?.id ?? "");
@@ -152,7 +157,6 @@ export function TransactionSheet({
               <Textarea id="note" name="note" rows={4} className="bg-white/55" defaultValue={transaction?.note ?? undefined} aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.note)} />
               {state?.status === "error" ? <FieldError>{state.fieldErrors.note}</FieldError> : null}
             </Field>
-            {state?.status === "error" ? <FieldError>{state.formError}</FieldError> : null}
             <Button disabled={isPending} type="submit" className="rounded-xl">{isEditing ? "Save changes" : "Save transaction"}</Button>
           </FieldGroup>
         </form>

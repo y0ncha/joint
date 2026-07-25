@@ -27,7 +27,7 @@ describe("getCurrentHouseholdContext", () => {
       return () => (result ??= resolve());
     });
     mocks.createServerSupabaseClient.mockResolvedValue({ auth: { getClaims: mocks.getClaims }, from: mocks.from });
-    mocks.getClaims.mockResolvedValue({ data: { claims: { sub: "member-id" } } });
+    mocks.getClaims.mockResolvedValue({ data: { claims: { sub: "member-id", email: "member@example.com" } } });
     mocks.maybeSingle.mockResolvedValue({ data: { household_id: "household-id", role: "member" }, error: null });
     mocks.eq.mockReturnValue({ maybeSingle: mocks.maybeSingle });
     mocks.select.mockReturnValue({ eq: mocks.eq });
@@ -57,6 +57,7 @@ describe("getCurrentHouseholdContext", () => {
       status: "member",
       supabase,
       userId: "member-id",
+      email: "member@example.com",
       householdId: "household-id",
       role: "member",
     });
@@ -100,6 +101,7 @@ describe("requireCurrentHousehold", () => {
       status: "member",
       supabase,
       userId: "member-id",
+      email: "",
       householdId: "household-id",
       role: "member",
     });

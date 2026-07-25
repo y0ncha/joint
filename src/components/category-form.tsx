@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
+import { toast } from "sonner";
 
 import { createCategory } from "@/app/actions/categories";
 import type { ActionResult } from "@/app/actions/result";
@@ -30,6 +31,11 @@ export function CategoryForm({ recentColors = [] }: { recentColors?: string[] })
   const [kind, setKind] = useState("expense");
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(async (_state, formData) => createCategory(formData), null);
 
+  useEffect(() => {
+    if (state?.status === "success") toast.success("Category added", { id: "category-save" });
+    if (state?.status === "error") toast.error(state.formError, { id: "category-save" });
+  }, [state]);
+
   return (
     <form action={formAction}>
       <FieldGroup>
@@ -47,7 +53,6 @@ export function CategoryForm({ recentColors = [] }: { recentColors?: string[] })
           </ToggleGroup>
         </Field>
         <CategoryColorPicker recentColors={recentColors} />
-        {state?.status === "error" ? <FieldError>{state.formError}</FieldError> : null}
         <Button disabled={isPending} type="submit">Add category</Button>
       </FieldGroup>
     </form>

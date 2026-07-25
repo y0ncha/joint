@@ -3,13 +3,15 @@ import { AccentPicker } from "@/components/accent-picker";
 import { HouseholdNameSettingsControl } from "@/components/household-name-settings-control";
 import { MemberCardSettingsControl } from "@/components/member-card-settings-control";
 import { MemberColorSettingsControl } from "@/components/member-color-settings-control";
-import { PartnerAccessControl, type PartnerAccessState } from "@/components/partner-access-control";
+import { MemberManagementSheet, type PartnerAccessState } from "@/components/partner-access-control";
 import { ProfileNameSettingsControl } from "@/components/profile-name-settings-control";
+import { SettingsSaveControl } from "@/components/settings-save-control";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getCurrentHouseholdContext } from "@/lib/household";
-import { ChevronRight, CreditCard, House, LogOut, Mail, Palette, ShieldCheck, UserRound, UserPlus, type LucideIcon } from "lucide-react";
+import { ChevronRight, CreditCard, House, LogOut, Palette, UserRound, UsersRound, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 function SettingsRow({
@@ -45,14 +47,16 @@ export default async function SettingsPage() {
   const household = await getCurrentHouseholdContext();
   if (household.status !== "member") return null;
   const [{ data: cardMapping, error: cardMappingError }, { data: profile, error: profileError }, { data: members, error: membersError }, { data: householdRecord, error: householdError }] = await Promise.all([
-    household.supabase.from("member_cards").select("last_four").eq("household_id", household.householdId).eq("user_id", household.userId).maybeSingle(),
+    household.supabase.from("member_cards").select("user_id, last_four").eq("household_id", household.householdId),
     household.supabase.from("profiles").select("full_name").eq("id", household.userId).maybeSingle(),
-    household.supabase.from("household_members").select("user_id, role, color").eq("household_id", household.householdId).order("joined_at"),
+    household.supabase.from("household_members").select("user_id, role, color, joined_at").eq("household_id", household.householdId).order("joined_at"),
     household.supabase.from("households").select("name").eq("id", household.householdId).maybeSingle(),
   ]);
   if (cardMappingError || profileError || membersError || householdError) throw new Error("Unable to load account settings.");
+  const cardLastFourByUserId = new Map((cardMapping ?? []).map((card) => [card.user_id, card.last_four]));
+  const currentCardLastFour = cardLastFourByUserId.get(household.userId) ?? null;
   let partnerState: PartnerAccessState | null = null;
-  let partnerDetails: { name: string; color: string; email: string } | null = null;
+  let partnerDetails: { name: string; color: string; joinedAt: string; cardLastFour?: string } | null = null;
 
   if (household.role === "owner") {
     const { data: authorization, error: authorizationError } = await household.supabase
@@ -75,7 +79,7 @@ export default async function SettingsPage() {
         .maybeSingle();
 
       if (partnerProfileError || partnerProfile?.id !== partner.user_id) throw new Error("Unable to load partner settings.");
-      partnerDetails = { name: partnerProfile.full_name?.trim() || "Partner", color: partner.color, email: authorization.email };
+    partnerDetails = { name: partnerProfile.full_name?.trim() || authorization.email, color: partner.color, joinedAt: partner.joined_at, cardLastFour: cardLastFourByUserId.get(partner.user_id) };
     }
 
     partnerState = authorization
@@ -83,7 +87,10 @@ export default async function SettingsPage() {
       : { status: "empty" };
   }
   return (
-    <WorkspaceShell title="Settings">
+    <WorkspaceShell
+      title="Settings"
+      actions={<><SettingsSaveControl userId={household.userId} /><form action={logOut}><Tooltip><TooltipTrigger asChild><Button type="submit" variant="ghost" size="icon" className="size-14 text-foreground hover:bg-transparent hover:text-foreground" aria-label="Log out"><LogOut aria-hidden="true" /></Button></TooltipTrigger><TooltipContent>Log out</TooltipContent></Tooltip></form></>}
+    >
       <div className="mt-6 flex w-full flex-col gap-5">
         <Card className="border-white/50 bg-card/90">
           <CardHeader>
@@ -111,20 +118,14 @@ export default async function SettingsPage() {
               <SettingsRow icon={House} label={householdRecord?.name?.trim() || "Household"} value={household.role === "member" ? householdRecord?.name?.trim() || "Household" : undefined}>
                 {household.role === "owner" ? <HouseholdNameSettingsControl name={householdRecord?.name?.trim() || "Household"} /> : null}
               </SettingsRow>
-              {partnerState ? (
-                <>
-                  <SettingsRow icon={UserPlus} label="Partner access" description="Authorize one Google account to share this household.">
-                    <PartnerAccessControl state={partnerState} />
-                  </SettingsRow>
-                  {partnerState.status === "joined" && partnerDetails ? (
-                    <div className="ml-8 divide-y divide-border/70">
-                      <SettingsRow icon={UserRound} label="Name" value={partnerDetails.name} />
-                      <SettingsRow icon={Palette} label="User color" value={partnerDetails.color} />
-                      <SettingsRow icon={Mail} label="Email" value={partnerDetails.email} />
-                      <SettingsRow icon={ShieldCheck} label="Role" value="Member" />
-                    </div>
-                  ) : null}
-                </>
+              {household.role === "owner" && partnerState ? (
+                <SettingsRow icon={UsersRound} label="Members" description="Manage members.">
+                  <MemberManagementSheet
+                    owner={{ name: profile?.full_name?.trim() || household.email, email: household.email, color: (members ?? []).find((member) => member.user_id === household.userId)?.color ?? "#dcece3", joinedAt: (members ?? []).find((member) => member.user_id === household.userId)?.joined_at, cardLastFour: currentCardLastFour ?? undefined }}
+                    partner={partnerState}
+                    member={partnerState.status === "joined" && partnerDetails ? { name: partnerDetails.name, email: partnerState.email, color: partnerDetails.color, joinedAt: partnerDetails.joinedAt, cardLastFour: partnerDetails.cardLastFour } : undefined}
+                  />
+                </SettingsRow>
               ) : null}
             </div>
           </CardContent>
@@ -133,12 +134,12 @@ export default async function SettingsPage() {
         <Card className="border-white/50 bg-card/90">
           <CardHeader>
             <CardTitle>Account</CardTitle>
-            <CardDescription>Manage your name, user color, card mapping, and browser session.</CardDescription>
+            <CardDescription>Manage your name, user color, and card mapping.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="divide-y divide-border/70">
-              <SettingsRow icon={UserRound} label={profile?.full_name?.trim() || "Name"}>
-                <ProfileNameSettingsControl fullName={profile?.full_name?.trim() ?? ""} userId={household.userId} />
+              <SettingsRow icon={UserRound} label="User name">
+                <ProfileNameSettingsControl fullName={profile?.full_name?.trim() ?? ""} />
               </SettingsRow>
               <SettingsRow icon={Palette} label="User color">
                 <div className="w-[min(22rem,55vw)]">
@@ -146,14 +147,7 @@ export default async function SettingsPage() {
                 </div>
               </SettingsRow>
               <SettingsRow icon={CreditCard} label="Last 4 digits" description="Used only for future statement imports.">
-                <MemberCardSettingsControl lastFour={cardMapping?.last_four ?? null} />
-              </SettingsRow>
-              <SettingsRow icon={LogOut} label="Session" description="End this browser session and return to sign in.">
-                <form action={logOut}>
-                  <Button type="submit" variant="outline" size="sm" className="min-h-11 border-transparent bg-white/55">
-                    Log out
-                  </Button>
-                </form>
+                <MemberCardSettingsControl lastFour={currentCardLastFour} />
               </SettingsRow>
             </div>
           </CardContent>

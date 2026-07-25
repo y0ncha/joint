@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
+import { toast } from "sonner";
 
 import { saveCurrentMemberCard } from "@/app/actions/member-card";
 import type { ActionResult } from "@/app/actions/result";
@@ -14,21 +15,18 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 
 export function MemberCardForm({ initialLastFour, redirectTo = "/", showSkip = true }: { initialLastFour?: string; redirectTo?: string; showSkip?: boolean }) {
   const router = useRouter();
+  const [lastFour, setLastFour] = useState(initialLastFour ?? "");
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(saveCurrentMemberCard, null);
 
   useEffect(() => {
-    if (state?.status === "success") router.replace(redirectTo);
+    if (state?.status === "success") {
+      toast.success("Card saved", { id: "member-card-save" });
+      router.replace(redirectTo);
+    }
+    if (state?.status === "error") toast.error(state.formError, { id: "member-card-save" });
   }, [redirectTo, router, state]);
 
   const hasLastFourError = state?.status === "error" && Boolean(state.fieldErrors.lastFour);
-  const result = state?.status === "success"
-    ? "Card saved. Opening your household…"
-    : isPending
-      ? "Saving card…"
-      : state?.status === "error"
-        ? state.formError
-        : "";
-
   return (
     <form action={formAction}>
       <FieldGroup>
@@ -39,7 +37,8 @@ export function MemberCardForm({ initialLastFour, redirectTo = "/", showSkip = t
             name="lastFour"
             maxLength={4}
             pattern={REGEXP_ONLY_DIGITS}
-            defaultValue={initialLastFour}
+            value={lastFour}
+            onChange={setLastFour}
             autoComplete="off"
             required
             aria-invalid={hasLastFourError}
@@ -59,7 +58,6 @@ export function MemberCardForm({ initialLastFour, redirectTo = "/", showSkip = t
           </FieldDescription>
           {hasLastFourError ? <FieldError id="card-last-four-error">{state.fieldErrors.lastFour}</FieldError> : null}
         </Field>
-        {state?.status === "error" && state.formError ? <FieldError>{state.formError}</FieldError> : null}
         <Button type="submit" disabled={isPending} className="min-h-11 w-full">
           {isPending ? <LoaderCircle aria-hidden="true" data-icon="inline-start" className="motion-safe:animate-spin motion-reduce:animate-none" /> : null}
           {isPending ? "Saving card…" : "Save card"}
@@ -67,7 +65,6 @@ export function MemberCardForm({ initialLastFour, redirectTo = "/", showSkip = t
         {showSkip ? <Button asChild variant="link" className="-mt-3 min-h-11 self-center">
           <Link href="/">Skip for now</Link>
         </Button> : null}
-        <p aria-live="polite" className="sr-only">{result}</p>
       </FieldGroup>
     </form>
   );

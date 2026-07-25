@@ -84,4 +84,33 @@ describe("profile action", () => {
 
     expect(mocks.update).not.toHaveBeenCalled();
   });
+
+  it("saves only changed settings in one explicit action", async () => {
+    await expect(actions.saveSettings(null, formData({
+      profileName: "Ada Lovelace",
+      initialProfileName: "Ada",
+      householdName: "The Lovelaces",
+      initialHouseholdName: "Household",
+      color: "#123456",
+      initialColor: "#dcece3",
+    }))).resolves.toEqual({ status: "success", data: { fullName: "Ada Lovelace" } });
+
+    expect(mocks.from).toHaveBeenCalledWith("profiles");
+    expect(mocks.from).toHaveBeenCalledWith("households");
+    expect(mocks.rpc).toHaveBeenCalledWith("set_current_household_member_color", { target_color: "#123456" });
+  });
+
+  it("does not write unchanged settings", async () => {
+    await expect(actions.saveSettings(null, formData({
+      profileName: "Ada",
+      initialProfileName: "Ada",
+      householdName: "Household",
+      initialHouseholdName: "Household",
+      color: "#dcece3",
+      initialColor: "#dcece3",
+    }))).resolves.toEqual({ status: "success", data: { fullName: "Ada" } });
+
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
 });

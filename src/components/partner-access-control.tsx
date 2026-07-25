@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { LoaderCircle, UserRound } from "lucide-react";
+import { LoaderCircle, Pencil, Send, Trash2, UserRound } from "lucide-react";
+import { toast } from "sonner";
 
 import { removePartner, setAllowedPartnerEmail } from "@/app/actions/partner-access";
 import type { ActionResult } from "@/app/actions/result";
@@ -15,10 +16,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldTitle } from "@/components/ui/field";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { getProfileInitials } from "@/lib/profile";
 
 const initialState: ActionResult | null = null;
 
@@ -26,7 +31,28 @@ export type PartnerAccessState =
   | { status: "empty" }
   | { status: "pending" | "joined"; email: string };
 
-export function PartnerAccessControl({ state }: { state: PartnerAccessState }) {
+type Member = { name: string; email: string; color: string; joinedAt?: string; cardLastFour?: string };
+
+function MemberIdentity({ member }: { member: Member }) {
+  return <div className="flex min-w-0 items-center gap-3">
+      <Avatar className="size-10 border" style={{ backgroundColor: member.color, borderColor: `color-mix(in srgb, ${member.color}, black 35%)` }}>
+        <AvatarFallback style={{ color: `color-mix(in srgb, ${member.color}, black 35%)` }}>{getProfileInitials(member.name)}</AvatarFallback>
+      </Avatar>
+      <div className="min-w-0">
+        <CardTitle className="truncate">{member.name}</CardTitle>
+        <CardDescription className="truncate">{member.email}</CardDescription>
+      </div>
+    </div>;
+}
+
+function MemberMetadata({ member }: { member: Member }) {
+  return member.joinedAt || member.cardLastFour ? <CardContent className="grid gap-1 pt-0 text-xs text-muted-foreground">
+      {member.joinedAt ? <p>Joined {member.joinedAt.slice(0, 10)}</p> : null}
+      {member.cardLastFour ? <p>Card ending {member.cardLastFour}</p> : null}
+    </CardContent> : null;
+}
+
+export function MemberManagementSheet({ owner, partner, member }: { owner: Member; partner: PartnerAccessState; member?: Member }) {
   const [open, setOpen] = useState(false);
   const [saveState, saveAction, saving] = useActionState<ActionResult | null, FormData>(async (_state, formData) => setAllowedPartnerEmail(formData), initialState);
   const [removeState, removeAction, removing] = useActionState<ActionResult | null, FormData>(async () => {
@@ -35,7 +61,6 @@ export function PartnerAccessControl({ state }: { state: PartnerAccessState }) {
     return result;
   }, initialState);
   const emailRef = useRef<HTMLInputElement>(null);
-  const removeErrorRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
 
@@ -44,7 +69,13 @@ export function PartnerAccessControl({ state }: { state: PartnerAccessState }) {
   }, [saveState]);
 
   useEffect(() => {
-    if (removeState?.status === "error") removeErrorRef.current?.focus();
+    if (saveState?.status === "success") toast.success("Invitation saved", { id: "member-invitation" });
+    if (saveState?.status === "error") toast.error(saveState.formError, { id: "member-invitation" });
+  }, [saveState]);
+
+  useEffect(() => {
+    if (removeState?.status === "success") toast.success("Member removed", { id: "member-remove" });
+    if (removeState?.status === "error") toast.error(removeState.formError, { id: "member-remove" });
   }, [removeState]);
 
   useEffect(() => {
@@ -53,71 +84,86 @@ export function PartnerAccessControl({ state }: { state: PartnerAccessState }) {
   }, [open]);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button ref={triggerRef} type="button" variant="outline" size="sm" className="min-h-11 border-transparent bg-white/55">
-          Manage partner
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-[min(22rem,calc(100vw-2rem))] p-4">
-        <PopoverHeader>
-          <PopoverTitle>Partner access</PopoverTitle>
-          <PopoverDescription>{state.status === "empty" ? "Authorize one Google account to join this household." : "Remove this access before authorizing another Google account."}</PopoverDescription>
-        </PopoverHeader>
-        {state.status !== "empty" ? (
-          <FieldGroup>
-            <Field>
-              <FieldTitle className="flex items-center gap-2">
-                <UserRound aria-hidden="true" className="size-4" />
-                {state.status === "joined" ? "Joined partner" : "Pending sign-in"}
-              </FieldTitle>
-              <FieldDescription>{state.email}</FieldDescription>
-            </Field>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button type="button" variant="destructive" className="min-h-11">Remove partner</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Remove partner access?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {state.status === "joined"
-                      ? "This person will no longer be able to view or update this household. Financial history stays unchanged."
-                      : `${state.email} will no longer be authorized to join this household.`}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <form action={removeAction}>
-                  {removeState?.status === "error" ? <FieldError ref={removeErrorRef} tabIndex={-1}>{removeState.formError}</FieldError> : null}
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="min-h-11" disabled={removing}>Cancel</AlertDialogCancel>
-                    <Button type="submit" variant="destructive" disabled={removing} className="min-h-11">
-                      {removing ? <LoaderCircle aria-hidden="true" data-icon="inline-start" className="motion-safe:animate-spin motion-reduce:animate-none" /> : null}
-                      Remove partner
-                    </Button>
-                  </AlertDialogFooter>
+    <Sheet open={open} onOpenChange={setOpen}>
+      <Tooltip>
+        <SheetTrigger asChild>
+          <TooltipTrigger asChild>
+            <Button ref={triggerRef} type="button" variant="ghost" size="icon" className="size-11" aria-label="Manage members">
+              <Pencil aria-hidden="true" />
+            </Button>
+          </TooltipTrigger>
+        </SheetTrigger>
+        <TooltipContent>Manage members</TooltipContent>
+      </Tooltip>
+      <SheetContent side="right" className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg">
+        <SheetHeader className="p-6">
+          <SheetTitle className="text-xl">Household members</SheetTitle>
+          <SheetDescription>View your household members and manage partner access.</SheetDescription>
+        </SheetHeader>
+        <div className="flex flex-col gap-4 px-6 pb-6">
+          <Card size="sm" className="border-white/50 bg-card/90">
+            <CardHeader><MemberIdentity member={owner} /></CardHeader>
+            <MemberMetadata member={owner} />
+          </Card>
+
+          {partner.status === "empty" ? (
+            <Card size="sm" className="border-white/50 bg-card/90">
+              <CardHeader>
+                <CardTitle>Invite member</CardTitle>
+                <CardDescription>Authorize one Google account to join this household.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form action={saveAction} className="flex flex-wrap items-start gap-2">
+                  <Field data-invalid={saveState?.status === "error" && Boolean(saveState.fieldErrors.email)} className="min-w-0 flex-1">
+                    <FieldLabel htmlFor="partner-email" className="sr-only">Member&apos;s Google email</FieldLabel>
+                    <Input ref={emailRef} id="partner-email" name="email" type="email" autoComplete="email" spellCheck={false} className="min-h-11" placeholder="member@gmail.com" required aria-describedby={saveState?.status === "error" && saveState.fieldErrors.email ? "partner-email-error" : undefined} aria-invalid={saveState?.status === "error" && Boolean(saveState.fieldErrors.email)} />
+                    {saveState?.status === "error" && saveState.fieldErrors.email ? <FieldError id="partner-email-error">{saveState.fieldErrors.email}</FieldError> : null}
+                  </Field>
+                  <Button type="submit" size="icon" disabled={saving} className="size-11" aria-label="Invite member">
+                    {saving ? <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin motion-reduce:animate-none" /> : <Send aria-hidden="true" />}
+                  </Button>
                 </form>
-                <p aria-live="polite" className="sr-only">{removing ? "Removing partner…" : ""}</p>
-              </AlertDialogContent>
-            </AlertDialog>
-          </FieldGroup>
-        ) : (
-          <form action={saveAction}>
-            <FieldGroup>
-              <Field data-invalid={saveState?.status === "error" && Boolean(saveState.fieldErrors.email)}>
-                <FieldLabel htmlFor="partner-email">Partner&apos;s Google email</FieldLabel>
-                <Input ref={emailRef} id="partner-email" name="email" type="email" autoComplete="email" spellCheck={false} className="min-h-11" placeholder="partner@example.com…" required aria-describedby={saveState?.status === "error" && saveState.fieldErrors.email ? "partner-email-error" : undefined} aria-invalid={saveState?.status === "error" && Boolean(saveState.fieldErrors.email)} />
-                {saveState?.status === "error" && saveState.fieldErrors.email ? <FieldError id="partner-email-error">{saveState.fieldErrors.email}</FieldError> : null}
-              </Field>
-              {saveState?.status === "error" && saveState.formError ? <FieldError>{saveState.formError}</FieldError> : null}
-              <Button type="submit" disabled={saving} className="min-h-11">
-                {saving ? <LoaderCircle aria-hidden="true" data-icon="inline-start" className="motion-safe:animate-spin motion-reduce:animate-none" /> : null}
-                Save partner access
-              </Button>
-              <p aria-live="polite" className="sr-only">{saveState?.status === "success" ? "Partner access saved." : saving ? "Saving partner access…" : ""}</p>
-            </FieldGroup>
-          </form>
-        )}
-      </PopoverContent>
-    </Popover>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card size="sm" className="border-white/50 bg-card/90">
+              <CardHeader>
+                {partner.status === "joined" && member ? <MemberIdentity member={member} /> : <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"><UserRound aria-hidden="true" /></div>
+                  <div className="min-w-0"><CardTitle className="truncate">{partner.status === "joined" ? "Joined member" : "Invitation pending"}</CardTitle><CardDescription className="truncate">{partner.email}</CardDescription></div>
+                </div>}
+                <CardAction>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button type="button" variant="ghost" size="icon" className="size-11 text-destructive hover:bg-destructive/10 hover:text-destructive" aria-label="Remove member"><Trash2 aria-hidden="true" /></Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Remove partner access?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {partner.status === "joined"
+                            ? "This person will no longer be able to view or update this household. Financial history stays unchanged."
+                            : `${partner.email} will no longer be authorized to join this household.`}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <form action={removeAction}>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="min-h-11" disabled={removing}>Cancel</AlertDialogCancel>
+                          <Button type="submit" variant="destructive" disabled={removing} className="min-h-11">
+                            {removing ? <LoaderCircle aria-hidden="true" data-icon="inline-start" className="motion-safe:animate-spin motion-reduce:animate-none" /> : null}
+                            Remove member
+                          </Button>
+                        </AlertDialogFooter>
+                      </form>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </CardAction>
+              </CardHeader>
+              {partner.status === "joined" && member ? <MemberMetadata member={member} /> : null}
+            </Card>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

@@ -12,3 +12,9 @@ it("labels the custom color control", () => {
   expect(markup).toContain("pr-3");
   expect(markup).toContain("flex size-6 items-center justify-center");
 });
+
+it("can omit the custom color control", () => {
+  const markup = renderToStaticMarkup(<ColorPicker color="#0f6b54" onChange={() => {}} allowCustom={false} />);
+
+  expect(markup).not.toContain("Custom color");
+});

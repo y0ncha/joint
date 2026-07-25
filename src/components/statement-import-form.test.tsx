@@ -66,7 +66,7 @@ it("renders a statement file input that preserves XLSX support", () => {
   expect(markup).toContain("Process file");
 });
 
-it("shows selected-file, pending, live-region, and action-result feedback", async () => {
+it("shows selected-file and pending feedback while returning the import result", async () => {
   renderForm();
   mocks.fileChange?.({ target: { files: [{ name: "july.csv" } as File] } });
 
@@ -87,8 +87,5 @@ it("shows selected-file, pending, live-region, and action-result feedback", asyn
 
   mocks.pending = false;
   mocks.result = result;
-  const successMarkup = renderForm();
-
-  expect(successMarkup).toContain('aria-live="polite"');
-  expect(successMarkup).toContain("2 transactions added.");
+  expect(renderForm()).not.toContain("2 transactions added.");
 });
