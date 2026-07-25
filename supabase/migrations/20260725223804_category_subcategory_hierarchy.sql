@@ -156,8 +156,6 @@ create trigger subcategories_validate_transaction_links
 before update of household_id, category_id on public.subcategories
 for each row execute function public.validate_subcategory_transaction_links();
 
-drop index public.transactions_category_occurred_on_idx;
-
 create index transactions_subcategory_occurred_on_idx
 on public.transactions (subcategory_id, occurred_on desc)
 where subcategory_id is not null;
