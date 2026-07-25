@@ -6,14 +6,14 @@ import { TransactionSheet } from "@/components/transaction-sheet";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDashboardData } from "@/lib/dashboard-data";
+import { currentMonth, getValidDateRange } from "@/lib/date-range";
 
-function currentMonth() { return new Date().toISOString().slice(0, 7); }
 function selectedValues(value: string | undefined) { return value?.split(",").filter(Boolean) ?? []; }
 
 export default async function TransactionsPage({ searchParams }: { searchParams: Promise<{ categories?: string; filter?: string; from?: string; import?: string; month?: string; paidBy?: string; sort?: string; to?: string }> }) {
   const { categories: selectedCategories, filter, from, import: importRequested, month: requestedMonth, paidBy: selectedPaidBy, sort, to } = await searchParams;
   const month = requestedMonth && /^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth) ? requestedMonth : currentMonth();
-  const dateRange = from && to && /^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to) && from <= to ? { from, to } : undefined;
+  const dateRange = getValidDateRange(from, to);
   const filterKind: LedgerFilterKind = filter === "income" || filter === "expense" ? filter : "all";
   const ledgerSort: LedgerSort = sort === "date-asc" || sort === "amount-desc" || sort === "amount-asc" ? sort : "date-desc";
   const data = await getDashboardData(month);

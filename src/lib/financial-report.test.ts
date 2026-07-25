@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildMonthlyReport, type ReportCategory } from "./financial-report";
+import { buildMonthlyReport, buildRangeReport, type ReportCategory } from "./financial-report";
 
 type TargetReportTransaction = {
   id: string;
@@ -133,5 +133,48 @@ describe("buildMonthlyReport", () => {
 
     expect(report.incomeChangePercentage).toBeNull();
     expect(report.expenseChangePercentage).toBeNull();
+  });
+});
+
+describe("buildRangeReport", () => {
+  it("uses only complete equal-length prior ranges for comparisons", () => {
+    const report = buildRangeReport({
+      openingBalance: 0,
+      categories,
+      transactions: [
+        { id: "oldest-income", kind: "income", amount: 30, occurredOn: "2026-07-05", categoryId: "income", note: "Oldest", createdAt: "2026-07-05T08:00:00Z", paidBy: "member-id" },
+        { id: "oldest-expense", kind: "expense", amount: 10, occurredOn: "2026-07-05", categoryId: "food", note: "Oldest", createdAt: "2026-07-05T08:00:00Z", paidBy: "member-id" },
+        { id: "second-income", kind: "income", amount: 70, occurredOn: "2026-07-06", categoryId: "income", note: "Second", createdAt: "2026-07-06T08:00:00Z", paidBy: "member-id" },
+        { id: "second-expense", kind: "expense", amount: 30, occurredOn: "2026-07-07", categoryId: "food", note: "Second", createdAt: "2026-07-07T08:00:00Z", paidBy: "member-id" },
+        { id: "first-income", kind: "income", amount: 50, occurredOn: "2026-07-08", categoryId: "income", note: "First", createdAt: "2026-07-08T08:00:00Z", paidBy: "member-id" },
+        { id: "first-expense", kind: "expense", amount: 20, occurredOn: "2026-07-09", categoryId: "food", note: "First", createdAt: "2026-07-09T08:00:00Z", paidBy: "member-id" },
+        { id: "range-income", kind: "income", amount: 100, occurredOn: "2026-07-10", categoryId: "income", note: "Range", createdAt: "2026-07-10T08:00:00Z", paidBy: "member-id" },
+        { id: "range-expense", kind: "expense", amount: 40, occurredOn: "2026-07-11", categoryId: "food", note: "Range", createdAt: "2026-07-11T08:00:00Z", paidBy: "member-id" },
+      ],
+      from: "2026-07-10",
+      to: "2026-07-11",
+    });
+
+    expect(report).toMatchObject({ income: 100, expenses: 40, sharedBalance: 150, expectedMonthlyIncome: 60 });
+    expect(report.incomeChangePercentage).toBeCloseTo(66.666, 2);
+    expect(report.expenseChangePercentage).toBe(60);
+    expect(report.categoryTotals).toEqual([{ categoryId: "food", categoryName: "Food", amount: 40 }]);
+    expect(report.recentTransactions.map((transaction) => transaction.id)).toEqual(["range-expense", "range-income"]);
+  });
+
+  it("does not compare against an incomplete earlier range", () => {
+    const report = buildRangeReport({
+      openingBalance: 0,
+      categories,
+      transactions: [
+        { id: "earlier-income", kind: "income", amount: 30, occurredOn: "2026-07-09", categoryId: "income", note: "Earlier", createdAt: "2026-07-09T08:00:00Z", paidBy: "member-id" },
+        { id: "range-income", kind: "income", amount: 100, occurredOn: "2026-07-10", categoryId: "income", note: "Range", createdAt: "2026-07-10T08:00:00Z", paidBy: "member-id" },
+        { id: "range-expense", kind: "expense", amount: 40, occurredOn: "2026-07-11", categoryId: "food", note: "Range", createdAt: "2026-07-11T08:00:00Z", paidBy: "member-id" },
+      ],
+      from: "2026-07-10",
+      to: "2026-07-11",
+    });
+
+    expect(report).toMatchObject({ expectedMonthlyIncome: null, incomeChangePercentage: null, expenseChangePercentage: null });
   });
 });

@@ -39,7 +39,7 @@ describe("Transactions page", () => {
         expenses: 0,
         expectedMonthlyIncome: null,
         categoryTotals: [],
-        recentTransactions: [],
+        recentTransactions: [{ id: "monthly", kind: "expense", amount: 10, occurredOn: "2026-06-05", categoryId: null, note: "Monthly activity", createdAt: "2026-06-05T08:00:00Z", paidBy: null }],
       },
     });
   });
@@ -70,6 +70,13 @@ describe("Transactions page", () => {
 
     expect(markup).toContain("Inside range");
     expect(markup).not.toContain("Outside range");
+  });
+
+  it("ignores an impossible custom date range", async () => {
+    const markup = renderToStaticMarkup(await TransactionsPage({ searchParams: Promise.resolve({ from: "2026-02-30", to: "2026-03-01" }) }));
+
+    expect(markup).toContain("Start date – End date");
+    expect(markup).not.toContain("02 Mar 2026 – 01 Mar 2026");
   });
 
   it("resets the ledger instance when the visible scope changes", async () => {

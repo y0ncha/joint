@@ -22,6 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { LedgerFilterKind, LedgerSort } from "@/components/ledger-controls";
 import type { ReportCategory, ReportTransaction } from "@/lib/financial-report";
+import type { DateRange } from "@/lib/date-range";
 
 const currency = new Intl.NumberFormat("en-IL", { style: "currency", currency: "ILS" });
 const date = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
@@ -32,7 +33,7 @@ export function getLedgerShortcutAction(key: string, selectedCount: number) {
   return key === "Escape" ? "clear-selection" : null;
 }
 
-export function TransactionLedger({ transactions, categories, categoryIds = [], dateRange, filterKind = "all", members, paidByIds = [], sort = "date-desc" }: { transactions: ReportTransaction[]; categories: ReportCategory[]; categoryIds?: string[]; dateRange?: { from: string; to: string }; filterKind?: LedgerFilterKind; members: Array<{ id: string; label: string; color?: string }>; paidByIds?: string[]; sort?: LedgerSort }) {
+export function TransactionLedger({ transactions, categories, categoryIds = [], dateRange, filterKind = "all", members, paidByIds = [], sort = "date-desc" }: { transactions: ReportTransaction[]; categories: ReportCategory[]; categoryIds?: string[]; dateRange?: DateRange; filterKind?: LedgerFilterKind; members: Array<{ id: string; label: string; color?: string }>; paidByIds?: string[]; sort?: LedgerSort }) {
   const categoryNames = new Map(categories.map((category) => [category.id, category]));
   const memberNames = new Map(members.map((member) => [member.id, member]));
   const [selectedTransaction, setSelectedTransaction] = useState<ReportTransaction | null>(null);

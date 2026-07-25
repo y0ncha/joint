@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, MoreHorizontal } from "lucide-react";
 
-import { DashboardMonthSelector } from "@/components/dashboard-month-selector";
+import { DashboardControls } from "@/components/dashboard-controls";
 import { TransactionSheet } from "@/components/transaction-sheet";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { Button } from "@/components/ui/button";
@@ -9,25 +9,23 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { getDashboardData } from "@/lib/dashboard-data";
+import { currentMonth, formatDateRange, getValidDateRange, type DateRange } from "@/lib/date-range";
 
 const currency = new Intl.NumberFormat("en-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
-
-function currentMonth() {
-  return new Date().toISOString().slice(0, 7);
-}
-
-function comparisonLabel(change: number | null) {
-  if (change === null) return "No prior average";
+function comparisonLabel(change: number | null, range?: DateRange) {
+  if (change === null) return range ? "No prior range average" : "No prior average";
   const roundedChange = Math.round(Math.abs(change));
-  if (roundedChange === 0) return "In line with prior 3-month average";
-  return `${roundedChange}% ${change > 0 ? "above" : "below"} prior 3-month average`;
+  const baseline = range ? "prior range average" : "prior 3-month average";
+  if (roundedChange === 0) return `In line with ${baseline}`;
+  return `${roundedChange}% ${change > 0 ? "above" : "below"} ${baseline}`;
 }
 
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
-  const requestedMonth = (await searchParams).month;
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ from?: string; month?: string; to?: string }> }) {
+  const { from, month: requestedMonth, to } = await searchParams;
   const current = currentMonth();
   const month = requestedMonth && /^\d{4}-\d{2}$/.test(requestedMonth) ? requestedMonth : current;
-  const data = await getDashboardData(month);
+  const range = getValidDateRange(from, to);
+  const data = range ? await getDashboardData(month, range) : await getDashboardData(month);
   const { report } = data;
   const activeCategories = data.categories.filter((category) => category.archivedAt === null);
   const transactionCategories = activeCategories.map(({ id, name, kind }) => ({ id, name, kind }));
@@ -39,25 +37,21 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     <WorkspaceShell
       title="Shared money"
       description="A calm view of your household money."
-      actions={<TransactionSheet categories={transactionCategories} currentUserId={data.currentUserId} members={data.members} />}
+      actions={<><DashboardControls month={month} range={range} /><TransactionSheet categories={transactionCategories} currentUserId={data.currentUserId} members={data.members} /></>}
     >
-      <div className="mt-6 flex items-center gap-3">
-        <DashboardMonthSelector currentMonth={current} month={month} transactionDates={data.transactions.map((transaction) => transaction.occurredOn)} />
-      </div>
-
       <>
-          <section className="mt-5 grid gap-4 lg:grid-cols-12">
+          <section className="mt-6 grid gap-4 lg:grid-cols-12">
             <Card className="border-white/50 bg-card/90 lg:col-span-6">
               <CardContent className="p-5">
                 <p className="text-sm font-medium text-muted-foreground">Income</p>
                 <p className="mt-3 font-mono text-2xl font-semibold">{currency.format(report.income)}</p>
                 <div className={cn("mt-5 flex items-center gap-2 text-sm", report.incomeChangePercentage === null ? "text-muted-foreground" : report.incomeChangePercentage >= 0 ? "text-positive" : "text-negative")}>
                   {report.incomeChangePercentage === null ? (
-                    "No 3-month income history yet. Record income in the prior 3 months to compare this month."
+                    range ? "No earlier range history yet. Record income before this range to compare it." : "No 3-month income history yet. Record income in the prior 3 months to compare this month."
                   ) : (
                     <>
                       {report.incomeChangePercentage < 0 ? <ArrowDownRight aria-hidden="true" className="size-4" /> : <ArrowUpRight aria-hidden="true" className="size-4" />}
-                      {comparisonLabel(report.incomeChangePercentage)}
+                      {comparisonLabel(report.incomeChangePercentage, range)}
                     </>
                   )}
                 </div>
@@ -70,7 +64,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                 <p className="mt-3 font-mono text-2xl font-semibold">{currency.format(report.expenses)}</p>
                 <div className={cn("mt-5 flex items-center gap-2 text-sm", report.expenseChangePercentage === null ? "text-muted-foreground" : report.expenseChangePercentage > 0 ? "text-negative" : "text-positive")}>
                   {report.expenseChangePercentage !== null && report.expenseChangePercentage <= 0 ? <ArrowDownRight aria-hidden="true" className="size-4" /> : <ArrowUpRight aria-hidden="true" className="size-4" />}
-                  {comparisonLabel(report.expenseChangePercentage)}
+                  {comparisonLabel(report.expenseChangePercentage, range)}
                 </div>
               </CardContent>
             </Card>
@@ -80,7 +74,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Where your money went</p>
-                    <h2 className="mt-1 text-lg font-semibold">This month</h2>
+                    <h2 className="mt-1 text-lg font-semibold">{range ? formatDateRange(range) : "This month"}</h2>
                   </div>
                   <Button variant="ghost" size="icon" aria-label="More chart options">
                     <MoreHorizontal />
@@ -111,13 +105,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               <CardContent className="p-5 sm:p-6">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Monthly balance</p>
+                    <p className="text-sm font-medium text-muted-foreground">{range ? "Balance at range end" : "Monthly balance"}</p>
                   </div>
                 </div>
                 {expectedMonthlyIncome === null ? (
                   <div className="mt-7">
                     <p className="font-mono text-2xl font-semibold">No available income</p>
-                    <p className="mt-4 text-sm leading-6 text-muted-foreground">Record income in the last 3 months to estimate this balance.</p>
+                    <p className="mt-4 text-sm leading-6 text-muted-foreground">{range ? "Record income before this range to estimate this balance." : "Record income in the last 3 months to estimate this balance."}</p>
                   </div>
                 ) : (
                   <>
@@ -135,7 +129,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                       </div>
                     </div>
                     <Separator className="my-5" />
-                    <p className="text-sm leading-6 text-muted-foreground">Based on 3-month income average.</p>
+                    <p className="text-sm leading-6 text-muted-foreground">{range ? "Based on prior range average." : "Based on 3-month income average."}</p>
                   </>
                 )}
               </CardContent>
