@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import { accentForeground, accentPresetColors, normalizeAccentColor, serializeAccentCookie } from "@/lib/accent";
+import { accentForeground, accentPresetColors, normalizeAccentColor } from "@/lib/accent";
 import { ColorPicker } from "@/components/color-picker";
 
 function readAccent() {
@@ -33,7 +33,6 @@ export function AccentPicker({ showLabel = true }: { showLabel?: boolean } = {})
     document.documentElement.style.setProperty("--sidebar-primary", nextAccent);
     document.documentElement.style.setProperty("--sidebar-primary-foreground", accentForeground(nextAccent));
     document.documentElement.style.setProperty("--sidebar-ring", nextAccent);
-    document.cookie = serializeAccentCookie(nextAccent, window.location.protocol === "https:");
   }
 
   return (

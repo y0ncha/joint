@@ -37,6 +37,23 @@ function hasDirtySettingsForm() {
   return form ? hasUnsavedSettings(new FormData(form)) : false;
 }
 
+function markSettingsSaved() {
+  const form = document.getElementById("settings-save-form") as HTMLFormElement | null;
+  if (!form) return;
+
+  [
+    ["profileName", "initialProfileName"],
+    ["householdName", "initialHouseholdName"],
+    ["color", "initialColor"],
+    ["accentColor", "initialAccentColor"],
+    ["lastFour", "initialLastFour"],
+  ].forEach(([name, initialName]) => {
+    const value = form.elements.namedItem(name);
+    const initialValue = form.elements.namedItem(initialName);
+    if (value instanceof HTMLInputElement && initialValue instanceof HTMLInputElement) initialValue.value = value.value;
+  });
+}
+
 export function SettingsSaveControl({ userId }: { userId: string }) {
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(saveSettings, null);
   const [leaveTo, setLeaveTo] = useState<string | null>(null);
@@ -53,6 +70,7 @@ export function SettingsSaveControl({ userId }: { userId: string }) {
       const form = document.getElementById("settings-save-form") as HTMLFormElement | null;
       const accent = form?.elements.namedItem("accentColor");
       if (accent instanceof HTMLInputElement) document.cookie = serializeAccentCookie(accent.value, window.location.protocol === "https:");
+      markSettingsSaved();
     }
     if (state?.status === "success") toast.success("Saved", { id: "settings-save" });
     if (state?.status === "error") toast.error(state.formError, { id: "settings-save" });
