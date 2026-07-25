@@ -4,11 +4,19 @@ import { expect, it } from "vitest";
 import { ColorPicker } from "./color-picker";
 
 it("labels the custom color control", () => {
-  const markup = renderToStaticMarkup(<ColorPicker color="#123456" onChange={() => {}} presetColors={["#0f6b54"]} recentColors={["#abcdef"]} />);
+  const markup = renderToStaticMarkup(
+    <ColorPicker color="#123456" onChange={() => {}} presetColors={["#0f6b54"]} recentColors={["#abcdef"]} />,
+  );
 
   expect(markup).toContain('aria-label="Custom color"');
   expect(markup).toContain("display:contents");
   expect(markup).toContain("margin-right:0");
   expect(markup).toContain("pr-3");
   expect(markup).toContain("flex size-6 items-center justify-center");
+});
+
+it("can omit the custom color control", () => {
+  const markup = renderToStaticMarkup(<ColorPicker color="#0f6b54" onChange={() => {}} allowCustom={false} />);
+
+  expect(markup).not.toContain("Custom color");
 });

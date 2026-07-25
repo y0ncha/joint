@@ -1,7 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { getProfileInitials, loadVerifiedProfileName, ProfileInitialAvatar, WorkspaceShell } from "./workspace-shell";
+import { getProfileInitials } from "@/lib/profile";
+
+import { loadVerifiedProfileName, ProfileInitialAvatar, WorkspaceShell } from "./workspace-shell";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/settings" }));
 
@@ -137,5 +139,7 @@ it("makes the workspace frame full-bleed on mobile", () => {
   );
 
   expect(markup).toContain('class="min-h-screen p-0 text-foreground sm:px-5 sm:py-5 lg:px-8 lg:py-8"');
-  expect(markup).toContain('class="mx-auto flex min-h-screen max-w-[1500px] overflow-hidden bg-white/24 shadow-[0_24px_80px_rgba(15,44,55,0.25)] backdrop-blur-sm sm:min-h-[calc(100vh-2.5rem)] sm:rounded-[2rem] sm:border sm:border-white/40 lg:min-h-[calc(100vh-4rem)]"');
+  expect(markup).toContain(
+    'class="mx-auto flex min-h-screen max-w-[1500px] overflow-hidden bg-white/24 shadow-[0_24px_80px_rgba(15,44,55,0.25)] backdrop-blur-sm sm:min-h-[calc(100vh-2.5rem)] sm:rounded-[2rem] sm:border sm:border-white/40 lg:min-h-[calc(100vh-4rem)]"',
+  );
 });

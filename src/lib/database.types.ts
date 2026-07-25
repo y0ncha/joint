@@ -307,6 +307,15 @@ export type Database = {
         Args: { target_household_id: string }
         Returns: boolean
       }
+      save_current_settings: {
+        Args: {
+          household_name: string | null
+          member_card_last_four: string | null
+          member_color: string | null
+          profile_name: string | null
+        }
+        Returns: string
+      }
       set_current_household_member_color: {
         Args: { target_color: string }
         Returns: undefined

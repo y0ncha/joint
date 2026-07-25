@@ -39,14 +39,22 @@ export function LoginCard({ initialError = null }: { initialError?: string | nul
           </div>
           <p className="mt-12 text-sm font-medium text-primary">Welcome to Joint</p>
           <CardTitle className="mt-2 text-3xl font-semibold tracking-tight">Money, together.</CardTitle>
-          <CardDescription className="mt-3 leading-6">Sign in to your shared household and see the same clear picture of your money.</CardDescription>
+          <CardDescription className="mt-3 leading-6">
+            Sign in to your shared household and see the same clear picture of your money.
+          </CardDescription>
         </CardHeader>
         <CardContent className="px-7 pb-10 sm:px-9 sm:pb-12">
           <Button className="mt-8 h-12 w-full rounded-xl text-base" onClick={signInWithGoogle}>
             Continue with Google <ArrowRight data-icon="inline-end" />
           </Button>
-          {error ? <p className="mt-4 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{error}</p> : null}
-          <p className="mt-6 flex items-center justify-center gap-2 text-center text-xs leading-5 text-muted-foreground"><LockKeyhole aria-hidden="true" className="size-3.5 shrink-0" /> Joint never stores your bank credentials or card numbers.</p>
+          {error ? (
+            <p className="mt-4 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <p className="mt-6 flex items-center justify-center gap-2 text-center text-xs leading-5 text-muted-foreground">
+            <LockKeyhole aria-hidden="true" className="size-3.5 shrink-0" /> Joint never stores your bank credentials or card numbers.
+          </p>
         </CardContent>
       </Card>
     </main>

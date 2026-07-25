@@ -13,5 +13,5 @@ it("offers an accessible expense category form", () => {
 it("labels the category creation trigger", () => {
   const markup = categoryFormModule ? renderToStaticMarkup(<categoryFormModule.CategorySheet />) : "";
 
-  expect(markup).toContain("aria-label=\"Add category\"");
+  expect(markup).toContain('aria-label="Add category"');
 });

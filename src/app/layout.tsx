@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 import { Analytics } from "@vercel/analytics/next";
 import { ACCENT_COOKIE_NAME, accentForeground, normalizeAccentColor } from "@/lib/accent";
 import "./globals.css";
@@ -39,13 +40,10 @@ export default async function RootLayout({
   } as React.CSSProperties;
 
   return (
-    <html
-      lang="en"
-      style={accentStyle}
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="en" style={accentStyle} className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         <TooltipProvider>{children}</TooltipProvider>
+        <Toaster />
         <Analytics />
       </body>
     </html>

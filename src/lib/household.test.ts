@@ -27,7 +27,7 @@ describe("getCurrentHouseholdContext", () => {
       return () => (result ??= resolve());
     });
     mocks.createServerSupabaseClient.mockResolvedValue({ auth: { getClaims: mocks.getClaims }, from: mocks.from });
-    mocks.getClaims.mockResolvedValue({ data: { claims: { sub: "member-id" } } });
+    mocks.getClaims.mockResolvedValue({ data: { claims: { sub: "member-id", email: "member@example.com" } } });
     mocks.maybeSingle.mockResolvedValue({ data: { household_id: "household-id", role: "member" }, error: null });
     mocks.eq.mockReturnValue({ maybeSingle: mocks.maybeSingle });
     mocks.select.mockReturnValue({ eq: mocks.eq });
@@ -57,6 +57,7 @@ describe("getCurrentHouseholdContext", () => {
       status: "member",
       supabase,
       userId: "member-id",
+      email: "member@example.com",
       householdId: "household-id",
       role: "member",
     });
@@ -65,10 +66,7 @@ describe("getCurrentHouseholdContext", () => {
   });
 
   it("memoizes the resolver within one request", async () => {
-    await Promise.all([
-      householdModule.getCurrentHouseholdContext(),
-      householdModule.getCurrentHouseholdContext(),
-    ]);
+    await Promise.all([householdModule.getCurrentHouseholdContext(), householdModule.getCurrentHouseholdContext()]);
 
     expect(mocks.createServerSupabaseClient).toHaveBeenCalledTimes(1);
     expect(mocks.getClaims).toHaveBeenCalledTimes(1);
@@ -100,6 +98,7 @@ describe("requireCurrentHousehold", () => {
       status: "member",
       supabase,
       userId: "member-id",
+      email: "",
       householdId: "household-id",
       role: "member",
     });
@@ -114,9 +113,7 @@ describe("requireCurrentHousehold", () => {
   it("uses the existing access error for an unmatched request", async () => {
     mocks.maybeSingle.mockResolvedValue({ data: null, error: null });
 
-    await expect(householdModule.requireCurrentHousehold()).rejects.toThrow(
-      "This Google account does not have access to Joint.",
-    );
+    await expect(householdModule.requireCurrentHousehold()).rejects.toThrow("This Google account does not have access to Joint.");
   });
 });
 
@@ -176,10 +173,12 @@ describe("ensurePartnerMembership", () => {
       }),
     };
 
-    await expect(householdModule.ensurePartnerMembership(supabase as never, {
-      userId: "partner-id",
-      email: "partner@example.com",
-    })).resolves.toBe("unmatched");
+    await expect(
+      householdModule.ensurePartnerMembership(supabase as never, {
+        userId: "partner-id",
+        email: "partner@example.com",
+      }),
+    ).resolves.toBe("unmatched");
     expect(authorizationMaybeSingle).toHaveBeenCalledTimes(2);
   });
 
@@ -188,9 +187,7 @@ describe("ensurePartnerMembership", () => {
     const membershipMaybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
     const membershipUser = vi.fn().mockReturnValue({ maybeSingle: membershipMaybeSingle });
     const membershipSelect = vi.fn().mockReturnValue({ eq: membershipUser });
-    const authorizationMaybeSingle = vi
-      .fn()
-      .mockResolvedValue({ data: { household_id: "household-id" }, error: null });
+    const authorizationMaybeSingle = vi.fn().mockResolvedValue({ data: { household_id: "household-id" }, error: null });
     const authorizationEmail = vi.fn().mockReturnValue({ maybeSingle: authorizationMaybeSingle });
     const authorizationSelect = vi.fn().mockReturnValue({ eq: authorizationEmail });
     const insert = vi.fn().mockResolvedValue({ error: permissionError });
@@ -202,10 +199,12 @@ describe("ensurePartnerMembership", () => {
       }),
     };
 
-    await expect(householdModule.ensurePartnerMembership(supabase as never, {
-      userId: "partner-id",
-      email: "partner@example.com",
-    })).rejects.toBe(permissionError);
+    await expect(
+      householdModule.ensurePartnerMembership(supabase as never, {
+        userId: "partner-id",
+        email: "partner@example.com",
+      }),
+    ).rejects.toBe(permissionError);
     expect(authorizationMaybeSingle).toHaveBeenCalledTimes(2);
   });
 
@@ -232,10 +231,12 @@ describe("ensurePartnerMembership", () => {
       }),
     };
 
-    await expect(householdModule.ensurePartnerMembership(supabase as never, {
-      userId: "partner-id",
-      email: "partner@example.com",
-    })).rejects.toBe(unrelatedConflict);
+    await expect(
+      householdModule.ensurePartnerMembership(supabase as never, {
+        userId: "partner-id",
+        email: "partner@example.com",
+      }),
+    ).rejects.toBe(unrelatedConflict);
   });
 
   it("recovers when another request creates the same user membership first", async () => {
@@ -262,10 +263,12 @@ describe("ensurePartnerMembership", () => {
       }),
     };
 
-    await expect(householdModule.ensurePartnerMembership(supabase as never, {
-      userId: "partner-id",
-      email: "partner@example.com",
-    })).resolves.toBe("existing");
+    await expect(
+      householdModule.ensurePartnerMembership(supabase as never, {
+        userId: "partner-id",
+        email: "partner@example.com",
+      }),
+    ).resolves.toBe("existing");
   });
 
   it("recovers when another request creates the same household membership first", async () => {
@@ -292,10 +295,12 @@ describe("ensurePartnerMembership", () => {
       }),
     };
 
-    await expect(householdModule.ensurePartnerMembership(supabase as never, {
-      userId: "partner-id",
-      email: "partner@example.com",
-    })).resolves.toBe("existing");
+    await expect(
+      householdModule.ensurePartnerMembership(supabase as never, {
+        userId: "partner-id",
+        email: "partner@example.com",
+      }),
+    ).resolves.toBe("existing");
   });
 
   it("does not recover a membership race into a different household", async () => {
@@ -321,10 +326,12 @@ describe("ensurePartnerMembership", () => {
       }),
     };
 
-    await expect(householdModule.ensurePartnerMembership(supabase as never, {
-      userId: "partner-id",
-      email: "partner@example.com",
-    })).rejects.toBe(conflict);
+    await expect(
+      householdModule.ensurePartnerMembership(supabase as never, {
+        userId: "partner-id",
+        email: "partner@example.com",
+      }),
+    ).rejects.toBe(conflict);
   });
 
   it("does not recover a membership race into an owner role", async () => {
@@ -350,9 +357,11 @@ describe("ensurePartnerMembership", () => {
       }),
     };
 
-    await expect(householdModule.ensurePartnerMembership(supabase as never, {
-      userId: "partner-id",
-      email: "partner@example.com",
-    })).rejects.toBe(conflict);
+    await expect(
+      householdModule.ensurePartnerMembership(supabase as never, {
+        userId: "partner-id",
+        email: "partner@example.com",
+      }),
+    ).rejects.toBe(conflict);
   });
 });

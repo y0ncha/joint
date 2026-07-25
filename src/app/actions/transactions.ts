@@ -32,7 +32,11 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
 
   const household = await requireCurrentHousehold();
   if (parsed.data.paidBy && !(await validatePaidBy(household.supabase, household.householdId, parsed.data.paidBy))) {
-    return { status: "error", formError: "Choose a household member for this transaction.", fieldErrors: { paidBy: "Choose a household member." } };
+    return {
+      status: "error",
+      formError: "Choose a household member for this transaction.",
+      fieldErrors: { paidBy: "Choose a household member." },
+    };
   }
 
   const { error } = await household.supabase.from("transactions").insert({
@@ -65,7 +69,8 @@ export async function updateTransaction(transactionId: string, input: FormData):
     .eq("id", transactionId)
     .eq("household_id", household.householdId)
     .maybeSingle();
-  if (sourceError || !existingTransaction) return { status: "error", formError: "Unable to update the transaction. Please try again.", fieldErrors: {} };
+  if (sourceError || !existingTransaction)
+    return { status: "error", formError: "Unable to update the transaction. Please try again.", fieldErrors: {} };
 
   const parsed = transactionSchema.safeParse(Object.fromEntries(input));
   if (!parsed.success) return validationError(parsed.error.issues);
@@ -73,18 +78,26 @@ export async function updateTransaction(transactionId: string, input: FormData):
     return { status: "error", formError: "Check the form details.", fieldErrors: { categoryId: "Select a value." } };
   }
   if (parsed.data.paidBy && !(await validatePaidBy(household.supabase, household.householdId, parsed.data.paidBy))) {
-    return { status: "error", formError: "Choose a household member for this transaction.", fieldErrors: { paidBy: "Choose a household member." } };
+    return {
+      status: "error",
+      formError: "Choose a household member for this transaction.",
+      fieldErrors: { paidBy: "Choose a household member." },
+    };
   }
 
-  const { error } = await household.supabase.from("transactions").update({
-    kind: parsed.data.kind,
-    amount: parsed.data.amount,
-    occurred_on: parsed.data.occurredOn,
-    paid_by: parsed.data.paidBy,
-    category_id: parsed.data.categoryId,
-    note: parsed.data.note,
-    ...(parsed.data.merchant === undefined ? {} : { merchant: parsed.data.merchant }),
-  }).eq("id", transactionId).eq("household_id", household.householdId);
+  const { error } = await household.supabase
+    .from("transactions")
+    .update({
+      kind: parsed.data.kind,
+      amount: parsed.data.amount,
+      occurred_on: parsed.data.occurredOn,
+      paid_by: parsed.data.paidBy,
+      category_id: parsed.data.categoryId,
+      note: parsed.data.note,
+      ...(parsed.data.merchant === undefined ? {} : { merchant: parsed.data.merchant }),
+    })
+    .eq("id", transactionId)
+    .eq("household_id", household.householdId);
   if (error) return { status: "error", formError: "Unable to update the transaction. Please try again.", fieldErrors: {} };
   for (const path of ["/", "/transactions", "/categories"]) revalidatePath(path);
   return { status: "success" };
@@ -107,11 +120,7 @@ export async function deleteTransactions(transactionIds: string[]): Promise<Acti
   if (ids.length === 0) return { status: "error", formError: "Select at least one transaction.", fieldErrors: {} };
 
   const household = await requireCurrentHousehold();
-  const { error } = await household.supabase
-    .from("transactions")
-    .delete()
-    .in("id", ids)
-    .eq("household_id", household.householdId);
+  const { error } = await household.supabase.from("transactions").delete().in("id", ids).eq("household_id", household.householdId);
   if (error) return { status: "error", formError: "Unable to delete the selected transactions. Please try again.", fieldErrors: {} };
   for (const path of ["/", "/transactions", "/categories"]) revalidatePath(path);
   return { status: "success" };

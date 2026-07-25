@@ -20,7 +20,11 @@ const pageModule = await import("./page");
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.requireCurrentHousehold.mockResolvedValue({
-    status: "member", supabase: { from: mocks.from }, householdId: "household-id", userId: "member-id", role: "member",
+    status: "member",
+    supabase: { from: mocks.from },
+    householdId: "household-id",
+    userId: "member-id",
+    role: "member",
   });
   mocks.from.mockReturnValue({ select: mocks.select });
   mocks.select.mockReturnValue({ eq: mocks.householdEq });

@@ -44,9 +44,11 @@ it("keeps transaction selection, editing, and bulk deletion accessible", () => {
   );
 
   expect(markup).toContain('aria-label="Select all transactions"');
-  expect(markup).toContain('aria-label="Select A long supermarket note that should not push the action column outside the card transaction"');
-  expect(markup).toContain("aria-label=\"Edit A long supermarket note that should not push the action column outside the card transaction\"");
-  expect(markup).toContain("aria-label=\"Delete selected transactions\"");
+  expect(markup).toContain(
+    'aria-label="Select A long supermarket note that should not push the action column outside the card transaction"',
+  );
+  expect(markup).toContain('aria-label="Edit A long supermarket note that should not push the action column outside the card transaction"');
+  expect(markup).toContain('aria-label="Delete selected transactions"');
   expect(markup).toContain('aria-haspopup="dialog"');
 });
 
@@ -63,13 +65,7 @@ it("renders imported merchant details with uncategorized and unassigned fallback
     createdAt: "2026-07-15T08:00:00Z",
     paidBy: null,
   };
-  const markup = renderToStaticMarkup(
-    <TransactionLedger
-      categories={[]}
-      members={[]}
-      transactions={[transaction]}
-    />,
-  );
+  const markup = renderToStaticMarkup(<TransactionLedger categories={[]} members={[]} transactions={[transaction]} />);
 
   expect(markup).toContain("Super Pharm");
   expect(markup).toContain("Uncategorized");
@@ -82,7 +78,18 @@ it("sizes ledger columns from their contents", () => {
     <TransactionLedger
       categories={[]}
       members={[]}
-      transactions={[{ id: "transaction-id", kind: "expense", amount: 50, occurredOn: "2026-07-15", categoryId: null, note: "Groceries", createdAt: "2026-07-15T08:00:00Z", paidBy: null }]}
+      transactions={[
+        {
+          id: "transaction-id",
+          kind: "expense",
+          amount: 50,
+          occurredOn: "2026-07-15",
+          categoryId: null,
+          note: "Groceries",
+          createdAt: "2026-07-15T08:00:00Z",
+          paidBy: null,
+        },
+      ]}
     />,
   );
 
@@ -97,8 +104,26 @@ it("limits rows to the selected custom date range", () => {
       members={[]}
       dateRange={{ from: "2026-06-10", to: "2026-06-20" }}
       transactions={[
-        { id: "outside", kind: "expense", amount: 10, occurredOn: "2026-06-01", categoryId: null, note: "Outside range", createdAt: "2026-06-01T08:00:00Z", paidBy: null },
-        { id: "inside", kind: "expense", amount: 10, occurredOn: "2026-06-15", categoryId: null, note: "Inside range", createdAt: "2026-06-15T08:00:00Z", paidBy: null },
+        {
+          id: "outside",
+          kind: "expense",
+          amount: 10,
+          occurredOn: "2026-06-01",
+          categoryId: null,
+          note: "Outside range",
+          createdAt: "2026-06-01T08:00:00Z",
+          paidBy: null,
+        },
+        {
+          id: "inside",
+          kind: "expense",
+          amount: 10,
+          occurredOn: "2026-06-15",
+          categoryId: null,
+          note: "Inside range",
+          createdAt: "2026-06-15T08:00:00Z",
+          paidBy: null,
+        },
       ]}
     />,
   );
@@ -123,9 +148,36 @@ it("filters by selected categories and payers", () => {
       categoryIds={["food"]}
       paidByIds={["you"]}
       transactions={[
-        { id: "match", kind: "expense", amount: 10, occurredOn: "2026-06-15", categoryId: "food", note: "Matches filters", createdAt: "2026-06-15T08:00:00Z", paidBy: "you" },
-        { id: "category", kind: "expense", amount: 10, occurredOn: "2026-06-15", categoryId: "other", note: "Wrong category", createdAt: "2026-06-15T08:00:00Z", paidBy: "you" },
-        { id: "payer", kind: "expense", amount: 10, occurredOn: "2026-06-15", categoryId: "food", note: "Wrong payer", createdAt: "2026-06-15T08:00:00Z", paidBy: "them" },
+        {
+          id: "match",
+          kind: "expense",
+          amount: 10,
+          occurredOn: "2026-06-15",
+          categoryId: "food",
+          note: "Matches filters",
+          createdAt: "2026-06-15T08:00:00Z",
+          paidBy: "you",
+        },
+        {
+          id: "category",
+          kind: "expense",
+          amount: 10,
+          occurredOn: "2026-06-15",
+          categoryId: "other",
+          note: "Wrong category",
+          createdAt: "2026-06-15T08:00:00Z",
+          paidBy: "you",
+        },
+        {
+          id: "payer",
+          kind: "expense",
+          amount: 10,
+          occurredOn: "2026-06-15",
+          categoryId: "food",
+          note: "Wrong payer",
+          createdAt: "2026-06-15T08:00:00Z",
+          paidBy: "them",
+        },
       ]}
     />,
   );
@@ -143,9 +195,36 @@ it("filters, sorts, and exposes selection controls without making rows editable"
       filterKind="income"
       sort="amount-desc"
       transactions={[
-        { id: "small-income", kind: "income", amount: 20, occurredOn: "2026-07-15", categoryId: null, note: "Small income", createdAt: "2026-07-15T08:00:00Z", paidBy: null },
-        { id: "large-income", kind: "income", amount: 100, occurredOn: "2026-07-14", categoryId: null, note: "Large income", createdAt: "2026-07-14T08:00:00Z", paidBy: null },
-        { id: "expense", kind: "expense", amount: 50, occurredOn: "2026-07-16", categoryId: null, note: "Expense", createdAt: "2026-07-16T08:00:00Z", paidBy: null },
+        {
+          id: "small-income",
+          kind: "income",
+          amount: 20,
+          occurredOn: "2026-07-15",
+          categoryId: null,
+          note: "Small income",
+          createdAt: "2026-07-15T08:00:00Z",
+          paidBy: null,
+        },
+        {
+          id: "large-income",
+          kind: "income",
+          amount: 100,
+          occurredOn: "2026-07-14",
+          categoryId: null,
+          note: "Large income",
+          createdAt: "2026-07-14T08:00:00Z",
+          paidBy: null,
+        },
+        {
+          id: "expense",
+          kind: "expense",
+          amount: 50,
+          occurredOn: "2026-07-16",
+          categoryId: null,
+          note: "Expense",
+          createdAt: "2026-07-16T08:00:00Z",
+          paidBy: null,
+        },
       ]}
     />,
   );

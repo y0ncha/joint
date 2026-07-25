@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useMemo, useState, type ReactNode } from "react";
+import { useActionState, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Plus } from "lucide-react";
+import { toast } from "sonner";
 
 import { createTransaction, deleteTransaction, updateTransaction } from "@/app/actions/transactions";
 import type { ActionResult } from "@/app/actions/result";
@@ -73,26 +74,42 @@ export function TransactionSheet({
     async (_state, formData) => (transaction ? updateTransaction(transaction.id, formData) : createTransaction(formData)),
     null,
   );
+  useEffect(() => {
+    if (state?.status === "success") toast.success(isEditing ? "Transaction updated" : "Transaction added", { id: "transaction-save" });
+    if (state?.status === "error") toast.error(state.formError, { id: "transaction-save" });
+  }, [isEditing, state]);
   const selectableCategories = useMemo(() => categories.filter((category) => category.kind === kind), [categories, kind]);
   const [occurredOn, setOccurredOn] = useState(transaction?.occurredOn ?? todayIso);
   const [paidBy, setPaidBy] = useState(() => transaction?.paidBy ?? currentUserId ?? members[0]?.id ?? "");
-  const [categoryId, setCategoryId] = useState(() => transaction ? (transaction.categoryId ?? "") : (categories.find((category) => category.kind === initialKind)?.id ?? ""));
+  const [categoryId, setCategoryId] = useState(() =>
+    transaction ? (transaction.categoryId ?? "") : (categories.find((category) => category.kind === initialKind)?.id ?? ""),
+  );
   const selectedCategoryId = selectableCategories.some((category) => category.id === categoryId) ? categoryId : "";
-  const selectedPaidBy = paidBy === "" ? "" : (members.some((member) => member.id === paidBy) ? paidBy : (currentUserId || members[0]?.id || ""));
+  const selectedPaidBy =
+    paidBy === "" ? "" : members.some((member) => member.id === paidBy) ? paidBy : currentUserId || members[0]?.id || "";
   const shouldRenderDefaultTrigger = !isEditing && open === undefined && onOpenChange === undefined;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      {trigger ?? (shouldRenderDefaultTrigger ? (
-        <SheetTrigger asChild>
-          <Button size="icon" variant="ghost" className="size-11 rounded-full text-primary hover:bg-primary/10 hover:text-primary" aria-label="Add transaction">
-            <span className="flex size-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-sm transition-colors group-hover/button:bg-primary">
-              <Plus aria-hidden="true" />
-            </span>
-          </Button>
-        </SheetTrigger>
-      ) : null)}
-      <SheetContent side="right" className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg">
+      {trigger ??
+        (shouldRenderDefaultTrigger ? (
+          <SheetTrigger asChild>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-11 rounded-full text-primary hover:bg-primary/10 hover:text-primary"
+              aria-label="Add transaction"
+            >
+              <span className="flex size-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-sm transition-colors group-hover/button:bg-primary">
+                <Plus aria-hidden="true" />
+              </span>
+            </Button>
+          </SheetTrigger>
+        ) : null)}
+      <SheetContent
+        side="right"
+        className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg"
+      >
         <SheetHeader className="p-6">
           <SheetTitle className="text-xl">{isEditing ? "Edit transaction" : "Add transaction"}</SheetTitle>
           <SheetDescription>{isEditing ? "Update or remove this shared ledger entry." : "Log shared household money."}</SheetDescription>
@@ -105,19 +122,34 @@ export function TransactionSheet({
             <input name="paidBy" type="hidden" value={selectedPaidBy} />
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.amount)}>
               <FieldLabel htmlFor="amount">Amount</FieldLabel>
-              <Input id="amount" name="amount" inputMode="decimal" required defaultValue={transaction?.amount ?? undefined} aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.amount)} />
+              <Input
+                id="amount"
+                name="amount"
+                inputMode="decimal"
+                required
+                defaultValue={transaction?.amount ?? undefined}
+                aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.amount)}
+              />
               {state?.status === "error" ? <FieldError>{state.fieldErrors.amount}</FieldError> : null}
             </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.occurredOn)}>
               <FieldLabel id="transaction-date-label">Date</FieldLabel>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button type="button" variant="outline" className="h-11 w-full justify-start rounded-xl bg-white/55" aria-labelledby="transaction-date-label">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 w-full justify-start rounded-xl bg-white/55"
+                    aria-labelledby="transaction-date-label"
+                  >
                     <span className="sr-only">Choose date</span>
                     {displayDate.format(dateFromIso(occurredOn))}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-auto rounded-2xl border-white/70 bg-card p-3 shadow-[0_20px_60px_rgba(15,44,55,0.18)]">
+                <PopoverContent
+                  align="start"
+                  className="w-auto rounded-2xl border-white/70 bg-card p-3 shadow-[0_20px_60px_rgba(15,44,55,0.18)]"
+                >
                   <Calendar
                     mode="single"
                     selected={dateFromIso(occurredOn)}
@@ -130,37 +162,79 @@ export function TransactionSheet({
             </Field>
             <Field>
               <FieldLabel>Type</FieldLabel>
-              <PillSelect ariaLabel="Type" value={kind} onValueChange={(value) => { setKind(value as typeof kind); setCategoryId(""); }} options={[{ value: "income", label: "Income", className: "border-positive/20 bg-positive/10 text-positive" }, { value: "expense", label: "Expense", className: "border-negative/20 bg-negative/10 text-negative" }]} />
+              <PillSelect
+                ariaLabel="Type"
+                value={kind}
+                onValueChange={(value) => {
+                  setKind(value as typeof kind);
+                  setCategoryId("");
+                }}
+                options={[
+                  { value: "income", label: "Income", className: "border-positive/20 bg-positive/10 text-positive" },
+                  { value: "expense", label: "Expense", className: "border-negative/20 bg-negative/10 text-negative" },
+                ]}
+              />
             </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.paidBy)}>
               <FieldLabel>Paid by</FieldLabel>
-              <PillSelect ariaLabel="Members" value={selectedPaidBy || "unassigned"} onValueChange={(value) => setPaidBy(value === "unassigned" ? "" : value)} disabled={members.length === 0} options={[{ value: "unassigned", label: "Unassigned" }, ...members.map((member) => ({ value: member.id, label: member.label, color: member.color }))]} />
+              <PillSelect
+                ariaLabel="Members"
+                value={selectedPaidBy || "unassigned"}
+                onValueChange={(value) => setPaidBy(value === "unassigned" ? "" : value)}
+                disabled={members.length === 0}
+                options={[
+                  { value: "unassigned", label: "Unassigned" },
+                  ...members.map((member) => ({ value: member.id, label: member.label, color: member.color })),
+                ]}
+              />
               {state?.status === "error" ? <FieldError>{state.fieldErrors.paidBy}</FieldError> : null}
             </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.categoryId)}>
               <FieldLabel>Category</FieldLabel>
-              <PillSelect ariaLabel="Categories" value={selectedCategoryId} onValueChange={setCategoryId} disabled={selectableCategories.length === 0} emptyLabel="Uncategorized" options={selectableCategories.map((category) => ({ value: category.id, label: category.name, color: category.color }))} />
+              <PillSelect
+                ariaLabel="Categories"
+                value={selectedCategoryId}
+                onValueChange={setCategoryId}
+                disabled={selectableCategories.length === 0}
+                emptyLabel="Uncategorized"
+                options={selectableCategories.map((category) => ({ value: category.id, label: category.name, color: category.color }))}
+              />
               {state?.status === "error" ? <FieldError>{state.fieldErrors.categoryId}</FieldError> : null}
             </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)}>
               <FieldLabel htmlFor="merchant">Merchant</FieldLabel>
-              <Input id="merchant" name="merchant" defaultValue={transaction?.merchant ?? undefined} aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)} />
+              <Input
+                id="merchant"
+                name="merchant"
+                defaultValue={transaction?.merchant ?? undefined}
+                aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)}
+              />
               {state?.status === "error" ? <FieldError>{state.fieldErrors.merchant}</FieldError> : null}
             </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.note)}>
               <FieldLabel htmlFor="note">Note</FieldLabel>
-              <Textarea id="note" name="note" rows={4} className="bg-white/55" defaultValue={transaction?.note ?? undefined} aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.note)} />
+              <Textarea
+                id="note"
+                name="note"
+                rows={4}
+                className="bg-white/55"
+                defaultValue={transaction?.note ?? undefined}
+                aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.note)}
+              />
               {state?.status === "error" ? <FieldError>{state.fieldErrors.note}</FieldError> : null}
             </Field>
-            {state?.status === "error" ? <FieldError>{state.formError}</FieldError> : null}
-            <Button disabled={isPending} type="submit" className="rounded-xl">{isEditing ? "Save changes" : "Save transaction"}</Button>
+            <Button disabled={isPending} type="submit" className="rounded-xl">
+              {isEditing ? "Save changes" : "Save transaction"}
+            </Button>
           </FieldGroup>
         </form>
         {transaction ? (
           <div className="px-6 pb-6">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button type="button" variant="destructive" className="w-full rounded-xl">Delete transaction</Button>
+                <Button type="button" variant="destructive" className="w-full rounded-xl">
+                  Delete transaction
+                </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -169,8 +243,14 @@ export function TransactionSheet({
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <form action={async () => { await deleteTransaction(transaction.id); }}>
-                    <AlertDialogAction type="submit" variant="destructive">Delete transaction</AlertDialogAction>
+                  <form
+                    action={async () => {
+                      await deleteTransaction(transaction.id);
+                    }}
+                  >
+                    <AlertDialogAction type="submit" variant="destructive">
+                      Delete transaction
+                    </AlertDialogAction>
                   </form>
                 </AlertDialogFooter>
               </AlertDialogContent>

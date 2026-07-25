@@ -28,14 +28,14 @@ The browser receives only the Supabase publishable key. No service-role key or f
 
 ## System boundaries
 
-| Boundary | Responsibility |
-| --- | --- |
-| Browser | Render the workspace, hold non-financial local preferences, and submit user intent. |
-| Next.js | Verify claims, enforce route behavior, derive trusted identifiers, execute mutations, and assemble server-rendered data. |
-| Supabase Auth | Establish Google identity and maintain the authenticated session. |
-| Postgres and RLS | Store household data and reject access outside verified household membership. |
-| GitHub Actions | Validate pull requests and order production migration reconciliation before deployment. |
-| Vercel | Build and run the Next.js application using environment-scoped configuration; Git integration is disabled. |
+| Boundary         | Responsibility                                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Browser          | Render the workspace, hold non-financial local preferences, and submit user intent.                                      |
+| Next.js          | Verify claims, enforce route behavior, derive trusted identifiers, execute mutations, and assemble server-rendered data. |
+| Supabase Auth    | Establish Google identity and maintain the authenticated session.                                                        |
+| Postgres and RLS | Store household data and reject access outside verified household membership.                                            |
+| GitHub Actions   | Validate pull requests and order production migration reconciliation before deployment.                                  |
+| Vercel           | Build and run the Next.js application using environment-scoped configuration; Git integration is disabled.               |
 
 ## Core domains
 
@@ -57,23 +57,29 @@ Server Components are the default rendering boundary. Client components are limi
 
 See [`docs/architecture/application-runtime.md`](architecture/application-runtime.md).
 
+### Settings persistence and database privileges
+
+One authenticated RPC atomically persists a current member's display name, own color, and—when that member is the owner—household name. Postgres derives identity and household membership from `auth.uid()`; it does not accept those authorization identifiers from the application. Public-table privileges are denied to `anon`, while RLS remains the row-level household boundary for authenticated application access.
+
+See [`docs/architecture/settings-persistence.md`](architecture/settings-persistence.md).
+
 ### Visual system
 
 The complete visual and interaction contract remains in [`docs/design.md`](design.md). Architecture records may explain component boundaries, but they must not redefine visual language.
 
 ## Repository map
 
-| Path | Responsibility |
-| --- | --- |
-| `src/app/` | App Router pages, layouts, route handlers, Server Actions, and global CSS. |
-| `src/components/` | Product components and owned shadcn/ui primitives. |
-| `src/lib/` | Domain logic, validation, Supabase clients, generated database types, and utilities. |
-| `src/proxy.ts` | Supabase SSR session refresh entry point. |
-| `supabase/migrations/` | Immutable, ordered schema, function, trigger, grant, and RLS history. |
-| `supabase/tests/` | Database-level behavior and security verification. |
-| `docs/architecture/` | Durable explanations of implemented technical mechanisms. |
-| `docs/plans/` | Proposed and active implementation plans, tasks, and completion evidence. |
-| `docs/roadmap.md` | Directional post-MVP roadmap that does not authorize implementation. |
+| Path                   | Responsibility                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------ |
+| `src/app/`             | App Router pages, layouts, route handlers, Server Actions, and global CSS.           |
+| `src/components/`      | Product components and owned shadcn/ui primitives.                                   |
+| `src/lib/`             | Domain logic, validation, Supabase clients, generated database types, and utilities. |
+| `src/proxy.ts`         | Supabase SSR session refresh entry point.                                            |
+| `supabase/migrations/` | Immutable, ordered schema, function, trigger, grant, and RLS history.                |
+| `supabase/tests/`      | Database-level behavior and security verification.                                   |
+| `docs/architecture/`   | Durable explanations of implemented technical mechanisms.                            |
+| `docs/plans/`          | Proposed and active implementation plans, tasks, and completion evidence.            |
+| `docs/roadmap.md`      | Directional post-MVP roadmap that does not authorize implementation.                 |
 
 ## Environments
 
@@ -85,12 +91,13 @@ The complete visual and interaction contract remains in [`docs/design.md`](desig
 
 ## Architecture document index
 
-| Document | Scope |
-| --- | --- |
-| [`application-runtime.md`](architecture/application-runtime.md) | Request lifecycle, rendering boundaries, session refresh, queries, and mutations. |
-| [`ci-cd.md`](architecture/ci-cd.md) | Target pull-request CI gate and post-merge production migration/deployment boundary. |
-| [`financial-model.md`](architecture/financial-model.md) | Household-owned finance data, accounting invariants, balances, and monthly reporting. |
+| Document                                                                        | Scope                                                                                        |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [`application-runtime.md`](architecture/application-runtime.md)                 | Request lifecycle, rendering boundaries, session refresh, queries, and mutations.            |
+| [`ci-cd.md`](architecture/ci-cd.md)                                             | Target pull-request CI gate and post-merge production migration/deployment boundary.         |
+| [`financial-model.md`](architecture/financial-model.md)                         | Household-owned finance data, accounting invariants, balances, and monthly reporting.        |
 | [`operator-owner-provisioning.md`](architecture/operator-owner-provisioning.md) | Operator-only creation of a future owner's household, owner membership, and opening balance. |
+| [`settings-persistence.md`](architecture/settings-persistence.md)               | Atomic current-settings save, RLS/privilege boundaries, and generated RPC typing.            |
 
 ## Adding architecture documentation
 

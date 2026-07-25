@@ -33,8 +33,24 @@ function formData(file: File) {
 function parsedStatement() {
   return {
     rows: [
-      { importRowNumber: 8, cardLastFour: "4548", merchant: "Corner Market", occurredOn: "2026-07-04", kind: "expense", amount: 12.34, note: "Fruit" },
-      { importRowNumber: 9, cardLastFour: "9999", merchant: "Refund Shop", occurredOn: "2026-07-02", kind: "income", amount: 8.5, note: "" },
+      {
+        importRowNumber: 8,
+        cardLastFour: "4548",
+        merchant: "Corner Market",
+        occurredOn: "2026-07-04",
+        kind: "expense",
+        amount: 12.34,
+        note: "Fruit",
+      },
+      {
+        importRowNumber: 9,
+        cardLastFour: "9999",
+        merchant: "Refund Shop",
+        occurredOn: "2026-07-02",
+        kind: "income",
+        amount: 8.5,
+        note: "",
+      },
     ],
     skippedZeroCount: 1,
   };
@@ -89,14 +105,32 @@ describe("statement import action", () => {
     expect(mocks.transactionInsert).toHaveBeenCalledTimes(1);
     expect(mocks.transactionInsert).toHaveBeenCalledWith([
       {
-        household_id: "household-id", created_by: "importer-id", paid_by: "payer-id", source: "statement_import", category_id: null,
-        merchant: "Corner Market", note: "Fruit", occurred_on: "2026-07-04", kind: "expense", amount: 12.34,
-        import_file_hash: statementHash, import_row_number: 8,
+        household_id: "household-id",
+        created_by: "importer-id",
+        paid_by: "payer-id",
+        source: "statement_import",
+        category_id: null,
+        merchant: "Corner Market",
+        note: "Fruit",
+        occurred_on: "2026-07-04",
+        kind: "expense",
+        amount: 12.34,
+        import_file_hash: statementHash,
+        import_row_number: 8,
       },
       {
-        household_id: "household-id", created_by: "importer-id", paid_by: null, source: "statement_import", category_id: null,
-        merchant: "Refund Shop", note: "", occurred_on: "2026-07-02", kind: "income", amount: 8.5,
-        import_file_hash: statementHash, import_row_number: 9,
+        household_id: "household-id",
+        created_by: "importer-id",
+        paid_by: null,
+        source: "statement_import",
+        category_id: null,
+        merchant: "Refund Shop",
+        note: "",
+        occurred_on: "2026-07-02",
+        kind: "income",
+        amount: 8.5,
+        import_file_hash: statementHash,
+        import_row_number: 9,
       },
     ]);
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
@@ -108,23 +142,25 @@ describe("statement import action", () => {
     mocks.cardMappingsEq.mockResolvedValue({ data: [], error: null });
 
     await expect(actions.importStatement(null, formData(statementFile()))).resolves.toMatchObject({ status: "success" });
-    expect(mocks.transactionInsert).toHaveBeenCalledWith(expect.arrayContaining([
-      expect.objectContaining({ paid_by: null }),
-    ]));
+    expect(mocks.transactionInsert).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ paid_by: null })]));
   });
 
   it("rejects invalid parsed rows without inserting any transactions", async () => {
     mocks.parseStatementFile.mockRejectedValue(new Error("row 8: invalid date"));
 
     await expect(actions.importStatement(null, formData(statementFile()))).resolves.toEqual({
-      status: "error", formError: "Check row 8 and try again.", fieldErrors: { statement: "Check row 8 and try again." },
+      status: "error",
+      formError: "Check row 8 and try again.",
+      fieldErrors: { statement: "Check row 8 and try again." },
     });
     expect(mocks.transactionInsert).not.toHaveBeenCalled();
   });
 
   it("rejects oversized files before parsing or writing", async () => {
     await expect(actions.importStatement(null, formData(statementFile([new Uint8Array(1024 * 1024 + 1)])))).resolves.toEqual({
-      status: "error", formError: "Choose a CSV or XLSX file up to 1 MB.", fieldErrors: { statement: "Choose a CSV or XLSX file up to 1 MB." },
+      status: "error",
+      formError: "Choose a CSV or XLSX file up to 1 MB.",
+      fieldErrors: { statement: "Choose a CSV or XLSX file up to 1 MB." },
     });
     expect(mocks.parseStatementFile).not.toHaveBeenCalled();
     expect(mocks.transactionInsert).not.toHaveBeenCalled();
@@ -134,7 +170,9 @@ describe("statement import action", () => {
     mocks.duplicateHashLimit.mockResolvedValue({ data: [{ id: "existing" }], error: null });
 
     await expect(actions.importStatement(null, formData(statementFile()))).resolves.toEqual({
-      status: "error", formError: "This file was already imported.", fieldErrors: { statement: "Choose a different file." },
+      status: "error",
+      formError: "This file was already imported.",
+      fieldErrors: { statement: "Choose a different file." },
     });
     expect(mocks.parseStatementFile).not.toHaveBeenCalled();
     expect(mocks.transactionInsert).not.toHaveBeenCalled();
@@ -144,7 +182,9 @@ describe("statement import action", () => {
     mocks.duplicateHashLimit.mockResolvedValue({ data: null, error: { message: "database details" } });
 
     await expect(actions.importStatement(null, formData(statementFile()))).resolves.toEqual({
-      status: "error", formError: "Unable to process this file. Try again.", fieldErrors: {},
+      status: "error",
+      formError: "Unable to process this file. Try again.",
+      fieldErrors: {},
     });
     expect(mocks.parseStatementFile).not.toHaveBeenCalled();
     expect(mocks.transactionInsert).not.toHaveBeenCalled();
@@ -154,7 +194,9 @@ describe("statement import action", () => {
     mocks.cardMappingsEq.mockResolvedValue({ data: null, error: { message: "database details" } });
 
     await expect(actions.importStatement(null, formData(statementFile()))).resolves.toEqual({
-      status: "error", formError: "Unable to process this file. Try again.", fieldErrors: {},
+      status: "error",
+      formError: "Unable to process this file. Try again.",
+      fieldErrors: {},
     });
     expect(mocks.transactionInsert).not.toHaveBeenCalled();
   });
@@ -163,7 +205,9 @@ describe("statement import action", () => {
     mocks.transactionInsert.mockResolvedValue({ error: { message: "duplicate key value reveals database detail" } });
 
     await expect(actions.importStatement(null, formData(statementFile()))).resolves.toEqual({
-      status: "error", formError: "Unable to process this file. Try again.", fieldErrors: {},
+      status: "error",
+      formError: "Unable to process this file. Try again.",
+      fieldErrors: {},
     });
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });

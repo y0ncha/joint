@@ -4,7 +4,7 @@ version: 3.0
 date_created: 2026-07-14
 last_updated: 2026-07-16
 owner: Joint
-status: 'In progress'
+status: "In progress"
 tags: [feature, mvp, finance, supabase, rls]
 ---
 
@@ -32,30 +32,30 @@ Complete the development MVP with Google-authenticated household access, one sha
 
 - **GOAL-001**: Keep verified Google OAuth and replace all legacy token authorization with a per-household allowed email.
 
-| Task | Description | Completed | Date |
-|---|---|---|---|
-| TASK-001 | Add `household_allowed_members` RLS policies, two-member enforcement, and member-removal authorization cleanup in a new migration. Delete all obsolete token and global allowlist schema objects. |  |  |
-| TASK-002 | Exchange OAuth code server-side, automatically create a matching member membership, and locally sign out unmatched accounts with access denied. |  |  |
-| TASK-003 | Build owner-only Partner access Settings controls with an accessible email form, Popover, and removal confirmation. |  |  |
-| TASK-004 | Verify matching join, mismatch denial, replacement flow, two-member limit, and cross-household isolation against development Supabase. |  |  |
+| Task     | Description                                                                                                                                                                                       | Completed | Date |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ---- |
+| TASK-001 | Add `household_allowed_members` RLS policies, two-member enforcement, and member-removal authorization cleanup in a new migration. Delete all obsolete token and global allowlist schema objects. |           |      |
+| TASK-002 | Exchange OAuth code server-side, automatically create a matching member membership, and locally sign out unmatched accounts with access denied.                                                   |           |      |
+| TASK-003 | Build owner-only Partner access Settings controls with an accessible email form, Popover, and removal confirmation.                                                                               |           |      |
+| TASK-004 | Verify matching join, mismatch denial, replacement flow, two-member limit, and cross-household isolation against development Supabase.                                                            |           |      |
 
 ### Implementation Phase 2 — Finance contracts and mutations
 
 - **GOAL-002**: Preserve accounting invariants before persistence and UI work.
 
-| Task | Description | Completed | Date |
-|---|---|---|---|
-| TASK-005 | Keep typed account, category, transaction validation, monthly reporting, and balance calculation tests current with the visible one-balance MVP. |  |  |
-| TASK-006 | Keep authenticated account, category, and transaction actions scoped by verified membership and revalidate the affected routes. |  |  |
+| Task     | Description                                                                                                                                      | Completed | Date |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------- | ---- |
+| TASK-005 | Keep typed account, category, transaction validation, monthly reporting, and balance calculation tests current with the visible one-balance MVP. |           |      |
+| TASK-006 | Keep authenticated account, category, and transaction actions scoped by verified membership and revalidate the affected routes.                  |           |      |
 
 ### Implementation Phase 3 — Product surfaces and verification
 
 - **GOAL-003**: Render live RLS-scoped data with accessible Settings, categories, transactions, and dashboard states.
 
-| Task | Description | Completed | Date |
-|---|---|---|---|
-| TASK-007 | Keep responsive UI surfaces inside the existing design contract and provide empty, loading, validation, and server-error states. |  |  |
-| TASK-008 | Run lint, focused unit tests, full tests, production build, development RLS checks, and Supabase advisors before completion. |  |  |
+| Task     | Description                                                                                                                      | Completed | Date |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------- | --------- | ---- |
+| TASK-007 | Keep responsive UI surfaces inside the existing design contract and provide empty, loading, validation, and server-error states. |           |      |
+| TASK-008 | Run lint, focused unit tests, full tests, production build, development RLS checks, and Supabase advisors before completion.     |           |      |
 
 ## 3. Alternatives
 

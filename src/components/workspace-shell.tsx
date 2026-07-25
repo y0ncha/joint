@@ -7,6 +7,7 @@ import { LayoutDashboard, Settings, Tags, WalletCards, type LucideIcon } from "l
 
 import { BrandMark } from "@/components/brand-mark";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { getProfileInitials } from "@/lib/profile";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { cn } from "@/lib/utils";
 
@@ -25,11 +26,6 @@ type ProfileClient = {
 
 function isActivePath(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
-}
-
-export function getProfileInitials(name: string | null) {
-  const words = name?.trim().split(/\s+/).filter(Boolean) ?? [];
-  return words.length ? `${words[0][0]}${words.length > 1 ? words.at(-1)?.[0] : ""}`.toUpperCase() : "?";
 }
 
 export async function loadVerifiedProfileName(client: ProfileClient) {
@@ -80,9 +76,7 @@ function NavigationItem({ href, label, icon: Icon }: { href: string; label: stri
       prefetch
       className={cn(
         "flex size-11 items-center justify-center rounded-2xl transition-colors duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-        active
-          ? "bg-primary text-primary-foreground shadow-sm"
-          : "text-muted-foreground hover:bg-white/65 hover:text-foreground",
+        active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-white/65 hover:text-foreground",
       )}
     >
       <Icon aria-hidden="true" className="size-5" />
@@ -129,7 +123,10 @@ export function WorkspaceShell({
           </div>
         </section>
       </div>
-      <nav aria-label="Primary navigation" className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] flex h-16 items-center justify-around rounded-[calc(2rem-0.75rem)] border border-white/60 bg-white/80 px-3 shadow-lg backdrop-blur-xl md:hidden">
+      <nav
+        aria-label="Primary navigation"
+        className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] flex h-16 items-center justify-around rounded-[calc(2rem-0.75rem)] border border-white/60 bg-white/80 px-3 shadow-lg backdrop-blur-xl md:hidden"
+      >
         {navigation.map(([href, label, Icon]) => (
           <NavigationItem key={href} href={href} label={label} icon={Icon} />
         ))}

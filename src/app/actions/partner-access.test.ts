@@ -45,7 +45,9 @@ describe("partner access actions", () => {
   });
 
   it("inserts one normalized authorization through the verified owner request context", async () => {
-    await expect(actions.setAllowedPartnerEmail(formData({ householdId: "other-household", email: " Partner@Example.com " }))).resolves.toEqual({ status: "success" });
+    await expect(
+      actions.setAllowedPartnerEmail(formData({ householdId: "other-household", email: " Partner@Example.com " })),
+    ).resolves.toEqual({ status: "success" });
 
     expect(mocks.from).toHaveBeenCalledWith("household_allowed_members");
     expect(mocks.insert).toHaveBeenCalledWith({ household_id: "household-id", email: "partner@example.com" });
@@ -55,10 +57,15 @@ describe("partner access actions", () => {
   });
 
   it("returns a sanitized conflict when authorization already exists", async () => {
-    mocks.insertSingle.mockResolvedValue({ data: null, error: { code: "23505", message: "duplicate key value reveals internal constraint" } });
+    mocks.insertSingle.mockResolvedValue({
+      data: null,
+      error: { code: "23505", message: "duplicate key value reveals internal constraint" },
+    });
 
     await expect(actions.setAllowedPartnerEmail(formData({ email: "partner@example.com" }))).resolves.toEqual({
-      status: "error", formError: "Partner access already exists. Remove it before authorizing another email.", fieldErrors: {},
+      status: "error",
+      formError: "Partner access already exists. Remove it before authorizing another email.",
+      fieldErrors: {},
     });
   });
 
@@ -66,18 +73,26 @@ describe("partner access actions", () => {
     mocks.insertSingle.mockResolvedValue({ data: null, error: null });
 
     await expect(actions.setAllowedPartnerEmail(formData({ email: "partner@example.com" }))).resolves.toEqual({
-      status: "error", formError: "Unable to authorize partner access. Please try again.", fieldErrors: {},
+      status: "error",
+      formError: "Unable to authorize partner access. Please try again.",
+      fieldErrors: {},
     });
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
 
   it("rejects a non-owner before accessing partner authorization", async () => {
     mocks.requireCurrentHousehold.mockResolvedValue({
-      status: "member", supabase: { from: mocks.from }, householdId: "household-id", userId: "member-id", role: "member",
+      status: "member",
+      supabase: { from: mocks.from },
+      householdId: "household-id",
+      userId: "member-id",
+      role: "member",
     });
 
     await expect(actions.setAllowedPartnerEmail(formData({ email: "partner@example.com" }))).resolves.toEqual({
-      status: "error", formError: "Only the household owner can manage partner access.", fieldErrors: {},
+      status: "error",
+      formError: "Only the household owner can manage partner access.",
+      fieldErrors: {},
     });
     expect(mocks.from).not.toHaveBeenCalled();
   });
@@ -98,7 +113,9 @@ describe("partner access actions", () => {
     mocks.authorizationMaybeSingle.mockResolvedValue({ data: null, error: null });
 
     await expect(actions.removePartner()).resolves.toEqual({
-      status: "error", formError: "Unable to remove partner access. Please refresh and try again.", fieldErrors: {},
+      status: "error",
+      formError: "Unable to remove partner access. Please refresh and try again.",
+      fieldErrors: {},
     });
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
@@ -107,7 +124,9 @@ describe("partner access actions", () => {
     mocks.authorizationMaybeSingle.mockResolvedValue({ data: null, error: { message: "database detail" } });
 
     await expect(actions.removePartner()).resolves.toEqual({
-      status: "error", formError: "Unable to remove partner access. Please refresh and try again.", fieldErrors: {},
+      status: "error",
+      formError: "Unable to remove partner access. Please refresh and try again.",
+      fieldErrors: {},
     });
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });

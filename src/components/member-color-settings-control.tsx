@@ -1,26 +1,21 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
-import { saveCurrentMemberColor } from "@/app/actions/profile";
 import { ColorPicker } from "@/components/color-picker";
 
 export function MemberColorSettingsControl({ color }: { color: string }) {
   const [selectedColor, setSelectedColor] = useState(color);
-  const [, startTransition] = useTransition();
 
   function selectColor(value: string) {
-    if (!value || selectedColor === value) return;
-    startTransition(async () => {
-      const result = await saveCurrentMemberColor(value);
-      if (result.status === "error") return;
-      setSelectedColor(value);
-    });
+    if (value) setSelectedColor(value);
   }
 
   return (
     <div aria-label="User color">
-      <ColorPicker color={selectedColor} onChange={selectColor} recentColors={[selectedColor]} />
+      <input form="settings-save-form" type="hidden" name="color" value={selectedColor} />
+      <input form="settings-save-form" type="hidden" name="initialColor" value={color} />
+      <ColorPicker color={selectedColor} onChange={selectColor} allowCustom={false} />
     </div>
   );
 }

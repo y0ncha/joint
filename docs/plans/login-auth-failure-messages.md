@@ -28,21 +28,21 @@ This plan makes OAuth callback failures actionable without adding a failure rout
 
 - **GOAL-001**: Define and prove the required login-page error mapping.
 
-| Task | Description | Completed | Date |
-|------|-------------|-----------|------|
-| TASK-001 | In `src/app/login/page.test.tsx`, add a failing test that renders `LoginPage` with `error: "missing_code"` and expects the exact generic retry message and `role="alert"`. | Yes | 2026-07-19 |
-| TASK-002 | In `src/app/login/page.test.tsx`, add a failing test that renders `LoginPage` with `error: "oauth_callback"` and expects the same generic retry message. | Yes | 2026-07-19 |
-| TASK-003 | Run `bun run test src/app/login/page.test.tsx`; confirm the new tests fail because neither callback error is mapped. | Yes | 2026-07-19 |
+| Task     | Description                                                                                                                                                                | Completed | Date       |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ---------- |
+| TASK-001 | In `src/app/login/page.test.tsx`, add a failing test that renders `LoginPage` with `error: "missing_code"` and expects the exact generic retry message and `role="alert"`. | Yes       | 2026-07-19 |
+| TASK-002 | In `src/app/login/page.test.tsx`, add a failing test that renders `LoginPage` with `error: "oauth_callback"` and expects the same generic retry message.                   | Yes       | 2026-07-19 |
+| TASK-003 | Run `bun run test src/app/login/page.test.tsx`; confirm the new tests fail because neither callback error is mapped.                                                       | Yes       | 2026-07-19 |
 
 ### Implementation Phase 2
 
 - **GOAL-002**: Add the smallest safe mapping and verify the regression boundary.
 
-| Task | Description | Completed | Date |
-|------|-------------|-----------|------|
-| TASK-004 | In `src/app/login/page.tsx`, map `missing_code` and `oauth_callback` to the approved generic retry message; preserve the existing `access_denied` message and null behavior for all other values. Render through the unchanged `LoginCard` alert. | Yes | 2026-07-19 |
-| TASK-005 | Run `bun run test src/app/login/page.test.tsx`; confirm all focused tests pass. | Yes | 2026-07-19 |
-| TASK-006 | Run `bun run lint`, `bun run test`, and `bun run build`; report results without merging, pushing, deploying, or changing hosted state. Build verification is blocked: two Next builds became idle at `Creating an optimized production build` while holding `.next/lock`; both exact build PIDs were stopped after inspection. |  |  |
+| Task     | Description                                                                                                                                                                                                                                                                                                                    | Completed | Date       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- | ---------- |
+| TASK-004 | In `src/app/login/page.tsx`, map `missing_code` and `oauth_callback` to the approved generic retry message; preserve the existing `access_denied` message and null behavior for all other values. Render through the unchanged `LoginCard` alert.                                                                              | Yes       | 2026-07-19 |
+| TASK-005 | Run `bun run test src/app/login/page.test.tsx`; confirm all focused tests pass.                                                                                                                                                                                                                                                | Yes       | 2026-07-19 |
+| TASK-006 | Run `bun run lint`, `bun run test`, and `bun run build`; report results without merging, pushing, deploying, or changing hosted state. Build verification is blocked: two Next builds became idle at `Creating an optimized production build` while holding `.next/lock`; both exact build PIDs were stopped after inspection. |           |            |
 
 ## 3. Alternatives
 

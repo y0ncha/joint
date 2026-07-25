@@ -10,41 +10,53 @@ import { isHexColor } from "@/lib/shared-colors";
 const profileNameSchema = z.object({
   name: z.string().trim().min(1, "Enter a display name."),
 });
+const lastFourSchema = z.string().regex(/^[0-9]{4}$/, "Enter exactly four digits.");
 
-export async function saveCurrentProfileName(previousState: ActionResult | null, formData: FormData): Promise<ActionResult> {
-  const parsed = profileNameSchema.safeParse({ name: formData.get("name") });
-  if (!parsed.success) return validationError(parsed.error.issues);
-
-  const household = await requireCurrentHousehold();
-  const { error } = await household.supabase.from("profiles").update({ full_name: parsed.data.name }).eq("id", household.userId);
-  if (error) return { status: "error", formError: "Unable to save your name. Please try again.", fieldErrors: {} };
-
-  revalidatePath("/settings");
-  return { status: "success", data: { fullName: parsed.data.name } };
+function changedValue(formData: FormData, name: string, initialName: string) {
+  const value = formData.get(name);
+  const initialValue = formData.get(initialName);
+  return typeof value === "string" && typeof initialValue === "string" && value.trim() !== initialValue.trim() ? value : null;
 }
 
-export async function saveCurrentMemberColor(color: string): Promise<ActionResult> {
-  if (!isHexColor(color)) return { status: "error", formError: "Choose a valid color.", fieldErrors: {} };
+export async function saveSettings(_previousState: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const profileName = changedValue(formData, "profileName", "initialProfileName");
+  const householdName = changedValue(formData, "householdName", "initialHouseholdName");
+  const color = changedValue(formData, "color", "initialColor");
+  const lastFour = changedValue(formData, "lastFour", "initialLastFour");
+  const parsedProfileName = profileName === null ? null : profileNameSchema.safeParse({ name: profileName });
+  const parsedHouseholdName = householdName === null ? null : profileNameSchema.safeParse({ name: householdName });
+  const parsedLastFour = lastFour === null ? null : lastFourSchema.safeParse(lastFour);
+
+  if (parsedProfileName && !parsedProfileName.success) return validationError(parsedProfileName.error.issues);
+  if (parsedHouseholdName && !parsedHouseholdName.success) return validationError(parsedHouseholdName.error.issues);
+  if (parsedLastFour && !parsedLastFour.success) return validationError(parsedLastFour.error.issues);
+  if (color !== null && !isHexColor(color)) return { status: "error", formError: "Choose a valid color.", fieldErrors: {} };
+  if (profileName === null && householdName === null && color === null && lastFour === null) {
+    return { status: "success", data: { fullName: String(formData.get("profileName") ?? "") } };
+  }
 
   const household = await requireCurrentHousehold();
-  const { error } = await household.supabase.rpc("set_current_household_member_color", { target_color: color });
-  if (error) return { status: "error", formError: "Unable to save your color. Please try again.", fieldErrors: {} };
+  const { error } = await household.supabase.rpc("save_current_settings", {
+    profile_name: parsedProfileName?.success ? parsedProfileName.data.name : null,
+    household_name: parsedHouseholdName?.success ? parsedHouseholdName.data.name : null,
+    member_color: color,
+    member_card_last_four: parsedLastFour?.success ? parsedLastFour.data : null,
+  });
+  if (error?.code === "23505" && error.message.includes("member_cards_household_id_last_four_key")) {
+    return {
+      status: "error",
+      formError: "Check the form details.",
+      fieldErrors: { lastFour: "These last four digits are already mapped in this household." },
+    };
+  }
+  if (error) return { status: "error", formError: "Unable to save settings. Please try again.", fieldErrors: {} };
 
-  revalidatePath("/settings");
-  revalidatePath("/transactions");
-  return { status: "success" };
-}
-
-export async function saveCurrentHouseholdName(previousState: ActionResult | null, formData: FormData): Promise<ActionResult> {
-  const parsed = profileNameSchema.safeParse({ name: formData.get("name") });
-  if (!parsed.success) return validationError(parsed.error.issues);
-
-  const household = await requireCurrentHousehold();
-  if (household.role !== "owner") return { status: "error", formError: "Only the household owner can change its name.", fieldErrors: {} };
-
-  const { error } = await household.supabase.from("households").update({ name: parsed.data.name }).eq("id", household.householdId);
-  if (error) return { status: "error", formError: "Unable to save the household name. Please try again.", fieldErrors: {} };
-
-  revalidatePath("/settings");
-  return { status: "success", data: { name: parsed.data.name } };
+  if (profileName !== null || householdName !== null || color !== null || lastFour !== null) {
+    revalidatePath("/settings");
+    if (color !== null) revalidatePath("/transactions");
+  }
+  return {
+    status: "success",
+    data: { fullName: parsedProfileName?.success ? parsedProfileName.data.name : String(formData.get("profileName") ?? "") },
+  };
 }

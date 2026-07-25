@@ -34,14 +34,18 @@ beforeEach(() => {
 
 describe("category actions", () => {
   it("creates a category with the selected color in the verified household", async () => {
-    await expect(actions.createCategory(formData({ householdId: "other", name: "Food", kind: "expense", color: "#dcece3" }))).resolves.toEqual({ status: "success" });
+    await expect(
+      actions.createCategory(formData({ householdId: "other", name: "Food", kind: "expense", color: "#dcece3" })),
+    ).resolves.toEqual({ status: "success" });
 
     expect(mocks.from).toHaveBeenCalledWith("categories");
     expect(mocks.insert).toHaveBeenCalledWith({ household_id: "household-id", name: "Food", kind: "expense", color: "#dcece3" });
   });
 
   it("rejects malformed category colors before creating", async () => {
-    await expect(actions.createCategory(formData({ name: "Food", kind: "expense", color: "blue" }))).resolves.toMatchObject({ status: "error" });
+    await expect(actions.createCategory(formData({ name: "Food", kind: "expense", color: "blue" }))).resolves.toMatchObject({
+      status: "error",
+    });
 
     expect(mocks.from).not.toHaveBeenCalled();
   });
@@ -60,7 +64,9 @@ describe("category actions", () => {
     mocks.eq.mockResolvedValue({ error: null });
     mocks.update.mockReturnValue({ eq: vi.fn().mockReturnValue({ eq: mocks.eq }) });
 
-    await expect(actions.updateCategory("category-id", formData({ name: "Meals", kind: "expense", color: "#123456" }))).resolves.toEqual({ status: "success" });
+    await expect(actions.updateCategory("category-id", formData({ name: "Meals", kind: "expense", color: "#123456" }))).resolves.toEqual({
+      status: "success",
+    });
 
     expect(mocks.from).toHaveBeenCalledWith("categories");
     expect(mocks.update).toHaveBeenCalledWith({ name: "Meals", kind: "expense", color: "#123456" });
@@ -68,7 +74,9 @@ describe("category actions", () => {
   });
 
   it("rejects malformed category colors before touching data", async () => {
-    await expect(actions.updateCategory("category-id", formData({ name: "Meals", kind: "expense", color: "blue" }))).resolves.toMatchObject({ status: "error" });
+    await expect(actions.updateCategory("category-id", formData({ name: "Meals", kind: "expense", color: "blue" }))).resolves.toMatchObject(
+      { status: "error" },
+    );
 
     expect(mocks.from).not.toHaveBeenCalled();
   });

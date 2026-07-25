@@ -62,6 +62,7 @@ The resolver derives identity only from `auth.getClaims()` and obtains membershi
 - Actions parse `FormData` with Zod schemas from `src/lib/validation.ts`.
 - Trusted user, household, and role identifiers come from the member request context.
 - Partner-access actions accept only the normalized email, derive the owner and household from membership, and insert or remove the single `household_allowed_members` row. Removing it also removes any joined partner membership in the same database transaction.
+- The global Settings action validates changed display-name, household-name, and member-color values, then calls `save_current_settings` once. The database derives the caller and household through `auth.uid()` and commits all requested settings changes atomically; only an owner may supply a household-name change.
 - Updates and deletes include the verified household ID in their database filters.
 - Successful mutations revalidate affected routes through `revalidatePath` or redirect after setup.
 - User-facing action results contain sanitized form and field errors; raw database details are not rendered.
@@ -99,6 +100,8 @@ Financial persistence, role decisions, and household selection do not belong in 
 - `src/lib/household.ts`
 - `src/lib/dashboard-data.ts`
 - `src/app/actions/`
+- `supabase/migrations/20260725212318_remediate_recovery_privileges.sql`
+- `supabase/migrations/20260725212335_save_current_settings_atomically.sql`
 - `supabase/migrations/20260716104257_replace_invitations_with_allowed_members.sql`
 - `supabase/migrations/20260716160941_disable_self_service_household_creation.sql`
 - `supabase/migrations/20260717062900_serialize_partner_claim_and_removal.sql`

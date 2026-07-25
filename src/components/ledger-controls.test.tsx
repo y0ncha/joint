@@ -30,7 +30,16 @@ it("keeps at least one transaction type selected", () => {
 
 it("renders the type filter as a multiselect and Sort by control", () => {
   const markup = renderToStaticMarkup(
-    <LedgerControls categories={[]} categoryIds={[]} filterKind="expense" importRequested={false} members={[]} month="2026-07" paidByIds={[]} sort="amount-asc" />,
+    <LedgerControls
+      categories={[]}
+      categoryIds={[]}
+      filterKind="expense"
+      importRequested={false}
+      members={[]}
+      month="2026-07"
+      paidByIds={[]}
+      sort="amount-asc"
+    />,
   );
 
   expect(markup).toContain("Type");
@@ -38,7 +47,9 @@ it("renders the type filter as a multiselect and Sort by control", () => {
   expect(markup).toContain('id="ledger-type-income"');
   expect(markup).toContain('id="ledger-type-expense"');
   for (const id of ["ledger-type-income", "ledger-category-uncategorized", "ledger-member-unassigned"]) {
-    expect(markup.match(new RegExp(`<button[^>]*id="${id}"[^>]*>`))?.[0]).toContain("size-3");
+    const control = markup.match(new RegExp(`<button[^>]*id="${id}"[^>]*>`))?.[0];
+    expect(control).toContain("size-3");
+    expect(control).toContain("min-h-11");
   }
   expect(markup).toContain("bg-negative/10");
   expect(markup).toContain("bg-positive/10");
@@ -46,25 +57,43 @@ it("renders the type filter as a multiselect and Sort by control", () => {
   expect(markup).not.toContain('aria-label="Search payers"');
   expect(markup).toContain("Sort by");
   expect(markup).toContain('aria-label="Sort by"');
-  expect(markup.match(/<button[^>]*id="ledger-sort"[^>]*>/)?.[0]).not.toContain("min-h-11");
+  expect(markup.match(/<button[^>]*id="ledger-sort"[^>]*>/)?.[0]).toContain("min-h-11");
   expect(markup).toContain('data-variant="default"');
 });
 
 it("renders selected category filters as colored pills in a searchable multiselect", () => {
   const markup = renderToStaticMarkup(
-    <LedgerControls categories={[{ id: "groceries", name: "Groceries", color: "#B7E4C7" }]} categoryIds={["groceries"]} filterKind="all" importRequested={false} members={[]} month="2026-07" paidByIds={[]} sort="date-desc" />,
+    <LedgerControls
+      categories={[{ id: "groceries", name: "Groceries", color: "#B7E4C7" }]}
+      categoryIds={["groceries"]}
+      filterKind="all"
+      importRequested={false}
+      members={[]}
+      month="2026-07"
+      paidByIds={[]}
+      sort="date-desc"
+    />,
   );
 
   expect(markup).toContain('aria-label="Filter categories"');
   expect(markup).toContain('aria-label="Search categories"');
   expect(markup).toContain('name="category-search"');
   expect(markup).toContain('autoComplete="off"');
-  expect(markup).toContain('background-color:#B7E4C7');
+  expect(markup).toContain("background-color:#B7E4C7");
 });
 
 it("summarizes an all-category selection", () => {
   const markup = renderToStaticMarkup(
-    <LedgerControls categories={[{ id: "groceries", name: "Groceries", color: "#B7E4C7" }]} categoryIds={["groceries", "uncategorized"]} filterKind="all" importRequested={false} members={[]} month="2026-07" paidByIds={[]} sort="date-desc" />,
+    <LedgerControls
+      categories={[{ id: "groceries", name: "Groceries", color: "#B7E4C7" }]}
+      categoryIds={["groceries", "uncategorized"]}
+      filterKind="all"
+      importRequested={false}
+      members={[]}
+      month="2026-07"
+      paidByIds={[]}
+      sort="date-desc"
+    />,
   );
 
   expect(markup).toContain("All categories");

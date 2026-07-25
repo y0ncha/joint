@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState, type DragEvent } from "react";
+import { useActionState, useEffect, useState, type DragEvent } from "react";
 import { FileUp, LoaderCircle } from "lucide-react";
+import { toast } from "sonner";
 
 import { importStatement } from "@/app/actions/statement-import";
 import type { ActionResult } from "@/app/actions/result";
@@ -12,13 +13,15 @@ import { Input } from "@/components/ui/input";
 export function StatementImportForm() {
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
-    async (previousState, formData) => {
-      if (droppedFile) formData.set("statement", droppedFile);
-      return importStatement(previousState, formData);
-    },
-    null,
-  );
+  const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(async (previousState, formData) => {
+    if (droppedFile) formData.set("statement", droppedFile);
+    return importStatement(previousState, formData);
+  }, null);
+
+  useEffect(() => {
+    if (state?.status === "success") toast.success(`${state.data?.importedRowCount ?? 0} transactions added.`, { id: "statement-import" });
+    if (state?.status === "error") toast.error(state.formError, { id: "statement-import" });
+  }, [state]);
 
   function handleDrop(event: DragEvent<HTMLLabelElement>) {
     event.preventDefault();
@@ -70,12 +73,6 @@ export function StatementImportForm() {
           </label>
           {state?.status === "error" && state.fieldErrors.statement ? <FieldError>{state.fieldErrors.statement}</FieldError> : null}
         </Field>
-        {state?.status === "error" ? <FieldError>{state.formError}</FieldError> : null}
-        <div aria-live="polite">
-          {state?.status === "success" ? (
-            <p className="text-sm font-medium text-positive">{state.data?.importedRowCount} transactions added.</p>
-          ) : null}
-        </div>
         <Button disabled={isPending} type="submit" className="min-h-11">
           {isPending ? "Processing…" : "Process file"}
         </Button>

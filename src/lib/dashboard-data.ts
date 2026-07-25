@@ -13,7 +13,8 @@ export async function getDashboardData(month: string, range?: DateRange) {
     supabase.from("transactions").select("*").eq("household_id", household.householdId).order("occurred_on", { ascending: false }),
     supabase.from("household_members").select("user_id, role, color").eq("household_id", household.householdId).order("joined_at"),
   ]);
-  if (householdResult.error || categoriesResult.error || transactionsResult.error || membersResult.error) throw new Error("Unable to load household data.");
+  if (householdResult.error || categoriesResult.error || transactionsResult.error || membersResult.error)
+    throw new Error("Unable to load household data.");
   const currentUserId = household.userId;
   const categories = (categoriesResult.data ?? []).map(categoryFromRow);
   const transactions = (transactionsResult.data ?? []).map(transactionFromRow);
@@ -23,5 +24,14 @@ export async function getDashboardData(month: string, range?: DateRange) {
     label: member.user_id === currentUserId ? "You" : member.role === "owner" ? "Owner" : "Partner",
   }));
   const openingBalance = Number(householdResult.data.opening_balance);
-  return { household, currentUserId, members, categories, transactions, report: range ? buildRangeReport({ openingBalance, categories, transactions, ...range }) : buildMonthlyReport({ openingBalance, categories, transactions, month }) };
+  return {
+    household,
+    currentUserId,
+    members,
+    categories,
+    transactions,
+    report: range
+      ? buildRangeReport({ openingBalance, categories, transactions, ...range })
+      : buildMonthlyReport({ openingBalance, categories, transactions, month }),
+  };
 }

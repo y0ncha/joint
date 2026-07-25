@@ -70,12 +70,15 @@ function shiftDate(value: string, days: number) {
 }
 
 function periodTotals(transactions: ReportTransaction[], from: string, to: string) {
-  return transactions.reduce((totals, transaction) => {
-    if (transaction.occurredOn < from || transaction.occurredOn > to) return totals;
-    if (transaction.kind === "income") totals.income += transaction.amount;
-    else totals.expenses += transaction.amount;
-    return totals;
-  }, { income: 0, expenses: 0 });
+  return transactions.reduce(
+    (totals, transaction) => {
+      if (transaction.occurredOn < from || transaction.occurredOn > to) return totals;
+      if (transaction.kind === "income") totals.income += transaction.amount;
+      else totals.expenses += transaction.amount;
+      return totals;
+    },
+    { income: 0, expenses: 0 },
+  );
 }
 
 function priorPeriods(from: string, to: string, earliestDate: string | undefined) {
@@ -110,10 +113,15 @@ export function buildRangeReport({
     .filter((transaction) => transaction.occurredOn >= from && transaction.occurredOn <= to)
     .sort((left, right) => right.occurredOn.localeCompare(left.occurredOn) || right.createdAt.localeCompare(left.createdAt));
   const { income, expenses } = periodTotals(transactions, from, to);
-  const historicalTotals = priorPeriods(from, to, transactions.map((transaction) => transaction.occurredOn).sort()[0])
-    .map((period) => periodTotals(transactions, period.from, period.to));
-  const averageIncome = historicalTotals.length ? historicalTotals.reduce((total, period) => total + period.income, 0) / historicalTotals.length : 0;
-  const averageExpenses = historicalTotals.length ? historicalTotals.reduce((total, period) => total + period.expenses, 0) / historicalTotals.length : 0;
+  const historicalTotals = priorPeriods(from, to, transactions.map((transaction) => transaction.occurredOn).sort()[0]).map((period) =>
+    periodTotals(transactions, period.from, period.to),
+  );
+  const averageIncome = historicalTotals.length
+    ? historicalTotals.reduce((total, period) => total + period.income, 0) / historicalTotals.length
+    : 0;
+  const averageExpenses = historicalTotals.length
+    ? historicalTotals.reduce((total, period) => total + period.expenses, 0) / historicalTotals.length
+    : 0;
   const categoryTotals = new Map<string, number>();
 
   for (const transaction of rangeTransactions) {
@@ -124,7 +132,10 @@ export function buildRangeReport({
   return {
     sharedBalance: transactions
       .filter((transaction) => transaction.occurredOn <= to)
-      .reduce((balance, transaction) => transaction.kind === "income" ? balance + transaction.amount : balance - transaction.amount, openingBalance),
+      .reduce(
+        (balance, transaction) => (transaction.kind === "income" ? balance + transaction.amount : balance - transaction.amount),
+        openingBalance,
+      ),
     income,
     expenses,
     incomeChangePercentage: historicalTotals.length ? percentageChange(income, averageIncome) : null,
@@ -155,7 +166,10 @@ export function buildMonthlyReport({
   const categoriesById = new Map(categories.map((category) => [category.id, category]));
   const sharedBalance = transactions
     .filter((transaction) => transaction.occurredOn < monthEnd)
-    .reduce((balance, transaction) => transaction.kind === "income" ? balance + transaction.amount : balance - transaction.amount, openingBalance);
+    .reduce(
+      (balance, transaction) => (transaction.kind === "income" ? balance + transaction.amount : balance - transaction.amount),
+      openingBalance,
+    );
 
   const monthlyTransactions = transactions
     .filter((transaction) => transaction.occurredOn >= monthStart && transaction.occurredOn < monthEnd)
@@ -194,12 +208,15 @@ export function buildMonthlyReport({
     : null;
   const previousPeriodTotals = previousMonths(month, 3).map((previousMonth) => {
     const previousPeriodEnd = dateInMonth(previousMonth, comparisonDay);
-    return transactions.reduce((totals, transaction) => {
-      if (transaction.occurredOn < `${previousMonth}-01` || transaction.occurredOn > previousPeriodEnd) return totals;
-      if (transaction.kind === "income") totals.income += transaction.amount;
-      if (transaction.kind === "expense") totals.expenses += transaction.amount;
-      return totals;
-    }, { income: 0, expenses: 0 });
+    return transactions.reduce(
+      (totals, transaction) => {
+        if (transaction.occurredOn < `${previousMonth}-01` || transaction.occurredOn > previousPeriodEnd) return totals;
+        if (transaction.kind === "income") totals.income += transaction.amount;
+        if (transaction.kind === "expense") totals.expenses += transaction.amount;
+        return totals;
+      },
+      { income: 0, expenses: 0 },
+    );
   });
   const previousIncomeAverage = previousPeriodTotals.reduce((total, period) => total + period.income, 0) / previousPeriodTotals.length;
   const previousExpenseAverage = previousPeriodTotals.reduce((total, period) => total + period.expenses, 0) / previousPeriodTotals.length;

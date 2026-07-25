@@ -29,9 +29,18 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/household", () => ({ getCurrentHouseholdContext: mocks.getCurrentHouseholdContext }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/settings" }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/settings", useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/components/partner-access-control", () => ({
-  PartnerAccessControl: ({ state }: { state: { status: string; email?: string } }) => <span data-partner-state={state.status}>{state.email ?? "No authorized email"}</span>,
+  MemberManagementSheet: ({ partner }: { partner: { status: string; email?: string } }) => (
+    <button type="button" aria-label="Manage members" data-partner-state={partner.status}>
+      {partner.email ?? "No authorized email"}
+    </button>
+  ),
+}));
+vi.mock("@/components/ui/tooltip", () => ({
+  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipContent: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
 }));
 vi.mock("@/components/member-card-settings-control", () => ({
   MemberCardSettingsControl: ({ lastFour }: { lastFour: string | null }) => <span data-card-last-four={lastFour ?? "none"} />,
@@ -45,23 +54,30 @@ const settingsModule = await import("./page");
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.getCurrentHouseholdContext.mockResolvedValue({
-    status: "member", supabase: { from: mocks.from }, userId: "owner-id", householdId: "household-id", role: "owner",
+    status: "member",
+    supabase: { from: mocks.from },
+    userId: "owner-id",
+    email: "ada@example.com",
+    householdId: "household-id",
+    role: "owner",
   });
-  mocks.from.mockImplementation((table: string) => table === "household_members"
-    ? { select: mocks.memberSelect }
-    : table === "member_cards"
-      ? { select: mocks.cardSelect }
-    : table === "profiles"
-      ? { select: mocks.profileSelect }
-      : table === "households"
-        ? { select: mocks.householdSelect }
-      : { select: mocks.authorizationSelect });
+  mocks.from.mockImplementation((table: string) =>
+    table === "household_members"
+      ? { select: mocks.memberSelect }
+      : table === "member_cards"
+        ? { select: mocks.cardSelect }
+        : table === "profiles"
+          ? { select: mocks.profileSelect }
+          : table === "households"
+            ? { select: mocks.householdSelect }
+            : { select: mocks.authorizationSelect },
+  );
   mocks.memberSelect.mockReturnValue({ eq: mocks.memberEq });
   mocks.memberEq.mockReturnValue({ order: mocks.memberOrder });
   mocks.memberOrder.mockResolvedValue({ data: [{ user_id: "owner-id", role: "owner", color: "#dcece3" }], error: null });
-  mocks.memberSelect.mockImplementation((columns: string) => columns === "user_id, role, color"
-    ? { eq: mocks.colorHouseholdEq }
-    : { eq: mocks.memberEq });
+  mocks.memberSelect.mockImplementation((columns: string) =>
+    columns === "user_id, role, color, joined_at" ? { eq: mocks.colorHouseholdEq } : { eq: mocks.memberEq },
+  );
   mocks.colorHouseholdEq.mockReturnValue({ order: mocks.memberOrder });
   mocks.authorizationSelect.mockReturnValue({ eq: mocks.authorizationEq });
   mocks.authorizationEq.mockReturnValue({ maybeSingle: mocks.authorizationMaybeSingle });
@@ -70,9 +86,9 @@ beforeEach(() => {
   mocks.cardHouseholdEq.mockReturnValue({ eq: mocks.cardUserEq });
   mocks.cardUserEq.mockReturnValue({ maybeSingle: mocks.cardMaybeSingle });
   mocks.cardMaybeSingle.mockResolvedValue({ data: { last_four: "4548" }, error: null });
-  mocks.profileSelect.mockImplementation((columns: string) => columns === "id, full_name"
-    ? { eq: mocks.partnerProfileEq }
-    : { eq: mocks.profileEq });
+  mocks.profileSelect.mockImplementation((columns: string) =>
+    columns === "id, full_name" ? { eq: mocks.partnerProfileEq } : { eq: mocks.profileEq },
+  );
   mocks.profileEq.mockReturnValue({ maybeSingle: mocks.profileMaybeSingle });
   mocks.profileMaybeSingle.mockResolvedValue({ data: { full_name: "Ada Lovelace" }, error: null });
   mocks.partnerProfileEq.mockReturnValue({ maybeSingle: mocks.partnerProfileMaybeSingle });
@@ -88,19 +104,22 @@ it("renders Appearance, Household, and Account cards", async () => {
   expect(markup).toContain("Appearance");
   expect(markup).toContain("Household");
   expect(markup).toContain("Account");
+  expect(markup).toContain('aria-label="Save changes"');
   expect(markup).toContain("The Lovelaces");
   expect(markup).toContain("User color");
-  expect(markup).toContain("Session");
+  expect(markup).toContain("User name");
+  expect(markup).toContain('aria-label="Log out"');
+  expect(markup).toContain('data-settings-logout="true"');
+  expect(markup).not.toContain("End this browser session");
   expect(markup).not.toMatch(/>Name<\/p>/);
   expect(markup).toContain("Last 4 digits");
   expect(markup).not.toContain("Card ending");
-  expect(markup).toMatch(/<p[^>]*>Ada Lovelace<\/p>/);
-  expect(markup).toContain(">Edit</button>");
-  expect(markup.match(/w-\[min\(22rem,55vw\)\]/g)).toHaveLength(2);
+  expect(markup).toContain('name="profileName" value="Ada Lovelace"');
+  expect(markup).not.toContain('aria-label="Save household name"');
+  expect(markup.match(/w-\[min\(22rem,55vw\)\]/g)).toHaveLength(4);
   expect(mocks.from).toHaveBeenCalledWith("profiles");
   expect(mocks.from).toHaveBeenCalledWith("households");
   expect(mocks.profileEq).toHaveBeenCalledWith("id", "owner-id");
-  expect(markup.indexOf("Partner access")).toBeLessThan(markup.indexOf("Session"));
   expect(markup.indexOf("Household")).toBeLessThan(markup.indexOf("Account"));
 });
 
@@ -108,6 +127,9 @@ it("derives the empty owner state through the member request context", async () 
   const markup = renderToStaticMarkup(await settingsModule.default());
 
   expect(markup).toContain('data-partner-state="empty"');
+  expect(markup).toContain(">Members</p>");
+  expect(markup).toContain("Manage members.");
+  expect(markup).toContain('aria-label="Manage members"');
   expect(mocks.from).toHaveBeenCalledWith("household_members");
   expect(mocks.from).toHaveBeenCalledWith("household_allowed_members");
   expect(mocks.from).toHaveBeenCalledWith("profiles");
@@ -122,6 +144,7 @@ it("renders pending partner access for an owner authorization without a joined m
 
   expect(markup).toContain('data-partner-state="pending"');
   expect(markup).toContain("partner@example.com");
+  expect(markup).toContain("Manage members.");
 });
 
 it("renders joined partner access for an owner authorization with a joined member", async () => {
@@ -136,24 +159,30 @@ it("renders joined partner access for an owner authorization with a joined membe
 
   const markup = renderToStaticMarkup(await settingsModule.default());
 
-  expect(markup).toContain('data-partner-state="joined"');
-  expect(markup).toMatch(/>Name<\/p>/);
-  expect(markup).toContain("Grace Hopper");
-  expect(markup).toContain("User color");
-  expect(markup).toContain("#123456");
-  expect(markup).toContain("partner@example.com");
-  expect(markup).toMatch(/>Role<\/p>/);
-  expect(markup).toContain("Member");
+  expect(markup).not.toContain('data-household-members="true"');
+  expect(markup).toContain(">Members</p>");
+  expect(markup).toContain("Manage members.");
+  expect(markup).toContain('aria-label="Manage members"');
+  expect(markup).not.toContain("Owner");
+  expect(markup).not.toContain(">Member</span>");
+  expect(markup).not.toMatch(/>Name<\/p>/);
+  expect(markup).not.toMatch(/>Role<\/p>/);
   expect(mocks.partnerProfileEq).toHaveBeenCalledWith("id", "partner-id");
 });
 
 it("does not query partner authorization for a member", async () => {
   mocks.getCurrentHouseholdContext.mockResolvedValue({
-    status: "member", supabase: { from: mocks.from }, userId: "member-id", householdId: "household-id", role: "member",
+    status: "member",
+    supabase: { from: mocks.from },
+    userId: "member-id",
+    email: "member@example.com",
+    householdId: "household-id",
+    role: "member",
   });
 
   const markup = renderToStaticMarkup(await settingsModule.default());
 
-  expect(markup).not.toContain("Partner access");
+  expect(markup).not.toContain(">Members</p>");
+  expect(markup).not.toContain('aria-label="Manage members"');
   expect(mocks.authorizationSelect).not.toHaveBeenCalled();
 });

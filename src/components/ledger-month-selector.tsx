@@ -9,14 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
 import { formatShortDateRange, type DateRange as IsoDateRange } from "@/lib/date-range";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const months = [
   ["01", "January"],
@@ -34,7 +27,7 @@ const months = [
 ] as const;
 
 export function isCompleteLedgerRange(range: DateRange | undefined): range is DateRange & { from: Date; to: Date } {
-  return Boolean(range?.from && range.to && range.from.getTime() !== range.to.getTime());
+  return Boolean(range?.from && range.to);
 }
 
 export function getLedgerYearOptions(selectedYear: number, currentYear = new Date().getFullYear()) {
@@ -92,42 +85,82 @@ export function LedgerMonthSelector({ month, range }: { month: string; range?: I
   return (
     <div className="mt-6 flex flex-wrap items-end gap-3" aria-label="Ledger month controls">
       <Select value={selectedMonth} onValueChange={(nextMonth) => selectMonth(selectedYear, nextMonth)}>
-        <SelectTrigger aria-label="Select ledger month" className="min-h-11 min-w-36 rounded-xl font-medium shadow-[0_8px_22px_-10px] shadow-foreground/10">
+        <SelectTrigger
+          aria-label="Select ledger month"
+          className="min-h-11 min-w-36 rounded-xl font-medium shadow-[0_8px_22px_-10px] shadow-foreground/10"
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
             {months.map(([value, label]) => (
-              <SelectItem key={value} value={value}>{label}</SelectItem>
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
             ))}
           </SelectGroup>
         </SelectContent>
       </Select>
       <Select value={selectedYear} onValueChange={(nextYear) => selectMonth(nextYear, selectedMonth)}>
-        <SelectTrigger aria-label="Select ledger year" className="min-h-11 min-w-28 rounded-xl font-medium shadow-[0_8px_22px_-10px] shadow-foreground/10">
+        <SelectTrigger
+          aria-label="Select ledger year"
+          className="min-h-11 min-w-28 rounded-xl font-medium shadow-[0_8px_22px_-10px] shadow-foreground/10"
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
             {years.map((year) => (
-              <SelectItem key={year} value={year}>{year}</SelectItem>
+              <SelectItem key={year} value={year}>
+                {year}
+              </SelectItem>
             ))}
           </SelectGroup>
         </SelectContent>
       </Select>
-      <Popover open={rangeOpen} onOpenChange={(open) => { setRangeOpen(open); if (open) setPendingRange(undefined); }}>
+      <Popover
+        open={rangeOpen}
+        onOpenChange={(open) => {
+          setRangeOpen(open);
+          if (open) setPendingRange(undefined);
+        }}
+      >
         <PopoverTrigger asChild>
-          <Button type="button" variant="outline" className="min-h-11 min-w-48 justify-start rounded-xl shadow-[0_8px_22px_-10px] shadow-foreground/10" aria-label="Choose custom date range">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 min-w-48 justify-start rounded-xl shadow-[0_8px_22px_-10px] shadow-foreground/10"
+            aria-label="Choose custom date range"
+          >
             <CalendarDays data-icon="inline-start" />
             {range ? formatShortDateRange(range) : "Start date – End date"}
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-auto rounded-2xl border-white/70 bg-popover p-3 shadow-[0_20px_60px_rgba(15,44,55,0.18)]">
+        <PopoverContent
+          align="start"
+          className="w-auto rounded-2xl border-white/70 bg-popover p-3 shadow-[0_20px_60px_rgba(15,44,55,0.18)]"
+        >
           <PopoverHeader>
             <PopoverTitle>Select date range</PopoverTitle>
           </PopoverHeader>
           <Calendar mode="range" min={1} selected={pendingRange} onSelect={selectRange} numberOfMonths={1} buttonVariant="ghost" />
-          {range ? <Button type="button" variant="ghost" onClick={() => { const params = new URLSearchParams(searchParams); params.delete("from"); params.delete("to"); params.set("month", month); setPendingRange(undefined); update(params); setRangeOpen(false); }}>Clear range</Button> : null}
+          {range ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                const params = new URLSearchParams(searchParams);
+                params.delete("from");
+                params.delete("to");
+                params.set("month", month);
+                setPendingRange(undefined);
+                update(params);
+                setRangeOpen(false);
+              }}
+            >
+              Clear range
+            </Button>
+          ) : null}
         </PopoverContent>
       </Popover>
     </div>

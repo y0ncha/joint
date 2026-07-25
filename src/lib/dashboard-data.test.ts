@@ -27,18 +27,39 @@ beforeEach(() => {
   mocks.buildMonthlyReport.mockReturnValue({ sharedBalance: 9275.5 });
   mocks.from.mockImplementation((table) => {
     if (table === "accounts") throw new Error("Dashboard loading must not query accounts.");
-    const result = table === "households"
-      ? { data: { opening_balance: "9000.50" }, error: null }
-      : table === "categories"
-        ? { data: [{ id: "food", name: "Food", kind: "expense", archived_at: null }], error: null }
-        : table === "transactions"
-          ? { data: [{ id: "transaction-id", kind: "expense", amount: "125", occurred_on: "2026-07-14", category_id: null, note: "Statement note", merchant: "Super Pharm", source: "statement_import", created_at: "2026-07-14T08:00:00Z", paid_by: null }], error: null }
-          : { data: [{ user_id: "member-id", role: "owner" }], error: null };
+    const result =
+      table === "households"
+        ? { data: { opening_balance: "9000.50" }, error: null }
+        : table === "categories"
+          ? { data: [{ id: "food", name: "Food", kind: "expense", archived_at: null }], error: null }
+          : table === "transactions"
+            ? {
+                data: [
+                  {
+                    id: "transaction-id",
+                    kind: "expense",
+                    amount: "125",
+                    occurred_on: "2026-07-14",
+                    category_id: null,
+                    note: "Statement note",
+                    merchant: "Super Pharm",
+                    source: "statement_import",
+                    created_at: "2026-07-14T08:00:00Z",
+                    paid_by: null,
+                  },
+                ],
+                error: null,
+              }
+            : { data: [{ user_id: "member-id", role: "owner" }], error: null };
     const query = { order: vi.fn().mockResolvedValue(result) };
-    const eq = table === "households" ? mocks.householdEq
-      : table === "categories" ? mocks.categoriesEq
-        : table === "transactions" ? mocks.transactionsEq
-          : mocks.membersEq;
+    const eq =
+      table === "households"
+        ? mocks.householdEq
+        : table === "categories"
+          ? mocks.categoriesEq
+          : table === "transactions"
+            ? mocks.transactionsEq
+            : mocks.membersEq;
     eq.mockReturnValue(table === "households" ? { single: vi.fn().mockResolvedValue(result) } : query);
     return { select: vi.fn(() => ({ eq })) };
   });
@@ -62,12 +83,16 @@ it("loads the household opening balance through the member request context", asy
 it("keeps imported merchant, uncategorized, and unassigned fields for report rendering", async () => {
   await dashboardDataModule.getDashboardData("2026-07");
 
-  expect(mocks.buildMonthlyReport).toHaveBeenCalledWith(expect.objectContaining({
-    transactions: [expect.objectContaining({
-      categoryId: null,
-      paidBy: null,
-      merchant: "Super Pharm",
-      source: "statement_import",
-    })],
-  }));
+  expect(mocks.buildMonthlyReport).toHaveBeenCalledWith(
+    expect.objectContaining({
+      transactions: [
+        expect.objectContaining({
+          categoryId: null,
+          paidBy: null,
+          merchant: "Super Pharm",
+          source: "statement_import",
+        }),
+      ],
+    }),
+  );
 });

@@ -39,8 +39,9 @@ describe("member card action", () => {
   });
 
   it("derives a first mapping from verified membership instead of form identifiers", async () => {
-    await expect(actions.saveCurrentMemberCard(null, formData({ lastFour: "4548", householdId: "other-household", userId: "other-user" })))
-      .resolves.toEqual({ status: "success" });
+    await expect(
+      actions.saveCurrentMemberCard(null, formData({ lastFour: "4548", householdId: "other-household", userId: "other-user" })),
+    ).resolves.toEqual({ status: "success" });
 
     expect(mocks.from).toHaveBeenCalledWith("member_cards");
     expect(mocks.insert).toHaveBeenCalledWith({ household_id: "household-id", user_id: "member-id", last_four: "4548" });

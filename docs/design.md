@@ -23,26 +23,26 @@ The implementation source of truth is `src/app/globals.css`. Use semantic CSS to
 
 ### Foundation palette
 
-| Role | Value | Usage |
-| --- | --- | --- |
-| Canvas start | `#f6d4b8` | Warm top-left of the fixed application gradient. |
-| Canvas middle | `#b5cad0` | Cool transition through the canvas. |
-| Canvas end | `#0d4f73` | Deep-blue lower edge of the canvas. |
-| `background` | `#f6d4b8` | Fallback page background. |
-| `foreground` | `#17201d` | Primary text and high-emphasis icons. |
-| `card` | `rgba(255, 252, 247, 0.92)` | Main floating surfaces. |
-| `popover` | `#fffdfb` | Fully opaque, neutral menus, calendars, selects, and popovers. |
-| `muted-foreground` | `#58635e` | Supporting text and quiet icons. |
-| `border` | `rgba(23, 32, 29, 0.12)` | Low-contrast boundaries and dividers. |
-| `positive` | `#0f6b54` | Positive financial values. |
-| `negative` | `#9e3e35` | Negative financial values. |
-| `destructive` | `#9e3e35` | Irreversible actions and destructive context. |
+| Role               | Value                       | Usage                                                          |
+| ------------------ | --------------------------- | -------------------------------------------------------------- |
+| Canvas start       | `#f6d4b8`                   | Warm top-left of the fixed application gradient.               |
+| Canvas middle      | `#b5cad0`                   | Cool transition through the canvas.                            |
+| Canvas end         | `#0d4f73`                   | Deep-blue lower edge of the canvas.                            |
+| `background`       | `#f6d4b8`                   | Fallback page background.                                      |
+| `foreground`       | `#17201d`                   | Primary text and high-emphasis icons.                          |
+| `card`             | `rgba(255, 252, 247, 0.92)` | Main floating surfaces.                                        |
+| `popover`          | `#fffdfb`                   | Fully opaque, neutral menus, calendars, selects, and popovers. |
+| `muted-foreground` | `#58635e`                   | Supporting text and quiet icons.                               |
+| `border`           | `rgba(23, 32, 29, 0.12)`    | Low-contrast boundaries and dividers.                          |
+| `positive`         | `#0f6b54`                   | Positive financial values.                                     |
+| `negative`         | `#9e3e35`                   | Negative financial values.                                     |
+| `destructive`      | `#9e3e35`                   | Irreversible actions and destructive context.                  |
 
 Color must reinforce meaning rather than carry it alone. Text, values, labels, or icons must communicate the same meaning without color.
 
 ### Personal accent color
 
-Each browser may select any hex accent with a `react-color` BlockPicker. The preference is stored locally as `joint-accent`; it is not shared household data. The selected accent may change primary actions, neutral emphasis, chart steps, focus rings, and active navigation. It must not change positive, negative, expense, or destructive meaning.
+Each browser selects its accent from the fixed `react-color` CirclePicker preset palette. The preference is stored locally as `joint-accent`; it is not shared household data. The selected accent may change primary actions, neutral emphasis, chart steps, focus rings, and active navigation. It must not change positive, negative, expense, or destructive meaning. Accent selection does not offer a custom hex input.
 
 ### Contrast
 
@@ -99,7 +99,7 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 - Do not repeat the row label as the control label. Name the setting on the left and use an action verb on the control, such as `Session` and `Log out`.
 - Ordinary row controls use small selects, compact outline buttons, text values, or labelled icon buttons. Reserve primary fills for creation and destructive fills for irreversible actions.
 - Pills are compact labelled `Badge` capsules with a one-pixel low-contrast border. Income and expense use fixed semantic positive and negative colors; unassigned and uncategorized use neutral gray; member and category pills use their shared household pastel color. Pills always include their text label; color is supplemental.
-- The ledger card header has one subtle, labelled gear button. Its right-side Sheet contains sorting plus type, category, and payer filters; active filters remain visible through the URL. Month and year selectors sit above the ledger beside a custom-range button that opens the owned Calendar range picker; a selected range replaces the month scope. Ledger rows always expose warm-neutral checkboxes that use the selected accent when checked, plus a destructive bulk-delete action that always requires confirmation.
+- The ledger card header has one subtle, labelled gear button. Its right-side Sheet contains sorting plus type, category, and payer filters; active filters remain visible through the URL. Every filter choice and sort trigger has a 44px minimum target. Month and year selectors sit above the ledger beside a custom-range button that opens the owned Calendar range picker; a selected range, including one day, replaces the month scope. Ledger rows always expose warm-neutral checkboxes that use the selected accent when checked, plus a destructive bulk-delete action that always requires confirmation.
 
 ### Forms and overlays
 
@@ -119,12 +119,9 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 
 - Appearance, household, and account concerns use separate section cards, in that order.
 - The `Household` card sits above `Account` and contains the owner-editable household name and partner-access controls. Members may view the household name but cannot edit it.
-- Name, user color, card mapping, and session controls are rows inside the `Account` card, not separate cards. A member can edit only their own non-empty display name; the saved name is the row label and an `Edit` action opens the editor. A saved change updates their profile and desktop avatar initials.
-- Signing out is a session action, not a destructive action.
-- The `Log out` row is the final row in the Account card.
-- A member may select only their own user color from Account. The selection is shared household data and changes that member's supplemental color everywhere it appears. Categories, user colors, and the browser-local accent use `react-color` CirclePicker swatches plus a final `Custom color` circle that opens a BlockPicker. The BlockPicker includes all recent custom colors and its hex input. Category and user colors remain labelled supplemental visuals; the accent never changes financial or destructive semantics. New members receive the next available pastel until they change it.
-- Only the household owner sees Partner access. It uses an outline `Manage partner` control, an owned `Popover`, and destructive confirmation only for removal.
-- Owners see one of three partner-access states: no authorization, pending sign-in, or joined partner. A joined partner expands into read-only Name, User color, Email, and Role (`Member`) subrows. Pending access exposes its fixed email and pending status only. Pending and joined states expose removal rather than replacement; authorizing another email requires removing the current access first.
+- User name, user color, card mapping, and session controls are rows inside the `Account` card, not separate cards. A header Save control atomically persists changed user name, household name, and user color; a member can edit only their own display name. A saved change updates their profile and desktop avatar initials. Header Log out confirms leaving when settings are unsaved.
+- A member may select only their own user color from Account. User colors and the browser-local accent use fixed `react-color` CirclePicker presets with no custom hex input. Categories retain the final `Custom color` circle that opens a BlockPicker, including its hex input. User colors remain labelled supplemental visuals; the accent never changes financial or destructive semantics. New members receive the next available pastel until they change it.
+- Only the household owner sees the `Members` field with the `UsersRound` icon, a short management description, and an accessible icon-only edit control. It opens the established right-side Sheet with read-only owner and partner-access cards. Joined household summaries show both people with avatars, display names (falling back to the known email), email, and joined date; do not show card mappings, colors, or role pills. The owner may invite one Google email, or remove a pending or joined partner after confirmation; authorizing another email requires removal first. A member never sees household member details or controls in Settings.
 
 ### Sign-in and access denial
 

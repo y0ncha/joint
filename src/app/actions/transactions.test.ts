@@ -24,7 +24,13 @@ function formData(values: Record<string, string>) {
 
 function transactionForm(overrides: Record<string, string> = {}) {
   return formData({
-    kind: "expense", amount: "50", occurredOn: "2026-07-14", categoryId: "food", paidBy: "partner-id", note: "Groceries", ...overrides,
+    kind: "expense",
+    amount: "50",
+    occurredOn: "2026-07-14",
+    categoryId: "food",
+    paidBy: "partner-id",
+    note: "Groceries",
+    ...overrides,
   });
 }
 
@@ -77,12 +83,20 @@ describe("transaction actions", () => {
   it("creates an account-free transaction through verified request membership", async () => {
     const { payerEqHousehold } = configureContextClient();
 
-    await expect(transactionsModule.createTransaction(transactionForm({ householdId: "other-household" }))).resolves.toEqual({ status: "success" });
+    await expect(transactionsModule.createTransaction(transactionForm({ householdId: "other-household" }))).resolves.toEqual({
+      status: "success",
+    });
 
     expect(mocks.from).toHaveBeenCalledWith("household_members");
     expect(mocks.insert).toHaveBeenCalledWith({
-      household_id: "household-id", created_by: "member-id", paid_by: "partner-id", kind: "expense", amount: 50,
-      occurred_on: "2026-07-14", category_id: "food", note: "Groceries",
+      household_id: "household-id",
+      created_by: "member-id",
+      paid_by: "partner-id",
+      kind: "expense",
+      amount: 50,
+      occurred_on: "2026-07-14",
+      category_id: "food",
+      note: "Groceries",
     });
     expect(mocks.from).not.toHaveBeenCalledWith("accounts");
     expect(payerEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
@@ -112,7 +126,9 @@ describe("transaction actions", () => {
     configureContextClient({ payer: null });
 
     await expect(transactionsModule.createTransaction(transactionForm())).resolves.toEqual({
-      status: "error", formError: "Choose a household member for this transaction.", fieldErrors: { paidBy: "Choose a household member." },
+      status: "error",
+      formError: "Choose a household member for this transaction.",
+      fieldErrors: { paidBy: "Choose a household member." },
     });
     expect(mocks.insert).not.toHaveBeenCalled();
     expect(mocks.from).not.toHaveBeenCalledWith("accounts");
@@ -122,16 +138,27 @@ describe("transaction actions", () => {
     configureContextClient({ transactionError: { message: "database details" } });
 
     await expect(transactionsModule.createTransaction(transactionForm())).resolves.toEqual({
-      status: "error", formError: "Unable to save the transaction. Please try again.", fieldErrors: {},
+      status: "error",
+      formError: "Unable to save the transaction. Please try again.",
+      fieldErrors: {},
     });
   });
 
   it("updates only account-free fields within the verified household", async () => {
     const { payerEqHousehold, transactionEqHousehold, transactionEqId } = configureContextClient();
 
-    await expect(transactionsModule.updateTransaction("transaction-id", transactionForm({ amount: "51", paidBy: "member-id", note: "Updated" }))).resolves.toEqual({ status: "success" });
+    await expect(
+      transactionsModule.updateTransaction("transaction-id", transactionForm({ amount: "51", paidBy: "member-id", note: "Updated" })),
+    ).resolves.toEqual({ status: "success" });
 
-    expect(mocks.update).toHaveBeenCalledWith({ kind: "expense", amount: 51, occurred_on: "2026-07-14", paid_by: "member-id", category_id: "food", note: "Updated" });
+    expect(mocks.update).toHaveBeenCalledWith({
+      kind: "expense",
+      amount: 51,
+      occurred_on: "2026-07-14",
+      paid_by: "member-id",
+      category_id: "food",
+      note: "Updated",
+    });
     expect(transactionEqId).toHaveBeenCalledWith("id", "transaction-id");
     expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(payerEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
@@ -140,9 +167,13 @@ describe("transaction actions", () => {
   });
 
   it("keeps imported transactions uncategorized and unassigned when editing", async () => {
-    const { sourceEqHousehold, sourceEqId, transactionEqHousehold, transactionEqId } = configureContextClient({ existingTransaction: { source: "statement_import" } });
+    const { sourceEqHousehold, sourceEqId, transactionEqHousehold, transactionEqId } = configureContextClient({
+      existingTransaction: { source: "statement_import" },
+    });
 
-    await expect(transactionsModule.updateTransaction("transaction-id", transactionForm({ categoryId: "", paidBy: "" }))).resolves.toEqual({ status: "success" });
+    await expect(transactionsModule.updateTransaction("transaction-id", transactionForm({ categoryId: "", paidBy: "" }))).resolves.toEqual({
+      status: "success",
+    });
 
     expect(mocks.from).not.toHaveBeenCalledWith("household_members");
     expect(mocks.select).toHaveBeenCalledWith("source");
@@ -157,7 +188,9 @@ describe("transaction actions", () => {
   it("rejects a blank category when updating a stored manual transaction", async () => {
     const { sourceEqHousehold, sourceEqId } = configureContextClient({ existingTransaction: { source: "manual" } });
 
-    await expect(transactionsModule.updateTransaction("transaction-id", transactionForm({ categoryId: "", paidBy: "member-id" }))).resolves.toMatchObject({
+    await expect(
+      transactionsModule.updateTransaction("transaction-id", transactionForm({ categoryId: "", paidBy: "member-id" })),
+    ).resolves.toMatchObject({
       status: "error",
       fieldErrors: { categoryId: "Select a value." },
     });
@@ -172,7 +205,9 @@ describe("transaction actions", () => {
     configureContextClient({ transactionError: { message: "database details" } });
 
     await expect(transactionsModule.updateTransaction("transaction-id", transactionForm())).resolves.toEqual({
-      status: "error", formError: "Unable to update the transaction. Please try again.", fieldErrors: {},
+      status: "error",
+      formError: "Unable to update the transaction. Please try again.",
+      fieldErrors: {},
     });
   });
 
@@ -190,7 +225,9 @@ describe("transaction actions", () => {
     configureContextClient({ transactionError: { message: "database details" } });
 
     await expect(transactionsModule.deleteTransaction("transaction-id")).resolves.toEqual({
-      status: "error", formError: "Unable to delete the transaction. Please try again.", fieldErrors: {},
+      status: "error",
+      formError: "Unable to delete the transaction. Please try again.",
+      fieldErrors: {},
     });
   });
 

@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(53);
+select extensions.plan(59);
 
 select extensions.hasnt_table('public', 'accounts', 'has no accounts table');
 select extensions.hasnt_type('public', 'account_kind', 'has no account kind enum');
@@ -745,6 +745,43 @@ select extensions.throws_like(
   $$ select public.set_current_household_member_color('blue') $$,
   '%Invalid color%',
   'a household member cannot select an invalid color'
+);
+
+select extensions.lives_ok(
+  $$ select public.save_current_settings('Ada Updated', 'Updated household', '#dcecf2') $$,
+  'an owner can save all settings atomically'
+);
+
+select extensions.is(
+  (select full_name from public.profiles where id = '00000000-0000-0000-0000-000000000401'),
+  'Ada Updated',
+  'an atomic settings save updates the current profile'
+);
+
+select extensions.is(
+  (select name from public.households where id = '00000000-0000-0000-0000-000000000410'),
+  'Updated household',
+  'an atomic settings save updates the owned household'
+);
+
+select extensions.throws_like(
+  $$ select public.save_current_settings('Should roll back', null, 'blue') $$,
+  '%Invalid color%',
+  'an invalid later settings value aborts the whole save'
+);
+
+select extensions.is(
+  (select full_name from public.profiles where id = '00000000-0000-0000-0000-000000000401'),
+  'Ada Updated',
+  'a failed atomic settings save does not persist earlier updates'
+);
+
+reset role;
+set local role anon;
+
+select extensions.ok(
+  not has_table_privilege('anon', 'public.transactions', 'select'),
+  'anonymous callers cannot select transactions'
 );
 
 reset role;
