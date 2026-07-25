@@ -7,6 +7,8 @@ import { requireCurrentHousehold } from "@/lib/household";
 import { isHexColor } from "@/lib/shared-colors";
 import { categorySchema } from "@/lib/validation";
 
+const subcategorySchema = categorySchema.pick({ name: true });
+
 export async function createCategory(input: FormData): Promise<ActionResult> {
   const parsed = categorySchema.safeParse(Object.fromEntries(input));
   if (!parsed.success) return validationError(parsed.error.issues);
@@ -48,6 +50,50 @@ export async function archiveCategory(categoryId: string): Promise<ActionResult>
     .eq("household_id", household.householdId);
   if (error) return { status: "error", formError: "Unable to archive the category. Please try again.", fieldErrors: {} };
   revalidatePath("/");
+  revalidatePath("/categories");
+  return { status: "success" };
+}
+
+export async function createSubcategory(categoryId: string, input: FormData): Promise<ActionResult> {
+  const parsed = subcategorySchema.safeParse(Object.fromEntries(input));
+  if (!parsed.success) return validationError(parsed.error.issues);
+  const household = await requireCurrentHousehold();
+  const { error } = await household.supabase
+    .from("subcategories")
+    .insert({ household_id: household.householdId, category_id: categoryId, name: parsed.data.name });
+  if (error) return { status: "error", formError: "Unable to save the subcategory. Please try again.", fieldErrors: {} };
+  revalidatePath("/");
+  revalidatePath("/transactions");
+  revalidatePath("/categories");
+  return { status: "success" };
+}
+
+export async function updateSubcategory(subcategoryId: string, input: FormData): Promise<ActionResult> {
+  const parsed = subcategorySchema.safeParse(Object.fromEntries(input));
+  if (!parsed.success) return validationError(parsed.error.issues);
+  const household = await requireCurrentHousehold();
+  const { error } = await household.supabase
+    .from("subcategories")
+    .update({ name: parsed.data.name })
+    .eq("id", subcategoryId)
+    .eq("household_id", household.householdId);
+  if (error) return { status: "error", formError: "Unable to update the subcategory. Please try again.", fieldErrors: {} };
+  revalidatePath("/");
+  revalidatePath("/transactions");
+  revalidatePath("/categories");
+  return { status: "success" };
+}
+
+export async function archiveSubcategory(subcategoryId: string): Promise<ActionResult> {
+  const household = await requireCurrentHousehold();
+  const { error } = await household.supabase
+    .from("subcategories")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", subcategoryId)
+    .eq("household_id", household.householdId);
+  if (error) return { status: "error", formError: "Unable to archive the subcategory. Please try again.", fieldErrors: {} };
+  revalidatePath("/");
+  revalidatePath("/transactions");
   revalidatePath("/categories");
   return { status: "success" };
 }

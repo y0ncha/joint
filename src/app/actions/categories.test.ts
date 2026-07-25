@@ -6,10 +6,11 @@ const mocks = vi.hoisted(() => ({
   insert: vi.fn(),
   update: vi.fn(),
   eq: vi.fn(),
+  revalidatePath: vi.fn(),
 }));
 
 vi.mock("@/lib/household", () => ({ requireCurrentHousehold: mocks.requireCurrentHousehold }));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 
 const actions = await import("./categories");
 
@@ -88,5 +89,70 @@ describe("category actions", () => {
       "This Google account does not have access to Joint.",
     );
     expect(mocks.from).not.toHaveBeenCalled();
+  });
+});
+
+describe("subcategory actions", () => {
+  it.each([
+    ["create", () => actions.createSubcategory("category-id", formData({ name: " " }))],
+    ["update", () => actions.updateSubcategory("subcategory-id", formData({ name: "x".repeat(81) }))],
+  ])("rejects a malformed subcategory name before %s touches data", async (_, action) => {
+    await expect(action()).resolves.toMatchObject({ status: "error" });
+
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("creates a trimmed subcategory in the verified household without category fields", async () => {
+    await expect(
+      actions.createSubcategory(
+        "category-id",
+        formData({ householdId: "other-household", name: " Groceries ", kind: "expense", color: "#dcece3" }),
+      ),
+    ).resolves.toEqual({ status: "success" });
+
+    expect(mocks.from).toHaveBeenCalledWith("subcategories");
+    expect(mocks.insert).toHaveBeenCalledWith({ household_id: "household-id", category_id: "category-id", name: "Groceries" });
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/categories");
+  });
+
+  it("updates only the verified household subcategory name", async () => {
+    const eqHousehold = vi.fn().mockResolvedValue({ error: null });
+    const eqId = vi.fn().mockReturnValue({ eq: eqHousehold });
+    mocks.update.mockReturnValue({ eq: eqId });
+
+    await expect(
+      actions.updateSubcategory("subcategory-id", formData({ name: " Household groceries ", categoryId: "other-category" })),
+    ).resolves.toEqual({
+      status: "success",
+    });
+
+    expect(mocks.from).toHaveBeenCalledWith("subcategories");
+    expect(mocks.update).toHaveBeenCalledWith({ name: "Household groceries" });
+    expect(eqId).toHaveBeenCalledWith("id", "subcategory-id");
+    expect(eqHousehold).toHaveBeenCalledWith("household_id", "household-id");
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/categories");
+  });
+
+  it("archives only the verified household subcategory", async () => {
+    const eqHousehold = vi.fn().mockResolvedValue({ error: null });
+    const eqId = vi.fn().mockReturnValue({ eq: eqHousehold });
+    mocks.update.mockReturnValue({ eq: eqId });
+
+    await expect(actions.archiveSubcategory("subcategory-id")).resolves.toEqual({ status: "success" });
+
+    expect(mocks.from).toHaveBeenCalledWith("subcategories");
+    expect(mocks.update).toHaveBeenCalledWith({ archived_at: expect.any(String) });
+    expect(eqId).toHaveBeenCalledWith("id", "subcategory-id");
+    expect(eqHousehold).toHaveBeenCalledWith("household_id", "household-id");
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/categories");
   });
 });
