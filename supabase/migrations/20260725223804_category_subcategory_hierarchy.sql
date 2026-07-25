@@ -106,6 +106,56 @@ create trigger transactions_validate_subcategory
 before insert or update on public.transactions
 for each row execute function public.validate_transaction_subcategory();
 
+create function public.validate_category_transaction_links()
+returns trigger
+language plpgsql
+security invoker
+set search_path = pg_catalog, public
+as $$
+begin
+  if (new.household_id, new.kind) is distinct from (old.household_id, old.kind)
+    and exists (
+      select 1
+      from public.subcategories as subcategory
+      join public.transactions as txn
+        on txn.subcategory_id = subcategory.id
+      where subcategory.category_id = old.id
+    ) then
+    raise exception 'A referenced transaction category cannot change household or kind';
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger categories_validate_transaction_links
+before update of household_id, kind on public.categories
+for each row execute function public.validate_category_transaction_links();
+
+create function public.validate_subcategory_transaction_links()
+returns trigger
+language plpgsql
+security invoker
+set search_path = pg_catalog, public
+as $$
+begin
+  if (new.household_id, new.category_id) is distinct from (old.household_id, old.category_id)
+    and exists (
+      select 1
+      from public.transactions
+      where subcategory_id = old.id
+    ) then
+    raise exception 'A referenced transaction subcategory cannot change household or category';
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger subcategories_validate_transaction_links
+before update of household_id, category_id on public.subcategories
+for each row execute function public.validate_subcategory_transaction_links();
+
 drop index public.transactions_category_occurred_on_idx;
 
 create index transactions_subcategory_occurred_on_idx
