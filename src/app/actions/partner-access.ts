@@ -23,8 +23,10 @@ export async function setAllowedPartnerEmail(input: FormData): Promise<ActionRes
     .select("household_id")
     .single();
 
-  if (error?.code === "23505") return { status: "error", formError: "Partner access already exists. Remove it before authorizing another email.", fieldErrors: {} };
-  if (error || data?.household_id !== household.householdId) return { status: "error", formError: "Unable to authorize partner access. Please try again.", fieldErrors: {} };
+  if (error?.code === "23505")
+    return { status: "error", formError: "Partner access already exists. Remove it before authorizing another email.", fieldErrors: {} };
+  if (error || data?.household_id !== household.householdId)
+    return { status: "error", formError: "Unable to authorize partner access. Please try again.", fieldErrors: {} };
 
   revalidatePath("/settings");
   return { status: "success" };

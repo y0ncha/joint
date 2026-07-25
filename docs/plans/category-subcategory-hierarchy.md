@@ -1,11 +1,11 @@
 ---
-goal: 'Replace transaction categories with category-owned subcategories and expand automatic category colors'
-version: '1.0'
-date_created: '2026-07-25'
-last_updated: '2026-07-25'
-owner: 'Joint'
-status: 'Planned'
-tags: ['feature', 'database', 'categories', 'subcategories', 'ui', 'breaking-change']
+goal: "Replace transaction categories with category-owned subcategories and expand automatic category colors"
+version: "1.0"
+date_created: "2026-07-25"
+last_updated: "2026-07-25"
+owner: "Joint"
+status: "Planned"
+tags: ["feature", "database", "categories", "subcategories", "ui", "breaking-change"]
 ---
 
 # Introduction
@@ -39,49 +39,49 @@ Replace the single-level category model with top-level categories and their subc
 
 - **GOAL-001**: Establish the destructive category/subcategory database contract and regenerate generated types.
 
-| Task | Description | Status | Date |
-|------|-------------|--------|------|
-| TASK-001 | Add one new `supabase/migrations/<timestamp>_category_subcategory_hierarchy.sql` migration that truncates `public.transactions` and `public.categories` with cascade, creates `public.subcategories`, enables its RLS policy, and verifies the table has no `color` or `kind` column. | Planned |  |
-| TASK-002 | Replace `transactions.category_id` with `transactions.subcategory_id` in the migration, add the transaction check constraints and partial index, and verify manual rows require a subcategory while imported rows may use `NULL`. | Planned |  |
-| TASK-003 | Replace `public.validate_transaction_category()` with a subcategory-aware validator that locks the subcategory and parent category, verifies household and kind, and rejects references to archived categories or subcategories. | Planned |  |
-| TASK-004 | Add database guards that reject changing a category household or kind, or changing a subcategory household or parent category, after a transaction references the subcategory. | Planned |  |
-| TASK-005 | Replace the five-color category insert trigger with a `private.next_category_pastel(household_id)` helper that chooses randomly from unused `PAT-001` colors and falls back to all colors after exhaustion; verify member-color functions remain unchanged. | Planned |  |
-| TASK-006 | Regenerate `src/lib/database.types.ts` from the migrated `joint-dev` schema and verify it exposes `subcategories` and `transactions.subcategory_id` without `transactions.category_id`. | Planned |  |
+| Task     | Description                                                                                                                                                                                                                                                                           | Status  | Date |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
+| TASK-001 | Add one new `supabase/migrations/<timestamp>_category_subcategory_hierarchy.sql` migration that truncates `public.transactions` and `public.categories` with cascade, creates `public.subcategories`, enables its RLS policy, and verifies the table has no `color` or `kind` column. | Planned |      |
+| TASK-002 | Replace `transactions.category_id` with `transactions.subcategory_id` in the migration, add the transaction check constraints and partial index, and verify manual rows require a subcategory while imported rows may use `NULL`.                                                     | Planned |      |
+| TASK-003 | Replace `public.validate_transaction_category()` with a subcategory-aware validator that locks the subcategory and parent category, verifies household and kind, and rejects references to archived categories or subcategories.                                                      | Planned |      |
+| TASK-004 | Add database guards that reject changing a category household or kind, or changing a subcategory household or parent category, after a transaction references the subcategory.                                                                                                        | Planned |      |
+| TASK-005 | Replace the five-color category insert trigger with a `private.next_category_pastel(household_id)` helper that chooses randomly from unused `PAT-001` colors and falls back to all colors after exhaustion; verify member-color functions remain unchanged.                           | Planned |      |
+| TASK-006 | Regenerate `src/lib/database.types.ts` from the migrated `joint-dev` schema and verify it exposes `subcategories` and `transactions.subcategory_id` without `transactions.category_id`.                                                                                               | Planned |      |
 
 ### Implementation Phase 2
 
 - **GOAL-002**: Propagate the category/subcategory contract through authenticated actions, report types, and data loading.
 
-| Task | Description | Status | Date |
-|------|-------------|--------|------|
-| TASK-007 | Replace `categoryId` with `subcategoryId` in `src/lib/validation.ts`, `src/app/actions/transactions.ts`, and their tests; validate a manual transaction always supplies a subcategory identifier. | Planned |  |
-| TASK-008 | Add authenticated `createSubcategory`, `updateSubcategory`, and `archiveSubcategory` Server Actions in `src/app/actions/categories.ts` that scope all queries to the current household and revalidate `/`, `/transactions`, and `/categories`. | Planned |  |
-| TASK-009 | Update `src/lib/finance-types.ts` and `src/lib/financial-report.ts` so report transactions expose `subcategoryId`, report subcategories carry their parent category ID, and expense totals accumulate under parent category IDs. | Planned |  |
-| TASK-010 | Update `src/lib/dashboard-data.ts` to load categories and subcategories in the current household, construct inherited-color subcategory view data, and pass both collections to `buildMonthlyReport`. | Planned |  |
-| TASK-011 | Update all page, action, financial-report, dashboard-data, and transaction test fixtures to use subcategory IDs and parent-category totals. | Planned |  |
+| Task     | Description                                                                                                                                                                                                                                    | Status  | Date |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
+| TASK-007 | Replace `categoryId` with `subcategoryId` in `src/lib/validation.ts`, `src/app/actions/transactions.ts`, and their tests; validate a manual transaction always supplies a subcategory identifier.                                              | Planned |      |
+| TASK-008 | Add authenticated `createSubcategory`, `updateSubcategory`, and `archiveSubcategory` Server Actions in `src/app/actions/categories.ts` that scope all queries to the current household and revalidate `/`, `/transactions`, and `/categories`. | Planned |      |
+| TASK-009 | Update `src/lib/finance-types.ts` and `src/lib/financial-report.ts` so report transactions expose `subcategoryId`, report subcategories carry their parent category ID, and expense totals accumulate under parent category IDs.               | Planned |      |
+| TASK-010 | Update `src/lib/dashboard-data.ts` to load categories and subcategories in the current household, construct inherited-color subcategory view data, and pass both collections to `buildMonthlyReport`.                                          | Planned |      |
+| TASK-011 | Update all page, action, financial-report, dashboard-data, and transaction test fixtures to use subcategory IDs and parent-category totals.                                                                                                    | Planned |      |
 
 ### Implementation Phase 3
 
 - **GOAL-003**: Deliver hierarchy management and subcategory-only transaction selection with inherited colors.
 
-| Task | Description | Status | Date |
-|------|-------------|--------|------|
-| TASK-012 | Add `categoryPastelColors`, `isCategoryPastelColor`, and an unused-first random selector to `src/lib/shared-colors.ts`, using the exact `PAT-001` registry and a deterministic injectable random source in its unit tests. | Planned |  |
-| TASK-013 | Update `src/app/(app)/categories/page.tsx`, `src/components/category-form.tsx`, and `src/components/category-list.tsx` to choose one unused default category color, show all 46 preset swatches, and provide create, rename, archive, and list controls for each category's subcategories. | Planned |  |
-| TASK-014 | Update `src/components/color-picker.tsx` so a caller-provided preset palette is excluded from custom-color recents, while member and accent picker defaults retain their existing behavior. | Planned |  |
-| TASK-015 | Update `src/components/transaction-sheet.tsx`, `src/components/transaction-ledger.tsx`, and `src/components/pill-select.tsx` to select only active matching-kind subcategories, label options and ledger badges as `Category → Subcategory`, and render the inherited category color. | Planned |  |
-| TASK-016 | Update `src/app/(app)/page.tsx`, `src/app/(app)/transactions/page.tsx`, and associated tests so dashboard totals display parent category names and all transaction entry points receive subcategory options. | Planned |  |
+| Task     | Description                                                                                                                                                                                                                                                                                | Status  | Date |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ---- |
+| TASK-012 | Add `categoryPastelColors`, `isCategoryPastelColor`, and an unused-first random selector to `src/lib/shared-colors.ts`, using the exact `PAT-001` registry and a deterministic injectable random source in its unit tests.                                                                 | Planned |      |
+| TASK-013 | Update `src/app/(app)/categories/page.tsx`, `src/components/category-form.tsx`, and `src/components/category-list.tsx` to choose one unused default category color, show all 46 preset swatches, and provide create, rename, archive, and list controls for each category's subcategories. | Planned |      |
+| TASK-014 | Update `src/components/color-picker.tsx` so a caller-provided preset palette is excluded from custom-color recents, while member and accent picker defaults retain their existing behavior.                                                                                                | Planned |      |
+| TASK-015 | Update `src/components/transaction-sheet.tsx`, `src/components/transaction-ledger.tsx`, and `src/components/pill-select.tsx` to select only active matching-kind subcategories, label options and ledger badges as `Category → Subcategory`, and render the inherited category color.      | Planned |      |
+| TASK-016 | Update `src/app/(app)/page.tsx`, `src/app/(app)/transactions/page.tsx`, and associated tests so dashboard totals display parent category names and all transaction entry points receive subcategory options.                                                                               | Planned |      |
 
 ### Implementation Phase 4
 
 - **GOAL-004**: Document, validate, and prepare the breaking change for user approval.
 
-| Task | Description | Status | Date |
-|------|-------------|--------|------|
-| TASK-017 | Update `docs/design.md` and `docs/architecture.md` to define the two-level taxonomy, inherited color rule, subcategory-only assignment, parent-category reporting, and destructive recreation/re-import workflow. | Planned |  |
-| TASK-018 | Extend `supabase/tests/shared_balance.sql` to prove RLS, parent ownership, kind enforcement, archive rejection, random-unused category color assignment, and permitted imported uncategorized rows. | Planned |  |
-| TASK-019 | Run the focused TypeScript and SQL tests, then run `bun run lint`, `bun run test`, and `bun run build`; mark every completed task only after its stated checks pass. | Planned |  |
-| TASK-020 | Apply and verify the migration only against `joint-dev`, confirm the active project before every linked Supabase command, and present the destructive impact before requesting implementation approval. | Planned |  |
+| Task     | Description                                                                                                                                                                                                       | Status  | Date |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
+| TASK-017 | Update `docs/design.md` and `docs/architecture.md` to define the two-level taxonomy, inherited color rule, subcategory-only assignment, parent-category reporting, and destructive recreation/re-import workflow. | Planned |      |
+| TASK-018 | Extend `supabase/tests/shared_balance.sql` to prove RLS, parent ownership, kind enforcement, archive rejection, random-unused category color assignment, and permitted imported uncategorized rows.               | Planned |      |
+| TASK-019 | Run the focused TypeScript and SQL tests, then run `bun run lint`, `bun run test`, and `bun run build`; mark every completed task only after its stated checks pass.                                              | Planned |      |
+| TASK-020 | Apply and verify the migration only against `joint-dev`, confirm the active project before every linked Supabase command, and present the destructive impact before requesting implementation approval.           | Planned |      |
 
 ## 3. Alternatives
 

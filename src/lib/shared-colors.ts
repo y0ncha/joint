@@ -17,5 +17,11 @@ export function isHexColor(value: unknown): value is string {
 }
 
 export function reusableCategoryColors(colors: Iterable<string | null | undefined>) {
-  return [...new Set(Array.from(colors, (color) => color?.toLowerCase()).filter((color): color is string => isHexColor(color) && !isSharedPastelColor(color)))];
+  return [
+    ...new Set(
+      Array.from(colors, (color) => color?.toLowerCase()).filter(
+        (color): color is string => isHexColor(color) && !isSharedPastelColor(color),
+      ),
+    ),
+  ];
 }

@@ -15,12 +15,17 @@ export function StatementImportSheet({ defaultOpen = false }: { defaultOpen?: bo
           Import
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg">
+      <SheetContent
+        side="right"
+        className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg"
+      >
         <SheetHeader className="p-6">
           <SheetTitle className="text-xl">Import CSV</SheetTitle>
           <SheetDescription>Upload a card statement to the shared ledger.</SheetDescription>
         </SheetHeader>
-        <div className="px-6 pb-6"><StatementImportForm /></div>
+        <div className="px-6 pb-6">
+          <StatementImportForm />
+        </div>
       </SheetContent>
     </Sheet>
   );

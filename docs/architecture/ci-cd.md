@@ -11,7 +11,7 @@ Joint uses one pre-merge CI gate and one post-merge CD release. CI decides wheth
 ```text
 Pull request targeting main
   ↓
-CI: install → lint → test
+CI: install → format check → lint → test
   ↓
 GitHub branch rule permits merge
   ↓
@@ -24,7 +24,7 @@ CD: apply joint-prod migrations → Vercel production deploy
 
 `CI` runs only for pull requests targeting `main`.
 
-- Its required check is `CI / Lint and test`.
+- Its required check is `CI / Lint and test`, which runs the Prettier format check before lint and tests.
 - It uses no production environment, database URL, or Vercel credentials.
 - A failed check blocks the merge.
 - Feature-branch pushes without a pull request do not run CI; local checks remain available until a pull request is opened.

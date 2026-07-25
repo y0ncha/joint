@@ -12,7 +12,8 @@ const mocks = vi.hoisted(() => ({
   authorizationMaybeSingle: vi.fn(),
   cardSelect: vi.fn(),
   cardHouseholdEq: vi.fn(),
-  cardList: vi.fn(),
+  cardUserEq: vi.fn(),
+  cardMaybeSingle: vi.fn(),
   profileSelect: vi.fn(),
   profileEq: vi.fn(),
   profileMaybeSingle: vi.fn(),
@@ -30,7 +31,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/household", () => ({ getCurrentHouseholdContext: mocks.getCurrentHouseholdContext }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/settings", useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/components/partner-access-control", () => ({
-  MemberManagementSheet: ({ partner }: { partner: { status: string; email?: string } }) => <button type="button" aria-label="Manage members" data-partner-state={partner.status}>{partner.email ?? "No authorized email"}</button>,
+  MemberManagementSheet: ({ partner }: { partner: { status: string; email?: string } }) => (
+    <button type="button" aria-label="Manage members" data-partner-state={partner.status}>
+      {partner.email ?? "No authorized email"}
+    </button>
+  ),
 }));
 vi.mock("@/components/ui/tooltip", () => ({
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -49,33 +54,41 @@ const settingsModule = await import("./page");
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.getCurrentHouseholdContext.mockResolvedValue({
-    status: "member", supabase: { from: mocks.from }, userId: "owner-id", email: "ada@example.com", householdId: "household-id", role: "owner",
+    status: "member",
+    supabase: { from: mocks.from },
+    userId: "owner-id",
+    email: "ada@example.com",
+    householdId: "household-id",
+    role: "owner",
   });
-  mocks.from.mockImplementation((table: string) => table === "household_members"
-    ? { select: mocks.memberSelect }
-    : table === "member_cards"
-      ? { select: mocks.cardSelect }
-    : table === "profiles"
-      ? { select: mocks.profileSelect }
-      : table === "households"
-        ? { select: mocks.householdSelect }
-      : { select: mocks.authorizationSelect });
+  mocks.from.mockImplementation((table: string) =>
+    table === "household_members"
+      ? { select: mocks.memberSelect }
+      : table === "member_cards"
+        ? { select: mocks.cardSelect }
+        : table === "profiles"
+          ? { select: mocks.profileSelect }
+          : table === "households"
+            ? { select: mocks.householdSelect }
+            : { select: mocks.authorizationSelect },
+  );
   mocks.memberSelect.mockReturnValue({ eq: mocks.memberEq });
   mocks.memberEq.mockReturnValue({ order: mocks.memberOrder });
   mocks.memberOrder.mockResolvedValue({ data: [{ user_id: "owner-id", role: "owner", color: "#dcece3" }], error: null });
-  mocks.memberSelect.mockImplementation((columns: string) => columns === "user_id, role, color, joined_at"
-    ? { eq: mocks.colorHouseholdEq }
-    : { eq: mocks.memberEq });
+  mocks.memberSelect.mockImplementation((columns: string) =>
+    columns === "user_id, role, color, joined_at" ? { eq: mocks.colorHouseholdEq } : { eq: mocks.memberEq },
+  );
   mocks.colorHouseholdEq.mockReturnValue({ order: mocks.memberOrder });
   mocks.authorizationSelect.mockReturnValue({ eq: mocks.authorizationEq });
   mocks.authorizationEq.mockReturnValue({ maybeSingle: mocks.authorizationMaybeSingle });
   mocks.authorizationMaybeSingle.mockResolvedValue({ data: null, error: null });
   mocks.cardSelect.mockReturnValue({ eq: mocks.cardHouseholdEq });
-  mocks.cardHouseholdEq.mockReturnValue(mocks.cardList);
-  mocks.cardList.mockResolvedValue({ data: [{ user_id: "owner-id", last_four: "4548" }], error: null });
-  mocks.profileSelect.mockImplementation((columns: string) => columns === "id, full_name"
-    ? { eq: mocks.partnerProfileEq }
-    : { eq: mocks.profileEq });
+  mocks.cardHouseholdEq.mockReturnValue({ eq: mocks.cardUserEq });
+  mocks.cardUserEq.mockReturnValue({ maybeSingle: mocks.cardMaybeSingle });
+  mocks.cardMaybeSingle.mockResolvedValue({ data: { last_four: "4548" }, error: null });
+  mocks.profileSelect.mockImplementation((columns: string) =>
+    columns === "id, full_name" ? { eq: mocks.partnerProfileEq } : { eq: mocks.profileEq },
+  );
   mocks.profileEq.mockReturnValue({ maybeSingle: mocks.profileMaybeSingle });
   mocks.profileMaybeSingle.mockResolvedValue({ data: { full_name: "Ada Lovelace" }, error: null });
   mocks.partnerProfileEq.mockReturnValue({ maybeSingle: mocks.partnerProfileMaybeSingle });
@@ -96,6 +109,7 @@ it("renders Appearance, Household, and Account cards", async () => {
   expect(markup).toContain("User color");
   expect(markup).toContain("User name");
   expect(markup).toContain('aria-label="Log out"');
+  expect(markup).toContain('data-settings-logout="true"');
   expect(markup).not.toContain("End this browser session");
   expect(markup).not.toMatch(/>Name<\/p>/);
   expect(markup).toContain("Last 4 digits");
@@ -158,7 +172,12 @@ it("renders joined partner access for an owner authorization with a joined membe
 
 it("does not query partner authorization for a member", async () => {
   mocks.getCurrentHouseholdContext.mockResolvedValue({
-    status: "member", supabase: { from: mocks.from }, userId: "member-id", email: "member@example.com", householdId: "household-id", role: "member",
+    status: "member",
+    supabase: { from: mocks.from },
+    userId: "member-id",
+    email: "member@example.com",
+    householdId: "household-id",
+    role: "member",
   });
 
   const markup = renderToStaticMarkup(await settingsModule.default());

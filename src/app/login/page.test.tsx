@@ -13,9 +13,11 @@ describe("Joint sign in", () => {
   });
 
   it("explains when the signed-in Google account has no household access", async () => {
-    const markup = renderToStaticMarkup(await LoginPage({
-      searchParams: Promise.resolve({ error: "access_denied" }),
-    }));
+    const markup = renderToStaticMarkup(
+      await LoginPage({
+        searchParams: Promise.resolve({ error: "access_denied" }),
+      }),
+    );
 
     expect(markup).toContain("This Google account does not have access to Joint.");
     expect(markup).toContain('role="alert"');

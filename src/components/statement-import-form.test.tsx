@@ -23,9 +23,12 @@ vi.mock("react", async (importOriginal) => {
     useState: (initialState: unknown | (() => unknown)) => {
       const index = mocks.stateIndex++;
       if (!(index in mocks.state)) mocks.state[index] = typeof initialState === "function" ? initialState() : initialState;
-      return [mocks.state[index], (nextState: unknown | ((current: unknown) => unknown)) => {
-        mocks.state[index] = typeof nextState === "function" ? nextState(mocks.state[index]) : nextState;
-      }];
+      return [
+        mocks.state[index],
+        (nextState: unknown | ((current: unknown) => unknown)) => {
+          mocks.state[index] = typeof nextState === "function" ? nextState(mocks.state[index]) : nextState;
+        },
+      ];
     },
   };
 });

@@ -53,7 +53,7 @@ describe("Joint dashboard", () => {
   it("shows the restored dashboard cards with live household values", async () => {
     const markup = renderToStaticMarkup(await renderHome());
 
-    expect(markup).toContain("aria-label=\"Add transaction\"");
+    expect(markup).toContain('aria-label="Add transaction"');
     expect(markup).toContain("Income");
     expect(markup).toContain('aria-label="Dashboard controls"');
     expect(markup).toContain("Outgoings");

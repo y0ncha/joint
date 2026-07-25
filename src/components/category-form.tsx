@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
-const categoryKindItemClassName = "transition-[background-color,border-color,color,box-shadow] duration-300 ease-in-out motion-reduce:transition-none data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm hover:data-[state=on]:bg-primary hover:data-[state=on]:text-primary-foreground";
+const categoryKindItemClassName =
+  "transition-[background-color,border-color,color,box-shadow] duration-300 ease-in-out motion-reduce:transition-none data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm hover:data-[state=on]:bg-primary hover:data-[state=on]:text-primary-foreground";
 
 export function CategoryColorPicker({ defaultColor = "#dcece3", recentColors = [] }: { defaultColor?: string; recentColors?: string[] }) {
   const [color, setColor] = useState(defaultColor);
@@ -22,14 +23,19 @@ export function CategoryColorPicker({ defaultColor = "#dcece3", recentColors = [
     <Field>
       <FieldLabel id="category-color-label">Color</FieldLabel>
       <input name="color" type="hidden" value={color} />
-      <div aria-labelledby="category-color-label"><ColorPicker color={color} onChange={setColor} recentColors={recentColors} /></div>
+      <div aria-labelledby="category-color-label">
+        <ColorPicker color={color} onChange={setColor} recentColors={recentColors} />
+      </div>
     </Field>
   );
 }
 
 export function CategoryForm({ recentColors = [] }: { recentColors?: string[] }) {
   const [kind, setKind] = useState("expense");
-  const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(async (_state, formData) => createCategory(formData), null);
+  const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
+    async (_state, formData) => createCategory(formData),
+    null,
+  );
 
   useEffect(() => {
     if (state?.status === "success") toast.success("Category added", { id: "category-save" });
@@ -47,13 +53,26 @@ export function CategoryForm({ recentColors = [] }: { recentColors?: string[] })
         </Field>
         <Field>
           <FieldLabel id="category-kind-label">Category type</FieldLabel>
-          <ToggleGroup aria-labelledby="category-kind-label" type="single" value={kind} onValueChange={(value) => value && setKind(value)} variant="outline" spacing={0}>
-            <ToggleGroupItem value="expense" className={categoryKindItemClassName}>Expense</ToggleGroupItem>
-            <ToggleGroupItem value="income" className={categoryKindItemClassName}>Income</ToggleGroupItem>
+          <ToggleGroup
+            aria-labelledby="category-kind-label"
+            type="single"
+            value={kind}
+            onValueChange={(value) => value && setKind(value)}
+            variant="outline"
+            spacing={0}
+          >
+            <ToggleGroupItem value="expense" className={categoryKindItemClassName}>
+              Expense
+            </ToggleGroupItem>
+            <ToggleGroupItem value="income" className={categoryKindItemClassName}>
+              Income
+            </ToggleGroupItem>
           </ToggleGroup>
         </Field>
         <CategoryColorPicker recentColors={recentColors} />
-        <Button disabled={isPending} type="submit">Add category</Button>
+        <Button disabled={isPending} type="submit">
+          Add category
+        </Button>
       </FieldGroup>
     </form>
   );
@@ -63,13 +82,21 @@ export function CategorySheet({ recentColors = [] }: { recentColors?: string[] }
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button size="icon" variant="ghost" className="size-11 rounded-full text-primary hover:bg-primary/10 hover:text-primary" aria-label="Add category">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-11 rounded-full text-primary hover:bg-primary/10 hover:text-primary"
+          aria-label="Add category"
+        >
           <span className="flex size-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-sm transition-colors group-hover/button:bg-primary">
             <Plus aria-hidden="true" />
           </span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg">
+      <SheetContent
+        side="right"
+        className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg"
+      >
         <SheetHeader className="p-6">
           <SheetTitle className="text-xl">Add category</SheetTitle>
           <SheetDescription>Create the categories used in monthly reporting.</SheetDescription>

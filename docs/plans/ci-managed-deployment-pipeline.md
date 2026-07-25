@@ -43,31 +43,31 @@ Replace Vercel Git auto-deploys with separate GitHub Actions workflows: validate
 
 - **GOAL-001**: Prepare the production deployment credentials and remove the competing deploy trigger.
 
-| Task | Description | Completed | Date |
-| --- | --- | --- | --- |
-| TASK-001 | Confirm the `joint-prod` project ref is `fjstwhrgbslteklwkwfo`. Obtain its privileged session-pooler database URL for `SUPABASE_DB_URL`; it replaces the account-wide access-token and separate database-password path. Backup/PITR readiness is deferred by CON-005. | Yes | 2026-07-19 |
-| TASK-002 | Add `SUPABASE_DB_URL`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` as repository-level GitHub Actions secrets. Verify their names only; never print their values. | Yes | 2026-07-19 |
-| TASK-003 | Disable the Vercel project's Git integration completely, preventing both preview and production deployments from Git. Keep the project and its production environment configuration unchanged. | Yes | 2026-07-19 |
+| Task     | Description                                                                                                                                                                                                                                                           | Completed | Date       |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ---------- |
+| TASK-001 | Confirm the `joint-prod` project ref is `fjstwhrgbslteklwkwfo`. Obtain its privileged session-pooler database URL for `SUPABASE_DB_URL`; it replaces the account-wide access-token and separate database-password path. Backup/PITR readiness is deferred by CON-005. | Yes       | 2026-07-19 |
+| TASK-002 | Add `SUPABASE_DB_URL`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` as repository-level GitHub Actions secrets. Verify their names only; never print their values.                                                                                        | Yes       | 2026-07-19 |
+| TASK-003 | Disable the Vercel project's Git integration completely, preventing both preview and production deployments from Git. Keep the project and its production environment configuration unchanged.                                                                        | Yes       | 2026-07-19 |
 
 ### Implementation Phase 2
 
 - **GOAL-002**: Make the repository workflow the sole production release path.
 
-| Task | Description | Completed | Date |
-| --- | --- | --- | --- |
-| TASK-004 | Restrict `.github/workflows/ci.yml` to pull requests targeting `main`. Preserve the `CI / Lint and test` check, Bun cache, and cancelable per-pull-request concurrency; do not reference production secrets. | Yes | 2026-07-19 |
-| TASK-005 | Add `.github/workflows/cd.yml` for pushes to `main` only. Give its `Migrate and deploy production` job the non-cancelable `production-deploy` concurrency group and GitHub `Production` environment; do not run lint or tests. | Yes | 2026-07-19 |
-| TASK-006 | In CD, install the pinned Bun version and Supabase CLI (`2.110.0-beta.32`), run `supabase db push --db-url "$SUPABASE_DB_URL" --yes`, then deploy the checked-out commit with Vercel using `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`. Capture the deployment URL as a workflow summary. | Yes | 2026-07-19 |
-| TASK-007 | Record the split-workflow contract in `docs/architecture/ci-cd.md` and this source plan. Live release verification remains Tasks 008–009. | Yes | 2026-07-19 |
+| Task     | Description                                                                                                                                                                                                                                                                                            | Completed | Date       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- | ---------- |
+| TASK-004 | Restrict `.github/workflows/ci.yml` to pull requests targeting `main`. Preserve the `CI / Lint and test` check, Bun cache, and cancelable per-pull-request concurrency; do not reference production secrets.                                                                                           | Yes       | 2026-07-19 |
+| TASK-005 | Add `.github/workflows/cd.yml` for pushes to `main` only. Give its `Migrate and deploy production` job the non-cancelable `production-deploy` concurrency group and GitHub `Production` environment; do not run lint or tests.                                                                         | Yes       | 2026-07-19 |
+| TASK-006 | In CD, install the pinned Bun version and Supabase CLI (`2.110.0-beta.32`), run `supabase db push --db-url "$SUPABASE_DB_URL" --yes`, then deploy the checked-out commit with Vercel using `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`. Capture the deployment URL as a workflow summary. | Yes       | 2026-07-19 |
+| TASK-007 | Record the split-workflow contract in `docs/architecture/ci-cd.md` and this source plan. Live release verification remains Tasks 008–009.                                                                                                                                                              | Yes       | 2026-07-19 |
 
 ### Implementation Phase 3
 
 - **GOAL-003**: Prove the new path deploys once and refuses unsafe releases.
 
-| Task | Description | Completed | Date |
-| --- | --- | --- | --- |
-| TASK-008 | Run a pull-request workflow and verify it executes only `quality` with no deployment or Supabase secret access. |  |  |
-| TASK-009 | Trigger one controlled `main` release. Verify GitHub Actions shows quality, production migration reconciliation, and one Vercel production deployment in order; verify `supabase migration list --db-url "$SUPABASE_DB_URL"` reports the expected ordered history and the deployment serves the expected commit. |  |  |
+| Task     | Description                                                                                                                                                                                                                                                                                                      | Completed | Date |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ---- |
+| TASK-008 | Run a pull-request workflow and verify it executes only `quality` with no deployment or Supabase secret access.                                                                                                                                                                                                  |           |      |
+| TASK-009 | Trigger one controlled `main` release. Verify GitHub Actions shows quality, production migration reconciliation, and one Vercel production deployment in order; verify `supabase migration list --db-url "$SUPABASE_DB_URL"` reports the expected ordered history and the deployment serves the expected commit. |           |      |
 
 ## 3. Alternatives
 

@@ -13,14 +13,16 @@ describe("transactionSchema", () => {
   };
 
   it("rejects transfers because the visible MVP only supports income and expense", () => {
-    expect(() => transactionSchema.parse({
-      kind: "transfer",
-      amount: "300.00",
-      occurredOn: "2026-07-14",
-      categoryId: "food",
-      paidBy: "member-id",
-      note: "Card payment",
-    })).toThrowError("Invalid discriminator value. Expected 'income' | 'expense'");
+    expect(() =>
+      transactionSchema.parse({
+        kind: "transfer",
+        amount: "300.00",
+        occurredOn: "2026-07-14",
+        categoryId: "food",
+        paidBy: "member-id",
+        note: "Card payment",
+      }),
+    ).toThrowError("Invalid discriminator value. Expected 'income' | 'expense'");
   });
 
   it.each(["income", "expense"] as const)("accepts a valid %s transaction", (kind) => {
@@ -42,12 +44,14 @@ describe("transactionSchema", () => {
   });
 
   it("accepts the merchant and note length boundaries", () => {
-    expect(transactionSchema.parse({
-      kind: "expense",
-      ...validTransaction,
-      merchant: "x".repeat(200),
-      note: "x".repeat(500),
-    })).toMatchObject({ merchant: "x".repeat(200), note: "x".repeat(500) });
+    expect(
+      transactionSchema.parse({
+        kind: "expense",
+        ...validTransaction,
+        merchant: "x".repeat(200),
+        note: "x".repeat(500),
+      }),
+    ).toMatchObject({ merchant: "x".repeat(200), note: "x".repeat(500) });
   });
 });
 

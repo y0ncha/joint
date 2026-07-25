@@ -10,7 +10,9 @@ function settingsData(values: Record<string, string>) {
 
 describe("hasUnsavedSettings", () => {
   it("detects changed settings without flagging unchanged fields", () => {
-    expect(hasUnsavedSettings(settingsData({ profileName: "Ada", initialProfileName: "Ada", color: "#dcece3", initialColor: "#dcece3" }))).toBe(false);
+    expect(
+      hasUnsavedSettings(settingsData({ profileName: "Ada", initialProfileName: "Ada", color: "#dcece3", initialColor: "#dcece3" })),
+    ).toBe(false);
     expect(hasUnsavedSettings(settingsData({ profileName: "Ada Lovelace", initialProfileName: "Ada" }))).toBe(true);
   });
 });

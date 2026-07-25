@@ -26,7 +26,7 @@ vi.mock("@/components/ui/alert-dialog", () => ({
 }));
 
 const { MemberManagementSheet } = await import("./partner-access-control");
-const owner = { name: "Ada Lovelace", email: "ada@example.com", color: "#dcece3" };
+const owner = { name: "Ada Lovelace", email: "ada@example.com" };
 
 it("shows the email form only for empty partner access", () => {
   const markup = renderToStaticMarkup(<MemberManagementSheet owner={owner} partner={{ status: "empty" }} />);
@@ -50,7 +50,13 @@ it.each([
   ["pending", "Invitation pending", "will no longer be authorized to join"],
   ["joined", "Grace Hopper", "will no longer be able to view or update"],
 ] as const)("shows visible authorized email and removal only for %s access", (status, label, removalEffect) => {
-  const markup = renderToStaticMarkup(<MemberManagementSheet owner={owner} partner={{ status, email: "partner@example.com" }} member={status === "joined" ? { name: "Grace Hopper", email: "partner@example.com", color: "#123456" } : undefined} />);
+  const markup = renderToStaticMarkup(
+    <MemberManagementSheet
+      owner={owner}
+      partner={{ status, email: "partner@example.com" }}
+      member={status === "joined" ? { name: "Grace Hopper", email: "partner@example.com" } : undefined}
+    />,
+  );
 
   expect(markup).toContain(label);
   expect(markup).toContain("partner@example.com");
@@ -78,20 +84,26 @@ it("uses a side sheet for member management", () => {
   expect(markup).toContain('aria-label="Manage members"');
 });
 
-it("renders the joined member with a standard avatar", () => {
-  const markup = renderToStaticMarkup(<MemberManagementSheet {...{ owner: { ...owner, joinedAt: "2026-07-20T12:00:00Z", cardLastFour: "4548" }, partner: { status: "joined" as const, email: "partner@example.com" }, member: { name: "Grace Hopper", email: "partner@example.com", color: "#123456", joinedAt: "2026-07-21T12:00:00Z", cardLastFour: "1234" } }} />);
+it("renders owner and joined member summaries without card mappings", () => {
+  const markup = renderToStaticMarkup(
+    <MemberManagementSheet
+      {...{
+        owner: { ...owner, joinedAt: "2026-07-20T12:00:00Z" },
+        partner: { status: "joined" as const, email: "partner@example.com" },
+        member: { name: "Grace Hopper", email: "partner@example.com", joinedAt: "2026-07-21T12:00:00Z" },
+      }}
+    />,
+  );
 
   expect(markup).toContain("Grace Hopper");
   expect(markup).toContain("!text-xl !leading-7");
   expect(markup).toContain("GH");
-  expect(markup).not.toContain("background-color:#123456");
-  expect(markup).not.toContain("color-mix(in srgb, #123456");
   expect(markup).toContain("Email</dt><dd");
   expect(markup).toContain("Joined</dt><dd");
   expect(markup).toContain("20/07/2026");
-  expect(markup).toContain("Card ending</dt><dd");
-  expect(markup).toContain("4548");
   expect(markup).toContain("21/07/2026");
-  expect(markup).toContain("1234");
+  expect(markup).not.toContain("Card ending</dt><dd");
+  expect(markup).not.toContain("4548");
+  expect(markup).not.toContain("1234");
   expect(markup).toContain('aria-label="Owner cannot be removed"');
 });

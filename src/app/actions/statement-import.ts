@@ -15,9 +15,9 @@ function fileError(): ActionResult {
 }
 
 function hexDigest(bytes: ArrayBuffer) {
-  return crypto.subtle.digest("SHA-256", bytes).then((digest) =>
-    Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join(""),
-  );
+  return crypto.subtle
+    .digest("SHA-256", bytes)
+    .then((digest) => Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join(""));
 }
 
 export async function importStatement(_previousState: ActionResult | null, formData: FormData): Promise<ActionResult> {

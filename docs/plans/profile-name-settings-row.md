@@ -2,8 +2,8 @@
 
 **Goal:** Show the saved profile name as the Account-row label and use `Edit` for the existing editor trigger.
 
-| Task | Description | Status | Date |
-| --- | --- | --- | --- |
+| Task     | Description                                                                                                                                    | Status      | Date       |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------- |
 | TASK-001 | Update the focused Settings render test first, then adjust the existing row label and editor trigger without changing the mutation or popover. | In progress | 2026-07-25 |
 
 ## Files

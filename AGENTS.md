@@ -15,7 +15,7 @@ Read the sources relevant to the task before proposing or changing behavior:
 - `docs/architecture.md` — technical system overview and index of durable mechanism documentation.
 - `docs/architecture/` — focused records for implemented architecture mechanisms; plans and delivery status do not belong here.
 - `docs/plans/` — approved or proposed implementation plans and their delivery status.
-   - `docs/roadmap.md` — directional post-MVP roadmap. It does not authorize implementation or expand the current MVP contract.
+  - `docs/roadmap.md` — directional post-MVP roadmap. It does not authorize implementation or expand the current MVP contract.
 
 When documents disagree, stop and resolve the conflict with the user. Do not silently choose one contract.
 
@@ -41,6 +41,10 @@ When documents disagree, stop and resolve the conflict with the user. Do not sil
 - Keep persistent mutations behind authenticated Server Actions. Never ship a Supabase service-role key to the browser.
 - Use generated database types from `src/lib/database.types.ts`; regenerate them after every SQL migration.
 - Add schema changes as new ordered files in `supabase/migrations/`. Never edit an applied migration.
+- Schema workflow: before every linked Supabase command, confirm `supabase/.temp/project-ref` is hosted `joint-dev` (`magcvzqnwrwxkhtsfspg`). Create migrations with `supabase migration new`; once a migration has been applied anywhere, its filename and contents are immutable.
+- Before applying a schema change to `joint-dev`, run `SUPABASE_TELEMETRY_DISABLED=1 supabase migration list --linked`. If local and remote history differ, stop and reconcile the cause before `db push`; never rename an applied migration or use `migration repair`, `db pull`, or a generated schema snapshot as a shortcut without reviewing the actual schema drift.
+- When application code requires a new migration, validate its `joint-dev` application with `supabase db push --linked --dry-run`, then `supabase db push --linked`, and rerun `supabase migration list --linked`. Regenerate database types after the migration is applied.
+- Never manually apply, repair, link, reset, or pull `joint-prod`. Production schema changes run only through `.github/workflows/cd.yml`, which must migrate before deploying the application.
 - Apply RLS to every household-owned table. Household membership is the authorization boundary.
 - Keep development and production Supabase credentials separate. Never commit `.env.local`.
 - Pull requests run GitHub Actions lint/tests only; use hosted `joint-dev` for manual validation. Vercel's Git integration remains disabled, and GitHub Actions is the sole production release path: quality checks, ordered `joint-prod` migrations, then one Vercel production deployment. Production releases must serialize without cancellation. Vercel rollback does not roll back schema; database recovery is a forward fix or Supabase recovery. Confirm backup/PITR readiness in a separate production-readiness plan before real use or data entry.

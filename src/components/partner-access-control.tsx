@@ -27,36 +27,48 @@ import { getProfileInitials } from "@/lib/profile";
 
 const initialState: ActionResult | null = null;
 
-export type PartnerAccessState =
-  | { status: "empty" }
-  | { status: "pending" | "joined"; email: string };
+export type PartnerAccessState = { status: "empty" } | { status: "pending" | "joined"; email: string };
 
-type Member = { name: string; email: string; color: string; joinedAt?: string; cardLastFour?: string };
+type Member = { name: string; email: string; joinedAt?: string };
 
 function MemberIdentity({ member }: { member: Member }) {
-  return <div className="flex min-w-0 items-center justify-between gap-3 px-0.5 pt-1.5">
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-3 px-0.5 pt-1.5">
       <div className="min-w-0">
         <CardTitle className="truncate !text-xl !leading-7">{member.name}</CardTitle>
       </div>
       <Avatar className="size-10 shrink-0">
         <AvatarFallback>{getProfileInitials(member.name)}</AvatarFallback>
       </Avatar>
-    </div>;
+    </div>
+  );
 }
 
 function MemberMetadata({ member }: { member: Member }) {
-  return <CardContent className="px-3.5 pt-4 text-sm">
-    <dl className="divide-y divide-border/70">
-      <div className="grid grid-cols-[7rem_1fr] gap-3 px-3 py-2"><dt className="font-medium text-muted-foreground">Email</dt><dd className="min-w-0 truncate font-medium">{member.email}</dd></div>
-      {member.joinedAt ? <div className="grid grid-cols-[7rem_1fr] gap-3 px-3 py-2"><dt className="font-medium text-muted-foreground">Joined</dt><dd className="font-medium">{member.joinedAt.slice(0, 10).split("-").reverse().join("/")}</dd></div> : null}
-      {member.cardLastFour ? <div className="grid grid-cols-[7rem_1fr] gap-3 px-3 py-2"><dt className="font-medium text-muted-foreground">Card ending</dt><dd className="font-medium">{member.cardLastFour}</dd></div> : null}
-    </dl>
-  </CardContent>;
+  return (
+    <CardContent className="px-3.5 pt-4 text-sm">
+      <dl className="divide-y divide-border/70">
+        <div className="grid grid-cols-[7rem_1fr] gap-3 px-3 py-2">
+          <dt className="font-medium text-muted-foreground">Email</dt>
+          <dd className="min-w-0 truncate font-medium">{member.email}</dd>
+        </div>
+        {member.joinedAt ? (
+          <div className="grid grid-cols-[7rem_1fr] gap-3 px-3 py-2">
+            <dt className="font-medium text-muted-foreground">Joined</dt>
+            <dd className="font-medium">{member.joinedAt.slice(0, 10).split("-").reverse().join("/")}</dd>
+          </div>
+        ) : null}
+      </dl>
+    </CardContent>
+  );
 }
 
 export function MemberManagementSheet({ owner, partner, member }: { owner: Member; partner: PartnerAccessState; member?: Member }) {
   const [open, setOpen] = useState(false);
-  const [saveState, saveAction, saving] = useActionState<ActionResult | null, FormData>(async (_state, formData) => setAllowedPartnerEmail(formData), initialState);
+  const [saveState, saveAction, saving] = useActionState<ActionResult | null, FormData>(
+    async (_state, formData) => setAllowedPartnerEmail(formData),
+    initialState,
+  );
   const [removeState, removeAction, removing] = useActionState<ActionResult | null, FormData>(async () => {
     const result = await removePartner();
     if (result.status === "success") setOpen(false);
@@ -97,17 +109,32 @@ export function MemberManagementSheet({ owner, partner, member }: { owner: Membe
         </SheetTrigger>
         <TooltipContent>Manage members</TooltipContent>
       </Tooltip>
-      <SheetContent side="right" className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg">
+      <SheetContent
+        side="right"
+        className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg"
+      >
         <SheetHeader className="p-6">
           <SheetTitle className="text-xl">Household members</SheetTitle>
           <SheetDescription>View your household members and manage partner access.</SheetDescription>
         </SheetHeader>
         <div className="flex flex-col gap-4 px-6 pb-6">
           <Card size="sm" className="border-white/50 bg-card/90">
-            <CardHeader><MemberIdentity member={owner} /></CardHeader>
+            <CardHeader>
+              <MemberIdentity member={owner} />
+            </CardHeader>
             <MemberMetadata member={owner} />
             <CardContent className="flex justify-end pt-0">
-              <Button type="button" variant="ghost" size="icon" className="size-11 text-muted-foreground/40" aria-label="Owner cannot be removed" title="Owner cannot be removed" disabled><Trash2 aria-hidden="true" /></Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-11 text-muted-foreground/40"
+                aria-label="Owner cannot be removed"
+                title="Owner cannot be removed"
+                disabled
+              >
+                <Trash2 aria-hidden="true" />
+              </Button>
             </CardContent>
           </Card>
 
@@ -120,12 +147,32 @@ export function MemberManagementSheet({ owner, partner, member }: { owner: Membe
               <CardContent>
                 <form action={saveAction} className="flex flex-wrap items-start gap-2">
                   <Field data-invalid={saveState?.status === "error" && Boolean(saveState.fieldErrors.email)} className="min-w-0 flex-1">
-                    <FieldLabel htmlFor="partner-email" className="sr-only">Member&apos;s Google email</FieldLabel>
-                    <Input ref={emailRef} id="partner-email" name="email" type="email" autoComplete="email" spellCheck={false} className="min-h-11" placeholder="member@gmail.com" required aria-describedby={saveState?.status === "error" && saveState.fieldErrors.email ? "partner-email-error" : undefined} aria-invalid={saveState?.status === "error" && Boolean(saveState.fieldErrors.email)} />
-                    {saveState?.status === "error" && saveState.fieldErrors.email ? <FieldError id="partner-email-error">{saveState.fieldErrors.email}</FieldError> : null}
+                    <FieldLabel htmlFor="partner-email" className="sr-only">
+                      Member&apos;s Google email
+                    </FieldLabel>
+                    <Input
+                      ref={emailRef}
+                      id="partner-email"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      spellCheck={false}
+                      className="min-h-11"
+                      placeholder="member@gmail.com"
+                      required
+                      aria-describedby={saveState?.status === "error" && saveState.fieldErrors.email ? "partner-email-error" : undefined}
+                      aria-invalid={saveState?.status === "error" && Boolean(saveState.fieldErrors.email)}
+                    />
+                    {saveState?.status === "error" && saveState.fieldErrors.email ? (
+                      <FieldError id="partner-email-error">{saveState.fieldErrors.email}</FieldError>
+                    ) : null}
                   </Field>
                   <Button type="submit" size="icon" disabled={saving} className="size-11" aria-label="Invite member">
-                    {saving ? <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin motion-reduce:animate-none" /> : <Send aria-hidden="true" />}
+                    {saving ? (
+                      <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin motion-reduce:animate-none" />
+                    ) : (
+                      <Send aria-hidden="true" />
+                    )}
                   </Button>
                 </form>
               </CardContent>
@@ -133,16 +180,33 @@ export function MemberManagementSheet({ owner, partner, member }: { owner: Membe
           ) : (
             <Card size="sm" className="border-white/50 bg-card/90">
               <CardHeader>
-                {partner.status === "joined" && member ? <MemberIdentity member={member} /> : <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"><UserRound aria-hidden="true" /></div>
-                  <div className="min-w-0"><CardTitle className="truncate">{partner.status === "joined" ? "Joined member" : "Invitation pending"}</CardTitle><CardDescription className="truncate">{partner.email}</CardDescription></div>
-                </div>}
+                {partner.status === "joined" && member ? (
+                  <MemberIdentity member={member} />
+                ) : (
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                      <UserRound aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0">
+                      <CardTitle className="truncate">{partner.status === "joined" ? "Joined member" : "Invitation pending"}</CardTitle>
+                      <CardDescription className="truncate">{partner.email}</CardDescription>
+                    </div>
+                  </div>
+                )}
               </CardHeader>
               {partner.status === "joined" && member ? <MemberMetadata member={member} /> : null}
               <CardContent className="flex justify-end pt-0">
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button type="button" variant="ghost" size="icon" className="size-11 text-destructive hover:bg-destructive/10 hover:text-destructive" aria-label="Remove member"><Trash2 aria-hidden="true" /></Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      aria-label="Remove member"
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
@@ -155,9 +219,17 @@ export function MemberManagementSheet({ owner, partner, member }: { owner: Membe
                     </AlertDialogHeader>
                     <form action={removeAction}>
                       <AlertDialogFooter>
-                        <AlertDialogCancel className="min-h-11" disabled={removing}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="min-h-11" disabled={removing}>
+                          Cancel
+                        </AlertDialogCancel>
                         <Button type="submit" variant="destructive" disabled={removing} className="min-h-11">
-                          {removing ? <LoaderCircle aria-hidden="true" data-icon="inline-start" className="motion-safe:animate-spin motion-reduce:animate-none" /> : null}
+                          {removing ? (
+                            <LoaderCircle
+                              aria-hidden="true"
+                              data-icon="inline-start"
+                              className="motion-safe:animate-spin motion-reduce:animate-none"
+                            />
+                          ) : null}
                           Remove member
                         </Button>
                       </AlertDialogFooter>

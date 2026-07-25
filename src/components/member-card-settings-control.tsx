@@ -18,10 +18,10 @@ export function MemberCardSettingsControl({ lastFour }: { lastFour: string | nul
         </TooltipTrigger>
         <TooltipContent>Edit last four digits</TooltipContent>
       </Tooltip>
-        <PopoverContent align="end" className="w-[min(22rem,calc(100vw-2rem))] p-4">
-          <PopoverHeader>
-            <PopoverTitle>Card last four</PopoverTitle>
-          </PopoverHeader>
+      <PopoverContent align="end" className="w-[min(22rem,calc(100vw-2rem))] p-4">
+        <PopoverHeader>
+          <PopoverTitle>Card last four</PopoverTitle>
+        </PopoverHeader>
         <MemberCardForm initialLastFour={lastFour ?? undefined} redirectTo="/settings" showSkip={false} />
       </PopoverContent>
     </Popover>

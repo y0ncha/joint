@@ -23,9 +23,12 @@ vi.mock("react", async (importOriginal) => {
     useState: (initialState: unknown | (() => unknown)) => {
       const index = mocks.stateIndex++;
       if (!(index in mocks.state)) mocks.state[index] = typeof initialState === "function" ? initialState() : initialState;
-      return [mocks.state[index], (nextState: unknown | ((current: unknown) => unknown)) => {
-        mocks.state[index] = typeof nextState === "function" ? nextState(mocks.state[index]) : nextState;
-      }];
+      return [
+        mocks.state[index],
+        (nextState: unknown | ((current: unknown) => unknown)) => {
+          mocks.state[index] = typeof nextState === "function" ? nextState(mocks.state[index]) : nextState;
+        },
+      ];
     },
   };
 });
@@ -36,7 +39,19 @@ vi.mock("@/app/actions/transactions", () => ({
   updateTransaction: vi.fn(),
 }));
 vi.mock("@/components/pill-select", () => ({
-  PillSelect: ({ ariaLabel, emptyLabel, onValueChange, options, value }: { ariaLabel: string; emptyLabel?: string; onValueChange?: (value: string) => void; options: Array<{ label: string; value: string }>; value?: string }) => {
+  PillSelect: ({
+    ariaLabel,
+    emptyLabel,
+    onValueChange,
+    options,
+    value,
+  }: {
+    ariaLabel: string;
+    emptyLabel?: string;
+    onValueChange?: (value: string) => void;
+    options: Array<{ label: string; value: string }>;
+    value?: string;
+  }) => {
     if (ariaLabel === "Type") mocks.kindChange = onValueChange;
     return <button aria-label={ariaLabel}>{options.find((option) => option.value === value)?.label ?? emptyLabel}</button>;
   },
@@ -74,7 +89,11 @@ vi.mock("@/components/ui/alert-dialog", () => ({
 vi.mock("@/components/ui/select", () => ({
   Select: ({ children, onValueChange }: { children: ReactNode; onValueChange: (value: string) => void }) => {
     mocks.kindChange = onValueChange;
-    return <button data-select="transaction-kind" type="button">{children}</button>;
+    return (
+      <button data-select="transaction-kind" type="button">
+        {children}
+      </button>
+    );
   },
   SelectContent: ({ children }: { children: ReactNode }) => children,
   SelectGroup: ({ children }: { children: ReactNode }) => children,
@@ -98,7 +117,10 @@ function renderSheet() {
   mocks.stateIndex = 0;
   return renderToStaticMarkup(
     <TransactionSheet
-      categories={[{ id: "food", name: "Food", kind: "expense" }, { id: "salary", name: "Salary", kind: "income" }]}
+      categories={[
+        { id: "food", name: "Food", kind: "expense" },
+        { id: "salary", name: "Salary", kind: "income" },
+      ]}
       members={[]}
     />,
   );
@@ -140,7 +162,7 @@ it("renders the transaction composer with labelled core controls", () => {
       ]}
     />,
   );
-  expect(markup).toContain("aria-label=\"Add transaction\"");
+  expect(markup).toContain('aria-label="Add transaction"');
   expect(markup).toContain('aria-label="Type"');
   expect(markup).toContain("Expense");
   expect(markup).toContain("Paid by");
@@ -158,17 +180,28 @@ it("renders edit mode with saved transaction values and deletion inside the shee
     <TransactionSheet
       categories={[{ id: "food", name: "Food", kind: "expense" }]}
       members={[{ id: "member-id", label: "You" }]}
-      transaction={{ id: "transaction-id", kind: "expense", amount: 50, occurredOn: "2026-07-14", categoryId: "food", note: "Saved note", merchant: "Saved merchant", source: "statement_import", createdAt: "2026-07-14T08:00:00Z", paidBy: "member-id" }}
+      transaction={{
+        id: "transaction-id",
+        kind: "expense",
+        amount: 50,
+        occurredOn: "2026-07-14",
+        categoryId: "food",
+        note: "Saved note",
+        merchant: "Saved merchant",
+        source: "statement_import",
+        createdAt: "2026-07-14T08:00:00Z",
+        paidBy: "member-id",
+      }}
     />,
   );
 
   expect(markup).toContain("Edit transaction");
   expect(markup).toContain("Update or remove this shared ledger entry.");
   expect(markup).toContain('name="amount" value="50"');
-  expect(markup).toContain('<textarea');
+  expect(markup).toContain("<textarea");
   expect(markup).toMatch(/<textarea[^>]*bg-white\/55/);
   expect(markup).toContain('name="note" rows="4"');
-  expect(markup).toContain('>Saved note</textarea>');
+  expect(markup).toContain(">Saved note</textarea>");
   expect(markup).toContain("Save changes");
   expect(markup).toContain("Delete transaction");
   expect(markup).toContain("Delete this transaction?");

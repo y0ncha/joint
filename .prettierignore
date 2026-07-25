@@ -1,0 +1,6 @@
+.next
+.agents
+coverage
+node_modules
+bun.lock
+src/lib/database.types.ts

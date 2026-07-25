@@ -11,15 +11,30 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/household", () => ({ getCurrentHouseholdContext: mocks.getCurrentHouseholdContext }));
 vi.mock("@/components/category-form", () => ({ CategorySheet: () => <span data-category-sheet /> }));
-vi.mock("@/components/category-list", () => ({ CategoryList: ({ categories }: { categories: Array<{ name: string }> }) => <span data-category-list>{categories.map((category) => category.name).join(",")}</span> }));
-vi.mock("@/components/workspace-shell", () => ({ WorkspaceShell: ({ actions, children }: { actions: React.ReactNode; children: React.ReactNode }) => <main>{actions}{children}</main> }));
+vi.mock("@/components/category-list", () => ({
+  CategoryList: ({ categories }: { categories: Array<{ name: string }> }) => (
+    <span data-category-list>{categories.map((category) => category.name).join(",")}</span>
+  ),
+}));
+vi.mock("@/components/workspace-shell", () => ({
+  WorkspaceShell: ({ actions, children }: { actions: React.ReactNode; children: React.ReactNode }) => (
+    <main>
+      {actions}
+      {children}
+    </main>
+  ),
+}));
 
 const pageModule = await import("./page");
 
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.getCurrentHouseholdContext.mockResolvedValue({
-    status: "member", supabase: { from: mocks.from }, userId: "member-id", householdId: "household-id", role: "member",
+    status: "member",
+    supabase: { from: mocks.from },
+    userId: "member-id",
+    householdId: "household-id",
+    role: "member",
   });
   mocks.order.mockResolvedValue({ data: [{ id: "food", name: "Food", kind: "expense", archived_at: null }] });
   mocks.eq.mockReturnValue({ order: mocks.order });

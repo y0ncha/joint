@@ -1,17 +1,17 @@
 # Partner Access Settings Implementation Plan
 
-**Goal:** Let only the household owner view immutable joined-partner details and remove that partner's access from Settings.
+**Goal:** Let only the household owner view immutable joined-partner name, email, and joined date, and remove that partner's access from Settings.
 
-| Task | Description | Status | Date |
-| --- | --- | --- | --- |
-| TASK-001 | Update the Settings contract and add focused red tests for owner and member visibility. | Complete | 2026-07-25 |
-| TASK-002 | Add narrowly scoped owner access to a joined partner's display name and render the owner-only detail subrows. | In progress | 2026-07-25 |
-| TASK-003 | Run focused tests, lint, full tests, build, and diff checks before implementation handoff. | Pending | — |
+| Task     | Description                                                                                            | Status      | Date       |
+| -------- | ------------------------------------------------------------------------------------------------------ | ----------- | ---------- |
+| TASK-001 | Update the Settings contract and add focused red tests for owner and member visibility.                | Complete    | 2026-07-25 |
+| TASK-002 | Add narrowly scoped owner access to a joined partner's display name and render the owner-only summary. | In progress | 2026-07-26 |
+| TASK-003 | Run focused tests, lint, full tests, build, and diff checks before implementation handoff.             | Pending     | —          |
 
 ## Scope
 
 - `owner` is the administrator role; `member` is immutable.
-- Partner name, color, email, and role are read-only.
+- Partner name, email, and joined date are read-only; card mappings, color, and role are not shown.
 - Only removal remains editable and retains the current confirmation flow.
 - Members do not see a Partner access row or issue a partner-authorization query.
 - Pending authorizations show fixed email and pending status; name and color appear only after the partner joins.
@@ -28,5 +28,5 @@
 
 1. Add page tests that fail because joined partner details and member-side absence do not yet exist.
 2. Add an ordered migration that permits profile reads only where the requester owns a household containing that profile ID; regenerate types.
-3. Extend the existing settings query to retrieve the joined member's profile name, pass immutable state to the page, and render Name, User color, Email, and Role subrows below Partner access. Reuse `PartnerAccessControl` for confirmed removal.
+3. Extend the existing settings query to retrieve the joined member's profile name and render the immutable name, email, and joined date summary. Reuse `PartnerAccessControl` for confirmed removal.
 4. Run the focused page tests, then `bun run lint`, `bun run test`, `bun run build`, and `git diff --check`.

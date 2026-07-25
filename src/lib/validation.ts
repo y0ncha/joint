@@ -1,7 +1,11 @@
 import { z } from "zod";
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.");
-const optionalIdentifierSchema = z.string().trim().nullish().transform((value) => value || null);
+const optionalIdentifierSchema = z
+  .string()
+  .trim()
+  .nullish()
+  .transform((value) => value || null);
 const amountSchema = z.coerce
   .number()
   .positive("Enter an amount greater than zero.")

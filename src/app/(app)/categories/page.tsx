@@ -19,7 +19,11 @@ export default async function CategoriesPage() {
   }));
   const recentColors = reusableCategoryColors(categoryData.map((category) => category.color));
   return (
-    <WorkspaceShell title="Categories" description="Keep income and expense reporting clear." actions={<CategorySheet recentColors={recentColors} />}>
+    <WorkspaceShell
+      title="Categories"
+      description="Keep income and expense reporting clear."
+      actions={<CategorySheet recentColors={recentColors} />}
+    >
       <div className="mt-6 flex flex-col gap-4">
         <CategoryList categories={categoryData} recentColors={recentColors} />
       </div>

@@ -49,35 +49,35 @@ This reuses the single-layer schema already applied to `joint-dev`. The un-appli
 
 ### Phase 1 — Delete the abandoned branch and close the database gap
 
-| Task | Description | Completed |
-|---|---|---|
-| TASK-001 | Delete the un-applied two-layer migration, `supabase/tests/two_layer_access.sql`, `src/lib/app-access.ts`, and its test. Preserve the three applied single-layer migrations unchanged. | Yes |
-| TASK-002 | Replace the current SQL contract with focused `household_allowed_members` pgTAP coverage: normalized email, owner-only authorize/remove, matching self-join, wrong-email denial, owner-role denial, third-member denial, pending removal, joined removal, replacement, cross-household isolation, and protected-data preservation. | Yes |
-| TASK-003 | Create an ordered migration that removes self-service household creation from `authenticated`, keeps operator provisioning possible through direct SQL, and verifies no public/anon/authenticated privileged helper bypass remains. Apply it to `joint-dev` only after the preflight confirms the existing owner household is valid. | Yes |
+| Task     | Description                                                                                                                                                                                                                                                                                                                          | Completed |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| TASK-001 | Delete the un-applied two-layer migration, `supabase/tests/two_layer_access.sql`, `src/lib/app-access.ts`, and its test. Preserve the three applied single-layer migrations unchanged.                                                                                                                                               | Yes       |
+| TASK-002 | Replace the current SQL contract with focused `household_allowed_members` pgTAP coverage: normalized email, owner-only authorize/remove, matching self-join, wrong-email denial, owner-role denial, third-member denial, pending removal, joined removal, replacement, cross-household isolation, and protected-data preservation.   | Yes       |
+| TASK-003 | Create an ordered migration that removes self-service household creation from `authenticated`, keeps operator provisioning possible through direct SQL, and verifies no public/anon/authenticated privileged helper bypass remains. Apply it to `joint-dev` only after the preflight confirms the existing owner household is valid. | Yes       |
 
 ### Phase 2 — Make membership the deep application module
 
-| Task | Description | Completed |
-|---|---|---|
-| TASK-004 | Replace `ensureAllowedMembership` with `ensurePartnerMembership(supabase, principal)`. It checks existing membership, reads the matching authorization, inserts only the caller as `member`, and recovers only the expected unique-membership race. | Yes |
-| TASK-005 | Make the OAuth callback exchange the code, derive verified claims, attempt partner membership, and route members to `/`. Unmatched users sign out locally and redirect to `/login?error=access_denied`; they never reach onboarding. | Yes |
-| TASK-006 | Make the protected layout and `requireCurrentHousehold()` use verified identity plus membership only. Move `/` under the protected route group and add the local sign-out access-denied route. | Yes |
-| TASK-007 | Remove self-service household onboarding and the household-creation Server Action from active product routes. Document the operator SQL provisioning procedure for a future owner. | Yes |
+| Task     | Description                                                                                                                                                                                                                                         | Completed |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| TASK-004 | Replace `ensureAllowedMembership` with `ensurePartnerMembership(supabase, principal)`. It checks existing membership, reads the matching authorization, inserts only the caller as `member`, and recovers only the expected unique-membership race. | Yes       |
+| TASK-005 | Make the OAuth callback exchange the code, derive verified claims, attempt partner membership, and route members to `/`. Unmatched users sign out locally and redirect to `/login?error=access_denied`; they never reach onboarding.                | Yes       |
+| TASK-006 | Make the protected layout and `requireCurrentHousehold()` use verified identity plus membership only. Move `/` under the protected route group and add the local sign-out access-denied route.                                                      | Yes       |
+| TASK-007 | Remove self-service household onboarding and the household-creation Server Action from active product routes. Document the operator SQL provisioning procedure for a future owner.                                                                  | Yes       |
 
 ### Phase 3 — Keep partner lifecycle simple
 
-| Task | Description | Completed |
-|---|---|---|
-| TASK-008 | Keep one owner action to authorize a partner by inserting—not upserting—`household_allowed_members`, and one removal action that deletes the member membership or pending authorization through the existing atomic database lifecycle. Require exactly one affected row and return sanitized conflict errors. | Yes |
-| TASK-009 | Update PartnerAccessControl and Settings for the empty, pending, and joined states while preserving all UI/accessibility requirements. Do not expose Auth users or profiles. | Yes |
+| Task     | Description                                                                                                                                                                                                                                                                                                    | Completed |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| TASK-008 | Keep one owner action to authorize a partner by inserting—not upserting—`household_allowed_members`, and one removal action that deletes the member membership or pending authorization through the existing atomic database lifecycle. Require exactly one affected row and return sanitized conflict errors. | Yes       |
+| TASK-009 | Update PartnerAccessControl and Settings for the empty, pending, and joined states while preserving all UI/accessibility requirements. Do not expose Auth users or profiles.                                                                                                                                   | Yes       |
 
 ### Phase 4 — Contracts, documentation, and verification
 
-| Task | Description | Completed |
-|---|---|---|
-| TASK-010 | Regenerate `src/lib/database.types.ts` from `joint-dev`. Confirm it contains `household_allowed_members` and no abandoned two-layer contract. | Yes |
-| TASK-011 | Update `docs/architecture.md`, `docs/architecture/application-runtime.md`, `docs/design.md`, `README.md`, and `docs/plans/shared-budget-mvp.md` to describe post-auth denial, membership-only RLS, partner authorization, and operator owner provisioning. | Yes |
-| TASK-012 | Run the active-code cleanup gate, focused auth/household/action/Settings tests, full tests, lint, build, pgTAP on `joint-dev`, migration reconciliation, and Supabase security/performance advisors. | Yes |
+| Task     | Description                                                                                                                                                                                                                                                | Completed |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| TASK-010 | Regenerate `src/lib/database.types.ts` from `joint-dev`. Confirm it contains `household_allowed_members` and no abandoned two-layer contract.                                                                                                              | Yes       |
+| TASK-011 | Update `docs/architecture.md`, `docs/architecture/application-runtime.md`, `docs/design.md`, `README.md`, and `docs/plans/shared-budget-mvp.md` to describe post-auth denial, membership-only RLS, partner authorization, and operator owner provisioning. | Yes       |
+| TASK-012 | Run the active-code cleanup gate, focused auth/household/action/Settings tests, full tests, lint, build, pgTAP on `joint-dev`, migration reconciliation, and Supabase security/performance advisors.                                                       | Yes       |
 
 ## Delivery note
 

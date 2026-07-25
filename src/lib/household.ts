@@ -16,10 +16,7 @@ export type MemberHouseholdContext = CurrentHousehold & {
   userId: string;
 };
 
-export type CurrentHouseholdContext =
-  | { status: "unauthenticated" }
-  | { status: "unmatched" }
-  | MemberHouseholdContext;
+export type CurrentHouseholdContext = { status: "unauthenticated" } | { status: "unmatched" } | MemberHouseholdContext;
 
 export type VerifiedPrincipal = {
   email: string;
@@ -30,25 +27,20 @@ export type PartnerMembershipResult = "existing" | "joined" | "unmatched";
 
 function isMembershipUniqueViolation(error: { code?: string; details?: string; message?: string }) {
   const constraints = ["household_members_user_id_key", "household_members_pkey"];
-  return error.code === "23505" && [error.message, error.details]
-    .some((value) => constraints.some((constraint) => value === constraint || value?.includes(`"${constraint}"`)));
+  return (
+    error.code === "23505" &&
+    [error.message, error.details].some((value) =>
+      constraints.some((constraint) => value === constraint || value?.includes(`"${constraint}"`)),
+    )
+  );
 }
 
-export async function getHouseholdForUser(
-  supabase: SupabaseClient<Database>,
-  userId: string,
-): Promise<CurrentHousehold | null> {
-  const { data, error } = await supabase
-    .from("household_members")
-    .select("household_id, role")
-    .eq("user_id", userId)
-    .maybeSingle();
+export async function getHouseholdForUser(supabase: SupabaseClient<Database>, userId: string): Promise<CurrentHousehold | null> {
+  const { data, error } = await supabase.from("household_members").select("household_id, role").eq("user_id", userId).maybeSingle();
 
   if (error) throw error;
 
-  return data
-    ? { householdId: data.household_id, role: data.role }
-    : null;
+  return data ? { householdId: data.household_id, role: data.role } : null;
 }
 
 export const getCurrentHouseholdContext = cache(async (): Promise<CurrentHouseholdContext> => {

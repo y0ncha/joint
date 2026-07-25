@@ -13,13 +13,10 @@ import { Input } from "@/components/ui/input";
 export function StatementImportForm() {
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
-    async (previousState, formData) => {
-      if (droppedFile) formData.set("statement", droppedFile);
-      return importStatement(previousState, formData);
-    },
-    null,
-  );
+  const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(async (previousState, formData) => {
+    if (droppedFile) formData.set("statement", droppedFile);
+    return importStatement(previousState, formData);
+  }, null);
 
   useEffect(() => {
     if (state?.status === "success") toast.success(`${state.data?.importedRowCount ?? 0} transactions added.`, { id: "statement-import" });

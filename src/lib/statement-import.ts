@@ -119,9 +119,12 @@ function parseDate(value: string, rowNumber: number) {
   const day = Number(dayText);
   const month = Number(monthText);
   const year = Number(yearText);
-  const daysInMonth = month === 2
-    ? (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28)
-    : [31, 0, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+  const daysInMonth =
+    month === 2
+      ? year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+        ? 29
+        : 28
+      : [31, 0, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
 
   if (!year || !daysInMonth || day < 1 || day > daysInMonth) invalidRow(rowNumber, "date");
   return `${yearText}-${monthText}-${dayText}`;
@@ -136,7 +139,7 @@ function parseAmount(value: string, rowNumber: number) {
   if (!Number.isSafeInteger(cents)) invalidRow(rowNumber, "amount");
   if (cents === 0) return null;
 
-  return { kind: sign === "-" ? "income" as const : "expense" as const, amount: cents / 100 };
+  return { kind: sign === "-" ? ("income" as const) : ("expense" as const), amount: cents / 100 };
 }
 
 function parseRows(header: { worksheet: ExcelJS.Worksheet; rowNumber: number; columns: HeaderColumns }): ParsedStatement {

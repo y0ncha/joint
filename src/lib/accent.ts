@@ -18,11 +18,14 @@ export const accentPresetColors = [...new Set(Object.values(legacyAccents))];
 export function normalizeAccentColor(value: unknown) {
   if (isHexColor(value)) return value.toLowerCase();
 
-  return typeof value === "string" ? legacyAccents[value] ?? DEFAULT_ACCENT : DEFAULT_ACCENT;
+  return typeof value === "string" ? (legacyAccents[value] ?? DEFAULT_ACCENT) : DEFAULT_ACCENT;
 }
 
 export function accentForeground(color: string) {
-  const [red, green, blue] = color.slice(1).match(/.{2}/g)!.map((part) => Number.parseInt(part, 16));
+  const [red, green, blue] = color
+    .slice(1)
+    .match(/.{2}/g)!
+    .map((part) => Number.parseInt(part, 16));
   return red * 0.299 + green * 0.587 + blue * 0.114 > 160 ? "#17201d" : "#ffffff";
 }
 

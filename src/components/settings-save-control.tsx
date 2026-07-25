@@ -1,10 +1,11 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { LoaderCircle, Save } from "lucide-react";
+import { LoaderCircle, LogOut, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { logOut } from "@/app/actions/auth";
 import { saveSettings } from "@/app/actions/profile";
 import type { ActionResult } from "@/app/actions/result";
 import { Button } from "@/components/ui/button";
@@ -21,9 +22,16 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function hasUnsavedSettings(formData: FormData) {
-  return [["profileName", "initialProfileName"], ["householdName", "initialHouseholdName"], ["color", "initialColor"]].some(([name, initialName]) =>
-    String(formData.get(name) ?? "").trim() !== String(formData.get(initialName) ?? "").trim(),
-  );
+  return [
+    ["profileName", "initialProfileName"],
+    ["householdName", "initialHouseholdName"],
+    ["color", "initialColor"],
+  ].some(([name, initialName]) => String(formData.get(name) ?? "").trim() !== String(formData.get(initialName) ?? "").trim());
+}
+
+function hasDirtySettingsForm() {
+  const form = document.getElementById("settings-save-form") as HTMLFormElement | null;
+  return form ? hasUnsavedSettings(new FormData(form)) : false;
 }
 
 export function SettingsSaveControl({ userId }: { userId: string }) {
@@ -43,14 +51,18 @@ export function SettingsSaveControl({ userId }: { userId: string }) {
   }, [state]);
 
   useEffect(() => {
-    function isDirty() {
-      const form = document.getElementById("settings-save-form") as HTMLFormElement | null;
-      return form ? hasUnsavedSettings(new FormData(form)) : false;
-    }
-
     function confirmNavigation(event: MouseEvent) {
-      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || !isDirty()) return;
-      const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey ||
+        !hasDirtySettingsForm()
+      )
+        return;
+      const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
       if (!link || link.target || link.hasAttribute("download")) return;
 
       const url = new URL(link.href);
@@ -61,7 +73,7 @@ export function SettingsSaveControl({ userId }: { userId: string }) {
     }
 
     function confirmUnload(event: BeforeUnloadEvent) {
-      if (!isDirty()) return;
+      if (!hasDirtySettingsForm()) return;
       event.preventDefault();
       event.returnValue = "";
     }
@@ -79,13 +91,55 @@ export function SettingsSaveControl({ userId }: { userId: string }) {
       <form id="settings-save-form" action={formAction} />
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button form="settings-save-form" type="submit" variant="ghost" size="icon" className="size-14 text-foreground hover:bg-transparent hover:text-foreground" disabled={isPending} aria-label="Save changes">
-            {isPending ? <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin motion-reduce:animate-none" /> : <Save aria-hidden="true" />}
+          <Button
+            form="settings-save-form"
+            type="submit"
+            variant="ghost"
+            size="icon"
+            className="size-14 text-foreground hover:bg-transparent hover:text-foreground"
+            disabled={isPending}
+            aria-label="Save changes"
+          >
+            {isPending ? (
+              <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin motion-reduce:animate-none" />
+            ) : (
+              <Save aria-hidden="true" />
+            )}
           </Button>
         </TooltipTrigger>
         <TooltipContent>Save changes</TooltipContent>
       </Tooltip>
-      <AlertDialog open={Boolean(leaveTo)} onOpenChange={(open) => { if (!open) setLeaveTo(null); }}>
+      <form
+        data-settings-logout="true"
+        action={logOut}
+        onSubmit={(event) => {
+          if (hasDirtySettingsForm()) {
+            event.preventDefault();
+            setLeaveTo("logout");
+          }
+        }}
+      >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="submit"
+              variant="ghost"
+              size="icon"
+              className="size-14 text-foreground hover:bg-transparent hover:text-foreground"
+              aria-label="Log out"
+            >
+              <LogOut aria-hidden="true" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Log out</TooltipContent>
+        </Tooltip>
+      </form>
+      <AlertDialog
+        open={Boolean(leaveTo)}
+        onOpenChange={(open) => {
+          if (!open) setLeaveTo(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Leave without saving?</AlertDialogTitle>
@@ -93,7 +147,24 @@ export function SettingsSaveControl({ userId }: { userId: string }) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="min-h-11">Keep editing</AlertDialogCancel>
-            <AlertDialogAction type="button" variant="destructive" className="min-h-11" onClick={() => { if (leaveTo) router.push(leaveTo); }}>Leave without saving</AlertDialogAction>
+            {leaveTo === "logout" ? (
+              <form action={logOut}>
+                <AlertDialogAction type="submit" variant="destructive" className="min-h-11">
+                  Leave without saving
+                </AlertDialogAction>
+              </form>
+            ) : (
+              <AlertDialogAction
+                type="button"
+                variant="destructive"
+                className="min-h-11"
+                onClick={() => {
+                  if (leaveTo) router.push(leaveTo);
+                }}
+              >
+                Leave without saving
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

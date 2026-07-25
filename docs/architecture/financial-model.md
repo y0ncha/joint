@@ -17,13 +17,13 @@ household
 
 ## Data model and invariants
 
-| Record | Implemented purpose |
-| --- | --- |
-| `households` | Shared container with a signed `opening_balance`. |
-| `household_members` | Household membership and `owner` or `member` role. |
-| `categories` | Household-owned `income` or `expense` categories with archival state. |
-| `member_cards` | Optional household-scoped mapping of a member to one card's last four digits. |
-| `transactions` | Positive ILS amount, date, `income` or `expense` direction, creator, optional payer/category, source, merchant, and optional note. |
+| Record              | Implemented purpose                                                                                                                |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `households`        | Shared container with a signed `opening_balance`.                                                                                  |
+| `household_members` | Household membership and `owner` or `member` role.                                                                                 |
+| `categories`        | Household-owned `income` or `expense` categories with archival state.                                                              |
+| `member_cards`      | Optional household-scoped mapping of a member to one card's last four digits.                                                      |
+| `transactions`      | Positive ILS amount, date, `income` or `expense` direction, creator, optional payer/category, source, merchant, and optional note. |
 
 - The opening balance may be positive, zero, or negative.
 - Transaction amounts are positive ILS values with at most two decimal places; direction comes only from `kind`.
