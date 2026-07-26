@@ -55,6 +55,18 @@ beforeEach(() => {
                       created_at: "2026-07-14T08:00:00Z",
                       paid_by: null,
                     },
+                    {
+                      id: "categorized-transaction-id",
+                      kind: "expense",
+                      amount: "75",
+                      occurred_on: "2026-07-15",
+                      subcategory_id: "groceries",
+                      note: "Groceries",
+                      merchant: "",
+                      source: "manual",
+                      created_at: "2026-07-15T08:00:00Z",
+                      paid_by: "member-id",
+                    },
                   ],
                   error: null,
                 }
@@ -111,14 +123,15 @@ it("loads inherited subcategory data and passes hierarchy-aware transactions to 
     expect.objectContaining({
       categories: [expect.objectContaining({ id: "food", color: "#D96B6B" })],
       subcategories: [expect.objectContaining({ id: "groceries", categoryId: "food" })],
-      transactions: [
+      transactions: expect.arrayContaining([
         expect.objectContaining({
           subcategoryId: null,
           paidBy: null,
           merchant: "Super Pharm",
           source: "statement_import",
         }),
-      ],
+        expect.objectContaining({ subcategoryId: "groceries", paidBy: "member-id", note: "Groceries", source: "manual" }),
+      ]),
     }),
   );
 });
@@ -130,7 +143,10 @@ it("passes categories, subcategories, and transactions to range reports", async 
     expect.objectContaining({
       categories: [expect.objectContaining({ id: "food" })],
       subcategories: [expect.objectContaining({ id: "groceries", categoryId: "food" })],
-      transactions: [expect.objectContaining({ subcategoryId: null, merchant: "Super Pharm", paidBy: null })],
+      transactions: expect.arrayContaining([
+        expect.objectContaining({ subcategoryId: null, merchant: "Super Pharm", paidBy: null }),
+        expect.objectContaining({ subcategoryId: "groceries", paidBy: "member-id", note: "Groceries" }),
+      ]),
       from: "2026-07-01",
       to: "2026-07-31",
     }),
