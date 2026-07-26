@@ -60,11 +60,11 @@ function statementWorkbook(rows: readonly (readonly string[])[]) {
   return workbook;
 }
 
-async function xlsxFixture(rows = [...nonZeroRows, zeroRow]) {
+async function xlsxFixture(rows: readonly (readonly string[])[] = [...nonZeroRows, zeroRow]) {
   return new Uint8Array(await statementWorkbook(rows).xlsx.writeBuffer());
 }
 
-async function csvFixture(rows = [...nonZeroRows, zeroRow]) {
+async function csvFixture(rows: readonly (readonly string[])[] = [...nonZeroRows, zeroRow]) {
   const bytes = new Uint8Array(await statementWorkbook(rows).csv.writeBuffer());
   return new Uint8Array([0xef, 0xbb, 0xbf, ...bytes]);
 }

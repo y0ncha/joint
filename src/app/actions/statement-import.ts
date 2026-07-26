@@ -71,7 +71,7 @@ export async function importStatement(_previousState: ActionResult | null, formD
     created_by: household.userId,
     paid_by: payerByCard.get(row.cardLastFour) ?? null,
     source: "statement_import" as const,
-    category_id: null,
+    subcategory_id: null,
     merchant: row.merchant,
     note: row.note,
     occurred_on: row.occurredOn,

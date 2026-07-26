@@ -372,10 +372,10 @@ export type Database = {
       }
       save_current_settings: {
         Args: {
-          household_name: string
-          member_card_last_four: string
-          member_color: string
-          profile_name: string
+          household_name?: string
+          member_card_last_four?: string
+          member_color?: string
+          profile_name?: string
         }
         Returns: string
       }

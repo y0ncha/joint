@@ -147,7 +147,9 @@ describe("ensurePartnerMembership", () => {
       }),
     };
 
-    await expect(ensurePartnerMembership(supabase, { userId: "partner-id", email: " Partner@Example.com " })).resolves.toBe("joined");
+    await expect(ensurePartnerMembership(supabase as never, { userId: "partner-id", email: " Partner@Example.com " })).resolves.toBe(
+      "joined",
+    );
     expect(authorizationEmail).toHaveBeenCalledWith("email", "partner@example.com");
     expect(insert).toHaveBeenCalledWith({ household_id: "household-id", user_id: "partner-id", role: "member" });
   });

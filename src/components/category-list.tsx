@@ -27,11 +27,11 @@ import { isCategoryIcon } from "@/lib/category-icons";
 import type { CSSProperties } from "react";
 
 export type Category = {
+  color: string;
   id: string;
-  name: string;
-  kind: "income" | "expense";
-  color?: string;
   icon?: string;
+  kind: "income" | "expense";
+  name: string;
   transactionCount: number;
   archived_at: string | null;
 };
@@ -107,7 +107,11 @@ function SubcategoryEditor({
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <form action={deleteSubcategory.bind(null, subcategory.id)}>
+                  <form
+                    action={async () => {
+                      await deleteSubcategory(subcategory.id);
+                    }}
+                  >
                     <AlertDialogAction type="submit" variant="destructive">
                       Delete subcategory
                     </AlertDialogAction>
@@ -162,7 +166,7 @@ function CategoryEditor({
   categories,
 }: {
   category: Category;
-  categories: Array<{ id: string; name: string; color: string; subcategoryColors: string[] }>;
+  categories: Array<{ id: string; name: string; color: string; icon?: string; subcategoryColors: string[] }>;
 }) {
   return (
     <Sheet>
@@ -184,7 +188,11 @@ function CategoryEditor({
           <SheetDescription>Update this category.</SheetDescription>
         </SheetHeader>
         <div className="flex flex-col gap-6 px-6 pb-6">
-          <form action={updateCategory.bind(null, category.id)}>
+          <form
+            action={async (input) => {
+              await updateCategory(category.id, input);
+            }}
+          >
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor={`category-name-${category.id}`}>Name</FieldLabel>
@@ -240,7 +248,11 @@ function CategoryEditor({
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <form action={deleteCategory.bind(null, category.id)}>
+                  <form
+                    action={async () => {
+                      await deleteCategory(category.id);
+                    }}
+                  >
                     <AlertDialogAction type="submit" variant="destructive">
                       Delete category
                     </AlertDialogAction>
@@ -286,7 +298,12 @@ function CategorySection({
               size="icon"
               className="size-11 rounded-full text-foreground hover:bg-foreground/10 hover:text-foreground md:size-9"
               aria-label={`${allExpanded ? "Collapse" : "Expand"} ${title.toLowerCase()}`}
-              onClick={() => onSectionOpenChange(categories.map((category) => category.id), !allExpanded)}
+              onClick={() =>
+                onSectionOpenChange(
+                  categories.map((category) => category.id),
+                  !allExpanded,
+                )
+              }
             >
               {allExpanded ? <FoldVertical aria-hidden="true" /> : <UnfoldVertical aria-hidden="true" />}
             </Button>
@@ -323,9 +340,10 @@ function CategorySection({
                             category={category}
                             categories={categories.map((parent) => ({
                               id: parent.id,
+                              icon: parent.icon,
                               name: parent.name,
                               kind: parent.kind,
-                              color: parent.color ?? "",
+                              color: parent.color,
                               subcategoryColors: subcategories
                                 .filter((child) => child.category_id === parent.id)
                                 .map((child) => child.color),

@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(75);
+select extensions.plan(78);
 
 select extensions.hasnt_table('public', 'accounts', 'has no accounts table');
 select extensions.hasnt_type('public', 'account_kind', 'has no account kind enum');
@@ -748,6 +748,63 @@ set local role authenticated;
 set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000401';
 set local request.jwt.claim.email = 'first-owner@example.test';
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by)
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10.00,
+      date '2026-07-05',
+      null,
+      '00000000-0000-0000-0000-000000000401',
+      null
+    )
+  $$,
+  '%row-level security%',
+  'an authenticated member cannot directly insert an uncategorized manual transaction'
+);
+
+select extensions.throws_like(
+  $$
+    update public.transactions
+    set subcategory_id = null
+    where id = '00000000-0000-0000-0000-000000000431'
+  $$,
+  '%row-level security%',
+  'an authenticated member cannot directly uncategorize a manual transaction'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.transactions (
+      household_id,
+      kind,
+      amount,
+      occurred_on,
+      subcategory_id,
+      created_by,
+      paid_by,
+      source,
+      import_file_hash,
+      import_row_number
+    )
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10.00,
+      date '2026-07-05',
+      null,
+      '00000000-0000-0000-0000-000000000401',
+      null,
+      'statement_import',
+      'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+      9
+    )
+  $$,
+  'an authenticated import may remain uncategorized'
+);
 
 select extensions.lives_ok(
   $$ select public.create_category('Deployed family', 'expense', null, 'tag') $$,

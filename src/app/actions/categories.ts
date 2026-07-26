@@ -53,11 +53,7 @@ export async function updateCategory(categoryId: string, input: FormData): Promi
 
 export async function deleteCategory(categoryId: string): Promise<ActionResult> {
   const household = await requireCurrentHousehold();
-  const { error } = await household.supabase
-    .from("categories")
-    .delete()
-    .eq("id", categoryId)
-    .eq("household_id", household.householdId);
+  const { error } = await household.supabase.from("categories").delete().eq("id", categoryId).eq("household_id", household.householdId);
   if (error) return { status: "error", formError: "Unable to delete the category. Please try again.", fieldErrors: {} };
   revalidatePath("/");
   revalidatePath("/transactions");
@@ -70,10 +66,12 @@ export async function createSubcategory(categoryId: string, input: FormData): Pr
   if (!parsed.success) return validationError(parsed.error.issues);
   const color = input.get("color");
   if (!isHexColor(color)) return { status: "error", formError: "Choose a subcategory color.", fieldErrors: {} };
+  const icon = input.get("icon");
+  if (icon && !isCategoryIcon(icon)) return { status: "error", formError: "Choose a subcategory icon.", fieldErrors: {} };
   const household = await requireCurrentHousehold();
   const { error } = await household.supabase
     .from("subcategories")
-    .insert({ household_id: household.householdId, category_id: categoryId, name: parsed.data.name, color });
+    .insert({ household_id: household.householdId, category_id: categoryId, name: parsed.data.name, color, icon: icon || null });
   if (error) return { status: "error", formError: "Unable to save the subcategory. Please try again.", fieldErrors: {} };
   revalidatePath("/");
   revalidatePath("/transactions");

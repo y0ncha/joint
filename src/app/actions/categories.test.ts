@@ -39,7 +39,9 @@ describe("category actions", () => {
   it("creates a standalone category with an anchor color", async () => {
     mocks.rpc.mockResolvedValue({ error: null });
 
-    await expect(actions.createCategory(formData({ name: "Meals", kind: "expense", color: "#ccebef", icon: "utensils" }))).resolves.toEqual({ status: "success" });
+    await expect(actions.createCategory(formData({ name: "Meals", kind: "expense", color: "#ccebef", icon: "utensils" }))).resolves.toEqual(
+      { status: "success" },
+    );
 
     expect(mocks.rpc).toHaveBeenCalledWith("create_category", {
       category_name: "Meals",
@@ -64,7 +66,9 @@ describe("category actions", () => {
     mocks.eq.mockResolvedValue({ error: null });
     mocks.update.mockReturnValue({ eq: vi.fn().mockReturnValue({ eq: mocks.eq }) });
 
-    await expect(actions.updateCategory("category-id", formData({ name: "Meals", kind: "expense", color: "#ccebef", icon: "utensils" }))).resolves.toEqual({
+    await expect(
+      actions.updateCategory("category-id", formData({ name: "Meals", kind: "expense", color: "#ccebef", icon: "utensils" })),
+    ).resolves.toEqual({
       status: "success",
     });
 
@@ -74,15 +78,17 @@ describe("category actions", () => {
   });
 
   it("rejects a child color before touching data", async () => {
-    await expect(actions.updateCategory("category-id", formData({ name: "Meals", kind: "expense", color: "#C5E8F7", icon: "utensils" }))).resolves.toMatchObject(
-      { status: "error" },
-    );
+    await expect(
+      actions.updateCategory("category-id", formData({ name: "Meals", kind: "expense", color: "#C5E8F7", icon: "utensils" })),
+    ).resolves.toMatchObject({ status: "error" });
 
     expect(mocks.from).not.toHaveBeenCalled();
   });
 
   it("rejects an icon outside the curated set before touching data", async () => {
-    await expect(actions.createCategory(formData({ name: "Meals", kind: "expense", color: "#ccebef", icon: "emoji" }))).resolves.toMatchObject({
+    await expect(
+      actions.createCategory(formData({ name: "Meals", kind: "expense", color: "#ccebef", icon: "emoji" })),
+    ).resolves.toMatchObject({
       status: "error",
     });
 
@@ -100,20 +106,40 @@ describe("subcategory actions", () => {
     expect(mocks.from).not.toHaveBeenCalled();
   });
 
-  it("creates a trimmed subcategory with its selected child color", async () => {
+  it("creates a trimmed subcategory with its selected child color and icon override", async () => {
     await expect(
       actions.createSubcategory(
         "category-id",
-        formData({ householdId: "other-household", name: " Groceries ", kind: "expense", color: "#c5e8f7" }),
+        formData({
+          householdId: "other-household",
+          name: " Groceries ",
+          kind: "expense",
+          color: "#c5e8f7",
+          icon: "shopping-basket",
+        }),
       ),
     ).resolves.toEqual({ status: "success" });
 
     expect(mocks.from).toHaveBeenCalledWith("subcategories");
-    expect(mocks.insert).toHaveBeenCalledWith({ household_id: "household-id", category_id: "category-id", name: "Groceries", color: "#c5e8f7" });
+    expect(mocks.insert).toHaveBeenCalledWith({
+      household_id: "household-id",
+      category_id: "category-id",
+      name: "Groceries",
+      color: "#c5e8f7",
+      icon: "shopping-basket",
+    });
     expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/categories");
+  });
+
+  it("rejects an invalid subcategory icon before touching data", async () => {
+    await expect(
+      actions.createSubcategory("category-id", formData({ name: "Groceries", color: "#c5e8f7", icon: "emoji" })),
+    ).resolves.toMatchObject({ status: "error" });
+
+    expect(mocks.from).not.toHaveBeenCalled();
   });
 
   it("updates the verified household subcategory name, color, and icon override", async () => {
@@ -124,14 +150,25 @@ describe("subcategory actions", () => {
     await expect(
       actions.updateSubcategory(
         "subcategory-id",
-        formData({ householdId: "other-household", name: " Household groceries ", categoryId: "00000000-0000-4000-8000-000000000001", color: "#aec6cf", icon: "shopping-basket" }),
+        formData({
+          householdId: "other-household",
+          name: " Household groceries ",
+          categoryId: "00000000-0000-4000-8000-000000000001",
+          color: "#aec6cf",
+          icon: "shopping-basket",
+        }),
       ),
     ).resolves.toEqual({
       status: "success",
     });
 
     expect(mocks.from).toHaveBeenCalledWith("subcategories");
-    expect(mocks.update).toHaveBeenCalledWith({ category_id: "00000000-0000-4000-8000-000000000001", name: "Household groceries", color: "#aec6cf", icon: "shopping-basket" });
+    expect(mocks.update).toHaveBeenCalledWith({
+      category_id: "00000000-0000-4000-8000-000000000001",
+      name: "Household groceries",
+      color: "#aec6cf",
+      icon: "shopping-basket",
+    });
     expect(eqId).toHaveBeenCalledWith("id", "subcategory-id");
     expect(eqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
