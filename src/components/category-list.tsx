@@ -1,3 +1,5 @@
+"use client";
+
 import { deleteCategory, deleteSubcategory, updateCategory } from "@/app/actions/categories";
 import { ChevronRight, Trash2 } from "lucide-react";
 import {
@@ -24,7 +26,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { isCategoryIcon } from "@/lib/category-icons";
 import type { CSSProperties } from "react";
 
-type Category = {
+export type Category = {
   id: string;
   name: string;
   kind: "income" | "expense";
@@ -34,7 +36,7 @@ type Category = {
   archived_at: string | null;
 };
 
-type Subcategory = {
+export type Subcategory = {
   color: string;
   id: string;
   icon?: string | null;
@@ -105,12 +107,7 @@ function SubcategoryEditor({
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <form
-                    action={async () => {
-                      "use server";
-                      await deleteSubcategory(subcategory.id);
-                    }}
-                  >
+                  <form action={deleteSubcategory.bind(null, subcategory.id)}>
                     <AlertDialogAction type="submit" variant="destructive">
                       Delete subcategory
                     </AlertDialogAction>
@@ -187,12 +184,7 @@ function CategoryEditor({
           <SheetDescription>Update this category.</SheetDescription>
         </SheetHeader>
         <div className="flex flex-col gap-6 px-6 pb-6">
-          <form
-            action={async (formData) => {
-              "use server";
-              await updateCategory(category.id, formData);
-            }}
-          >
+          <form action={updateCategory.bind(null, category.id)}>
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor={`category-name-${category.id}`}>Name</FieldLabel>
@@ -248,12 +240,7 @@ function CategoryEditor({
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <form
-                    action={async () => {
-                      "use server";
-                      await deleteCategory(category.id);
-                    }}
-                  >
+                  <form action={deleteCategory.bind(null, category.id)}>
                     <AlertDialogAction type="submit" variant="destructive">
                       Delete category
                     </AlertDialogAction>
@@ -272,11 +259,15 @@ function CategorySection({
   categories,
   subcategories,
   emptyLabel,
+  onCategoryOpenChange,
+  openCategoryIds,
   title,
 }: {
   categories: Category[];
   subcategories: Subcategory[];
   emptyLabel: string;
+  onCategoryOpenChange?: (categoryId: string, open: boolean) => void;
+  openCategoryIds?: ReadonlySet<string>;
   title: string;
 }) {
   return (
@@ -293,7 +284,12 @@ function CategorySection({
               const children = subcategories.filter((subcategory) => subcategory.category_id === category.id);
               return (
                 <li key={category.id}>
-                  <Collapsible defaultOpen className="group/category flex flex-col gap-1">
+                  <Collapsible
+                    defaultOpen={openCategoryIds ? undefined : true}
+                    onOpenChange={onCategoryOpenChange ? (open) => onCategoryOpenChange(category.id, open) : undefined}
+                    open={openCategoryIds?.has(category.id)}
+                    className="group/category flex flex-col gap-1"
+                  >
                     <div
                       className="relative flex min-h-11 items-center before:absolute before:inset-y-2 before:start-0 before:w-1 before:rounded-full before:bg-[var(--category-color)]"
                       style={category.color ? ({ "--category-color": category.color } as CSSProperties) : undefined}
@@ -349,7 +345,17 @@ function CategorySection({
   );
 }
 
-export function CategoryList({ categories, subcategories = [] }: { categories: Category[]; subcategories?: Subcategory[] }) {
+export function CategoryList({
+  categories,
+  subcategories = [],
+  onCategoryOpenChange,
+  openCategoryIds,
+}: {
+  categories: Category[];
+  subcategories?: Subcategory[];
+  onCategoryOpenChange?: (categoryId: string, open: boolean) => void;
+  openCategoryIds?: ReadonlySet<string>;
+}) {
   return (
     <>
       <CategorySection
@@ -357,6 +363,8 @@ export function CategoryList({ categories, subcategories = [] }: { categories: C
           (category) => category.kind === "expense" && subcategories.some((subcategory) => subcategory.category_id === category.id),
         )}
         subcategories={subcategories}
+        onCategoryOpenChange={onCategoryOpenChange}
+        openCategoryIds={openCategoryIds}
         emptyLabel="No expense subcategories yet"
         title="Expense categories"
       />
@@ -365,6 +373,8 @@ export function CategoryList({ categories, subcategories = [] }: { categories: C
           (category) => category.kind === "income" && subcategories.some((subcategory) => subcategory.category_id === category.id),
         )}
         subcategories={subcategories}
+        onCategoryOpenChange={onCategoryOpenChange}
+        openCategoryIds={openCategoryIds}
         emptyLabel="No income subcategories yet"
         title="Income categories"
       />

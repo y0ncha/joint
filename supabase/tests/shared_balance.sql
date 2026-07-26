@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(59);
+select extensions.plan(64);
 
 select extensions.hasnt_table('public', 'accounts', 'has no accounts table');
 select extensions.hasnt_type('public', 'account_kind', 'has no account kind enum');
@@ -777,6 +777,44 @@ select extensions.is(
 );
 
 reset role;
+
+select extensions.ok(
+  not has_function_privilege('anon', 'public.assign_category_color()', 'EXECUTE'),
+  'anon cannot execute the category-color trigger function'
+);
+
+select extensions.ok(
+  not has_function_privilege('authenticated', 'public.assign_category_color()', 'EXECUTE'),
+  'authenticated users cannot execute the category-color trigger function'
+);
+
+select extensions.ok(
+  not has_function_privilege('anon', 'public.assign_household_member_color()', 'EXECUTE'),
+  'anon cannot execute the member-color trigger function'
+);
+
+select extensions.ok(
+  not has_function_privilege('authenticated', 'public.assign_household_member_color()', 'EXECUTE'),
+  'authenticated users cannot execute the member-color trigger function'
+);
+
+select extensions.ok(
+  exists (
+    select 1
+    from pg_catalog.pg_index as index_meta
+    join pg_catalog.pg_class as index_relation on index_relation.oid = index_meta.indexrelid
+    join pg_catalog.pg_namespace as index_schema on index_schema.oid = index_relation.relnamespace
+    where index_schema.nspname = 'public'
+      and index_relation.relname = 'transactions_household_subcategory_idx'
+      and index_meta.indisvalid
+      and index_meta.indisready
+      and index_meta.indpred is not null
+      and pg_get_indexdef(index_meta.indexrelid) =
+        'CREATE INDEX transactions_household_subcategory_idx ON public.transactions USING btree (household_id, subcategory_id) WHERE (subcategory_id IS NOT NULL)'
+  ),
+  'transactions have a valid partial household-subcategory index'
+);
+
 set local role anon;
 
 select extensions.ok(

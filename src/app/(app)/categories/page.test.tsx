@@ -45,7 +45,9 @@ beforeEach(() => {
     .mockResolvedValueOnce({ data: [{ id: "food", name: "Food", kind: "expense", color: "#dcece3", archived_at: null }] })
     .mockResolvedValueOnce({ data: [{ id: "food", name: "Food", kind: "expense", color: "#dcece3", archived_at: null }] })
     .mockResolvedValueOnce({
-      data: [{ id: "groceries", category_id: "food", name: "Groceries", color: "#c5e8f7", archived_at: null, transactions: [{ count: 1 }] }],
+      data: [
+        { id: "groceries", category_id: "food", name: "Groceries", color: "#c5e8f7", archived_at: null, transactions: [{ count: 1 }] },
+      ],
     });
   mocks.eq.mockReturnValue({ order: mocks.order });
   mocks.select.mockReturnValue({ eq: mocks.eq });
@@ -58,7 +60,7 @@ it("loads the category hierarchy through the member request context and keeps cr
   const markup = renderToStaticMarkup(await pageModule.default());
 
   expect(markup).toContain("Food:Groceries");
-  expect(markup).toContain('data-category-sheet="#b0e0e6"');
+  expect(markup).toContain('data-category-sheet="#ccebef"');
   expect(mocks.from).toHaveBeenCalledWith("categories");
   expect(mocks.from).toHaveBeenCalledWith("subcategories");
   expect(mocks.eq).toHaveBeenCalledWith("household_id", "household-id");

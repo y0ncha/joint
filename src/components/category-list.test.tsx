@@ -70,3 +70,19 @@ it("shows category and subcategory names without pills", () => {
   expect(markup).not.toContain("background-color:#dcece3");
   expect(markup).not.toContain("background-color:#c5e8f7");
 });
+
+it("uses the supplied global state to collapse every category group", () => {
+  const markup = categoryListModule
+    ? renderToStaticMarkup(
+        <categoryListModule.CategoryList
+          categories={[{ id: "food", name: "Food", kind: "expense", color: "#dcece3", transactionCount: 0, archived_at: null }]}
+          subcategories={[
+            { id: "groceries", category_id: "food", name: "Groceries", color: "#c5e8f7", transactionCount: 0, archived_at: null },
+          ]}
+          openCategoryIds={new Set()}
+        />,
+      )
+    : "";
+
+  expect(markup).toMatch(/aria-label="Toggle Food subcategories"[\s\S]*aria-expanded="false"/);
+});

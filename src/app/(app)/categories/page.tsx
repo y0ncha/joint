@@ -1,6 +1,4 @@
-import { CategorySheet } from "@/components/category-form";
-import { CategoryList } from "@/components/category-list";
-import { WorkspaceShell } from "@/components/workspace-shell";
+import { CategoriesWorkspace } from "@/components/categories-workspace";
 import { getCurrentHouseholdContext } from "@/lib/household";
 import { selectCategoryPastelColor } from "@/lib/shared-colors";
 
@@ -32,25 +30,5 @@ export default async function CategoriesPage() {
     ),
   }));
   const defaultColor = selectCategoryPastelColor(categoryData.map((category) => category.color));
-  return (
-    <WorkspaceShell
-      title="Categories"
-      description="Keep income and expense reporting clear."
-      actions={
-        <CategorySheet
-          categories={categoryData
-            .filter((category) => !category.archived_at)
-            .map((category) => ({
-              ...category,
-              subcategoryColors: subcategoryData.filter((subcategory) => subcategory.category_id === category.id).map((subcategory) => subcategory.color),
-            }))}
-          defaultColor={defaultColor}
-        />
-      }
-    >
-      <div className="mt-6 flex flex-col gap-4">
-        <CategoryList categories={categoryData} subcategories={subcategoryData} />
-      </div>
-    </WorkspaceShell>
-  );
+  return <CategoriesWorkspace categories={categoryData} subcategories={subcategoryData} defaultColor={defaultColor} />;
 }
