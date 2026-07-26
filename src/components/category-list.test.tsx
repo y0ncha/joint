@@ -113,3 +113,18 @@ it("uses the supplied global state to collapse every category group", () => {
 
   expect(markup).toMatch(/aria-label="Toggle Food subcategories"[\s\S]*aria-expanded="false"/);
 });
+
+it("does not delay category row hover feedback", () => {
+  const markup = categoryListModule
+    ? renderToStaticMarkup(
+        <categoryListModule.CategoryList
+          categories={[{ id: "food", name: "Food", kind: "expense", color: "#dcece3", transactionCount: 0, archived_at: null }]}
+          subcategories={[
+            { id: "groceries", category_id: "food", name: "Groceries", color: "#c5e8f7", transactionCount: 0, archived_at: null },
+          ]}
+        />,
+      )
+    : "";
+
+  expect(markup).not.toContain("duration-700");
+});

@@ -28,7 +28,8 @@ export async function getDashboardData(month: string, range?: DateRange) {
             ...subcategory,
             categoryName: category.name,
             kind: category.kind,
-            color: category.color,
+            color: subcategory.color,
+            icon: subcategory.icon ?? category.icon,
             categoryArchivedAt: category.archivedAt,
           },
         ]

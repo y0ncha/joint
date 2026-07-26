@@ -37,9 +37,15 @@ beforeEach(() => {
       table === "households"
         ? { data: { opening_balance: "9000.50" }, error: null }
         : table === "categories"
-          ? { data: [{ id: "food", name: "Food", kind: "expense", color: "#D96B6B", archived_at: null }], error: null }
+          ? { data: [{ id: "food", name: "Food", kind: "expense", color: "#D96B6B", icon: "utensils", archived_at: null }], error: null }
           : table === "subcategories"
-            ? { data: [{ id: "groceries", name: "Groceries", category_id: "food", archived_at: null }], error: null }
+            ? {
+                data: [
+                  { id: "groceries", name: "Groceries", category_id: "food", color: "#D8F0D0", icon: null, archived_at: null },
+                  { id: "orphan", name: "Orphan", category_id: "missing", color: "#F0D8D0", icon: "circle", archived_at: null },
+                ],
+                error: null,
+              }
             : table === "transactions"
               ? {
                   data: [
@@ -114,7 +120,8 @@ it("loads inherited subcategory data and passes hierarchy-aware transactions to 
       archivedAt: null,
       categoryName: "Food",
       kind: "expense",
-      color: "#D96B6B",
+      color: "#D8F0D0",
+      icon: "utensils",
       categoryArchivedAt: null,
     },
   ]);
