@@ -25,9 +25,18 @@ import { PillSelect } from "@/components/pill-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { categoryIcon } from "@/lib/category-icons";
 import type { ReportTransaction } from "@/lib/financial-report";
 
-type Category = { id: string; name: string; kind: "income" | "expense"; color?: string };
+type Subcategory = {
+  id: string;
+  name: string;
+  categoryId: string;
+  categoryName: string;
+  kind: "income" | "expense";
+  color: string;
+  icon: string | null;
+};
 type Member = { id: string; label: string; color?: string };
 
 const displayDate = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -51,7 +60,7 @@ function dateOnlyFromLocalDate(value: Date) {
 }
 
 export function TransactionSheet({
-  categories = [],
+  subcategories = [],
   currentUserId = "",
   members = [],
   onOpenChange,
@@ -59,7 +68,7 @@ export function TransactionSheet({
   transaction,
   trigger,
 }: {
-  categories?: Category[];
+  subcategories?: Subcategory[];
   currentUserId?: string;
   members?: Member[];
   onOpenChange?: (open: boolean) => void;
@@ -78,13 +87,13 @@ export function TransactionSheet({
     if (state?.status === "success") toast.success(isEditing ? "Transaction updated" : "Transaction added", { id: "transaction-save" });
     if (state?.status === "error") toast.error(state.formError, { id: "transaction-save" });
   }, [isEditing, state]);
-  const selectableCategories = useMemo(() => categories.filter((category) => category.kind === kind), [categories, kind]);
+  const selectableSubcategories = useMemo(() => subcategories.filter((subcategory) => subcategory.kind === kind), [subcategories, kind]);
   const [occurredOn, setOccurredOn] = useState(transaction?.occurredOn ?? todayIso);
   const [paidBy, setPaidBy] = useState(() => transaction?.paidBy ?? currentUserId ?? members[0]?.id ?? "");
-  const [categoryId, setCategoryId] = useState(() =>
-    transaction ? (transaction.categoryId ?? "") : (categories.find((category) => category.kind === initialKind)?.id ?? ""),
+  const [subcategoryId, setSubcategoryId] = useState(() =>
+    transaction ? (transaction.subcategoryId ?? "") : (subcategories.find((subcategory) => subcategory.kind === initialKind)?.id ?? ""),
   );
-  const selectedCategoryId = selectableCategories.some((category) => category.id === categoryId) ? categoryId : "";
+  const selectedSubcategoryId = selectableSubcategories.some((subcategory) => subcategory.id === subcategoryId) ? subcategoryId : "";
   const selectedPaidBy =
     paidBy === "" ? "" : members.some((member) => member.id === paidBy) ? paidBy : currentUserId || members[0]?.id || "";
   const shouldRenderDefaultTrigger = !isEditing && open === undefined && onOpenChange === undefined;
@@ -118,7 +127,7 @@ export function TransactionSheet({
           <FieldGroup>
             <input name="kind" type="hidden" value={kind} />
             <input name="occurredOn" type="hidden" value={occurredOn} />
-            <input name="categoryId" type="hidden" value={selectedCategoryId} />
+            <input name="subcategoryId" type="hidden" value={selectedSubcategoryId} />
             <input name="paidBy" type="hidden" value={selectedPaidBy} />
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.amount)}>
               <FieldLabel htmlFor="amount">Amount</FieldLabel>
@@ -167,7 +176,7 @@ export function TransactionSheet({
                 value={kind}
                 onValueChange={(value) => {
                   setKind(value as typeof kind);
-                  setCategoryId("");
+                  setSubcategoryId("");
                 }}
                 options={[
                   { value: "income", label: "Income", className: "border-positive/20 bg-positive/10 text-positive" },
@@ -189,17 +198,22 @@ export function TransactionSheet({
               />
               {state?.status === "error" ? <FieldError>{state.fieldErrors.paidBy}</FieldError> : null}
             </Field>
-            <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.categoryId)}>
+            <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.subcategoryId)}>
               <FieldLabel>Category</FieldLabel>
               <PillSelect
                 ariaLabel="Categories"
-                value={selectedCategoryId}
-                onValueChange={setCategoryId}
-                disabled={selectableCategories.length === 0}
+                value={selectedSubcategoryId}
+                onValueChange={setSubcategoryId}
+                disabled={selectableSubcategories.length === 0}
                 emptyLabel="Uncategorized"
-                options={selectableCategories.map((category) => ({ value: category.id, label: category.name, color: category.color }))}
+                options={selectableSubcategories.map((subcategory) => ({
+                  value: subcategory.id,
+                  label: `${subcategory.categoryName} → ${subcategory.name}`,
+                  color: subcategory.color,
+                  icon: categoryIcon(subcategory.icon),
+                }))}
               />
-              {state?.status === "error" ? <FieldError>{state.fieldErrors.categoryId}</FieldError> : null}
+              {state?.status === "error" ? <FieldError>{state.fieldErrors.subcategoryId}</FieldError> : null}
             </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)}>
               <FieldLabel htmlFor="merchant">Merchant</FieldLabel>

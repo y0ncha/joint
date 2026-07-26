@@ -22,6 +22,19 @@ describe("Joint dashboard", () => {
         { id: "income-category-id", name: "Salary", kind: "income", archivedAt: null },
         { id: "home-category-id", name: "Home", kind: "expense", archivedAt: null },
       ],
+      subcategories: [
+        {
+          id: "groceries",
+          name: "Groceries",
+          categoryId: "home-category-id",
+          categoryName: "Home",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "home",
+          archivedAt: null,
+          categoryArchivedAt: null,
+        },
+      ],
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
       transactions: [{ occurredOn: "2026-07-14" }],
@@ -38,7 +51,7 @@ describe("Joint dashboard", () => {
             id: "transaction-id",
             kind: "expense",
             amount: 186,
-            categoryId: null,
+            subcategoryId: "groceries",
             note: "Super Pharm",
             merchant: "Super-Pharm Ltd.",
             source: "statement_import",
@@ -65,7 +78,7 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("Where your money went");
     expect(markup).toContain("More chart options");
     expect(markup).toContain("Super-Pharm Ltd.");
-    expect(markup).toContain("Uncategorized - 2026-07-14");
+    expect(markup).toContain("Home → Groceries - 2026-07-14");
     expect(markup).toContain("Imported");
     expect(markup).toContain('alt="Joint logo"');
   });
@@ -92,6 +105,7 @@ describe("Joint dashboard", () => {
   it("shows no available income when there is no recent income average", async () => {
     mocks.getDashboardData.mockResolvedValueOnce({
       categories: [],
+      subcategories: [],
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
       transactions: [],
@@ -117,6 +131,7 @@ describe("Joint dashboard", () => {
   it("shows the below-average income comparison", async () => {
     mocks.getDashboardData.mockResolvedValueOnce({
       categories: [],
+      subcategories: [],
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
       transactions: [],

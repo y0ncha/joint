@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ComponentType, type SVGProps } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-export type PillOption = { value: string; label: string; color?: string; className?: string };
+export type PillOption = {
+  value: string;
+  label: string;
+  color?: string;
+  className?: string;
+  icon?: ComponentType<SVGProps<SVGSVGElement>>;
+};
 
 export function PillSelect({
   ariaLabel,
@@ -36,6 +42,7 @@ export function PillSelect({
   const [query, setQuery] = useState("");
   const selectedValue = value ?? internalValue;
   const selected = options.find((option) => option.value === selectedValue);
+  const SelectedIcon = selected?.icon;
   const visibleOptions = useMemo(
     () =>
       (preserveOrder ? options : [...options].sort((left, right) => left.label.localeCompare(right.label))).filter((option) =>
@@ -78,6 +85,7 @@ export function PillSelect({
                 selected.className,
               )}
             >
+              {SelectedIcon ? <SelectedIcon aria-hidden="true" className="size-3 shrink-0" /> : null}
               {selected.label}
             </Badge>
           ) : (
@@ -105,6 +113,7 @@ export function PillSelect({
                   option.className,
                 )}
               >
+                {option.icon ? <option.icon aria-hidden="true" className="size-3 shrink-0" /> : null}
                 {option.label}
               </Badge>
             </Button>

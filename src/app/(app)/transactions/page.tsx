@@ -59,9 +59,9 @@ export default async function TransactionsPage({
         <>
           <StatementImportSheet defaultOpen={importRequested === "1"} />
           <TransactionSheet
-            categories={data.categories
-              .filter((category) => category.archivedAt === null)
-              .map((category) => ({ id: category.id, name: category.name, kind: category.kind }))}
+            subcategories={data.subcategories.filter(
+              (subcategory) => subcategory.archivedAt === null && subcategory.categoryArchivedAt === null,
+            )}
             currentUserId={data.currentUserId}
             members={data.members}
           />
@@ -87,7 +87,7 @@ export default async function TransactionsPage({
           <TransactionLedger
             key={[month, dateRange?.from, dateRange?.to, filterKind, categoryIds.join(","), paidByIds.join(",")].join(":")}
             transactions={dateRange ? data.transactions : data.report.recentTransactions}
-            categories={data.categories}
+            subcategories={data.subcategories}
             categoryIds={categoryIds}
             dateRange={dateRange}
             filterKind={filterKind}

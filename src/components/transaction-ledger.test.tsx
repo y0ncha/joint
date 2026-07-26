@@ -8,7 +8,7 @@ type ImportedLedgerTransaction = {
   kind: "income" | "expense";
   amount: number;
   occurredOn: string;
-  categoryId: null;
+  subcategoryId: null;
   note: string;
   merchant: string;
   source: "statement_import";
@@ -26,7 +26,19 @@ it("maps ledger shortcuts only when transactions are selected", () => {
 it("keeps transaction selection, editing, and bulk deletion accessible", () => {
   const markup = renderToStaticMarkup(
     <TransactionLedger
-      categories={[{ id: "food", name: "Food", kind: "expense", archivedAt: null }]}
+      subcategories={[
+        {
+          id: "groceries",
+          name: "Groceries",
+          categoryId: "food",
+          categoryName: "Food",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "utensils",
+          archivedAt: null,
+          categoryArchivedAt: null,
+        },
+      ]}
       members={[{ id: "member-id", label: "You", color: "#dcece3" }]}
       transactions={[
         {
@@ -34,7 +46,7 @@ it("keeps transaction selection, editing, and bulk deletion accessible", () => {
           kind: "expense",
           amount: 3,
           occurredOn: "2026-07-15",
-          categoryId: "food",
+          subcategoryId: "groceries",
           note: "A long supermarket note that should not push the action column outside the card",
           createdAt: "2026-07-15T08:00:00Z",
           paidBy: "member-id",
@@ -50,6 +62,7 @@ it("keeps transaction selection, editing, and bulk deletion accessible", () => {
   expect(markup).toContain('aria-label="Edit A long supermarket note that should not push the action column outside the card transaction"');
   expect(markup).toContain('aria-label="Delete selected transactions"');
   expect(markup).toContain('aria-haspopup="dialog"');
+  expect(markup).toContain("Food → Groceries");
 });
 
 it("renders imported merchant details with uncategorized and unassigned fallbacks", () => {
@@ -58,14 +71,14 @@ it("renders imported merchant details with uncategorized and unassigned fallback
     kind: "expense",
     amount: 50,
     occurredOn: "2026-07-15",
-    categoryId: null,
+    subcategoryId: null,
     note: "Statement note",
     merchant: "Super Pharm",
     source: "statement_import",
     createdAt: "2026-07-15T08:00:00Z",
     paidBy: null,
   };
-  const markup = renderToStaticMarkup(<TransactionLedger categories={[]} members={[]} transactions={[transaction]} />);
+  const markup = renderToStaticMarkup(<TransactionLedger members={[]} transactions={[transaction]} />);
 
   expect(markup).toContain("Super Pharm");
   expect(markup).toContain("Uncategorized");
@@ -76,7 +89,6 @@ it("renders imported merchant details with uncategorized and unassigned fallback
 it("sizes ledger columns from their contents", () => {
   const markup = renderToStaticMarkup(
     <TransactionLedger
-      categories={[]}
       members={[]}
       transactions={[
         {
@@ -84,7 +96,7 @@ it("sizes ledger columns from their contents", () => {
           kind: "expense",
           amount: 50,
           occurredOn: "2026-07-15",
-          categoryId: null,
+          subcategoryId: null,
           note: "Groceries",
           createdAt: "2026-07-15T08:00:00Z",
           paidBy: null,
@@ -100,7 +112,6 @@ it("sizes ledger columns from their contents", () => {
 it("limits rows to the selected custom date range", () => {
   const markup = renderToStaticMarkup(
     <TransactionLedger
-      categories={[]}
       members={[]}
       dateRange={{ from: "2026-06-10", to: "2026-06-20" }}
       transactions={[
@@ -109,7 +120,7 @@ it("limits rows to the selected custom date range", () => {
           kind: "expense",
           amount: 10,
           occurredOn: "2026-06-01",
-          categoryId: null,
+          subcategoryId: null,
           note: "Outside range",
           createdAt: "2026-06-01T08:00:00Z",
           paidBy: null,
@@ -119,7 +130,7 @@ it("limits rows to the selected custom date range", () => {
           kind: "expense",
           amount: 10,
           occurredOn: "2026-06-15",
-          categoryId: null,
+          subcategoryId: null,
           note: "Inside range",
           createdAt: "2026-06-15T08:00:00Z",
           paidBy: null,
@@ -134,7 +145,7 @@ it("limits rows to the selected custom date range", () => {
 
 it("names an empty custom range accurately", () => {
   const markup = renderToStaticMarkup(
-    <TransactionLedger categories={[]} members={[]} dateRange={{ from: "2026-06-10", to: "2026-06-20" }} transactions={[]} />,
+    <TransactionLedger members={[]} dateRange={{ from: "2026-06-10", to: "2026-06-20" }} transactions={[]} />,
   );
 
   expect(markup).toContain("No transactions for this date range.");
@@ -143,17 +154,51 @@ it("names an empty custom range accurately", () => {
 it("filters by selected categories and payers", () => {
   const markup = renderToStaticMarkup(
     <TransactionLedger
-      categories={[]}
       members={[]}
       categoryIds={["food"]}
       paidByIds={["you"]}
+      subcategories={[
+        {
+          id: "groceries",
+          name: "Groceries",
+          categoryId: "food",
+          categoryName: "Food",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "utensils",
+          archivedAt: null,
+          categoryArchivedAt: null,
+        },
+        {
+          id: "restaurants",
+          name: "Restaurants",
+          categoryId: "food",
+          categoryName: "Food",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "utensils",
+          archivedAt: null,
+          categoryArchivedAt: null,
+        },
+        {
+          id: "other",
+          name: "Other",
+          categoryId: "other",
+          categoryName: "Other",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "tag",
+          archivedAt: null,
+          categoryArchivedAt: null,
+        },
+      ]}
       transactions={[
         {
           id: "match",
           kind: "expense",
           amount: 10,
           occurredOn: "2026-06-15",
-          categoryId: "food",
+          subcategoryId: "groceries",
           note: "Matches filters",
           createdAt: "2026-06-15T08:00:00Z",
           paidBy: "you",
@@ -163,7 +208,7 @@ it("filters by selected categories and payers", () => {
           kind: "expense",
           amount: 10,
           occurredOn: "2026-06-15",
-          categoryId: "other",
+          subcategoryId: "other",
           note: "Wrong category",
           createdAt: "2026-06-15T08:00:00Z",
           paidBy: "you",
@@ -173,7 +218,7 @@ it("filters by selected categories and payers", () => {
           kind: "expense",
           amount: 10,
           occurredOn: "2026-06-15",
-          categoryId: "food",
+          subcategoryId: "restaurants",
           note: "Wrong payer",
           createdAt: "2026-06-15T08:00:00Z",
           paidBy: "them",
@@ -190,7 +235,6 @@ it("filters by selected categories and payers", () => {
 it("filters, sorts, and exposes selection controls without making rows editable", () => {
   const markup = renderToStaticMarkup(
     <TransactionLedger
-      categories={[]}
       members={[]}
       filterKind="income"
       sort="amount-desc"
@@ -200,7 +244,7 @@ it("filters, sorts, and exposes selection controls without making rows editable"
           kind: "income",
           amount: 20,
           occurredOn: "2026-07-15",
-          categoryId: null,
+          subcategoryId: null,
           note: "Small income",
           createdAt: "2026-07-15T08:00:00Z",
           paidBy: null,
@@ -210,7 +254,7 @@ it("filters, sorts, and exposes selection controls without making rows editable"
           kind: "income",
           amount: 100,
           occurredOn: "2026-07-14",
-          categoryId: null,
+          subcategoryId: null,
           note: "Large income",
           createdAt: "2026-07-14T08:00:00Z",
           paidBy: null,
@@ -220,7 +264,7 @@ it("filters, sorts, and exposes selection controls without making rows editable"
           kind: "expense",
           amount: 50,
           occurredOn: "2026-07-16",
-          categoryId: null,
+          subcategoryId: null,
           note: "Expense",
           createdAt: "2026-07-16T08:00:00Z",
           paidBy: null,
