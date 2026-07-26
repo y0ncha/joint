@@ -39,11 +39,13 @@ When documents disagree, stop and resolve the conflict with the user. Do not sil
 
 - Use App Router and keep client boundaries small. Browser APIs and interaction belong in explicit client components.
 - Keep persistent mutations behind authenticated Server Actions. Never ship a Supabase service-role key to the browser.
-- Use generated database types from `src/lib/database.types.ts`; regenerate them after every SQL migration.
-- Add schema changes as new ordered files in `supabase/migrations/`. Never edit an applied migration.
-- Schema workflow: before every linked Supabase command, confirm `supabase/.temp/project-ref` is hosted `joint-dev` (`magcvzqnwrwxkhtsfspg`). Create migrations with `supabase migration new`; once a migration has been applied anywhere, its filename and contents are immutable.
-- Before applying a schema change to `joint-dev`, run `SUPABASE_TELEMETRY_DISABLED=1 supabase migration list --linked`. If local and remote history differ, stop and reconcile the cause before `db push`; never rename an applied migration or use `migration repair`, `db pull`, or a generated schema snapshot as a shortcut without reviewing the actual schema drift.
-- When application code requires a new migration, validate its `joint-dev` application with `supabase db push --linked --dry-run`, then `supabase db push --linked`, and rerun `supabase migration list --linked`. Regenerate database types after the migration is applied.
+- Use generated database types from `src/lib/database.types.ts`; regenerate and compare them after every SQL migration.
+- Repository schema changes start with `SUPABASE_TELEMETRY_DISABLED=1 supabase migration new <name>` and a reviewed file in `supabase/migrations/`; that file is the source of truth.
+- Before every linked Supabase command, confirm `supabase/.temp/project-ref` is hosted `joint-dev` (`magcvzqnwrwxkhtsfspg`). Only one writer may migrate shared `joint-dev`, and migration history must be rechecked immediately before a push.
+- Apply repository migrations to `joint-dev` only with `supabase db push --linked`: first run `supabase migration list --linked`, then `supabase db push --linked --dry-run`, then `supabase db push --linked`, and finally rerun the list. If CLI authentication is unavailable, stop instead of changing the schema another way.
+- Never use Supabase MCP `apply_migration`, the hosted Dashboard SQL/Table editors, or persistent MCP `execute_sql` for repository-managed schema. MCP remains available for read-only SQL, migration inspection, advisors, and type generation.
+- Once a migration has been applied anywhere, its version, name, and contents are immutable. If histories differ, stop and recover the exact original file from authoritative history or an artifact; never use `migration repair`, `db pull`, linked `db reset`, a generated snapshot, or reconstructed SQL to hide the mismatch.
+- After applying a migration, verify migration history and the intended catalog behavior, run relevant advisors, and regenerate and compare database types before claiming hosted proof.
 - Never manually apply, repair, link, reset, or pull `joint-prod`. Production schema changes run only through `.github/workflows/cd.yml`, which must migrate before deploying the application.
 - Apply RLS to every household-owned table. Household membership is the authorization boundary.
 - Keep development and production Supabase credentials separate. Never commit `.env.local`.

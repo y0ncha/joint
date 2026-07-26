@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { LedgerFilterKind, LedgerSort } from "@/components/ledger-controls";
-import type { ReportCategory, ReportTransaction } from "@/lib/financial-report";
+import type { ReportTransaction } from "@/lib/financial-report";
 import type { DateRange } from "@/lib/date-range";
 
 const currency = new Intl.NumberFormat("en-IL", { style: "currency", currency: "ILS" });
@@ -35,7 +35,7 @@ export function getLedgerShortcutAction(key: string, selectedCount: number) {
 
 export function TransactionLedger({
   transactions,
-  categories,
+  subcategories = [],
   categoryIds = [],
   dateRange,
   filterKind = "all",
@@ -44,7 +44,17 @@ export function TransactionLedger({
   sort = "date-desc",
 }: {
   transactions: ReportTransaction[];
-  categories: ReportCategory[];
+  subcategories?: Array<{
+    id: string;
+    name: string;
+    categoryId: string;
+    categoryName: string;
+    kind: "income" | "expense";
+    color: string;
+    icon: string | null;
+    archivedAt: string | null;
+    categoryArchivedAt: string | null;
+  }>;
   categoryIds?: string[];
   dateRange?: DateRange;
   filterKind?: LedgerFilterKind;
@@ -52,16 +62,16 @@ export function TransactionLedger({
   paidByIds?: string[];
   sort?: LedgerSort;
 }) {
-  const categoryNames = new Map(categories.map((category) => [category.id, category]));
+  const subcategoriesById = new Map(subcategories.map((subcategory) => [subcategory.id, subcategory]));
   const memberNames = new Map(members.map((member) => [member.id, member]));
   const [selectedTransaction, setSelectedTransaction] = useState<ReportTransaction | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [isDeleting, startDeleting] = useTransition();
-  const editableCategories = categories
-    .filter((category) => category.archivedAt === null)
-    .map((category) => ({ id: category.id, name: category.name, kind: category.kind, color: category.color }));
+  const editableSubcategories = subcategories.filter(
+    (subcategory) => subcategory.archivedAt === null && subcategory.categoryArchivedAt === null,
+  );
 
   function openTransaction(transaction: ReportTransaction) {
     setSelectedTransaction(transaction);
@@ -70,7 +80,11 @@ export function TransactionLedger({
   const visibleTransactions = transactions
     .filter((transaction) => !dateRange || (transaction.occurredOn >= dateRange.from && transaction.occurredOn <= dateRange.to))
     .filter((transaction) => filterKind === "all" || transaction.kind === filterKind)
-    .filter((transaction) => categoryIds.length === 0 || categoryIds.includes(transaction.categoryId ?? "uncategorized"))
+    .filter(
+      (transaction) =>
+        categoryIds.length === 0 ||
+        categoryIds.includes(subcategoriesById.get(transaction.subcategoryId ?? "")?.categoryId ?? "uncategorized"),
+    )
     .filter((transaction) => paidByIds.length === 0 || paidByIds.includes(transaction.paidBy ?? "unassigned"))
     .sort((left, right) =>
       sort === "date-asc"
@@ -191,15 +205,17 @@ export function TransactionLedger({
               </TableCell>
               <TableCell className="truncate">
                 {(() => {
-                  const category = categoryNames.get(transaction.categoryId ?? "");
+                  const subcategory = subcategoriesById.get(transaction.subcategoryId ?? "");
                   return (
                     <Badge
-                      color={category?.color}
+                      color={subcategory?.color}
                       className={
-                        category ? "max-w-full truncate" : "max-w-full truncate border-muted-foreground/20 bg-muted text-muted-foreground"
+                        subcategory
+                          ? "max-w-full truncate"
+                          : "max-w-full truncate border-muted-foreground/20 bg-muted text-muted-foreground"
                       }
                     >
-                      {category?.name ?? "Uncategorized"}
+                      {subcategory ? `${subcategory.categoryName} → ${subcategory.name}` : "Uncategorized"}
                     </Badge>
                   );
                 })()}
@@ -268,7 +284,7 @@ export function TransactionLedger({
       </div>
       <TransactionSheet
         key={selectedTransaction?.id ?? "transaction-edit"}
-        categories={editableCategories}
+        subcategories={editableSubcategories}
         members={members}
         open={Boolean(selectedTransaction)}
         onOpenChange={(open) => {

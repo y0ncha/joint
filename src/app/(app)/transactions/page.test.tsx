@@ -31,6 +31,19 @@ describe("Transactions page", () => {
     mocks.ledgerKeys.length = 0;
     mocks.getDashboardData.mockResolvedValue({
       categories: [{ id: "food", name: "Food", kind: "expense", archivedAt: null }],
+      subcategories: [
+        {
+          id: "groceries",
+          name: "Groceries",
+          categoryId: "food",
+          categoryName: "Food",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "utensils",
+          archivedAt: null,
+          categoryArchivedAt: null,
+        },
+      ],
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
       transactions: [
@@ -39,7 +52,7 @@ describe("Transactions page", () => {
           kind: "expense",
           amount: 10,
           occurredOn: "2026-06-01",
-          categoryId: null,
+          subcategoryId: null,
           note: "Outside range",
           createdAt: "2026-06-01T08:00:00Z",
           paidBy: null,
@@ -49,7 +62,7 @@ describe("Transactions page", () => {
           kind: "expense",
           amount: 10,
           occurredOn: "2026-06-15",
-          categoryId: null,
+          subcategoryId: null,
           note: "Inside range",
           createdAt: "2026-06-15T08:00:00Z",
           paidBy: null,
@@ -67,7 +80,7 @@ describe("Transactions page", () => {
             kind: "expense",
             amount: 10,
             occurredOn: "2026-06-05",
-            categoryId: null,
+            subcategoryId: null,
             note: "Monthly activity",
             createdAt: "2026-06-05T08:00:00Z",
             paidBy: null,

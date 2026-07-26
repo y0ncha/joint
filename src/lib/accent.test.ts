@@ -6,6 +6,7 @@ describe("personal accent preferences", () => {
   it("accepts hex colors, migrates named preferences, and falls back for invalid values", () => {
     expect(ACCENT_COOKIE_NAME).toBe("joint-accent");
     expect(normalizeAccentColor("#123456")).toBe("#123456");
+    expect(normalizeAccentColor("%23236a8d")).toBe("#236a8d");
     expect(normalizeAccentColor("sky")).toBe("#236a8d");
     expect(normalizeAccentColor("peach")).toBe("#aa583e");
     expect(normalizeAccentColor("neon-green")).toBe("#0f6b54");

@@ -1,31 +1,42 @@
 import { describe, expect, it } from "vitest";
 
-import { buildMonthlyReport, buildRangeReport, type ReportCategory } from "./financial-report";
-
-type TargetReportTransaction = {
-  id: string;
-  kind: "income" | "expense";
-  amount: number;
-  occurredOn: string;
-  categoryId: string | null;
-  note: string;
-  createdAt: string;
-  paidBy: string | null;
-};
+import {
+  buildMonthlyReport,
+  buildRangeReport,
+  type ReportCategory,
+  type ReportSubcategory,
+  type ReportTransaction,
+} from "./financial-report";
 
 const categories: ReportCategory[] = [
   { id: "income", name: "Salary", kind: "income", archivedAt: null },
   { id: "food", name: "Food", kind: "expense", archivedAt: null },
   { id: "home", name: "Home", kind: "expense", archivedAt: null },
+  { id: "archived", name: "Archived parent", kind: "expense", archivedAt: "2026-06-01T00:00:00Z" },
 ];
 
-const transactions: TargetReportTransaction[] = [
+const subcategories: ReportSubcategory[] = [
+  { id: "salary", name: "Salary", categoryId: "income", color: "#dcece3", icon: null, archivedAt: null },
+  { id: "groceries", name: "Groceries", categoryId: "food", color: "#c5e8f7", icon: null, archivedAt: null },
+  { id: "restaurants", name: "Restaurants", categoryId: "food", color: "#f8d7d7", icon: null, archivedAt: null },
+  { id: "housing", name: "Housing", categoryId: "home", color: "#efeffc", icon: null, archivedAt: null },
+  {
+    id: "archived-child",
+    name: "Archived child",
+    categoryId: "archived",
+    color: "#ffeee6",
+    icon: null,
+    archivedAt: "2026-06-01T00:00:00Z",
+  },
+];
+
+const transactions: ReportTransaction[] = [
   {
     id: "income",
     kind: "income",
     amount: 500,
     occurredOn: "2026-07-02",
-    categoryId: "income",
+    subcategoryId: "salary",
     note: "Salary",
     createdAt: "2026-07-02T08:00:00Z",
     paidBy: "member-id",
@@ -35,7 +46,7 @@ const transactions: TargetReportTransaction[] = [
     kind: "expense",
     amount: 120,
     occurredOn: "2026-07-03",
-    categoryId: "food",
+    subcategoryId: "groceries",
     note: "Groceries",
     createdAt: "2026-07-03T08:00:00Z",
     paidBy: "member-id",
@@ -45,7 +56,7 @@ const transactions: TargetReportTransaction[] = [
     kind: "expense",
     amount: 250,
     occurredOn: "2026-07-05",
-    categoryId: "food",
+    subcategoryId: "restaurants",
     note: "Restaurant",
     createdAt: "2026-07-05T08:00:00Z",
     paidBy: "partner-id",
@@ -55,7 +66,7 @@ const transactions: TargetReportTransaction[] = [
     kind: "expense",
     amount: 99,
     occurredOn: "2026-08-01",
-    categoryId: "food",
+    subcategoryId: "groceries",
     note: "Later",
     createdAt: "2026-08-01T08:00:00Z",
     paidBy: "member-id",
@@ -64,30 +75,45 @@ const transactions: TargetReportTransaction[] = [
 
 describe("buildMonthlyReport", () => {
   it("calculates one signed shared balance through the selected month cutoff", () => {
-    expect(buildMonthlyReport({ openingBalance: -200, categories, transactions, month: "2026-07", asOfDate: "2026-07-16" })).toMatchObject({
+    const report = buildMonthlyReport({
+      openingBalance: -200,
+      categories,
+      subcategories,
+      transactions,
+      month: "2026-07",
+      asOfDate: "2026-07-16",
+    });
+
+    expect(report).toMatchObject({
       sharedBalance: -70,
       income: 500,
       expenses: 370,
     });
+    expect(report.categoryTotals).toEqual([{ categoryId: "food", categoryName: "Food", amount: 370 }]);
   });
 
   it("excludes future activity from the selected month and orders recent activity newest first", () => {
     expect(
-      buildMonthlyReport({ openingBalance: 0, categories, transactions, month: "2026-07", asOfDate: "2026-07-16" }).recentTransactions.map(
-        (transaction) => transaction.id,
-      ),
+      buildMonthlyReport({
+        openingBalance: 0,
+        categories,
+        subcategories,
+        transactions,
+        month: "2026-07",
+        asOfDate: "2026-07-16",
+      }).recentTransactions.map((transaction) => transaction.id),
     ).toEqual(["restaurant", "groceries", "income"]);
   });
 
   it("uses the previous three months of income as expected monthly income", () => {
-    const transactionsWithRecentIncome: TargetReportTransaction[] = [
+    const transactionsWithRecentIncome: ReportTransaction[] = [
       ...transactions,
       {
         id: "april-income",
         kind: "income",
         amount: 900,
         occurredOn: "2026-04-20",
-        categoryId: "income",
+        subcategoryId: "salary",
         note: "April salary",
         createdAt: "2026-04-20T08:00:00Z",
         paidBy: "member-id",
@@ -97,7 +123,7 @@ describe("buildMonthlyReport", () => {
         kind: "income",
         amount: 1_200,
         occurredOn: "2026-05-20",
-        categoryId: "income",
+        subcategoryId: "salary",
         note: "May salary",
         createdAt: "2026-05-20T08:00:00Z",
         paidBy: "member-id",
@@ -107,7 +133,7 @@ describe("buildMonthlyReport", () => {
         kind: "income",
         amount: 1_500,
         occurredOn: "2026-06-20",
-        categoryId: "income",
+        subcategoryId: "salary",
         note: "June salary",
         createdAt: "2026-06-20T08:00:00Z",
         paidBy: "member-id",
@@ -118,6 +144,7 @@ describe("buildMonthlyReport", () => {
       buildMonthlyReport({
         openingBalance: 0,
         categories,
+        subcategories,
         transactions: transactionsWithRecentIncome,
         month: "2026-07",
         asOfDate: "2026-07-16",
@@ -126,13 +153,13 @@ describe("buildMonthlyReport", () => {
   });
 
   it("reports no expected monthly income when there is no recent income", () => {
-    const staleIncome: TargetReportTransaction[] = [
+    const staleIncome: ReportTransaction[] = [
       {
         id: "old-income",
         kind: "income",
         amount: 900,
         occurredOn: "2026-03-20",
-        categoryId: "income",
+        subcategoryId: "salary",
         note: "Old salary",
         createdAt: "2026-03-20T08:00:00Z",
         paidBy: "member-id",
@@ -142,7 +169,7 @@ describe("buildMonthlyReport", () => {
         kind: "expense",
         amount: 120,
         occurredOn: "2026-07-03",
-        categoryId: "food",
+        subcategoryId: "groceries",
         note: "Groceries",
         createdAt: "2026-07-03T08:00:00Z",
         paidBy: "member-id",
@@ -150,19 +177,25 @@ describe("buildMonthlyReport", () => {
     ];
 
     expect(
-      buildMonthlyReport({ openingBalance: 0, categories, transactions: staleIncome, month: "2026-07", asOfDate: "2026-07-16" })
-        .expectedMonthlyIncome,
+      buildMonthlyReport({
+        openingBalance: 0,
+        categories,
+        subcategories,
+        transactions: staleIncome,
+        month: "2026-07",
+        asOfDate: "2026-07-16",
+      }).expectedMonthlyIncome,
     ).toBeNull();
   });
 
   it("compares this month's progress with prior months through the same capped calendar day", () => {
-    const comparisonTransactions: TargetReportTransaction[] = [
+    const comparisonTransactions: ReportTransaction[] = [
       {
         id: "february-income",
         kind: "income",
         amount: 120,
         occurredOn: "2024-02-29",
-        categoryId: "income",
+        subcategoryId: "salary",
         note: "Current",
         createdAt: "2024-02-29T08:00:00Z",
         paidBy: "member-id",
@@ -172,7 +205,7 @@ describe("buildMonthlyReport", () => {
         kind: "expense",
         amount: 60,
         occurredOn: "2024-02-29",
-        categoryId: "food",
+        subcategoryId: "groceries",
         note: "Current",
         createdAt: "2024-02-29T08:00:00Z",
         paidBy: "member-id",
@@ -182,7 +215,7 @@ describe("buildMonthlyReport", () => {
         kind: "income",
         amount: 100,
         occurredOn: "2024-01-29",
-        categoryId: "income",
+        subcategoryId: "salary",
         note: "Included",
         createdAt: "2024-01-29T08:00:00Z",
         paidBy: "member-id",
@@ -192,7 +225,7 @@ describe("buildMonthlyReport", () => {
         kind: "income",
         amount: 200,
         occurredOn: "2024-01-30",
-        categoryId: "income",
+        subcategoryId: "salary",
         note: "Later",
         createdAt: "2024-01-30T08:00:00Z",
         paidBy: "member-id",
@@ -202,7 +235,7 @@ describe("buildMonthlyReport", () => {
         kind: "expense",
         amount: 50,
         occurredOn: "2024-01-29",
-        categoryId: "food",
+        subcategoryId: "groceries",
         note: "Included",
         createdAt: "2024-01-29T08:00:00Z",
         paidBy: "member-id",
@@ -212,7 +245,7 @@ describe("buildMonthlyReport", () => {
         kind: "expense",
         amount: 50,
         occurredOn: "2024-01-30",
-        categoryId: "food",
+        subcategoryId: "groceries",
         note: "Later",
         createdAt: "2024-01-30T08:00:00Z",
         paidBy: "member-id",
@@ -222,7 +255,7 @@ describe("buildMonthlyReport", () => {
         kind: "income",
         amount: 140,
         occurredOn: "2023-12-29",
-        categoryId: "income",
+        subcategoryId: "salary",
         note: "Included",
         createdAt: "2023-12-29T08:00:00Z",
         paidBy: "member-id",
@@ -232,7 +265,7 @@ describe("buildMonthlyReport", () => {
         kind: "income",
         amount: 100,
         occurredOn: "2023-12-30",
-        categoryId: "income",
+        subcategoryId: "salary",
         note: "Later",
         createdAt: "2023-12-30T08:00:00Z",
         paidBy: "member-id",
@@ -242,7 +275,7 @@ describe("buildMonthlyReport", () => {
         kind: "expense",
         amount: 70,
         occurredOn: "2023-12-29",
-        categoryId: "food",
+        subcategoryId: "groceries",
         note: "Included",
         createdAt: "2023-12-29T08:00:00Z",
         paidBy: "member-id",
@@ -252,7 +285,7 @@ describe("buildMonthlyReport", () => {
         kind: "income",
         amount: 60,
         occurredOn: "2023-11-29",
-        categoryId: "income",
+        subcategoryId: "salary",
         note: "Included",
         createdAt: "2023-11-29T08:00:00Z",
         paidBy: "member-id",
@@ -262,7 +295,7 @@ describe("buildMonthlyReport", () => {
         kind: "expense",
         amount: 30,
         occurredOn: "2023-11-29",
-        categoryId: "food",
+        subcategoryId: "groceries",
         note: "Included",
         createdAt: "2023-11-29T08:00:00Z",
         paidBy: "member-id",
@@ -270,7 +303,14 @@ describe("buildMonthlyReport", () => {
     ];
 
     expect(
-      buildMonthlyReport({ openingBalance: 0, categories, transactions: comparisonTransactions, month: "2024-02", asOfDate: "2024-02-29" }),
+      buildMonthlyReport({
+        openingBalance: 0,
+        categories,
+        subcategories,
+        transactions: comparisonTransactions,
+        month: "2024-02",
+        asOfDate: "2024-02-29",
+      }),
     ).toMatchObject({
       income: 120,
       expenses: 60,
@@ -279,17 +319,18 @@ describe("buildMonthlyReport", () => {
     });
   });
 
-  it("sorts category totals and labels missing categories as archived", () => {
+  it("sorts parent totals, keeps loaded archived hierarchy, and excludes missing hierarchy", () => {
     const report = buildMonthlyReport({
       openingBalance: 0,
       categories,
+      subcategories,
       transactions: [
         {
           id: "food",
           kind: "expense",
           amount: 100,
           occurredOn: "2026-07-03",
-          categoryId: "food",
+          subcategoryId: "groceries",
           note: "Food",
           createdAt: "2026-07-03T08:00:00Z",
           paidBy: "member-id",
@@ -299,7 +340,7 @@ describe("buildMonthlyReport", () => {
           kind: "expense",
           amount: 100,
           occurredOn: "2026-07-04",
-          categoryId: "home",
+          subcategoryId: "housing",
           note: "Home",
           createdAt: "2026-07-04T08:00:00Z",
           paidBy: "member-id",
@@ -309,9 +350,19 @@ describe("buildMonthlyReport", () => {
           kind: "expense",
           amount: 150,
           occurredOn: "2026-07-05",
-          categoryId: "removed",
+          subcategoryId: "archived-child",
           note: "Old",
           createdAt: "2026-07-05T08:00:00Z",
+          paidBy: "member-id",
+        },
+        {
+          id: "missing",
+          kind: "expense",
+          amount: 200,
+          occurredOn: "2026-07-06",
+          subcategoryId: "missing",
+          note: "Missing hierarchy",
+          createdAt: "2026-07-06T08:00:00Z",
           paidBy: "member-id",
         },
       ],
@@ -320,7 +371,7 @@ describe("buildMonthlyReport", () => {
     });
 
     expect(report.categoryTotals).toEqual([
-      { categoryId: "removed", categoryName: "Archived category", amount: 150 },
+      { categoryId: "archived", categoryName: "Archived parent", amount: 150 },
       { categoryId: "food", categoryName: "Food", amount: 100 },
       { categoryId: "home", categoryName: "Home", amount: 100 },
     ]);
@@ -330,13 +381,14 @@ describe("buildMonthlyReport", () => {
     const report = buildMonthlyReport({
       openingBalance: 500,
       categories,
+      subcategories,
       transactions: [
         {
           id: "groceries",
           kind: "expense",
           amount: 100,
           occurredOn: "2026-07-03",
-          categoryId: "food",
+          subcategoryId: "groceries",
           note: "Groceries",
           createdAt: "2026-07-03T08:00:00Z",
           paidBy: "member-id",
@@ -346,7 +398,7 @@ describe("buildMonthlyReport", () => {
           kind: "expense",
           amount: 80,
           occurredOn: "2026-07-04",
-          categoryId: null,
+          subcategoryId: null,
           note: "Statement note",
           createdAt: "2026-07-04T08:00:00Z",
           paidBy: null,
@@ -364,13 +416,14 @@ describe("buildMonthlyReport", () => {
     const report = buildMonthlyReport({
       openingBalance: 0,
       categories,
+      subcategories,
       transactions: [
         {
           id: "current-income",
           kind: "income",
           amount: 100,
           occurredOn: "2026-07-10",
-          categoryId: "income",
+          subcategoryId: "salary",
           note: "Current",
           createdAt: "2026-07-10T08:00:00Z",
           paidBy: "member-id",
@@ -390,13 +443,14 @@ describe("buildRangeReport", () => {
     const report = buildRangeReport({
       openingBalance: 0,
       categories,
+      subcategories,
       transactions: [
         {
           id: "oldest-income",
           kind: "income",
           amount: 30,
           occurredOn: "2026-07-05",
-          categoryId: "income",
+          subcategoryId: "salary",
           note: "Oldest",
           createdAt: "2026-07-05T08:00:00Z",
           paidBy: "member-id",
@@ -406,7 +460,7 @@ describe("buildRangeReport", () => {
           kind: "expense",
           amount: 10,
           occurredOn: "2026-07-05",
-          categoryId: "food",
+          subcategoryId: "groceries",
           note: "Oldest",
           createdAt: "2026-07-05T08:00:00Z",
           paidBy: "member-id",
@@ -416,7 +470,7 @@ describe("buildRangeReport", () => {
           kind: "income",
           amount: 70,
           occurredOn: "2026-07-06",
-          categoryId: "income",
+          subcategoryId: "salary",
           note: "Second",
           createdAt: "2026-07-06T08:00:00Z",
           paidBy: "member-id",
@@ -426,7 +480,7 @@ describe("buildRangeReport", () => {
           kind: "expense",
           amount: 30,
           occurredOn: "2026-07-07",
-          categoryId: "food",
+          subcategoryId: "groceries",
           note: "Second",
           createdAt: "2026-07-07T08:00:00Z",
           paidBy: "member-id",
@@ -436,7 +490,7 @@ describe("buildRangeReport", () => {
           kind: "income",
           amount: 50,
           occurredOn: "2026-07-08",
-          categoryId: "income",
+          subcategoryId: "salary",
           note: "First",
           createdAt: "2026-07-08T08:00:00Z",
           paidBy: "member-id",
@@ -446,7 +500,7 @@ describe("buildRangeReport", () => {
           kind: "expense",
           amount: 20,
           occurredOn: "2026-07-09",
-          categoryId: "food",
+          subcategoryId: "groceries",
           note: "First",
           createdAt: "2026-07-09T08:00:00Z",
           paidBy: "member-id",
@@ -456,7 +510,7 @@ describe("buildRangeReport", () => {
           kind: "income",
           amount: 100,
           occurredOn: "2026-07-10",
-          categoryId: "income",
+          subcategoryId: "salary",
           note: "Range",
           createdAt: "2026-07-10T08:00:00Z",
           paidBy: "member-id",
@@ -466,7 +520,7 @@ describe("buildRangeReport", () => {
           kind: "expense",
           amount: 40,
           occurredOn: "2026-07-11",
-          categoryId: "food",
+          subcategoryId: "groceries",
           note: "Range",
           createdAt: "2026-07-11T08:00:00Z",
           paidBy: "member-id",
@@ -487,13 +541,14 @@ describe("buildRangeReport", () => {
     const report = buildRangeReport({
       openingBalance: 0,
       categories,
+      subcategories,
       transactions: [
         {
           id: "earlier-income",
           kind: "income",
           amount: 30,
           occurredOn: "2026-07-09",
-          categoryId: "income",
+          subcategoryId: "salary",
           note: "Earlier",
           createdAt: "2026-07-09T08:00:00Z",
           paidBy: "member-id",
@@ -503,7 +558,7 @@ describe("buildRangeReport", () => {
           kind: "income",
           amount: 100,
           occurredOn: "2026-07-10",
-          categoryId: "income",
+          subcategoryId: "salary",
           note: "Range",
           createdAt: "2026-07-10T08:00:00Z",
           paidBy: "member-id",
@@ -513,7 +568,7 @@ describe("buildRangeReport", () => {
           kind: "expense",
           amount: 40,
           occurredOn: "2026-07-11",
-          categoryId: "food",
+          subcategoryId: "groceries",
           note: "Range",
           createdAt: "2026-07-11T08:00:00Z",
           paidBy: "member-id",

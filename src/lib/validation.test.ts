@@ -6,7 +6,7 @@ describe("transactionSchema", () => {
   const validTransaction = {
     amount: "12.34",
     occurredOn: "2026-07-14",
-    categoryId: "food",
+    subcategoryId: "groceries",
     paidBy: "member-id",
     merchant: "Grocer",
     note: "Groceries",
@@ -18,7 +18,7 @@ describe("transactionSchema", () => {
         kind: "transfer",
         amount: "300.00",
         occurredOn: "2026-07-14",
-        categoryId: "food",
+        subcategoryId: "groceries",
         paidBy: "member-id",
         note: "Card payment",
       }),
@@ -32,7 +32,7 @@ describe("transactionSchema", () => {
   it.each([
     ["amount", "12.345", "Use no more than two decimal places."],
     ["occurredOn", "14-07-2026", "Use YYYY-MM-DD."],
-    ["categoryId", 1, "Invalid input: expected string, received number"],
+    ["subcategoryId", 1, "Invalid input: expected string, received number"],
     ["paidBy", 1, "Invalid input: expected string, received number"],
     ["merchant", "x".repeat(201), "Use 200 characters or fewer."],
     ["note", "x".repeat(501), "Use 500 characters or fewer."],

@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(59);
+select extensions.plan(78);
 
 select extensions.hasnt_table('public', 'accounts', 'has no accounts table');
 select extensions.hasnt_type('public', 'account_kind', 'has no account kind enum');
@@ -35,13 +35,32 @@ select extensions.is(
 
 select extensions.ok(
   (
-    select count(*) = 3 and bool_and(schema_table.relrowsecurity)
+    select count(*) = 4 and bool_and(schema_table.relrowsecurity)
     from pg_catalog.pg_class as schema_table
     join pg_catalog.pg_namespace as table_schema on table_schema.oid = schema_table.relnamespace
     where table_schema.nspname = 'public'
-      and schema_table.relname in ('households', 'categories', 'transactions')
+      and schema_table.relname in ('households', 'categories', 'subcategories', 'transactions')
   ),
-  'RLS is enabled on households, categories, and transactions'
+  'RLS is enabled on households, categories, subcategories, and transactions'
+);
+
+select extensions.ok(
+  has_table_privilege('authenticated', 'public.subcategories', 'SELECT')
+    and has_table_privilege('authenticated', 'public.subcategories', 'INSERT')
+    and has_table_privilege('authenticated', 'public.subcategories', 'UPDATE')
+    and has_table_privilege('authenticated', 'public.subcategories', 'DELETE'),
+  'authenticated users have CRUD privileges on subcategories'
+);
+
+select extensions.ok(
+  not has_table_privilege('anon', 'public.subcategories', 'SELECT')
+    and not has_table_privilege('anon', 'public.subcategories', 'INSERT')
+    and not has_table_privilege('anon', 'public.subcategories', 'UPDATE')
+    and not has_table_privilege('anon', 'public.subcategories', 'DELETE')
+    and not has_table_privilege('anon', 'public.subcategories', 'TRUNCATE')
+    and not has_table_privilege('anon', 'public.subcategories', 'REFERENCES')
+    and not has_table_privilege('anon', 'public.subcategories', 'TRIGGER'),
+  'anonymous callers have no privileges on subcategories'
 );
 
 select extensions.has_table('public', 'member_cards', 'has member cards');
@@ -113,16 +132,16 @@ select extensions.ok(
 select extensions.lives_ok(
   $$
     update public.categories
-    set color = '#123456'
+    set color = '#ccebef'
     where household_id = '00000000-0000-0000-0000-000000000410' and name = 'Generated color'
   $$,
-  'a category accepts a custom six-digit hex color'
+  'a category accepts a palette color'
 );
 
 select extensions.is(
   (select color from public.categories where household_id = '00000000-0000-0000-0000-000000000410' and name = 'Generated color'),
-  '#123456',
-  'a custom category color is preserved'
+  '#ccebef',
+  'a selected category color is preserved'
 );
 
 select extensions.lives_ok(
@@ -264,13 +283,20 @@ values
   ('00000000-0000-0000-0000-000000000422', '00000000-0000-0000-0000-000000000411', 'Other income', 'income'),
   ('00000000-0000-0000-0000-000000000423', '00000000-0000-0000-0000-000000000411', 'Other expense', 'expense');
 
+insert into public.subcategories (id, household_id, category_id, name)
+values
+  ('00000000-0000-0000-0000-000000000424', '00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000420', 'Salary'),
+  ('00000000-0000-0000-0000-000000000425', '00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000421', 'Groceries'),
+  ('00000000-0000-0000-0000-000000000426', '00000000-0000-0000-0000-000000000411', '00000000-0000-0000-0000-000000000422', 'Other income'),
+  ('00000000-0000-0000-0000-000000000427', '00000000-0000-0000-0000-000000000411', '00000000-0000-0000-0000-000000000423', 'Other expense');
+
 insert into public.transactions (
   id,
   household_id,
   kind,
   amount,
   occurred_on,
-  category_id,
+  subcategory_id,
   created_by,
   paid_by,
   note,
@@ -284,7 +310,7 @@ values
     'income',
     300.00,
     date '2026-07-01',
-    '00000000-0000-0000-0000-000000000420',
+    '00000000-0000-0000-0000-000000000424',
     '00000000-0000-0000-0000-000000000401',
     '00000000-0000-0000-0000-000000000402',
     'July salary',
@@ -297,7 +323,7 @@ values
     'expense',
     125.50,
     date '2026-07-02',
-    '00000000-0000-0000-0000-000000000421',
+    '00000000-0000-0000-0000-000000000425',
     '00000000-0000-0000-0000-000000000402',
     '00000000-0000-0000-0000-000000000401',
     'Weekly shop',
@@ -334,7 +360,7 @@ select extensions.is(
       'household_id', household_id,
       'amount', amount,
       'occurred_on', occurred_on,
-      'category_id', category_id,
+      'subcategory_id', subcategory_id,
       'created_by', created_by,
       'paid_by', paid_by,
       'note', note,
@@ -348,7 +374,7 @@ select extensions.is(
     'household_id', '00000000-0000-0000-0000-000000000410'::uuid,
     'amount', 300.00::numeric,
     'occurred_on', date '2026-07-01',
-    'category_id', '00000000-0000-0000-0000-000000000420'::uuid,
+    'subcategory_id', '00000000-0000-0000-0000-000000000424'::uuid,
     'created_by', '00000000-0000-0000-0000-000000000401'::uuid,
     'paid_by', '00000000-0000-0000-0000-000000000402'::uuid,
     'note', 'July salary',
@@ -364,7 +390,7 @@ select extensions.is(
       'household_id', household_id,
       'amount', amount,
       'occurred_on', occurred_on,
-      'category_id', category_id,
+      'subcategory_id', subcategory_id,
       'created_by', created_by,
       'paid_by', paid_by,
       'note', note,
@@ -378,7 +404,7 @@ select extensions.is(
     'household_id', '00000000-0000-0000-0000-000000000410'::uuid,
     'amount', 125.50::numeric,
     'occurred_on', date '2026-07-02',
-    'category_id', '00000000-0000-0000-0000-000000000421'::uuid,
+    'subcategory_id', '00000000-0000-0000-0000-000000000425'::uuid,
     'created_by', '00000000-0000-0000-0000-000000000402'::uuid,
     'paid_by', '00000000-0000-0000-0000-000000000401'::uuid,
     'note', 'Weekly shop',
@@ -390,30 +416,30 @@ select extensions.is(
 
 select extensions.throws_like(
   $$
-    insert into public.transactions (household_id, kind, amount, occurred_on, category_id, created_by, paid_by)
+    insert into public.transactions (household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by)
     values (
       '00000000-0000-0000-0000-000000000410',
       'expense',
       10.00,
       date '2026-07-03',
-      '00000000-0000-0000-0000-000000000423',
+      '00000000-0000-0000-0000-000000000427',
       '00000000-0000-0000-0000-000000000401',
       '00000000-0000-0000-0000-000000000401'
     )
   $$,
-  '%Transaction category must belong to its household%',
-  'a transaction category from another household fails'
+  '%Transaction subcategory must belong to its household%',
+  'a transaction subcategory from another household fails'
 );
 
 select extensions.throws_like(
   $$
-    insert into public.transactions (household_id, kind, amount, occurred_on, category_id, created_by, paid_by)
+    insert into public.transactions (household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by)
     values (
       '00000000-0000-0000-0000-000000000410',
       'income',
       10.00,
       date '2026-07-03',
-      '00000000-0000-0000-0000-000000000421',
+      '00000000-0000-0000-0000-000000000425',
       '00000000-0000-0000-0000-000000000401',
       '00000000-0000-0000-0000-000000000401'
     )
@@ -421,6 +447,56 @@ select extensions.throws_like(
   '%Transaction category kind must match transaction kind%',
   'a mismatched category kind fails'
 );
+
+update public.subcategories
+set archived_at = now()
+where id = '00000000-0000-0000-0000-000000000425';
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by)
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10.00,
+      date '2026-07-03',
+      '00000000-0000-0000-0000-000000000425',
+      '00000000-0000-0000-0000-000000000401',
+      '00000000-0000-0000-0000-000000000401'
+    )
+  $$,
+  '%Transaction subcategory cannot be archived%',
+  'an archived subcategory cannot be assigned to a transaction'
+);
+
+update public.subcategories
+set archived_at = null
+where id = '00000000-0000-0000-0000-000000000425';
+
+update public.categories
+set archived_at = now()
+where id = '00000000-0000-0000-0000-000000000421';
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by)
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10.00,
+      date '2026-07-03',
+      '00000000-0000-0000-0000-000000000425',
+      '00000000-0000-0000-0000-000000000401',
+      '00000000-0000-0000-0000-000000000401'
+    )
+  $$,
+  '%Transaction category cannot be archived%',
+  'a subcategory under an archived category cannot be assigned to a transaction'
+);
+
+update public.categories
+set archived_at = null
+where id = '00000000-0000-0000-0000-000000000421';
 
 select extensions.is(
   (
@@ -435,23 +511,6 @@ select extensions.is(
   'transactions default to manual without import metadata'
 );
 
-select extensions.throws_like(
-  $$
-    insert into public.transactions (household_id, kind, amount, occurred_on, category_id, created_by, paid_by)
-    values (
-      '00000000-0000-0000-0000-000000000410',
-      'expense',
-      10.00,
-      date '2026-07-03',
-      null,
-      '00000000-0000-0000-0000-000000000401',
-      null
-    )
-  $$,
-  '%Transaction category must belong to its household%',
-  'a manual transaction requires a category'
-);
-
 select extensions.lives_ok(
   $$
     insert into public.transactions (
@@ -459,7 +518,7 @@ select extensions.lives_ok(
       kind,
       amount,
       occurred_on,
-      category_id,
+      subcategory_id,
       created_by,
       paid_by,
       source,
@@ -484,13 +543,13 @@ select extensions.lives_ok(
 
 select extensions.lives_ok(
   $$
-    insert into public.transactions (household_id, kind, amount, occurred_on, category_id, created_by, paid_by)
+    insert into public.transactions (household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by)
     values (
       '00000000-0000-0000-0000-000000000410',
       'expense',
       10.00,
       date '2026-07-03',
-      '00000000-0000-0000-0000-000000000421',
+      '00000000-0000-0000-0000-000000000425',
       '00000000-0000-0000-0000-000000000401',
       null
     )
@@ -500,7 +559,7 @@ select extensions.lives_ok(
 
 select extensions.throws_like(
   $$
-    insert into public.transactions (household_id, kind, amount, occurred_on, category_id, created_by, paid_by, source)
+    insert into public.transactions (household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by, source)
     values (
       '00000000-0000-0000-0000-000000000410',
       'expense',
@@ -523,7 +582,7 @@ select extensions.throws_like(
       kind,
       amount,
       occurred_on,
-      category_id,
+      subcategory_id,
       created_by,
       paid_by,
       import_file_hash,
@@ -534,7 +593,7 @@ select extensions.throws_like(
       'expense',
       10.00,
       date '2026-07-03',
-      '00000000-0000-0000-0000-000000000421',
+      '00000000-0000-0000-0000-000000000425',
       '00000000-0000-0000-0000-000000000401',
       null,
       'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
@@ -552,7 +611,7 @@ select extensions.throws_like(
       kind,
       amount,
       occurred_on,
-      category_id,
+      subcategory_id,
       created_by,
       paid_by,
       source,
@@ -583,7 +642,7 @@ select extensions.throws_like(
       kind,
       amount,
       occurred_on,
-      category_id,
+      subcategory_id,
       created_by,
       paid_by,
       source,
@@ -614,7 +673,7 @@ select extensions.throws_like(
       kind,
       amount,
       occurred_on,
-      category_id,
+      subcategory_id,
       created_by,
       paid_by,
       source,
@@ -645,7 +704,7 @@ select extensions.lives_ok(
       kind,
       amount,
       occurred_on,
-      category_id,
+      subcategory_id,
       created_by,
       paid_by,
       source,
@@ -670,13 +729,13 @@ select extensions.lives_ok(
 
 select extensions.throws_like(
   $$
-    insert into public.transactions (household_id, kind, amount, occurred_on, category_id, created_by, paid_by)
+    insert into public.transactions (household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by)
     values (
       '00000000-0000-0000-0000-000000000410',
       'expense',
       10.00,
       date '2026-07-03',
-      '00000000-0000-0000-0000-000000000421',
+      '00000000-0000-0000-0000-000000000425',
       '00000000-0000-0000-0000-000000000401',
       '00000000-0000-0000-0000-000000000404'
     )
@@ -685,10 +744,184 @@ select extensions.throws_like(
   'a non-member payer fails'
 );
 
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000401';
+set local request.jwt.claim.email = 'first-owner@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by)
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10.00,
+      date '2026-07-05',
+      null,
+      '00000000-0000-0000-0000-000000000401',
+      null
+    )
+  $$,
+  '%row-level security%',
+  'an authenticated member cannot directly insert an uncategorized manual transaction'
+);
+
+select extensions.throws_like(
+  $$
+    update public.transactions
+    set subcategory_id = null
+    where id = '00000000-0000-0000-0000-000000000431'
+  $$,
+  '%row-level security%',
+  'an authenticated member cannot directly uncategorize a manual transaction'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.transactions (
+      household_id,
+      kind,
+      amount,
+      occurred_on,
+      subcategory_id,
+      created_by,
+      paid_by,
+      source,
+      import_file_hash,
+      import_row_number
+    )
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10.00,
+      date '2026-07-05',
+      null,
+      '00000000-0000-0000-0000-000000000401',
+      null,
+      'statement_import',
+      'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+      9
+    )
+  $$,
+  'an authenticated import may remain uncategorized'
+);
+
+select extensions.lives_ok(
+  $$ select public.create_category('Deployed family', 'expense', null, 'tag') $$,
+  'a household member can create a category through the deployed function'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.subcategories (household_id, category_id, name)
+    select
+      '00000000-0000-0000-0000-000000000410',
+      category.id,
+      child.name
+    from public.categories as category
+    cross join (values ('First child'), ('Second child')) as child(name)
+    where category.household_id = '00000000-0000-0000-0000-000000000410'
+      and category.name = 'Deployed family'
+  $$,
+  'a household member can create children in their household'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.subcategories (household_id, category_id, name)
+    values (
+      '00000000-0000-0000-0000-000000000411',
+      '00000000-0000-0000-0000-000000000423',
+      'Cross-household child'
+    )
+  $$,
+  '%row-level security%',
+  'a household member cannot create a child in another household'
+);
+
+select extensions.is(
+  (select count(*) from public.subcategories where household_id = '00000000-0000-0000-0000-000000000411'),
+  0::bigint,
+  'a household member cannot select children from another household'
+);
+
 reset role;
 set local request.jwt.claim.sub = '';
 set local request.jwt.claim.email = '';
 set local request.jwt.claims = '{}';
+
+select extensions.ok(
+  (
+    select cardinality(private.category_subcategory_colors(category.color)) > 0
+    from public.categories as category
+    where category.household_id = '00000000-0000-0000-0000-000000000410'
+      and category.name = 'Deployed family'
+  ),
+  'a function-created category uses a registered category color'
+);
+
+select extensions.ok(
+  (
+    select count(*) = 2
+      and bool_and(lower(subcategory.color) = any(private.category_subcategory_colors(category.color)))
+    from public.categories as category
+    join public.subcategories as subcategory on subcategory.category_id = category.id
+    where category.household_id = '00000000-0000-0000-0000-000000000410'
+      and category.name = 'Deployed family'
+  ),
+  'function-colored children belong to their parent category color family'
+);
+
+insert into public.transactions (id, household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by)
+select
+  '00000000-0000-0000-0000-000000000440',
+  category.household_id,
+  'expense',
+  10.00,
+  date '2026-07-05',
+  subcategory.id,
+  '00000000-0000-0000-0000-000000000401',
+  '00000000-0000-0000-0000-000000000401'
+from public.categories as category
+join public.subcategories as subcategory on subcategory.category_id = category.id
+where category.household_id = '00000000-0000-0000-0000-000000000410'
+  and category.name = 'Deployed family'
+  and subcategory.name = 'First child';
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000401';
+set local request.jwt.claim.email = 'first-owner@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
+
+select extensions.lives_ok(
+  $$
+    delete from public.categories
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and name = 'Deployed family'
+  $$,
+  'a household member can delete their category'
+);
+
+reset role;
+set local request.jwt.claim.sub = '';
+set local request.jwt.claim.email = '';
+set local request.jwt.claims = '{}';
+
+select extensions.ok(
+  not exists (
+    select 1
+    from public.subcategories
+    where name in ('First child', 'Second child')
+      and household_id = '00000000-0000-0000-0000-000000000410'
+  )
+    and (
+      select subcategory_id is null
+      from public.transactions
+      where id = '00000000-0000-0000-0000-000000000440'
+    ),
+  'deleting a category removes its children and uncategorizes linked transactions'
+);
+
 set local role anon;
 
 select extensions.throws_like(
@@ -714,19 +947,19 @@ set local request.jwt.claim.email = 'first-owner@example.test';
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
 
 select extensions.lives_ok(
-  $$ select public.set_current_household_member_color('#dcecf2') $$,
+  $$ select public.set_current_household_member_color('#dcece3') $$,
   'a household member can change their own color'
 );
 
 select extensions.is(
   (select color from public.household_members where household_id = '00000000-0000-0000-0000-000000000410' and user_id = '00000000-0000-0000-0000-000000000401'),
-  '#dcecf2',
+  '#dcece3',
   'a current member color update persists'
 );
 
 select extensions.is(
   (select color from public.household_members where household_id = '00000000-0000-0000-0000-000000000410' and user_id = '00000000-0000-0000-0000-000000000402'),
-  '#dcece3',
+  '#dcecf2',
   'a current member color update leaves the partner unchanged'
 );
 
@@ -748,7 +981,7 @@ select extensions.throws_like(
 );
 
 select extensions.lives_ok(
-  $$ select public.save_current_settings('Ada Updated', 'Updated household', '#dcecf2') $$,
+  $$ select public.save_current_settings('Ada Updated', 'Updated household', '#dcecf2', null) $$,
   'an owner can save all settings atomically'
 );
 
@@ -765,7 +998,7 @@ select extensions.is(
 );
 
 select extensions.throws_like(
-  $$ select public.save_current_settings('Should roll back', null, 'blue') $$,
+  $$ select public.save_current_settings('Should roll back', null, 'blue', null) $$,
   '%Invalid color%',
   'an invalid later settings value aborts the whole save'
 );
@@ -777,6 +1010,44 @@ select extensions.is(
 );
 
 reset role;
+
+select extensions.ok(
+  not has_function_privilege('anon', 'public.assign_category_color()', 'EXECUTE'),
+  'anon cannot execute the category-color trigger function'
+);
+
+select extensions.ok(
+  not has_function_privilege('authenticated', 'public.assign_category_color()', 'EXECUTE'),
+  'authenticated users cannot execute the category-color trigger function'
+);
+
+select extensions.ok(
+  not has_function_privilege('anon', 'public.assign_household_member_color()', 'EXECUTE'),
+  'anon cannot execute the member-color trigger function'
+);
+
+select extensions.ok(
+  not has_function_privilege('authenticated', 'public.assign_household_member_color()', 'EXECUTE'),
+  'authenticated users cannot execute the member-color trigger function'
+);
+
+select extensions.ok(
+  exists (
+    select 1
+    from pg_catalog.pg_index as index_meta
+    join pg_catalog.pg_class as index_relation on index_relation.oid = index_meta.indexrelid
+    join pg_catalog.pg_namespace as index_schema on index_schema.oid = index_relation.relnamespace
+    where index_schema.nspname = 'public'
+      and index_relation.relname = 'transactions_household_subcategory_idx'
+      and index_meta.indisvalid
+      and index_meta.indisready
+      and index_meta.indpred is not null
+      and pg_get_indexdef(index_meta.indexrelid) =
+        'CREATE INDEX transactions_household_subcategory_idx ON public.transactions USING btree (household_id, subcategory_id) WHERE (subcategory_id IS NOT NULL)'
+  ),
+  'transactions have a valid partial household-subcategory index'
+);
+
 set local role anon;
 
 select extensions.ok(

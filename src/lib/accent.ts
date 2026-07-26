@@ -16,9 +16,16 @@ const legacyAccents: Record<string, string> = {
 export const accentPresetColors = [...new Set(Object.values(legacyAccents))];
 
 export function normalizeAccentColor(value: unknown) {
-  if (isHexColor(value)) return value.toLowerCase();
+  let normalizedValue = value;
+  if (typeof value === "string") {
+    try {
+      normalizedValue = decodeURIComponent(value);
+    } catch {}
+  }
 
-  return typeof value === "string" ? (legacyAccents[value] ?? DEFAULT_ACCENT) : DEFAULT_ACCENT;
+  if (isHexColor(normalizedValue)) return normalizedValue.toLowerCase();
+
+  return typeof normalizedValue === "string" ? (legacyAccents[normalizedValue] ?? DEFAULT_ACCENT) : DEFAULT_ACCENT;
 }
 
 export function accentForeground(color: string) {

@@ -10,7 +10,7 @@ export function StatementImportSheet({ defaultOpen = false }: { defaultOpen?: bo
   return (
     <Sheet defaultOpen={defaultOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" className="h-11 rounded-full px-4 text-primary hover:bg-primary/10 hover:text-primary">
+        <Button variant="ghost" className="h-11 rounded-full px-4 text-foreground hover:bg-foreground/10 hover:text-foreground">
           <FileUp aria-hidden="true" />
           Import
         </Button>

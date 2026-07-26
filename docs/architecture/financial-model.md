@@ -10,6 +10,7 @@ Joint has one signed shared balance per household. This record defines the imple
 household
   ├─ household_members
   ├─ categories
+  │   └─ subcategories
   └─ transactions
 ```
 
@@ -17,17 +18,20 @@ household
 
 ## Data model and invariants
 
-| Record              | Implemented purpose                                                                                                                |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `households`        | Shared container with a signed `opening_balance`.                                                                                  |
-| `household_members` | Household membership and `owner` or `member` role.                                                                                 |
-| `categories`        | Household-owned `income` or `expense` categories with archival state.                                                              |
-| `member_cards`      | Optional household-scoped mapping of a member to one card's last four digits.                                                      |
-| `transactions`      | Positive ILS amount, date, `income` or `expense` direction, creator, optional payer/category, source, merchant, and optional note. |
+| Record              | Implemented purpose                                                                                                                            |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `households`        | Shared container with a signed `opening_balance`.                                                                                              |
+| `household_members` | Household membership and `owner` or `member` role.                                                                                             |
+| `categories`        | Household-owned `income` or `expense` parent categories with a registered family color and icon.                                               |
+| `subcategories`     | Household-owned children with a persisted color from the parent category's database family palette and an optional icon override.              |
+| `member_cards`      | Optional household-scoped mapping of a member to one card's last four digits.                                                                  |
+| `transactions`      | Positive ILS amount, date, `income` or `expense` direction, creator, optional payer and `subcategory_id`, source, merchant, and optional note. |
 
 - The opening balance may be positive, zero, or negative.
 - Transaction amounts are positive ILS values with at most two decimal places; direction comes only from `kind`.
-- Manual transactions require a category from the same household with the same kind. Statement imports may be uncategorized; the data model permits their category to be set, changed, or cleared without weakening the manual-entry invariant.
+- New manual transactions require a matching subcategory from the same household and kind. Statement imports may be uncategorized. Deleting a category deletes its subcategories and clears linked transaction subcategory references, preserving those transactions as uncategorized history.
+- A subcategory has no kind of its own; its kind is derived from its parent category.
+- Categories use registered family colors. Each subcategory persists one color from its parent's database family palette. A subcategory icon overrides its parent icon; otherwise read models use the parent icon.
 - A non-null `paid_by` must identify a member of the same household. Imported transactions may be unassigned when their card has no household mapping.
 - Imported transactions retain their `statement_import` source, merchant, SHA-256 file hash, and source-row number. The hash and row number prevent retrying identical source bytes from duplicating rows within a household; source files are not stored.
 - Browser input never selects household ownership, transaction creator, or membership role.
@@ -40,19 +44,25 @@ shared balance = opening balance + income - expenses
 
 For a selected `YYYY-MM` month, the shared balance includes transactions before the first day of the next month. Income, expense, and expense-category totals include all selected-month transactions for past months; for the current month, they stop at `asOfDate` (today by default). Current-month comparisons use activity through that same day-of-month against the prior three months. Expected monthly income averages prior lookback months that contain income. Recent activity sorts by `occurred_on`, then `created_at`, descending.
 
-`src/lib/dashboard-data.ts` loads the household opening balance, categories, transactions, and members. `src/lib/financial-report.ts` applies the formula as the pure reporting layer. Uncategorized imports are included in shared-balance, income, expense, comparison, and recent-activity calculations but omitted from category totals. `src/app/actions/transactions.ts` persists manual edits after server-side membership, payer, and category checks; `src/app/actions/statement-import.ts` performs authenticated, atomic statement imports.
+`src/lib/dashboard-data.ts` loads the household opening balance, categories, subcategories, transactions, and members. It projects each child with its parent category and resolves the effective icon as the child's override or the parent icon. Ledger category filtering remains parent-scoped by mapping each assigned transaction's subcategory to its parent category ID. `src/lib/financial-report.ts` applies the formula as the pure reporting layer and likewise rolls assigned expense totals up through `transactions.subcategory_id` to the parent category. Assigned transaction labels resolve as `Category → Subcategory`.
+
+Uncategorized statement imports and historical transactions orphaned by category or subcategory deletion remain valid and are included in shared-balance, income, expense, comparison, and recent-activity calculations, but omitted from parent-category totals. They render as `Uncategorized`. `src/app/actions/transactions.ts` persists manual edits after server-side membership, payer, and active matching-kind subcategory checks; `src/app/actions/statement-import.ts` performs authenticated, atomic statement imports.
 
 ## Shared-balance migration
 
-`20260717210731_align_shared_balance.sql` converted the legacy schema in one transaction. It locks the affected tables, rejects archived accounts, adds `households.opening_balance`, and backfills it from signed legacy opening balances. It deletes no-longer-supported transaction rows, narrows transaction kinds to `income` and `expense`, requires a category, installs category-link validation, and removes obsolete schema. Final checks reject a missing opening balance or an invalid category relationship before commit.
+`20260717210731_align_shared_balance.sql` converted the legacy schema in one transaction. It locks the affected tables, rejects archived accounts, adds `households.opening_balance`, and backfills it from signed legacy opening balances. It deletes no-longer-supported transaction rows, narrows transaction kinds to `income` and `expense`, required a legacy category at that stage, installed category-link validation, and removed obsolete schema. Final checks rejected a missing opening balance or an invalid category relationship before commit.
 
 `20260721183411_add_statement_import.sql` added authenticated CSV/XLSX statement imports, `member_cards`, nullable imported categories and payers, source metadata, and duplicate-import protection. The original manual-entry category invariant remains intact.
+
+`20260725223804_category_subcategory_hierarchy.sql` replaced direct category assignment with household-scoped `subcategories` and `transactions.subcategory_id`. Later grouped-color and icon migrations constrained categories to registered families, persisted each child's database-validated family color, and added optional child icon overrides. `20260726130058_category_deletion_uncategorizes_transactions.sql` made category or subcategory deletion preserve transaction history by setting the linked `subcategory_id` to null.
 
 ## Primary verification
 
 - `src/lib/financial-report.test.ts`
 - `src/lib/dashboard-data.test.ts`
 - `src/app/actions/transactions.test.ts`
+- `src/components/transaction-ledger.test.tsx`
+- `src/app/(app)/page.test.tsx`
 - `supabase/tests/shared_balance.sql`
 - `supabase/tests/two_layer_access.sql`
 

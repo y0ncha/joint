@@ -37,10 +37,10 @@ export async function saveSettings(_previousState: ActionResult | null, formData
 
   const household = await requireCurrentHousehold();
   const { error } = await household.supabase.rpc("save_current_settings", {
-    profile_name: parsedProfileName?.success ? parsedProfileName.data.name : null,
-    household_name: parsedHouseholdName?.success ? parsedHouseholdName.data.name : null,
-    member_color: color,
-    member_card_last_four: parsedLastFour?.success ? parsedLastFour.data : null,
+    ...(parsedProfileName?.success ? { profile_name: parsedProfileName.data.name } : {}),
+    ...(parsedHouseholdName?.success ? { household_name: parsedHouseholdName.data.name } : {}),
+    ...(color === null ? {} : { member_color: color }),
+    ...(parsedLastFour?.success ? { member_card_last_four: parsedLastFour.data } : {}),
   });
   if (error?.code === "23505" && error.message.includes("member_cards_household_id_last_four_key")) {
     return {

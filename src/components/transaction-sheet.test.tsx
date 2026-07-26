@@ -4,6 +4,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   calendarSelect: undefined as undefined | ((date: Date | undefined) => void),
+  categoryOptions: [] as Array<{ color?: string; icon?: unknown; label: string; value: string }>,
   createTransaction: vi.fn(),
   formAction: undefined as undefined | ((previousState: unknown, formData: FormData) => unknown),
   kindChange: undefined as undefined | ((value: string) => void),
@@ -49,10 +50,11 @@ vi.mock("@/components/pill-select", () => ({
     ariaLabel: string;
     emptyLabel?: string;
     onValueChange?: (value: string) => void;
-    options: Array<{ label: string; value: string }>;
+    options: Array<{ color?: string; icon?: unknown; label: string; value: string }>;
     value?: string;
   }) => {
     if (ariaLabel === "Type") mocks.kindChange = onValueChange;
+    if (ariaLabel === "Categories") mocks.categoryOptions = options;
     return <button aria-label={ariaLabel}>{options.find((option) => option.value === value)?.label ?? emptyLabel}</button>;
   },
 }));
@@ -117,9 +119,25 @@ function renderSheet() {
   mocks.stateIndex = 0;
   return renderToStaticMarkup(
     <TransactionSheet
-      categories={[
-        { id: "food", name: "Food", kind: "expense" },
-        { id: "salary", name: "Salary", kind: "income" },
+      subcategories={[
+        {
+          id: "groceries",
+          name: "Groceries",
+          categoryId: "food",
+          categoryName: "Food",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "utensils",
+        },
+        {
+          id: "salary",
+          name: "Salary",
+          categoryId: "income",
+          categoryName: "Income",
+          kind: "income",
+          color: "#d9f0fa",
+          icon: "briefcase-business",
+        },
       ]}
       members={[]}
     />,
@@ -128,6 +146,7 @@ function renderSheet() {
 
 beforeEach(() => {
   mocks.calendarSelect = undefined;
+  mocks.categoryOptions = [];
   mocks.createTransaction.mockReset();
   mocks.formAction = undefined;
   mocks.kindChange = undefined;
@@ -140,7 +159,7 @@ type ImportedTransaction = {
   kind: "income" | "expense";
   amount: number;
   occurredOn: string;
-  categoryId: null;
+  subcategoryId: null;
   note: string;
   merchant: string;
   source: "statement_import";
@@ -151,9 +170,25 @@ type ImportedTransaction = {
 it("renders the transaction composer with labelled core controls", () => {
   const markup = renderToStaticMarkup(
     <TransactionSheet
-      categories={[
-        { id: "salary", name: "Salary", kind: "income" },
-        { id: "food", name: "Food", kind: "expense" },
+      subcategories={[
+        {
+          id: "salary",
+          name: "Salary",
+          categoryId: "income",
+          categoryName: "Income",
+          kind: "income",
+          color: "#d9f0fa",
+          icon: "briefcase-business",
+        },
+        {
+          id: "groceries",
+          name: "Groceries",
+          categoryId: "food",
+          categoryName: "Food",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "utensils",
+        },
       ]}
       currentUserId="member-id"
       members={[
@@ -178,14 +213,24 @@ it("renders the transaction composer with labelled core controls", () => {
 it("renders edit mode with saved transaction values and deletion inside the sheet", () => {
   const markup = renderToStaticMarkup(
     <TransactionSheet
-      categories={[{ id: "food", name: "Food", kind: "expense" }]}
+      subcategories={[
+        {
+          id: "groceries",
+          name: "Groceries",
+          categoryId: "food",
+          categoryName: "Food",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "utensils",
+        },
+      ]}
       members={[{ id: "member-id", label: "You" }]}
       transaction={{
         id: "transaction-id",
         kind: "expense",
         amount: 50,
         occurredOn: "2026-07-14",
-        categoryId: "food",
+        subcategoryId: "groceries",
         note: "Saved note",
         merchant: "Saved merchant",
         source: "statement_import",
@@ -197,6 +242,8 @@ it("renders edit mode with saved transaction values and deletion inside the shee
 
   expect(markup).toContain("Edit transaction");
   expect(markup).toContain("Update or remove this shared ledger entry.");
+  expect(markup).toContain('type="hidden" name="subcategoryId" value="groceries"');
+  expect(markup).toContain('aria-label="Categories">Food → Groceries');
   expect(markup).toContain('name="amount" value="50"');
   expect(markup).toContain("<textarea");
   expect(markup).toMatch(/<textarea[^>]*bg-white\/55/);
@@ -214,7 +261,7 @@ it("keeps an imported transaction unassigned while allowing its category to be e
     kind: "expense",
     amount: 50,
     occurredOn: "2026-07-14",
-    categoryId: null,
+    subcategoryId: null,
     note: "Statement note",
     merchant: "Super Pharm",
     source: "statement_import",
@@ -223,7 +270,17 @@ it("keeps an imported transaction unassigned while allowing its category to be e
   };
   const markup = renderToStaticMarkup(
     <TransactionSheet
-      categories={[{ id: "food", name: "Food", kind: "expense" }]}
+      subcategories={[
+        {
+          id: "groceries",
+          name: "Groceries",
+          categoryId: "food",
+          categoryName: "Food",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "utensils",
+        },
+      ]}
       members={[{ id: "member-id", label: "You" }]}
       transaction={transaction}
     />,
@@ -232,18 +289,28 @@ it("keeps an imported transaction unassigned while allowing its category to be e
   expect(markup).toContain("Merchant");
   expect(markup).toContain("Super Pharm");
   expect(markup).toContain("Unassigned");
-  expect(markup).toContain('type="hidden" name="categoryId" value=""');
+  expect(markup).toContain('type="hidden" name="subcategoryId" value=""');
   expect(markup).toContain('type="hidden" name="paidBy" value=""');
 });
 
-it("clears an incompatible category and submits the locally selected calendar day", async () => {
+it("exposes only matching subcategories and clears the selection when the type changes", () => {
   renderSheet();
   mocks.kindChange?.("income");
+
+  const markup = renderSheet();
+
+  expect(markup).toContain('type="hidden" name="subcategoryId" value=""');
+  expect(mocks.categoryOptions).toEqual([
+    expect.objectContaining({ value: "salary", label: "Income → Salary", color: "#d9f0fa", icon: expect.anything() }),
+  ]);
+});
+
+it("submits the locally selected calendar day", async () => {
+  renderSheet();
   mocks.calendarSelect?.(new Date(2026, 0, 2, 12));
 
   const markup = renderSheet();
 
-  expect(markup).toContain('type="hidden" name="categoryId" value=""');
   expect(markup).toContain('type="hidden" name="occurredOn" value="2026-01-02"');
 
   const formData = new FormData();

@@ -20,6 +20,7 @@ export type Database = {
           color: string
           created_at: string
           household_id: string
+          icon: string
           id: string
           kind: Database["public"]["Enums"]["category_kind"]
           name: string
@@ -30,6 +31,7 @@ export type Database = {
           color: string
           created_at?: string
           household_id: string
+          icon?: string
           id?: string
           kind: Database["public"]["Enums"]["category_kind"]
           name: string
@@ -40,6 +42,7 @@ export type Database = {
           color?: string
           created_at?: string
           household_id?: string
+          icon?: string
           id?: string
           kind?: Database["public"]["Enums"]["category_kind"]
           name?: string
@@ -211,10 +214,60 @@ export type Database = {
         }
         Relationships: []
       }
+      subcategories: {
+        Row: {
+          archived_at: string | null
+          category_id: string
+          color: string
+          created_at: string
+          household_id: string
+          icon: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          category_id: string
+          color: string
+          created_at?: string
+          household_id: string
+          icon?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          category_id?: string
+          color?: string
+          created_at?: string
+          household_id?: string
+          icon?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcategories_household_id_category_id_fkey"
+            columns: ["household_id", "category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["household_id", "id"]
+          },
+          {
+            foreignKeyName: "subcategories_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number
-          category_id: string | null
           created_at: string
           created_by: string
           household_id: string
@@ -227,11 +280,11 @@ export type Database = {
           occurred_on: string
           paid_by: string | null
           source: Database["public"]["Enums"]["transaction_source"]
+          subcategory_id: string | null
           updated_at: string
         }
         Insert: {
           amount: number
-          category_id?: string | null
           created_at?: string
           created_by: string
           household_id: string
@@ -244,11 +297,11 @@ export type Database = {
           occurred_on: string
           paid_by?: string | null
           source?: Database["public"]["Enums"]["transaction_source"]
+          subcategory_id?: string | null
           updated_at?: string
         }
         Update: {
           amount?: number
-          category_id?: string | null
           created_at?: string
           created_by?: string
           household_id?: string
@@ -261,16 +314,10 @@ export type Database = {
           occurred_on?: string
           paid_by?: string | null
           source?: Database["public"]["Enums"]["transaction_source"]
+          subcategory_id?: string | null
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "transactions_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "transactions_created_by_fkey"
             columns: ["created_by"]
@@ -286,6 +333,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transactions_household_id_subcategory_id_fkey"
+            columns: ["household_id", "subcategory_id"]
+            isOneToOne: false
+            referencedRelation: "subcategories"
+            referencedColumns: ["household_id", "id"]
+          },
+          {
             foreignKeyName: "transactions_paid_by_fkey"
             columns: ["paid_by"]
             isOneToOne: false
@@ -299,6 +353,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_category: {
+        Args: {
+          category_color?: string
+          category_icon?: string
+          category_kind: Database["public"]["Enums"]["category_kind"]
+          category_name: string
+        }
+        Returns: string
+      }
       is_household_member: {
         Args: { target_household_id: string }
         Returns: boolean
@@ -309,10 +372,10 @@ export type Database = {
       }
       save_current_settings: {
         Args: {
-          household_name: string | null
-          member_card_last_four: string | null
-          member_color: string | null
-          profile_name: string | null
+          household_name?: string
+          member_card_last_four?: string
+          member_color?: string
+          profile_name?: string
         }
         Returns: string
       }

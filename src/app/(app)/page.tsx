@@ -27,11 +27,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const range = getValidDateRange(from, to);
   const data = range ? await getDashboardData(month, range) : await getDashboardData(month);
   const { report } = data;
-  const activeCategories = data.categories.filter((category) => category.archivedAt === null);
-  const transactionCategories = activeCategories.map(({ id, name, kind }) => ({ id, name, kind }));
+  const transactionSubcategories = data.subcategories.filter(
+    (subcategory) => subcategory.archivedAt === null && subcategory.categoryArchivedAt === null,
+  );
   const maximumCategoryAmount = Math.max(1, ...report.categoryTotals.map((category) => category.amount));
   const expectedMonthlyIncome = report.expectedMonthlyIncome;
-  const categoryName = new Map(data.categories.map((category) => [category.id, category.name]));
+  const subcategoryName = new Map(data.subcategories.map((subcategory) => [subcategory.id, subcategory]));
 
   return (
     <WorkspaceShell
@@ -40,7 +41,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       actions={
         <>
           <DashboardControls month={month} range={range} />
-          <TransactionSheet categories={transactionCategories} currentUserId={data.currentUserId} members={data.members} />
+          <TransactionSheet subcategories={transactionSubcategories} currentUserId={data.currentUserId} members={data.members} />
         </>
       }
     >
@@ -203,7 +204,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{transaction.merchant || transaction.note || transaction.kind}</p>
                       <p className="text-sm text-muted-foreground">
-                        {transaction.categoryId ? categoryName.get(transaction.categoryId) : "Uncategorized"} - {transaction.occurredOn}
+                        {(() => {
+                          const subcategory = subcategoryName.get(transaction.subcategoryId ?? "");
+                          return subcategory ? `${subcategory.categoryName} → ${subcategory.name}` : "Uncategorized";
+                        })()}{" "}
+                        - {transaction.occurredOn}
                         {transaction.source === "statement_import" ? " - Imported" : ""}
                       </p>
                     </div>

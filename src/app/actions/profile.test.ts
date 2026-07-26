@@ -57,7 +57,7 @@ describe("profile action", () => {
     expect(mocks.from).not.toHaveBeenCalled();
   });
 
-  it("saves changed settings through one RPC with null unchanged values", async () => {
+  it("saves changed settings through one RPC while omitting unchanged values", async () => {
     await expect(
       actions.saveSettings(
         null,
@@ -75,9 +75,6 @@ describe("profile action", () => {
     expect(mocks.rpc).toHaveBeenCalledOnce();
     expect(mocks.rpc).toHaveBeenCalledWith("save_current_settings", {
       profile_name: "Ada Lovelace",
-      household_name: null,
-      member_color: null,
-      member_card_last_four: null,
     });
     expect(mocks.from).not.toHaveBeenCalled();
   });

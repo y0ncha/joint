@@ -3,9 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getDashboardData: vi.fn(),
+  transactionSubcategories: [] as Array<{ id: string }>,
 }));
 
 vi.mock("@/lib/dashboard-data", () => ({ getDashboardData: mocks.getDashboardData }));
+vi.mock("@/components/transaction-sheet", () => ({
+  TransactionSheet: ({ subcategories }: { subcategories: Array<{ id: string }> }) => {
+    mocks.transactionSubcategories = subcategories;
+    return <button aria-label="Add transaction" />;
+  },
+}));
 vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => ({ push: vi.fn() }) }));
 
 import Home from "./page";
@@ -21,6 +28,30 @@ describe("Joint dashboard", () => {
       categories: [
         { id: "income-category-id", name: "Salary", kind: "income", archivedAt: null },
         { id: "home-category-id", name: "Home", kind: "expense", archivedAt: null },
+      ],
+      subcategories: [
+        {
+          id: "groceries",
+          name: "Groceries",
+          categoryId: "home-category-id",
+          categoryName: "Home",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "home",
+          archivedAt: null,
+          categoryArchivedAt: null,
+        },
+        {
+          id: "archived-home",
+          name: "Archived home",
+          categoryId: "home-category-id",
+          categoryName: "Home",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "home",
+          archivedAt: "2026-07-01T00:00:00Z",
+          categoryArchivedAt: null,
+        },
       ],
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
@@ -38,7 +69,7 @@ describe("Joint dashboard", () => {
             id: "transaction-id",
             kind: "expense",
             amount: 186,
-            categoryId: null,
+            subcategoryId: "groceries",
             note: "Super Pharm",
             merchant: "Super-Pharm Ltd.",
             source: "statement_import",
@@ -65,9 +96,61 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("Where your money went");
     expect(markup).toContain("More chart options");
     expect(markup).toContain("Super-Pharm Ltd.");
-    expect(markup).toContain("Uncategorized - 2026-07-14");
+    expect(markup).toContain("Home → Groceries - 2026-07-14");
     expect(markup).toContain("Imported");
     expect(markup).toContain('alt="Joint logo"');
+  });
+
+  it("passes only active matching-kind children to the transaction entry sheet", async () => {
+    renderToStaticMarkup(await renderHome());
+
+    expect(mocks.transactionSubcategories).toEqual([expect.objectContaining({ id: "groceries" })]);
+  });
+
+  it("falls back to Uncategorized when recent activity has no resolvable subcategory", async () => {
+    mocks.getDashboardData.mockResolvedValueOnce({
+      categories: [],
+      subcategories: [],
+      currentUserId: "member-id",
+      members: [{ id: "member-id", label: "You" }],
+      transactions: [],
+      report: {
+        sharedBalance: 0,
+        income: 0,
+        expenses: 0,
+        incomeChangePercentage: null,
+        expenseChangePercentage: null,
+        expectedMonthlyIncome: null,
+        categoryTotals: [],
+        recentTransactions: [
+          {
+            id: "uncategorized",
+            kind: "expense",
+            amount: 1,
+            subcategoryId: null,
+            note: "No category",
+            occurredOn: "2026-07-14",
+            createdAt: "2026-07-14T00:00:00Z",
+            paidBy: null,
+          },
+          {
+            id: "missing",
+            kind: "expense",
+            amount: 1,
+            subcategoryId: "missing-subcategory",
+            note: "Missing category",
+            occurredOn: "2026-07-15",
+            createdAt: "2026-07-15T00:00:00Z",
+            paidBy: null,
+          },
+        ],
+      },
+    });
+
+    const markup = renderToStaticMarkup(await renderHome());
+
+    expect(markup).toContain("Uncategorized - 2026-07-14");
+    expect(markup).toContain("Uncategorized - 2026-07-15");
   });
 
   it("renders a directly selected inactive month and queries its report", async () => {
@@ -92,6 +175,7 @@ describe("Joint dashboard", () => {
   it("shows no available income when there is no recent income average", async () => {
     mocks.getDashboardData.mockResolvedValueOnce({
       categories: [],
+      subcategories: [],
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
       transactions: [],
@@ -117,6 +201,7 @@ describe("Joint dashboard", () => {
   it("shows the below-average income comparison", async () => {
     mocks.getDashboardData.mockResolvedValueOnce({
       categories: [],
+      subcategories: [],
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
       transactions: [],
