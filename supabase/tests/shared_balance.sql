@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(64);
+select extensions.plan(76);
 
 select extensions.hasnt_table('public', 'accounts', 'has no accounts table');
 select extensions.hasnt_type('public', 'account_kind', 'has no account kind enum');
@@ -35,13 +35,29 @@ select extensions.is(
 
 select extensions.ok(
   (
-    select count(*) = 3 and bool_and(schema_table.relrowsecurity)
+    select count(*) = 4 and bool_and(schema_table.relrowsecurity)
     from pg_catalog.pg_class as schema_table
     join pg_catalog.pg_namespace as table_schema on table_schema.oid = schema_table.relnamespace
     where table_schema.nspname = 'public'
-      and schema_table.relname in ('households', 'categories', 'transactions')
+      and schema_table.relname in ('households', 'categories', 'subcategories', 'transactions')
   ),
-  'RLS is enabled on households, categories, and transactions'
+  'RLS is enabled on households, categories, subcategories, and transactions'
+);
+
+select extensions.ok(
+  has_table_privilege('authenticated', 'public.subcategories', 'SELECT')
+    and has_table_privilege('authenticated', 'public.subcategories', 'INSERT')
+    and has_table_privilege('authenticated', 'public.subcategories', 'UPDATE')
+    and has_table_privilege('authenticated', 'public.subcategories', 'DELETE'),
+  'authenticated users have CRUD privileges on subcategories'
+);
+
+select extensions.ok(
+  not has_table_privilege('anon', 'public.subcategories', 'SELECT')
+    and not has_table_privilege('anon', 'public.subcategories', 'INSERT')
+    and not has_table_privilege('anon', 'public.subcategories', 'UPDATE')
+    and not has_table_privilege('anon', 'public.subcategories', 'DELETE'),
+  'anonymous callers have no privileges on subcategories'
 );
 
 select extensions.has_table('public', 'member_cards', 'has member cards');
@@ -429,6 +445,56 @@ select extensions.throws_like(
   'a mismatched category kind fails'
 );
 
+update public.subcategories
+set archived_at = now()
+where id = '00000000-0000-0000-0000-000000000425';
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by)
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10.00,
+      date '2026-07-03',
+      '00000000-0000-0000-0000-000000000425',
+      '00000000-0000-0000-0000-000000000401',
+      '00000000-0000-0000-0000-000000000401'
+    )
+  $$,
+  '%Transaction subcategory cannot be archived%',
+  'an archived subcategory cannot be assigned to a transaction'
+);
+
+update public.subcategories
+set archived_at = null
+where id = '00000000-0000-0000-0000-000000000425';
+
+update public.categories
+set archived_at = now()
+where id = '00000000-0000-0000-0000-000000000421';
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by)
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10.00,
+      date '2026-07-03',
+      '00000000-0000-0000-0000-000000000425',
+      '00000000-0000-0000-0000-000000000401',
+      '00000000-0000-0000-0000-000000000401'
+    )
+  $$,
+  '%Transaction category cannot be archived%',
+  'a subcategory under an archived category cannot be assigned to a transaction'
+);
+
+update public.categories
+set archived_at = null
+where id = '00000000-0000-0000-0000-000000000421';
+
 select extensions.is(
   (
     select count(*)
@@ -691,10 +757,126 @@ select extensions.throws_like(
   'a non-member payer fails'
 );
 
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000401';
+set local request.jwt.claim.email = 'first-owner@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
+
+select extensions.lives_ok(
+  $$ select public.create_category('Deployed family', 'expense', null, 'tag') $$,
+  'a household member can create a category through the deployed function'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.subcategories (household_id, category_id, name)
+    select
+      '00000000-0000-0000-0000-000000000410',
+      category.id,
+      child.name
+    from public.categories as category
+    cross join (values ('First child'), ('Second child')) as child(name)
+    where category.household_id = '00000000-0000-0000-0000-000000000410'
+      and category.name = 'Deployed family'
+  $$,
+  'a household member can create children in their household'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.subcategories (household_id, category_id, name)
+    values (
+      '00000000-0000-0000-0000-000000000411',
+      '00000000-0000-0000-0000-000000000423',
+      'Cross-household child'
+    )
+  $$,
+  '%row-level security%',
+  'a household member cannot create a child in another household'
+);
+
+select extensions.is(
+  (select count(*) from public.subcategories where household_id = '00000000-0000-0000-0000-000000000411'),
+  0::bigint,
+  'a household member cannot select children from another household'
+);
+
 reset role;
 set local request.jwt.claim.sub = '';
 set local request.jwt.claim.email = '';
 set local request.jwt.claims = '{}';
+
+select extensions.ok(
+  (
+    select cardinality(private.category_subcategory_colors(category.color)) > 0
+    from public.categories as category
+    where category.household_id = '00000000-0000-0000-0000-000000000410'
+      and category.name = 'Deployed family'
+  ),
+  'a function-created category uses a registered category color'
+);
+
+select extensions.ok(
+  (
+    select count(*) = 2
+      and bool_and(lower(subcategory.color) = any(private.category_subcategory_colors(category.color)))
+    from public.categories as category
+    join public.subcategories as subcategory on subcategory.category_id = category.id
+    where category.household_id = '00000000-0000-0000-0000-000000000410'
+      and category.name = 'Deployed family'
+  ),
+  'function-colored children belong to their parent category color family'
+);
+
+insert into public.transactions (id, household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by)
+select
+  '00000000-0000-0000-0000-000000000440',
+  category.household_id,
+  'expense',
+  10.00,
+  date '2026-07-05',
+  subcategory.id,
+  '00000000-0000-0000-0000-000000000401',
+  '00000000-0000-0000-0000-000000000401'
+from public.categories as category
+join public.subcategories as subcategory on subcategory.category_id = category.id
+where category.household_id = '00000000-0000-0000-0000-000000000410'
+  and category.name = 'Deployed family'
+  and subcategory.name = 'First child';
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000401';
+set local request.jwt.claim.email = 'first-owner@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
+
+select extensions.lives_ok(
+  $$
+    delete from public.categories
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and name = 'Deployed family'
+  $$,
+  'a household member can delete their category'
+);
+
+reset role;
+set local request.jwt.claim.sub = '';
+set local request.jwt.claim.email = '';
+set local request.jwt.claims = '{}';
+
+select extensions.ok(
+  not exists (
+    select 1
+    from public.subcategories
+    where name in ('First child', 'Second child')
+  )
+    and (
+      select subcategory_id is null
+      from public.transactions
+      where id = '00000000-0000-0000-0000-000000000440'
+    ),
+  'deleting a category removes its children and uncategorizes linked transactions'
+);
+
 set local role anon;
 
 select extensions.throws_like(
