@@ -20,6 +20,7 @@ export type Database = {
           color: string
           created_at: string
           household_id: string
+          icon: string
           id: string
           kind: Database["public"]["Enums"]["category_kind"]
           name: string
@@ -30,6 +31,7 @@ export type Database = {
           color: string
           created_at?: string
           household_id: string
+          icon?: string
           id?: string
           kind: Database["public"]["Enums"]["category_kind"]
           name: string
@@ -40,6 +42,7 @@ export type Database = {
           color?: string
           created_at?: string
           household_id?: string
+          icon?: string
           id?: string
           kind?: Database["public"]["Enums"]["category_kind"]
           name?: string
@@ -215,8 +218,10 @@ export type Database = {
         Row: {
           archived_at: string | null
           category_id: string
+          color: string
           created_at: string
           household_id: string
+          icon: string | null
           id: string
           name: string
           updated_at: string
@@ -224,8 +229,10 @@ export type Database = {
         Insert: {
           archived_at?: string | null
           category_id: string
+          color: string
           created_at?: string
           household_id: string
+          icon?: string | null
           id?: string
           name: string
           updated_at?: string
@@ -233,8 +240,10 @@ export type Database = {
         Update: {
           archived_at?: string | null
           category_id?: string
+          color?: string
           created_at?: string
           household_id?: string
+          icon?: string | null
           id?: string
           name?: string
           updated_at?: string
@@ -344,6 +353,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_category: {
+        Args: {
+          category_color?: string
+          category_icon?: string
+          category_kind: Database["public"]["Enums"]["category_kind"]
+          category_name: string
+        }
+        Returns: string
+      }
       is_household_member: {
         Args: { target_household_id: string }
         Returns: boolean

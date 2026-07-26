@@ -107,7 +107,7 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 - Browser autofill preserves the established text-input surface; it must not repaint inputs blue.
 - Use `ToggleGroup` for two to seven related choices. Ledger transaction type uses a checkbox multiselect with both types selected by default; it never permits an empty selection.
 - Category filtering uses a searchable pill selector: its trigger uses the same filled surface as text inputs, its menu shows labelled pills sorted lexicographically, and typing filters to matching labels. Ledger type and payer filters use compact checkbox multiselects without search. Ledger month, year, and sorting use regular selects in chronological order.
-- A transaction type change clears an incompatible category instead of silently substituting one. A manual transaction must select a matching category before save; an imported transaction may remain `Uncategorized`.
+- A transaction type change clears an incompatible subcategory instead of silently substituting one. New manual transactions must select a matching subcategory before save; imports and transactions whose category is deleted may remain `Uncategorized`.
 - Transaction entry prioritizes amount, then follows the ledger order: date, type, payer, category, merchant, and notes. The ledger shows `Merchant`; notes remain in the transaction Sheet.
 - Use `Sheet` for desktop transaction entry and a full-height mobile presentation.
 - Use `Popover` with the owned `Calendar` for dates; do not use the browser-native date picker in transaction entry.

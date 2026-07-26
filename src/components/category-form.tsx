@@ -1,22 +1,28 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { Plus } from "lucide-react";
-import { toast } from "sonner";
 
-import { createCategory } from "@/app/actions/categories";
-import type { ActionResult } from "@/app/actions/result";
 import { Button } from "@/components/ui/button";
+import { createCategory, createSubcategory } from "@/app/actions/categories";
+import type { ActionResult } from "@/app/actions/result";
 import { ColorPicker } from "@/components/color-picker";
+import { CategoryIconPicker } from "@/components/category-icon-picker";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { PillSelect } from "@/components/pill-select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { isCategoryIcon } from "@/lib/category-icons";
+import { categoryPastelColors, selectSubcategoryPastelColor, subcategoryPastelColors } from "@/lib/shared-colors";
 
-const categoryKindItemClassName =
-  "transition-[background-color,border-color,color,box-shadow] duration-300 ease-in-out motion-reduce:transition-none data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm hover:data-[state=on]:bg-primary hover:data-[state=on]:text-primary-foreground";
-
-export function CategoryColorPicker({ defaultColor = "#dcece3", recentColors = [] }: { defaultColor?: string; recentColors?: string[] }) {
+export function CategoryColorPicker({
+  defaultColor = categoryPastelColors[0],
+  presetColors = categoryPastelColors,
+}: {
+  defaultColor?: string;
+  presetColors?: readonly string[];
+}) {
   const [color, setColor] = useState(defaultColor);
 
   return (
@@ -24,61 +30,170 @@ export function CategoryColorPicker({ defaultColor = "#dcece3", recentColors = [
       <FieldLabel id="category-color-label">Color</FieldLabel>
       <input name="color" type="hidden" value={color} />
       <div aria-labelledby="category-color-label">
-        <ColorPicker color={color} onChange={setColor} recentColors={recentColors} />
+        <ColorPicker color={color} onChange={setColor} presetColors={[...presetColors]} allowCustom={false} />
       </div>
     </Field>
   );
 }
 
-export function CategoryForm({ recentColors = [] }: { recentColors?: string[] }) {
-  const [kind, setKind] = useState("expense");
-  const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
-    async (_state, formData) => createCategory(formData),
-    null,
-  );
+type CategoryKind = "income" | "expense";
+type CategoryOption = { id: string; name: string; kind?: CategoryKind; color: string; icon?: string; subcategoryColors?: string[] };
 
-  useEffect(() => {
-    if (state?.status === "success") toast.success("Category added", { id: "category-save" });
-    if (state?.status === "error") toast.error(state.formError, { id: "category-save" });
-  }, [state]);
+export function CategoryCreationPreview({
+  categories = [],
+  defaultColor = "#dcece3",
+  initialCategoryId = "",
+  initialMode = "category",
+  modeLocked = false,
+}: {
+  categories?: CategoryOption[];
+  defaultColor?: string;
+  initialCategoryId?: string;
+  initialMode?: "category" | "subcategory";
+  modeLocked?: boolean;
+}) {
+  const [mode, setMode] = useState<"category" | "subcategory">(initialMode);
+  const [categoryId, setCategoryId] = useState(initialCategoryId);
+  const [kind, setKind] = useState<CategoryKind | "">(() => categories.find((category) => category.id === initialCategoryId)?.kind ?? "");
+  const selectedCategory = categories.find((category) => category.id === categoryId);
+  const filteredCategories = kind ? categories.filter((category) => category.kind === kind) : categories;
+  const selectedIcon = selectedCategory?.icon ?? null;
+  const selectedCategoryIcon = isCategoryIcon(selectedIcon) ? selectedIcon : "tag";
+  const childColors = selectedCategory ? subcategoryPastelColors(selectedCategory.color) : [];
+  const defaultSubcategoryColor = selectedCategory
+    ? selectSubcategoryPastelColor(selectedCategory.color, selectedCategory.subcategoryColors ?? []) ?? childColors[0]
+    : undefined;
+  const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(async (_state, formData) => {
+    if (mode === "category") return createCategory(formData);
+    if (!categoryId) return { status: "error", formError: "Choose a category.", fieldErrors: {} };
+    return createSubcategory(categoryId, formData);
+  }, null);
 
   return (
     <form action={formAction}>
       <FieldGroup>
-        <input name="kind" type="hidden" value={kind} />
-        <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.name)}>
-          <FieldLabel htmlFor="category-name">Category name</FieldLabel>
-          <Input id="category-name" name="name" required aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.name)} />
-          {state?.status === "error" ? <FieldError>{state.fieldErrors.name}</FieldError> : null}
-        </Field>
-        <Field>
-          <FieldLabel id="category-kind-label">Category type</FieldLabel>
-          <ToggleGroup
-            aria-labelledby="category-kind-label"
-            type="single"
-            value={kind}
-            onValueChange={(value) => value && setKind(value)}
-            variant="outline"
-            spacing={0}
-          >
-            <ToggleGroupItem value="expense" className={categoryKindItemClassName}>
-              Expense
-            </ToggleGroupItem>
-            <ToggleGroupItem value="income" className={categoryKindItemClassName}>
-              Income
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </Field>
-        <CategoryColorPicker recentColors={recentColors} />
-        <Button disabled={isPending} type="submit">
-          Add category
-        </Button>
+        {!modeLocked ? (
+          <Field>
+            <FieldLabel htmlFor="create-mode">Create</FieldLabel>
+            <Select value={mode} onValueChange={(value) => setMode(value as typeof mode)}>
+              <SelectTrigger id="create-mode" className="w-fit">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="category">Category</SelectItem>
+                  <SelectItem value="subcategory">Subcategory</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+        ) : null}
+        {mode === "category" ? (
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="category-name">Name</FieldLabel>
+              <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+                <Input id="category-name" name="name" required autoComplete="off" className="h-11 rounded-none border-0 bg-transparent focus-visible:border-transparent focus-visible:ring-0" />
+                <CategoryIconPicker />
+              </div>
+            </Field>
+            <Field>
+              <FieldLabel>Type</FieldLabel>
+              <PillSelect
+                ariaLabel="Type"
+                name="kind"
+                defaultValue="expense"
+                options={[
+                  { value: "income", label: "Income", className: "border-positive/20 bg-positive/10 text-positive" },
+                  { value: "expense", label: "Expense", className: "border-negative/20 bg-negative/10 text-negative" },
+                ]}
+              />
+            </Field>
+            <CategoryColorPicker defaultColor={defaultColor} />
+            <Button className="mt-[30px]" disabled={isPending} type="submit">Add category</Button>
+          </FieldGroup>
+        ) : (
+          <FieldGroup>
+            <Field>
+              <FieldLabel>Type</FieldLabel>
+              <PillSelect
+                ariaLabel="Type"
+                value={kind}
+                onValueChange={(value) => {
+                  setKind(value as CategoryKind);
+                  if (selectedCategory?.kind && selectedCategory.kind !== value) setCategoryId("");
+                }}
+                options={[
+                  { value: "income", label: "Income", className: "border-positive/20 bg-positive/10 text-positive" },
+                  { value: "expense", label: "Expense", className: "border-negative/20 bg-negative/10 text-negative" },
+                ]}
+              />
+            </Field>
+            <Field>
+              <FieldLabel>Category</FieldLabel>
+              <PillSelect
+                ariaLabel="Category"
+                value={categoryId}
+                onValueChange={(value) => {
+                  setCategoryId(value);
+                  setKind(categories.find((category) => category.id === value)?.kind ?? kind);
+                }}
+                emptyLabel="Choose a category"
+                options={filteredCategories.map((category) => ({ value: category.id, label: category.name, color: category.color }))}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="subcategory-name">Name</FieldLabel>
+              <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+                <Input id="subcategory-name" name="name" required autoComplete="off" className="h-11 rounded-none border-0 bg-transparent focus-visible:border-transparent focus-visible:ring-0" />
+                <CategoryIconPicker inheritedIcon={selectedCategoryIcon} />
+              </div>
+            </Field>
+            {defaultSubcategoryColor ? <CategoryColorPicker key={categoryId} defaultColor={defaultSubcategoryColor} presetColors={childColors} /> : null}
+            <Button disabled={isPending || !categoryId} type="submit">Add subcategory</Button>
+          </FieldGroup>
+        )}
+        {state?.status === "error" ? <FieldError>{state.formError}</FieldError> : null}
       </FieldGroup>
     </form>
   );
 }
 
-export function CategorySheet({ recentColors = [] }: { recentColors?: string[] }) {
+export function SubcategoryCreationSheet({
+  categories,
+  categoryId,
+}: {
+  categories: CategoryOption[];
+  categoryId: string;
+}) {
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button type="button" variant="outline">
+          <Plus data-icon="inline-start" aria-hidden="true" />
+          Add subcategory
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="right" className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg">
+        <SheetHeader className="p-6">
+          <SheetTitle className="text-xl">Add subcategory</SheetTitle>
+          <SheetDescription>Create a subcategory for this category.</SheetDescription>
+        </SheetHeader>
+        <div className="px-6 pb-6">
+          <CategoryCreationPreview categories={categories} initialCategoryId={categoryId} initialMode="subcategory" modeLocked />
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+export function CategorySheet({
+  categories = [],
+  defaultColor = "#dcece3",
+}: {
+  categories?: CategoryOption[];
+  defaultColor?: string;
+}) {
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -99,10 +214,10 @@ export function CategorySheet({ recentColors = [] }: { recentColors?: string[] }
       >
         <SheetHeader className="p-6">
           <SheetTitle className="text-xl">Add category</SheetTitle>
-          <SheetDescription>Create the categories used in monthly reporting.</SheetDescription>
+          <SheetDescription>Create a category or subcategory.</SheetDescription>
         </SheetHeader>
         <div className="px-6 pb-6">
-          <CategoryForm recentColors={recentColors} />
+        <CategoryCreationPreview categories={categories} defaultColor={defaultColor} />
         </div>
       </SheetContent>
     </Sheet>

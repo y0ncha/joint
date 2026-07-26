@@ -1,4 +1,5 @@
-import { archiveCategory, updateCategory } from "@/app/actions/categories";
+import { deleteCategory, deleteSubcategory, updateCategory } from "@/app/actions/categories";
+import { ChevronRight, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,152 +11,337 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { CategoryColorPicker } from "@/components/category-form";
-import { Badge } from "@/components/ui/badge";
+import { CategoryColorPicker, SubcategoryCreationSheet } from "@/components/category-form";
+import { CategoryIcon, CategoryIconPicker } from "@/components/category-icon-picker";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { PillSelect } from "@/components/pill-select";
-import { Separator } from "@/components/ui/separator";
+import { SubcategoryEditForm } from "@/components/subcategory-edit-form";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { isCategoryIcon } from "@/lib/category-icons";
+import type { CSSProperties } from "react";
 
 type Category = {
   id: string;
   name: string;
   kind: "income" | "expense";
   color?: string;
+  icon?: string;
   transactionCount: number;
   archived_at: string | null;
 };
 
-function CategoryNameBadge({ category }: { category: Category }) {
+type Subcategory = {
+  color: string;
+  id: string;
+  icon?: string | null;
+  category_id: string;
+  name: string;
+  transactionCount: number;
+  archived_at: string | null;
+};
+
+const sheetContentClassName =
+  "inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg";
+
+function SubcategoryEditor({
+  categories,
+  subcategories,
+  subcategory,
+}: {
+  categories: Category[];
+  subcategories: Subcategory[];
+  subcategory: Subcategory;
+}) {
   return (
-    <Badge variant="outline" color={category.color} className="max-w-full truncate">
-      {category.name}
-    </Badge>
+    <Sheet>
+      <SheetTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Manage ${subcategory.name} subcategory`}
+          className="flex min-h-11 min-w-0 cursor-pointer items-center text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          <span className="truncate">{subcategory.name}</span>
+        </button>
+      </SheetTrigger>
+      <SheetContent side="right" className={sheetContentClassName}>
+        <SheetHeader className="p-6">
+          <SheetTitle className="text-xl">Edit subcategory</SheetTitle>
+          <SheetDescription>Update this subcategory.</SheetDescription>
+        </SheetHeader>
+        <div className="flex flex-col gap-6 px-6 pb-6">
+          <SubcategoryEditForm
+            subcategory={subcategory}
+            categories={categories.map((parent) => ({
+              id: parent.id,
+              icon: parent.icon,
+              name: parent.name,
+              color: parent.color,
+              subcategoryColors: subcategories
+                .filter((child) => child.category_id === parent.id && child.id !== subcategory.id)
+                .map((child) => child.color),
+            }))}
+          />
+          <div className="flex justify-end">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  aria-label="Delete subcategory"
+                >
+                  <Trash2 aria-hidden="true" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this subcategory?</AlertDialogTitle>
+                  <AlertDialogDescription>This removes the subcategory. Linked transactions become Uncategorized.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <form
+                    action={async () => {
+                      "use server";
+                      await deleteSubcategory(subcategory.id);
+                    }}
+                  >
+                    <AlertDialogAction type="submit" variant="destructive">
+                      Delete subcategory
+                    </AlertDialogAction>
+                  </form>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function SubcategoryList({
+  categories,
+  subcategories,
+  allSubcategories,
+}: {
+  categories: Category[];
+  subcategories: Subcategory[];
+  allSubcategories: Subcategory[];
+}) {
+  if (subcategories.length === 0) {
+    return <p className="py-2 ps-6 text-sm text-muted-foreground">No subcategories yet</p>;
+  }
+
+  return (
+    <ul className="flex flex-col gap-1 border-s-[3px] border-sidebar-border/70 ps-6">
+      {subcategories.map((subcategory) => (
+        <li
+          key={subcategory.id}
+          className="relative flex min-h-11 items-center justify-between gap-3 px-4 text-muted-foreground before:absolute before:inset-y-3 before:start-0 before:w-[3px] before:rounded-full before:bg-[var(--subcategory-color)]"
+          style={{ "--subcategory-color": subcategory.color } as CSSProperties}
+        >
+          {subcategory.archived_at ? (
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate">{subcategory.name}</span>
+              <span className="text-sm text-muted-foreground">Archived</span>
+            </div>
+          ) : (
+            <SubcategoryEditor categories={categories} subcategories={allSubcategories} subcategory={subcategory} />
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function CategoryEditor({
+  category,
+  categories,
+}: {
+  category: Category;
+  categories: Array<{ id: string; name: string; color: string; subcategoryColors: string[] }>;
+}) {
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Manage ${category.name} category`}
+          className="flex min-h-11 w-full cursor-pointer items-center gap-4 px-3 text-left font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sidebar-ring"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate">{category.name}</span>
+            <CategoryIcon name={category.icon} className="size-4 shrink-0" />
+          </span>
+        </button>
+      </SheetTrigger>
+      <SheetContent side="right" className={sheetContentClassName}>
+        <SheetHeader className="p-6">
+          <SheetTitle className="text-xl">Edit category</SheetTitle>
+          <SheetDescription>Update this category.</SheetDescription>
+        </SheetHeader>
+        <div className="flex flex-col gap-6 px-6 pb-6">
+          <form
+            action={async (formData) => {
+              "use server";
+              await updateCategory(category.id, formData);
+            }}
+          >
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor={`category-name-${category.id}`}>Name</FieldLabel>
+                <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+                  <Input
+                    id={`category-name-${category.id}`}
+                    name="name"
+                    defaultValue={category.name}
+                    required
+                    className="h-11 rounded-none border-0 bg-transparent focus-visible:border-transparent focus-visible:ring-0"
+                  />
+                  <CategoryIconPicker defaultIcon={isCategoryIcon(category.icon ?? null) ? category.icon : "tag"} />
+                </div>
+              </Field>
+              <Field>
+                <FieldLabel>Type</FieldLabel>
+                <PillSelect
+                  ariaLabel="Category type"
+                  name="kind"
+                  defaultValue={category.kind}
+                  options={[
+                    { value: "income", label: "Income", className: "border-positive/20 bg-positive/10 text-positive" },
+                    { value: "expense", label: "Expense", className: "border-negative/20 bg-negative/10 text-negative" },
+                  ]}
+                />
+              </Field>
+              <CategoryColorPicker defaultColor={category.color} />
+              <Button className="mt-5" type="submit">
+                Save category
+              </Button>
+            </FieldGroup>
+          </form>
+          <SubcategoryCreationSheet categories={categories} categoryId={category.id} />
+          <div className="flex justify-end">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  aria-label="Delete category"
+                >
+                  <Trash2 aria-hidden="true" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this category?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This removes the category and its subcategories. Linked transactions become Uncategorized.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <form
+                    action={async () => {
+                      "use server";
+                      await deleteCategory(category.id);
+                    }}
+                  >
+                    <AlertDialogAction type="submit" variant="destructive">
+                      Delete category
+                    </AlertDialogAction>
+                  </form>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
 function CategorySection({
   categories,
-  recentColors,
-  description,
+  subcategories,
   emptyLabel,
   title,
 }: {
   categories: Category[];
-  recentColors: string[];
-  description: string;
+  subcategories: Subcategory[];
   emptyLabel: string;
   title: string;
 }) {
   return (
-    <Card className="border-white/50 bg-card/90">
-      <CardHeader>
+    <Card>
+      <CardHeader className="pb-3">
         <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-7 pb-2">
         {categories.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+          <p className="px-3 pb-2 text-sm text-muted-foreground">{emptyLabel}</p>
         ) : (
-          <ul className="divide-y divide-border/70">
-            {categories.map((category) => (
-              <li key={category.id}>
-                {category.archived_at ? (
-                  <div className="flex min-h-14 items-center justify-between gap-4 py-4">
-                    <CategoryNameBadge category={category} />
-                    <span className="text-sm text-muted-foreground">
-                      {category.transactionCount} {category.transactionCount === 1 ? "transaction" : "transactions"}
-                    </span>
-                  </div>
-                ) : (
-                  <Sheet>
-                    <SheetTrigger asChild>
-                      <button
-                        type="button"
-                        className="flex min-h-14 w-full cursor-pointer items-center justify-between gap-4 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                      >
-                        <CategoryNameBadge category={category} />
-                        <span className="text-sm text-muted-foreground">
-                          {category.transactionCount} {category.transactionCount === 1 ? "transaction" : "transactions"}
-                        </span>
-                      </button>
-                    </SheetTrigger>
-                    <SheetContent
-                      side="right"
-                      className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg"
+          <ul aria-label={title} className="flex flex-col gap-1">
+            {categories.map((category) => {
+              const children = subcategories.filter((subcategory) => subcategory.category_id === category.id);
+              return (
+                <li key={category.id}>
+                  <Collapsible defaultOpen className="group/category flex flex-col gap-1">
+                    <div
+                      className="relative flex min-h-11 items-center before:absolute before:inset-y-2 before:start-0 before:w-1 before:rounded-full before:bg-[var(--category-color)]"
+                      style={category.color ? ({ "--category-color": category.color } as CSSProperties) : undefined}
                     >
-                      <SheetHeader className="p-6">
-                        <SheetTitle className="text-xl">Edit category</SheetTitle>
-                        <SheetDescription>Rename this category, change its type, or delete it from new entries.</SheetDescription>
-                      </SheetHeader>
-                      <div className="flex flex-col gap-4 px-6 pb-6">
-                        <form
-                          action={async (formData) => {
-                            "use server";
-                            await updateCategory(category.id, formData);
-                          }}
+                      {category.archived_at ? (
+                        <div className="flex min-h-11 flex-1 items-center gap-2 px-3 font-semibold">
+                          <span className="truncate">{category.name}</span>
+                          <CategoryIcon name={category.icon} className="size-4 shrink-0" />
+                        </div>
+                      ) : (
+                        <div className="min-w-0 flex-1">
+                          <CategoryEditor
+                            category={category}
+                            categories={categories.map((parent) => ({
+                              id: parent.id,
+                              name: parent.name,
+                              kind: parent.kind,
+                              color: parent.color ?? "",
+                              subcategoryColors: subcategories
+                                .filter((child) => child.category_id === parent.id)
+                                .map((child) => child.color),
+                            }))}
+                          />
+                        </div>
+                      )}
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="group/category-toggle size-11 shrink-0 rounded-none hover:bg-transparent aria-expanded:bg-transparent"
+                          aria-label={`Toggle ${category.name} subcategories`}
                         >
-                          <FieldGroup>
-                            <Field>
-                              <FieldLabel htmlFor={`category-name-${category.id}`}>Category name</FieldLabel>
-                              <Input id={`category-name-${category.id}`} name="name" defaultValue={category.name} required />
-                            </Field>
-                            <Field>
-                              <FieldLabel>Category type</FieldLabel>
-                              <PillSelect
-                                ariaLabel="Category type"
-                                name="kind"
-                                defaultValue={category.kind}
-                                options={[
-                                  { value: "income", label: "Income" },
-                                  { value: "expense", label: "Expense" },
-                                ]}
-                              />
-                            </Field>
-                            <CategoryColorPicker defaultColor={category.color} recentColors={recentColors} />
-                            <Button type="submit" variant="outline">
-                              Save category
-                            </Button>
-                          </FieldGroup>
-                        </form>
-                        <Separator />
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button type="button" variant="destructive">
-                              Delete category
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete this category?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This hides the category from new entries but keeps older reports readable.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <form
-                                action={async () => {
-                                  "use server";
-                                  await archiveCategory(category.id);
-                                }}
-                              >
-                                <AlertDialogAction type="submit" variant="destructive">
-                                  Delete category
-                                </AlertDialogAction>
-                              </form>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </SheetContent>
-                  </Sheet>
-                )}
-              </li>
-            ))}
+                          <ChevronRight
+                            data-icon="inline-end"
+                            aria-hidden="true"
+                            className="transition-transform motion-reduce:transition-none group-data-[state=open]/category-toggle:rotate-90"
+                          />
+                        </Button>
+                      </CollapsibleTrigger>
+                    </div>
+                    <CollapsibleContent>
+                      <SubcategoryList categories={categories} subcategories={children} allSubcategories={subcategories} />
+                    </CollapsibleContent>
+                  </Collapsible>
+                </li>
+              );
+            })}
           </ul>
         )}
       </CardContent>
@@ -163,24 +349,23 @@ function CategorySection({
   );
 }
 
-export function CategoryList({ categories, recentColors = [] }: { categories: Category[]; recentColors?: string[] }) {
-  const expenseCategories = categories.filter((category) => category.kind === "expense");
-  const incomeCategories = categories.filter((category) => category.kind === "income");
-
+export function CategoryList({ categories, subcategories = [] }: { categories: Category[]; subcategories?: Subcategory[] }) {
   return (
     <>
       <CategorySection
-        categories={expenseCategories}
-        recentColors={recentColors}
-        description="Categories used for shared spending."
-        emptyLabel="No expense categories yet"
+        categories={categories.filter(
+          (category) => category.kind === "expense" && subcategories.some((subcategory) => subcategory.category_id === category.id),
+        )}
+        subcategories={subcategories}
+        emptyLabel="No expense subcategories yet"
         title="Expense categories"
       />
       <CategorySection
-        categories={incomeCategories}
-        recentColors={recentColors}
-        description="Categories used for shared income."
-        emptyLabel="No income categories yet"
+        categories={categories.filter(
+          (category) => category.kind === "income" && subcategories.some((subcategory) => subcategory.category_id === category.id),
+        )}
+        subcategories={subcategories}
+        emptyLabel="No income subcategories yet"
         title="Income categories"
       />
     </>

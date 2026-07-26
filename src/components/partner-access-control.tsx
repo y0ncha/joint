@@ -33,7 +33,7 @@ type Member = { name: string; email: string; joinedAt?: string };
 
 function MemberIdentity({ member }: { member: Member }) {
   return (
-    <div className="flex min-w-0 items-center justify-between gap-3 px-0.5 pt-1.5">
+    <div className="flex min-w-0 items-center justify-between gap-3 px-3 pt-1.5">
       <div className="min-w-0">
         <CardTitle className="truncate !text-xl !leading-7">{member.name}</CardTitle>
       </div>
@@ -46,7 +46,7 @@ function MemberIdentity({ member }: { member: Member }) {
 
 function MemberMetadata({ member }: { member: Member }) {
   return (
-    <CardContent className="px-3.5 pt-4 text-sm">
+    <CardContent className="px-4 pt-4 text-sm">
       <dl className="divide-y divide-border/70">
         <div className="grid grid-cols-[7rem_1fr] gap-3 px-3 py-2">
           <dt className="font-medium text-muted-foreground">Email</dt>

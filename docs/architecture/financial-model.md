@@ -21,13 +21,13 @@ household
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | `households`        | Shared container with a signed `opening_balance`.                                                                                  |
 | `household_members` | Household membership and `owner` or `member` role.                                                                                 |
-| `categories`        | Household-owned `income` or `expense` categories with archival state.                                                              |
+| `categories`        | Household-owned `income` or `expense` parent categories.                                                                            |
 | `member_cards`      | Optional household-scoped mapping of a member to one card's last four digits.                                                      |
 | `transactions`      | Positive ILS amount, date, `income` or `expense` direction, creator, optional payer/category, source, merchant, and optional note. |
 
 - The opening balance may be positive, zero, or negative.
 - Transaction amounts are positive ILS values with at most two decimal places; direction comes only from `kind`.
-- Manual transactions require a category from the same household with the same kind. Statement imports may be uncategorized; the data model permits their category to be set, changed, or cleared without weakening the manual-entry invariant.
+- New manual transactions require a matching subcategory from the same household and kind. Statement imports may be uncategorized. Deleting a category deletes its subcategories and clears linked transaction subcategory references, preserving those transactions as uncategorized history.
 - A non-null `paid_by` must identify a member of the same household. Imported transactions may be unassigned when their card has no household mapping.
 - Imported transactions retain their `statement_import` source, merchant, SHA-256 file hash, and source-row number. The hash and row number prevent retrying identical source bytes from duplicating rows within a household; source files are not stored.
 - Browser input never selects household ownership, transaction creator, or membership role.
