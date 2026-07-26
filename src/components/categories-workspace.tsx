@@ -5,7 +5,6 @@ import { useState } from "react";
 import { CategorySheet } from "@/components/category-form";
 import { CategoryList, type Category, type Subcategory } from "@/components/category-list";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import { Button } from "@/components/ui/button";
 
 export function CategoriesWorkspace({
   categories,
