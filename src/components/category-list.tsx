@@ -140,7 +140,7 @@ function SubcategoryList({
       {subcategories.map((subcategory) => (
         <li
           key={subcategory.id}
-          className="relative flex min-h-11 items-center justify-between gap-3 rounded-lg px-4 text-muted-foreground transition-colors duration-150 ease-out motion-reduce:transition-none hover:bg-foreground/5 before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-[var(--subcategory-color)] md:min-h-9"
+          className="relative flex min-h-11 items-center justify-between gap-3 rounded-lg px-4 text-muted-foreground transition-colors duration-700 ease-in-out motion-reduce:transition-none hover:bg-foreground/5 hover:ring-2 hover:ring-foreground/5 before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-[var(--subcategory-color)] md:min-h-9"
           style={{ "--subcategory-color": subcategory.color } as CSSProperties}
         >
           {subcategory.archived_at ? (
@@ -309,7 +309,7 @@ function CategorySection({
                     className="group/category flex flex-col gap-0"
                   >
                     <div
-                      className="relative flex min-h-11 items-center rounded-lg transition-colors duration-150 ease-out motion-reduce:transition-none hover:bg-foreground/5 before:absolute before:inset-y-2 before:start-0 before:w-1 before:rounded-full before:bg-[var(--category-color)]"
+                      className="relative flex min-h-11 items-center rounded-lg transition-colors duration-700 ease-in-out motion-reduce:transition-none hover:bg-foreground/5 hover:ring-2 hover:ring-foreground/5 before:absolute before:inset-y-2 before:start-0 before:w-1 before:rounded-full before:bg-[var(--category-color)]"
                       style={category.color ? ({ "--category-color": category.color } as CSSProperties) : undefined}
                     >
                       {category.archived_at ? (

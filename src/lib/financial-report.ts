@@ -10,8 +10,8 @@ export type ReportSubcategory = {
   id: string;
   name: string;
   categoryId: string;
-  color?: string;
-  icon?: string | null;
+  color: string;
+  icon: string | null;
   archivedAt: string | null;
 };
 

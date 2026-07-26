@@ -16,11 +16,18 @@ const categories: ReportCategory[] = [
 ];
 
 const subcategories: ReportSubcategory[] = [
-  { id: "salary", name: "Salary", categoryId: "income", archivedAt: null },
-  { id: "groceries", name: "Groceries", categoryId: "food", archivedAt: null },
-  { id: "restaurants", name: "Restaurants", categoryId: "food", archivedAt: null },
-  { id: "housing", name: "Housing", categoryId: "home", archivedAt: null },
-  { id: "archived-child", name: "Archived child", categoryId: "archived", archivedAt: "2026-06-01T00:00:00Z" },
+  { id: "salary", name: "Salary", categoryId: "income", color: "#dcece3", icon: null, archivedAt: null },
+  { id: "groceries", name: "Groceries", categoryId: "food", color: "#c5e8f7", icon: null, archivedAt: null },
+  { id: "restaurants", name: "Restaurants", categoryId: "food", color: "#f8d7d7", icon: null, archivedAt: null },
+  { id: "housing", name: "Housing", categoryId: "home", color: "#efeffc", icon: null, archivedAt: null },
+  {
+    id: "archived-child",
+    name: "Archived child",
+    categoryId: "archived",
+    color: "#ffeee6",
+    icon: null,
+    archivedAt: "2026-06-01T00:00:00Z",
+  },
 ];
 
 const transactions: ReportTransaction[] = [
