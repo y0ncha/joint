@@ -14,7 +14,7 @@ vi.mock("@/components/workspace-shell", () => ({
 
 const workspaceModule = await import("./categories-workspace").catch(() => null);
 
-it("puts the collapse-all action before category creation", () => {
+it("keeps category creation as the only page-header action", () => {
   const markup = workspaceModule
     ? renderToStaticMarkup(
         <workspaceModule.CategoriesWorkspace
@@ -27,6 +27,6 @@ it("puts the collapse-all action before category creation", () => {
       )
     : "";
 
-  expect(markup).toMatch(/aria-label="Collapse all categories"[\s\S]*data-category-sheet/);
-  expect(markup).toContain("lucide-chevrons-up");
+  expect(markup).not.toContain('aria-label="Collapse all categories"');
+  expect(markup).toContain("data-category-sheet");
 });

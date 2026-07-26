@@ -35,6 +35,14 @@ Open `http://127.0.0.1:3000`.
 
 Optional integration-test credentials may be set in `.env.local`. Tests skip those cases when the credentials are absent. Never add production credentials, database passwords, or service-role keys to the repository.
 
+To run the hosted database invariants, add the **joint-dev-only** PostgreSQL connection URL (using the `postgres` role; percent-encode it) to `.env.local` as `JOINT_DEV_TEST_DB_URL`, then run:
+
+```bash
+bun run test:db
+```
+
+Do not add this value to GitHub pull-request CI, production secrets, or committed files. The command is deliberately opt-in because it runs SQL against the shared development database, although the test file rolls its fixtures back.
+
 ## Before opening a change
 
 1. Inspect the relevant implementation and documentation.

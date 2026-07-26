@@ -1,7 +1,7 @@
 "use client";
 
 import { deleteCategory, deleteSubcategory, updateCategory } from "@/app/actions/categories";
-import { ChevronRight, Trash2 } from "lucide-react";
+import { ChevronRight, FoldVertical, Trash2, UnfoldVertical } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,7 +16,7 @@ import {
 import { CategoryColorPicker, SubcategoryCreationSheet } from "@/components/category-form";
 import { CategoryIcon, CategoryIconPicker } from "@/components/category-icon-picker";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -64,7 +64,7 @@ function SubcategoryEditor({
         <button
           type="button"
           aria-label={`Manage ${subcategory.name} subcategory`}
-          className="flex min-h-11 min-w-0 cursor-pointer items-center text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:min-h-9"
         >
           <span className="truncate">{subcategory.name}</span>
         </button>
@@ -136,11 +136,11 @@ function SubcategoryList({
   }
 
   return (
-    <ul className="flex flex-col gap-1 border-s-[3px] border-sidebar-border/70 ps-6">
+    <ul className="flex flex-col gap-0">
       {subcategories.map((subcategory) => (
         <li
           key={subcategory.id}
-          className="relative flex min-h-11 items-center justify-between gap-3 px-4 text-muted-foreground before:absolute before:inset-y-3 before:start-0 before:w-[3px] before:rounded-full before:bg-[var(--subcategory-color)]"
+          className="relative flex min-h-11 items-center justify-between gap-3 rounded-lg px-4 text-muted-foreground transition-colors duration-700 ease-in-out motion-reduce:transition-none hover:bg-foreground/5 hover:ring-2 hover:ring-foreground/5 before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-[var(--subcategory-color)] md:min-h-9"
           style={{ "--subcategory-color": subcategory.color } as CSSProperties}
         >
           {subcategory.archived_at ? (
@@ -173,7 +173,7 @@ function CategoryEditor({
           className="flex min-h-11 w-full cursor-pointer items-center gap-4 px-3 text-left font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sidebar-ring"
         >
           <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate">{category.name}</span>
+            <span className="truncate px-1.5">{category.name}</span>
             <CategoryIcon name={category.icon} className="size-4 shrink-0" />
           </span>
         </button>
@@ -260,6 +260,7 @@ function CategorySection({
   subcategories,
   emptyLabel,
   onCategoryOpenChange,
+  onSectionOpenChange,
   openCategoryIds,
   title,
 }: {
@@ -267,13 +268,30 @@ function CategorySection({
   subcategories: Subcategory[];
   emptyLabel: string;
   onCategoryOpenChange?: (categoryId: string, open: boolean) => void;
+  onSectionOpenChange?: (categoryIds: string[], open: boolean) => void;
   openCategoryIds?: ReadonlySet<string>;
   title: string;
 }) {
+  const allExpanded = categories.length > 0 && categories.every((category) => openCategoryIds?.has(category.id));
+
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle>{title}</CardTitle>
+        {onSectionOpenChange && categories.length > 0 ? (
+          <CardAction>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-11 rounded-full text-foreground hover:bg-foreground/10 hover:text-foreground md:size-9"
+              aria-label={`${allExpanded ? "Collapse" : "Expand"} ${title.toLowerCase()}`}
+              onClick={() => onSectionOpenChange(categories.map((category) => category.id), !allExpanded)}
+            >
+              {allExpanded ? <FoldVertical aria-hidden="true" /> : <UnfoldVertical aria-hidden="true" />}
+            </Button>
+          </CardAction>
+        ) : null}
       </CardHeader>
       <CardContent className="px-7 pb-2">
         {categories.length === 0 ? (
@@ -288,10 +306,10 @@ function CategorySection({
                     defaultOpen={openCategoryIds ? undefined : true}
                     onOpenChange={onCategoryOpenChange ? (open) => onCategoryOpenChange(category.id, open) : undefined}
                     open={openCategoryIds?.has(category.id)}
-                    className="group/category flex flex-col gap-1"
+                    className="group/category flex flex-col gap-0"
                   >
                     <div
-                      className="relative flex min-h-11 items-center before:absolute before:inset-y-2 before:start-0 before:w-1 before:rounded-full before:bg-[var(--category-color)]"
+                      className="relative flex min-h-11 items-center rounded-lg transition-colors duration-700 ease-in-out motion-reduce:transition-none hover:bg-foreground/5 hover:ring-2 hover:ring-foreground/5 before:absolute before:inset-y-2 before:start-0 before:w-1 before:rounded-full before:bg-[var(--category-color)]"
                       style={category.color ? ({ "--category-color": category.color } as CSSProperties) : undefined}
                     >
                       {category.archived_at ? (
@@ -349,11 +367,13 @@ export function CategoryList({
   categories,
   subcategories = [],
   onCategoryOpenChange,
+  onSectionOpenChange,
   openCategoryIds,
 }: {
   categories: Category[];
   subcategories?: Subcategory[];
   onCategoryOpenChange?: (categoryId: string, open: boolean) => void;
+  onSectionOpenChange?: (categoryIds: string[], open: boolean) => void;
   openCategoryIds?: ReadonlySet<string>;
 }) {
   return (
@@ -364,6 +384,7 @@ export function CategoryList({
         )}
         subcategories={subcategories}
         onCategoryOpenChange={onCategoryOpenChange}
+        onSectionOpenChange={onSectionOpenChange}
         openCategoryIds={openCategoryIds}
         emptyLabel="No expense subcategories yet"
         title="Expense categories"
@@ -374,6 +395,7 @@ export function CategoryList({
         )}
         subcategories={subcategories}
         onCategoryOpenChange={onCategoryOpenChange}
+        onSectionOpenChange={onSectionOpenChange}
         openCategoryIds={openCategoryIds}
         emptyLabel="No income subcategories yet"
         title="Income categories"

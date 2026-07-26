@@ -57,9 +57,13 @@ it("shows category and subcategory names without pills", () => {
   expect(markup).toContain("--subcategory-color:#c5e8f7");
   expect(markup).toContain("before:w-1");
   expect(markup).toContain("before:w-[3px]");
+  expect(markup).toContain("md:min-h-9");
   expect(markup).toContain('class="px-7 pb-2"');
-  expect(markup).toContain('class="flex flex-col gap-1 border-s-[3px] border-sidebar-border/70 ps-6"');
+  expect(markup).toContain('class="flex flex-col gap-0"');
+  expect(markup).toContain('class="group/category flex flex-col gap-0"');
+  expect(markup).not.toContain("border-sidebar-border/70");
   expect(markup).toContain("size-4 shrink-0");
+  expect(markup).toContain('class="truncate px-1.5"');
   expect(markup).toContain("font-semibold");
   expect(markup).toContain("transition-transform motion-reduce:transition-none");
   expect(markup).toContain("data-[state=open]:animate-[collapsible-down_160ms_ease-out]");
@@ -69,6 +73,29 @@ it("shows category and subcategory names without pills", () => {
   expect(markup).not.toContain("border-l");
   expect(markup).not.toContain("background-color:#dcece3");
   expect(markup).not.toContain("background-color:#c5e8f7");
+});
+
+it("places independent collapse actions in each category card", () => {
+  const markup = categoryListModule
+    ? renderToStaticMarkup(
+        <categoryListModule.CategoryList
+          categories={[
+            { id: "food", name: "Food", kind: "expense", color: "#dcece3", transactionCount: 0, archived_at: null },
+            { id: "salary", name: "Salary", kind: "income", color: "#e0f2fe", transactionCount: 0, archived_at: null },
+          ]}
+          subcategories={[
+            { id: "groceries", category_id: "food", name: "Groceries", color: "#c5e8f7", transactionCount: 0, archived_at: null },
+            { id: "monthly", category_id: "salary", name: "Monthly", color: "#c5e8f7", transactionCount: 0, archived_at: null },
+          ]}
+          openCategoryIds={new Set(["food", "salary"])}
+          onSectionOpenChange={() => {}}
+        />,
+      )
+    : "";
+
+  expect(markup).toContain('aria-label="Collapse expense categories"');
+  expect(markup).toContain('aria-label="Collapse income categories"');
+  expect(markup).toContain("lucide-fold-vertical");
 });
 
 it("uses the supplied global state to collapse every category group", () => {
