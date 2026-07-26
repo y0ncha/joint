@@ -242,6 +242,8 @@ it("renders edit mode with saved transaction values and deletion inside the shee
 
   expect(markup).toContain("Edit transaction");
   expect(markup).toContain("Update or remove this shared ledger entry.");
+  expect(markup).toContain('type="hidden" name="subcategoryId" value="groceries"');
+  expect(markup).toContain('aria-label="Categories">Food → Groceries');
   expect(markup).toContain('name="amount" value="50"');
   expect(markup).toContain("<textarea");
   expect(markup).toMatch(/<textarea[^>]*bg-white\/55/);
