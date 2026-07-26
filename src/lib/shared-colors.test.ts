@@ -18,14 +18,7 @@ const colors = sharedColors as unknown as {
 
 describe("category pastel colors", () => {
   test("selects unused category anchors before reusing them", () => {
-    expect(colors.categoryPastelColors).toEqual([
-      "#ccebef",
-      "#ffcff0",
-      "#f8d7d7",
-      "#efeffc",
-      "#ffeee6",
-      "#d5d5c4",
-    ]);
+    expect(colors.categoryPastelColors).toEqual(["#ccebef", "#ffcff0", "#f8d7d7", "#efeffc", "#ffeee6", "#d5d5c4"]);
     expect(new Set(colors.categoryPastelColors)).toHaveLength(6);
     expect(colors.categoryPastelColors).toHaveLength(6);
     expect(colors.categoryPastelColors.every((color) => /^#[0-9a-f]{6}$/.test(color))).toBe(true);
@@ -51,9 +44,7 @@ describe("category pastel colors", () => {
     expect(colors.isSubcategoryPastelColor("#ccebef", "#d9f0fa")).toBe(true);
     expect(colors.isSubcategoryPastelColor("#ccebef", "#ffbff4")).toBe(false);
     expect(colors.selectSubcategoryPastelColor("#ccebef", ["#D9F0FA"], () => 0)).toBe("#cadae0");
-    expect(colors.selectSubcategoryPastelColor("#ccebef", ["#d9f0fa", "#cadae0", "#ced9e3", "#dce4ea"], () => 0.999)).toBe(
-      "#dce4ea",
-    );
+    expect(colors.selectSubcategoryPastelColor("#ccebef", ["#d9f0fa", "#cadae0", "#ced9e3", "#dce4ea"], () => 0.999)).toBe("#dce4ea");
     expect(colors.selectSubcategoryPastelColor("#ffffff", [], () => 0)).toBeNull();
   });
 });

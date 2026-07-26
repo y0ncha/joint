@@ -61,7 +61,7 @@ export function CategoryCreationPreview({
   const selectedCategoryIcon = isCategoryIcon(selectedIcon) ? selectedIcon : "tag";
   const childColors = selectedCategory ? subcategoryPastelColors(selectedCategory.color) : [];
   const defaultSubcategoryColor = selectedCategory
-    ? selectSubcategoryPastelColor(selectedCategory.color, selectedCategory.subcategoryColors ?? []) ?? childColors[0]
+    ? (selectSubcategoryPastelColor(selectedCategory.color, selectedCategory.subcategoryColors ?? []) ?? childColors[0])
     : undefined;
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(async (_state, formData) => {
     if (mode === "category") return createCategory(formData);
@@ -93,7 +93,13 @@ export function CategoryCreationPreview({
             <Field>
               <FieldLabel htmlFor="category-name">Name</FieldLabel>
               <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
-                <Input id="category-name" name="name" required autoComplete="off" className="h-11 rounded-none border-0 bg-transparent focus-visible:border-transparent focus-visible:ring-0" />
+                <Input
+                  id="category-name"
+                  name="name"
+                  required
+                  autoComplete="off"
+                  className="h-11 rounded-none border-0 bg-transparent focus-visible:border-transparent focus-visible:ring-0"
+                />
                 <CategoryIconPicker />
               </div>
             </Field>
@@ -110,7 +116,9 @@ export function CategoryCreationPreview({
               />
             </Field>
             <CategoryColorPicker defaultColor={defaultColor} />
-            <Button className="mt-[30px]" disabled={isPending} type="submit">Add category</Button>
+            <Button className="mt-[30px]" disabled={isPending} type="submit">
+              Add category
+            </Button>
           </FieldGroup>
         ) : (
           <FieldGroup>
@@ -145,12 +153,22 @@ export function CategoryCreationPreview({
             <Field>
               <FieldLabel htmlFor="subcategory-name">Name</FieldLabel>
               <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
-                <Input id="subcategory-name" name="name" required autoComplete="off" className="h-11 rounded-none border-0 bg-transparent focus-visible:border-transparent focus-visible:ring-0" />
+                <Input
+                  id="subcategory-name"
+                  name="name"
+                  required
+                  autoComplete="off"
+                  className="h-11 rounded-none border-0 bg-transparent focus-visible:border-transparent focus-visible:ring-0"
+                />
                 <CategoryIconPicker inheritedIcon={selectedCategoryIcon} />
               </div>
             </Field>
-            {defaultSubcategoryColor ? <CategoryColorPicker key={categoryId} defaultColor={defaultSubcategoryColor} presetColors={childColors} /> : null}
-            <Button disabled={isPending || !categoryId} type="submit">Add subcategory</Button>
+            {defaultSubcategoryColor ? (
+              <CategoryColorPicker key={categoryId} defaultColor={defaultSubcategoryColor} presetColors={childColors} />
+            ) : null}
+            <Button disabled={isPending || !categoryId} type="submit">
+              Add subcategory
+            </Button>
           </FieldGroup>
         )}
         {state?.status === "error" ? <FieldError>{state.formError}</FieldError> : null}
@@ -159,13 +177,7 @@ export function CategoryCreationPreview({
   );
 }
 
-export function SubcategoryCreationSheet({
-  categories,
-  categoryId,
-}: {
-  categories: CategoryOption[];
-  categoryId: string;
-}) {
+export function SubcategoryCreationSheet({ categories, categoryId }: { categories: CategoryOption[]; categoryId: string }) {
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -174,7 +186,10 @@ export function SubcategoryCreationSheet({
           Add subcategory
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg">
+      <SheetContent
+        side="right"
+        className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg"
+      >
         <SheetHeader className="p-6">
           <SheetTitle className="text-xl">Add subcategory</SheetTitle>
           <SheetDescription>Create a subcategory for this category.</SheetDescription>
@@ -187,13 +202,7 @@ export function SubcategoryCreationSheet({
   );
 }
 
-export function CategorySheet({
-  categories = [],
-  defaultColor = "#dcece3",
-}: {
-  categories?: CategoryOption[];
-  defaultColor?: string;
-}) {
+export function CategorySheet({ categories = [], defaultColor = "#dcece3" }: { categories?: CategoryOption[]; defaultColor?: string }) {
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -217,7 +226,7 @@ export function CategorySheet({
           <SheetDescription>Create a category or subcategory.</SheetDescription>
         </SheetHeader>
         <div className="px-6 pb-6">
-        <CategoryCreationPreview categories={categories} defaultColor={defaultColor} />
+          <CategoryCreationPreview categories={categories} defaultColor={defaultColor} />
         </div>
       </SheetContent>
     </Sheet>

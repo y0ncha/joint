@@ -45,11 +45,7 @@ export function isSubcategoryPastelColor(categoryColor: string, value: unknown):
   return typeof value === "string" && subcategoryPastelColors(categoryColor).includes(value.toLowerCase() as never);
 }
 
-export function selectSubcategoryPastelColor(
-  categoryColor: string,
-  usedColors: Iterable<string | null | undefined>,
-  random = Math.random,
-) {
+export function selectSubcategoryPastelColor(categoryColor: string, usedColors: Iterable<string | null | undefined>, random = Math.random) {
   const colors = subcategoryPastelColors(categoryColor);
   if (colors.length === 0) return null;
   const used = new Set(Array.from(usedColors, (color) => color?.toLowerCase()));

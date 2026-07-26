@@ -18,13 +18,13 @@ household
 
 ## Data model and invariants
 
-| Record              | Implemented purpose                                                                                                                |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `households`        | Shared container with a signed `opening_balance`.                                                                                  |
-| `household_members` | Household membership and `owner` or `member` role.                                                                                 |
-| `categories`        | Household-owned `income` or `expense` parent categories with a registered family color and icon.                                    |
-| `subcategories`     | Household-owned children with a persisted color from the parent category's database family palette and an optional icon override. |
-| `member_cards`      | Optional household-scoped mapping of a member to one card's last four digits.                                                      |
+| Record              | Implemented purpose                                                                                                                            |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `households`        | Shared container with a signed `opening_balance`.                                                                                              |
+| `household_members` | Household membership and `owner` or `member` role.                                                                                             |
+| `categories`        | Household-owned `income` or `expense` parent categories with a registered family color and icon.                                               |
+| `subcategories`     | Household-owned children with a persisted color from the parent category's database family palette and an optional icon override.              |
+| `member_cards`      | Optional household-scoped mapping of a member to one card's last four digits.                                                                  |
 | `transactions`      | Positive ILS amount, date, `income` or `expense` direction, creator, optional payer and `subcategory_id`, source, merchant, and optional note. |
 
 - The opening balance may be positive, zero, or negative.

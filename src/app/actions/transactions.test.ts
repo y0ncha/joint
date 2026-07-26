@@ -174,7 +174,9 @@ describe("transaction actions", () => {
       existingTransaction: { source: "statement_import" },
     });
 
-    await expect(transactionsModule.updateTransaction("transaction-id", transactionForm({ subcategoryId: "", paidBy: "" }))).resolves.toEqual({
+    await expect(
+      transactionsModule.updateTransaction("transaction-id", transactionForm({ subcategoryId: "", paidBy: "" })),
+    ).resolves.toEqual({
       status: "success",
     });
 

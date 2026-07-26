@@ -30,18 +30,18 @@ tags: ["feature", "categories", "subcategories", "transactions", "verification"]
 
 ## Files and responsibilities
 
-| File | Responsibility |
-| --- | --- |
-| `src/lib/finance-types.ts` | Preserve database subcategory color and icon in the application read model. |
-| `src/lib/financial-report.ts` | Carry the presentation metadata needed by transaction surfaces without changing parent-category aggregation. |
-| `src/lib/dashboard-data.ts` | Build active/inactive subcategory view data with parent name, kind, category ID, child color, and effective icon. |
-| `src/components/transaction-sheet.tsx` | Submit `subcategoryId` and select active matching-kind subcategories in the current Sheet. |
-| `src/components/transaction-ledger.tsx` | Resolve transaction labels and category filters from `subcategoryId`. |
-| `src/app/(app)/page.tsx` | Render recent activity from the hierarchy. |
-| `src/app/(app)/transactions/page.tsx` | Pass the existing hierarchy to transaction entry and ledger surfaces. |
-| `src/components/ledger-controls.tsx` | Keep the current parent-category filter UI while accepting the derived parent IDs. |
-| `supabase/tests/shared_balance.sql` | Prove the deployed hierarchy, privileges, color-family constraints, and deletion behavior. |
-| `docs/architecture/financial-model.md` | Record the final persisted hierarchy and reporting behavior. |
+| File                                    | Responsibility                                                                                                    |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `src/lib/finance-types.ts`              | Preserve database subcategory color and icon in the application read model.                                       |
+| `src/lib/financial-report.ts`           | Carry the presentation metadata needed by transaction surfaces without changing parent-category aggregation.      |
+| `src/lib/dashboard-data.ts`             | Build active/inactive subcategory view data with parent name, kind, category ID, child color, and effective icon. |
+| `src/components/transaction-sheet.tsx`  | Submit `subcategoryId` and select active matching-kind subcategories in the current Sheet.                        |
+| `src/components/transaction-ledger.tsx` | Resolve transaction labels and category filters from `subcategoryId`.                                             |
+| `src/app/(app)/page.tsx`                | Render recent activity from the hierarchy.                                                                        |
+| `src/app/(app)/transactions/page.tsx`   | Pass the existing hierarchy to transaction entry and ledger surfaces.                                             |
+| `src/components/ledger-controls.tsx`    | Keep the current parent-category filter UI while accepting the derived parent IDs.                                |
+| `supabase/tests/shared_balance.sql`     | Prove the deployed hierarchy, privileges, color-family constraints, and deletion behavior.                        |
+| `docs/architecture/financial-model.md`  | Record the final persisted hierarchy and reporting behavior.                                                      |
 
 ## Task 1: Complete the hierarchy read model
 

@@ -26,7 +26,7 @@ export function SubcategoryEditForm({ categories, subcategory }: { categories: P
   const defaultColor =
     categoryId === subcategory.category_id
       ? subcategory.color
-      : selectSubcategoryPastelColor(parent?.color ?? "", parent?.subcategoryColors ?? []) ?? colors[0];
+      : (selectSubcategoryPastelColor(parent?.color ?? "", parent?.subcategoryColors ?? []) ?? colors[0]);
 
   return (
     <form
@@ -38,12 +38,14 @@ export function SubcategoryEditForm({ categories, subcategory }: { categories: P
         <Field>
           <FieldLabel htmlFor={`subcategory-${subcategory.id}`}>Name</FieldLabel>
           <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
-            <Input id={`subcategory-${subcategory.id}`} name="name" defaultValue={subcategory.name} required className="h-11 rounded-none border-0 bg-transparent focus-visible:border-transparent focus-visible:ring-0" />
-            <CategoryIconPicker
-              key={categoryId}
-              defaultIcon={defaultIcon}
-              inheritedIcon={inheritedIcon}
+            <Input
+              id={`subcategory-${subcategory.id}`}
+              name="name"
+              defaultValue={subcategory.name}
+              required
+              className="h-11 rounded-none border-0 bg-transparent focus-visible:border-transparent focus-visible:ring-0"
             />
+            <CategoryIconPicker key={categoryId} defaultIcon={defaultIcon} inheritedIcon={inheritedIcon} />
           </div>
         </Field>
         {defaultColor ? <CategoryColorPicker key={categoryId} defaultColor={defaultColor} presetColors={colors} /> : null}
@@ -58,7 +60,9 @@ export function SubcategoryEditForm({ categories, subcategory }: { categories: P
             options={categories.map((category) => ({ value: category.id, label: category.name, color: category.color }))}
           />
         </Field>
-        <Button className="mt-5" type="submit">Save subcategory</Button>
+        <Button className="mt-5" type="submit">
+          Save subcategory
+        </Button>
       </FieldGroup>
     </form>
   );

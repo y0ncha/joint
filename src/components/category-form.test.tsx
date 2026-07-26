@@ -58,7 +58,7 @@ it("starts the subcategory type selector empty", () => {
 it("preselects a category in the locked subcategory creation form", () => {
   const markup = categoryFormModule
     ? renderToStaticMarkup(
-      <categoryFormModule.CategoryCreationPreview
+        <categoryFormModule.CategoryCreationPreview
           categories={[{ id: "food", name: "Food", kind: "expense", color: "#ccebef", icon: "utensils" }]}
           initialCategoryId="food"
           initialMode="subcategory"
@@ -79,15 +79,15 @@ it("preselects a category in the locked subcategory creation form", () => {
 it("infers the type from an initially selected subcategory parent", () => {
   const markup = categoryFormModule
     ? renderToStaticMarkup(
-      <categoryFormModule.CategoryCreationPreview
-        categories={[
-          { id: "salary", name: "Salary", kind: "income", color: "#ccebef" },
-          { id: "food", name: "Food", kind: "expense", color: "#ffcff0" },
-        ]}
-        initialCategoryId="salary"
-        initialMode="subcategory"
-      />,
-    )
+        <categoryFormModule.CategoryCreationPreview
+          categories={[
+            { id: "salary", name: "Salary", kind: "income", color: "#ccebef" },
+            { id: "food", name: "Food", kind: "expense", color: "#ffcff0" },
+          ]}
+          initialCategoryId="salary"
+          initialMode="subcategory"
+        />,
+      )
     : "";
 
   expect(markup).toContain("Income");
