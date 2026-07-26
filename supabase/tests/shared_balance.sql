@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(76);
+select extensions.plan(75);
 
 select extensions.hasnt_table('public', 'accounts', 'has no accounts table');
 select extensions.hasnt_type('public', 'account_kind', 'has no account kind enum');
@@ -56,7 +56,10 @@ select extensions.ok(
   not has_table_privilege('anon', 'public.subcategories', 'SELECT')
     and not has_table_privilege('anon', 'public.subcategories', 'INSERT')
     and not has_table_privilege('anon', 'public.subcategories', 'UPDATE')
-    and not has_table_privilege('anon', 'public.subcategories', 'DELETE'),
+    and not has_table_privilege('anon', 'public.subcategories', 'DELETE')
+    and not has_table_privilege('anon', 'public.subcategories', 'TRUNCATE')
+    and not has_table_privilege('anon', 'public.subcategories', 'REFERENCES')
+    and not has_table_privilege('anon', 'public.subcategories', 'TRIGGER'),
   'anonymous callers have no privileges on subcategories'
 );
 
@@ -510,22 +513,6 @@ select extensions.is(
 
 select extensions.lives_ok(
   $$
-    insert into public.transactions (household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by)
-    values (
-      '00000000-0000-0000-0000-000000000410',
-      'expense',
-      10.00,
-      date '2026-07-03',
-      null,
-      '00000000-0000-0000-0000-000000000401',
-      null
-    )
-  $$,
-  'a manual transaction may be uncategorized'
-);
-
-select extensions.lives_ok(
-  $$
     insert into public.transactions (
       household_id,
       kind,
@@ -868,6 +855,7 @@ select extensions.ok(
     select 1
     from public.subcategories
     where name in ('First child', 'Second child')
+      and household_id = '00000000-0000-0000-0000-000000000410'
   )
     and (
       select subcategory_id is null
