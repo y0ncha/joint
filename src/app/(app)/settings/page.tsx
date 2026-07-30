@@ -1,12 +1,12 @@
 import { AccentPicker } from "@/components/accent-picker";
-import { HouseholdNameSettingsControl } from "@/components/household-name-settings-control";
 import { MemberCardSettingsControl } from "@/components/member-card-settings-control";
 import { MemberColorSettingsControl } from "@/components/member-color-settings-control";
 import { MemberManagementSheet, type PartnerAccessState } from "@/components/partner-access-control";
-import { ProfileNameSettingsControl } from "@/components/profile-name-settings-control";
 import { SettingsSaveControl } from "@/components/settings-save-control";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { getCurrentHouseholdContext } from "@/lib/household";
 import { ChevronRight, CreditCard, House, Palette, UserRound, UsersRound, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
@@ -40,6 +40,42 @@ function SettingsRow({
         </p>
       ) : null}
       {chevron ? <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground/70" /> : null}
+    </div>
+  );
+}
+
+function SettingsTextControl({
+  id,
+  label,
+  name,
+  initialName,
+  value,
+  autoComplete,
+}: {
+  id: string;
+  label: string;
+  name: string;
+  initialName: string;
+  value: string;
+  autoComplete: string;
+}) {
+  return (
+    <div className="w-[min(22rem,55vw)]">
+      <input form="settings-save-form" type="hidden" name={initialName} value={value} />
+      <Field className="min-w-0 flex-1">
+        <FieldLabel htmlFor={id} className="sr-only">
+          {label}
+        </FieldLabel>
+        <Input
+          form="settings-save-form"
+          id={id}
+          name={name}
+          defaultValue={value}
+          autoComplete={autoComplete}
+          required
+          className="min-h-11"
+        />
+      </Field>
     </div>
   );
 }
@@ -129,7 +165,16 @@ export default async function SettingsPage() {
                 label={householdRecord?.name?.trim() || "Household"}
                 value={household.role === "member" ? householdRecord?.name?.trim() || "Household" : undefined}
               >
-                {household.role === "owner" ? <HouseholdNameSettingsControl name={householdRecord?.name?.trim() || "Household"} /> : null}
+                {household.role === "owner" ? (
+                  <SettingsTextControl
+                    id="household-name"
+                    label="Household name"
+                    name="householdName"
+                    initialName="initialHouseholdName"
+                    value={householdRecord?.name?.trim() || "Household"}
+                    autoComplete="organization"
+                  />
+                ) : null}
               </SettingsRow>
               {household.role === "owner" && partnerState ? (
                 <SettingsRow icon={UsersRound} label="Members" description="Manage members.">
@@ -160,7 +205,14 @@ export default async function SettingsPage() {
           <CardContent>
             <div className="divide-y divide-border/70">
               <SettingsRow icon={UserRound} label="User name">
-                <ProfileNameSettingsControl fullName={profile?.full_name?.trim() ?? ""} />
+                <SettingsTextControl
+                  id="profile-name"
+                  label="User name"
+                  name="profileName"
+                  initialName="initialProfileName"
+                  value={profile?.full_name?.trim() ?? ""}
+                  autoComplete="name"
+                />
               </SettingsRow>
               <SettingsRow icon={Palette} label="User color">
                 <div className="w-[min(22rem,55vw)]">

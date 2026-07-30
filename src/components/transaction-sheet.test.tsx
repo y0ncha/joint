@@ -81,13 +81,6 @@ vi.mock("@/components/ui/popover", () => ({
   PopoverContent: ({ children }: { children: ReactNode }) => <>{children}</>,
   PopoverTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
-vi.mock("@/components/ui/toggle-group", () => ({
-  ToggleGroup: ({ children, onValueChange }: { children: ReactNode; onValueChange: (value: string) => void }) => {
-    mocks.kindChange = onValueChange;
-    return <div>{children}</div>;
-  },
-  ToggleGroupItem: ({ children }: { children: ReactNode }) => <button type="button">{children}</button>,
-}));
 vi.mock("@/components/ui/alert-dialog", () => ({
   AlertDialog: ({ children }: { children: ReactNode }) => <>{children}</>,
   AlertDialogAction: ({ children }: { children: ReactNode }) => <button>{children}</button>,

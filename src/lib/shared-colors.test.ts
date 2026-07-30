@@ -8,7 +8,6 @@ const colors = sharedColors as unknown as {
   isCategoryPastelColor: (value: unknown) => boolean;
   selectCategoryPastelColor: (usedColors: Iterable<string | null | undefined>, random?: () => number) => string;
   subcategoryPastelColors: (categoryColor: string) => readonly string[];
-  isSubcategoryPastelColor: (categoryColor: string, value: unknown) => boolean;
   selectSubcategoryPastelColor: (
     categoryColor: string,
     usedColors: Iterable<string | null | undefined>,
@@ -41,8 +40,6 @@ describe("category pastel colors", () => {
       { category: "#d5d5c4", subcategories: ["#ecece7", "#e2e2dd", "#c8c8ad", "#bcbcac"] },
     ]);
     expect(colors.subcategoryPastelColors("#CCEBEF")).toEqual(["#d9f0fa", "#cadae0", "#ced9e3", "#dce4ea"]);
-    expect(colors.isSubcategoryPastelColor("#ccebef", "#d9f0fa")).toBe(true);
-    expect(colors.isSubcategoryPastelColor("#ccebef", "#ffbff4")).toBe(false);
     expect(colors.selectSubcategoryPastelColor("#ccebef", ["#D9F0FA"], () => 0)).toBe("#cadae0");
     expect(colors.selectSubcategoryPastelColor("#ccebef", ["#d9f0fa", "#cadae0", "#ced9e3", "#dce4ea"], () => 0.999)).toBe("#dce4ea");
     expect(colors.selectSubcategoryPastelColor("#ffffff", [], () => 0)).toBeNull();
