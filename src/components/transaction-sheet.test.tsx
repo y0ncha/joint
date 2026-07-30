@@ -1,11 +1,13 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  calendarSelect: undefined as undefined | ((date: Date | undefined) => void),
+  billingPeriodSelect: undefined as undefined | ((range: { from?: Date; to?: Date } | undefined) => void),
   categoryOptions: [] as Array<{ color?: string; icon?: unknown; label: string; value: string }>,
+  categoryChange: undefined as undefined | ((value: string) => void),
   createTransaction: vi.fn(),
+  dateSelect: undefined as undefined | ((date: Date | undefined) => void),
   formAction: undefined as undefined | ((previousState: unknown, formData: FormData) => unknown),
   kindChange: undefined as undefined | ((value: string) => void),
   state: [] as unknown[],
@@ -54,13 +56,23 @@ vi.mock("@/components/pill-select", () => ({
     value?: string;
   }) => {
     if (ariaLabel === "Type") mocks.kindChange = onValueChange;
-    if (ariaLabel === "Categories") mocks.categoryOptions = options;
+    if (ariaLabel === "Categories") {
+      mocks.categoryOptions = options;
+      mocks.categoryChange = onValueChange;
+    }
     return <button aria-label={ariaLabel}>{options.find((option) => option.value === value)?.label ?? emptyLabel}</button>;
   },
 }));
 vi.mock("@/components/ui/calendar", () => ({
-  Calendar: ({ onSelect }: { onSelect: (date: Date | undefined) => void }) => {
-    mocks.calendarSelect = onSelect;
+  Calendar: ({
+    mode,
+    onSelect,
+  }: {
+    mode: "range" | "single";
+    onSelect: (value: Date | { from?: Date; to?: Date } | undefined) => void;
+  }) => {
+    if (mode === "range") mocks.billingPeriodSelect = onSelect as typeof mocks.billingPeriodSelect;
+    else mocks.dateSelect = onSelect as typeof mocks.dateSelect;
     return <button type="button">Calendar</button>;
   },
 }));
@@ -145,14 +157,20 @@ function renderSheet() {
 }
 
 beforeEach(() => {
-  mocks.calendarSelect = undefined;
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 6, 14, 12));
+  mocks.billingPeriodSelect = undefined;
   mocks.categoryOptions = [];
+  mocks.categoryChange = undefined;
   mocks.createTransaction.mockReset();
+  mocks.dateSelect = undefined;
   mocks.formAction = undefined;
   mocks.kindChange = undefined;
   mocks.state = [];
   mocks.stateIndex = 0;
 });
+
+afterEach(() => vi.useRealTimers());
 
 type ImportedTransaction = {
   id: string;
@@ -307,7 +325,7 @@ it("exposes only matching subcategories and clears the selection when the type c
 
 it("submits the locally selected calendar day", async () => {
   renderSheet();
-  mocks.calendarSelect?.(new Date(2026, 0, 2, 12));
+  mocks.dateSelect?.(new Date(2026, 0, 2, 12));
 
   const markup = renderSheet();
 
@@ -318,4 +336,85 @@ it("submits the locally selected calendar day", async () => {
   await mocks.formAction?.(null, formData);
   expect(mocks.createTransaction).toHaveBeenCalledWith(formData);
   expect(mocks.createTransaction.mock.calls[0]?.[0].get("occurredOn")).toBe("2026-01-02");
+});
+
+it("defaults the fixture Billing period from the ledger date in Bills create and edit forms", () => {
+  const billsSubcategory = {
+    id: "electricity",
+    name: "Electricity",
+    categoryId: "bills",
+    categoryName: "Bills",
+    kind: "expense" as const,
+    color: "#d9f0fa",
+    icon: "zap",
+    systemKey: "bills",
+  };
+  mocks.stateIndex = 0;
+  const createMarkup = renderToStaticMarkup(<TransactionSheet subcategories={[billsSubcategory]} members={[]} />);
+  mocks.state = [];
+  mocks.stateIndex = 0;
+  const editMarkup = renderToStaticMarkup(
+    <TransactionSheet
+      subcategories={[billsSubcategory]}
+      members={[]}
+      transaction={{
+        id: "electricity-id",
+        kind: "expense",
+        amount: 120,
+        occurredOn: "2026-07-03",
+        subcategoryId: "electricity",
+        note: "",
+        merchant: "Electric company",
+        createdAt: "2026-07-03T08:00:00Z",
+        paidBy: null,
+      }}
+    />,
+  );
+
+  for (const markup of [createMarkup, editMarkup]) {
+    expect(markup).toContain("Billing period");
+    expect(markup).toContain('aria-label="Choose billing period"');
+  }
+  expect(createMarkup).toMatch(/id="billing-period-from"[^>]*value="2026-07-14"/);
+  expect(createMarkup).toMatch(/id="billing-period-to"[^>]*value="2026-07-14"/);
+  expect(editMarkup).toMatch(/id="billing-period-from"[^>]*value="2026-07-03"/);
+  expect(editMarkup).toMatch(/id="billing-period-to"[^>]*value="2026-07-03"/);
+});
+
+it("clears the fixture Billing period after selecting a non-Bills subcategory", () => {
+  const subcategories = [
+    {
+      id: "electricity",
+      name: "Electricity",
+      categoryId: "bills",
+      categoryName: "Bills",
+      kind: "expense" as const,
+      color: "#d9f0fa",
+      icon: "zap",
+      systemKey: "bills",
+    },
+    {
+      id: "groceries",
+      name: "Groceries",
+      categoryId: "groceries",
+      categoryName: "Groceries",
+      kind: "expense" as const,
+      color: "#d9f0fa",
+      icon: "shopping-basket",
+    },
+  ];
+
+  mocks.stateIndex = 0;
+  renderToStaticMarkup(<TransactionSheet subcategories={subcategories} members={[]} />);
+  mocks.billingPeriodSelect?.({ from: new Date(2026, 6, 1, 12), to: new Date(2026, 6, 13, 12) });
+  mocks.categoryChange?.("groceries");
+  mocks.stateIndex = 0;
+  const nonBillsMarkup = renderToStaticMarkup(<TransactionSheet subcategories={subcategories} members={[]} />);
+  mocks.categoryChange?.("electricity");
+  mocks.stateIndex = 0;
+  const billsMarkup = renderToStaticMarkup(<TransactionSheet subcategories={subcategories} members={[]} />);
+
+  expect(nonBillsMarkup).not.toContain("Billing period");
+  expect(billsMarkup).toMatch(/id="billing-period-from"[^>]*value="2026-07-14"/);
+  expect(billsMarkup).toMatch(/id="billing-period-to"[^>]*value="2026-07-14"/);
 });

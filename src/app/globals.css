@@ -52,6 +52,7 @@
 
 :root {
   --background: #f6d4b8;
+  --canvas-gradient: linear-gradient(135deg, #f6d4b8 0%, #b5cad0 62%, #0d4f73 100%);
   --foreground: #17201d;
   --card: rgba(255, 252, 247, 0.92);
   --card-foreground: #17201d;
@@ -171,7 +172,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    background: linear-gradient(135deg, #f6d4b8 0%, #b5cad0 62%, #0d4f73 100%);
+    background: var(--canvas-gradient);
     background-attachment: fixed;
     min-height: 100vh;
   }

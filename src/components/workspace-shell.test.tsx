@@ -139,7 +139,20 @@ it("makes the workspace frame full-bleed on mobile", () => {
   );
 
   expect(markup).toContain('class="min-h-screen p-0 text-foreground sm:px-5 sm:py-5 lg:px-8 lg:py-8"');
-  expect(markup).toContain(
-    'class="mx-auto flex min-h-screen max-w-[1500px] overflow-hidden bg-white/24 shadow-[0_24px_80px_rgba(15,44,55,0.25)] backdrop-blur-sm sm:min-h-[calc(100vh-2.5rem)] sm:rounded-[2rem] sm:border sm:border-white/40 lg:min-h-[calc(100vh-4rem)]"',
+  expect(markup).toContain('class="mx-auto flex max-w-[1500px] overflow-hidden bg-white/24');
+  expect(markup).toContain("min-h-screen sm:min-h-[calc(100vh-2.5rem)] lg:min-h-[calc(100vh-4rem)]");
+});
+
+it("hides workspace chrome for an immersive child card", () => {
+  const markup = renderToStaticMarkup(
+    <WorkspaceShell title="Essentials" description="Bills and groceries" immersive>
+      <p>Expanded chart</p>
+    </WorkspaceShell>,
   );
+
+  expect(markup).not.toContain(">Essentials</h1>");
+  expect(markup).not.toContain('aria-label="Primary navigation"');
+  expect(markup).toContain("Expanded chart");
+  expect(markup).toContain("duration-150 ease-out flex min-h-0 p-0");
+  expect(markup).toContain("h-dvh min-h-0 sm:h-[calc(100dvh-2.5rem)] lg:h-[calc(100dvh-4rem)]");
 });
