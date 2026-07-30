@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 
-import { EssentialsDashboard, stackedBarRadius } from "./essentials-dashboard";
+import { EssentialsChartDetail, EssentialsDashboard, stackedBarRadius } from "./essentials-dashboard";
+import { TooltipProvider } from "./ui/tooltip";
 
 it("rounds only the visible top segment of a stack", () => {
   expect(stackedBarRadius([380, 0], 0)).toEqual([3, 3, 0, 0]);
@@ -9,12 +10,30 @@ it("rounds only the visible top segment of a stack", () => {
   expect(stackedBarRadius([380, 60], 1)).toEqual([3, 3, 0, 0]);
 });
 
-it("gives every chart card a stable view-transition identity", () => {
+it("links every dashboard chart to its dedicated detail page", () => {
   const markup = renderToStaticMarkup(<EssentialsDashboard />);
 
-  for (const chart of ["bills", "yoy", "groceries", "daily"]) {
-    expect(markup).toContain(`view-transition-name:essentials-chart-${chart}`);
-  }
+  expect(markup).toContain('href="/essentials/bills"');
+  expect(markup).toContain('href="/essentials/year-over-year"');
+  expect(markup).toContain('href="/essentials/groceries"');
+  expect(markup).toContain('href="/essentials/daily"');
+});
+
+it("renders only the requested chart and its table on a detail page", () => {
+  const markup = renderToStaticMarkup(
+    <TooltipProvider>
+      <EssentialsChartDetail chart="daily" />
+    </TooltipProvider>,
+  );
+
+  expect(markup).toContain("Daily groceries");
+  expect(markup).toContain('aria-label="Daily groceries data table"');
+  expect(markup).toContain('aria-label="Back to Essentials"');
+  expect(markup).not.toContain(">Back to Essentials<");
+  expect(markup).not.toContain("Open Daily groceries details");
+  expect(markup).not.toContain("Bills by month");
+  expect(markup).not.toContain("Year-over-year");
+  expect(markup).not.toContain("Groceries by month");
 });
 
 it("keeps chart data tables out of the default card view", () => {
@@ -31,7 +50,7 @@ it("keeps chart data tables out of the default card view", () => {
   expect(markup).not.toContain('aria-label="Essentials controls"');
   for (const title of ["Bills by month", "Year-over-year", "Groceries by month", "Daily groceries"]) {
     expect(markup).toContain(`aria-label="Configure ${title}"`);
-    expect(markup).toContain(`aria-label="Expand ${title}"`);
+    expect(markup).toContain(`aria-label="Open ${title} details"`);
   }
   expect(markup).not.toContain('aria-label="Choose Bills subcategories"');
   expect(markup).not.toContain('aria-label="Select year-over-year Bill"');

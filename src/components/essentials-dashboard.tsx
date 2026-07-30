@@ -1,10 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
-import { flushSync } from "react-dom";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from "recharts";
 import type { DateRange } from "react-day-picker";
-import { ChevronDown, ChevronUp, Settings2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, Maximize2, Settings2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -24,10 +24,12 @@ import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } 
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 type BillKey = "electricity" | "water" | "internet";
 type Period = "rolling" | "calendar";
+export type EssentialsChartId = "bills" | "yoy" | "groceries" | "daily";
 type MonthlyFixture = {
   month: string;
   electricity: number;
@@ -151,7 +153,10 @@ function ChartTable({ label, children }: { label: string; children: ReactNode })
     <div className="flex min-w-0 flex-col gap-8">
       <Separator className="bg-foreground/20" />
       <div className="overflow-x-auto">
-        <Table aria-label={`${label} data table`} className="min-w-[32rem]">
+        <Table
+          aria-label={`${label} data table`}
+          className="min-w-[32rem] [&_tbody_tr]:border-border/70 [&_thead_tr]:border-border/70"
+        >
           {children}
         </Table>
       </div>
@@ -278,78 +283,66 @@ function ChartCard({
   description,
   action,
   children,
-  expanded,
-  hidden,
   layoutClassName,
-  onExpand,
+  detailHref,
+  backHref,
+  detail,
 }: {
   id: string;
   title: string;
   description: string;
   action?: ReactNode;
   children: ReactNode;
-  expanded: boolean;
-  hidden: boolean;
   layoutClassName?: string;
-  onExpand: () => void;
+  detailHref?: string;
+  backHref?: string;
+  detail?: boolean;
 }) {
-  if (hidden) return null;
-
   const content = <div className="flex flex-col gap-6">{children}</div>;
 
   return (
     <Card
       data-chart-card={id}
-      style={{ viewTransitionName: `essentials-chart-${id}` }}
-      className={cn(
-        "min-w-0 border-border",
-        "bg-card/80",
-        "px-3 py-7",
-        layoutClassName,
-        expanded && "h-full lg:col-span-2 rounded-none border-0 py-8 shadow-none hover:shadow-none",
-      )}
+      className={cn("min-w-0 border-border", "bg-card/80", "px-3 py-7", detail && "rounded-none border-0 bg-transparent px-0 py-0 ring-0 shadow-none hover:shadow-none", layoutClassName)}
     >
-      <CardHeader className="has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
-        <CardTitle role="heading" aria-level={2}>
+      <CardHeader className={cn(!detail && "has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]", detail && "px-0")}>
+        <CardTitle role="heading" aria-level={detail ? 1 : 2}>
           {title}
         </CardTitle>
         <CardDescription>{description}</CardDescription>
-        <CardAction className="col-start-1 row-start-3 mt-2 flex gap-1 justify-self-stretch sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:mt-1 sm:justify-self-end">
+        <CardAction className={cn("flex gap-1", !detail && "col-start-1 row-start-3 mt-2 justify-self-stretch sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:mt-1 sm:justify-self-end")}>
           {action}
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="size-11 hover:bg-foreground/5 active:bg-foreground/5"
-            aria-label={`${expanded ? "Collapse" : "Expand"} ${title}`}
-            onClick={onExpand}
-          >
-            <span aria-hidden="true" className="relative size-4 translate-y-px">
-              {expanded ? (
-                <>
-                  <ChevronDown className="absolute -top-0.5 -right-0.5 size-3! rotate-45" strokeWidth={3} />
-                  <ChevronUp className="absolute -bottom-0.5 -left-0.5 size-3! rotate-45" strokeWidth={3} />
-                </>
-              ) : (
-                <>
-                  <ChevronUp className="absolute -top-0.5 -right-0.5 size-3! rotate-45" strokeWidth={3} />
-                  <ChevronDown className="absolute -bottom-0.5 -left-0.5 size-3! rotate-45" strokeWidth={3} />
-                </>
-              )}
-            </span>
-          </Button>
+          {detailHref ? (
+            <Button asChild size="icon" variant="ghost" className="size-11 hover:bg-foreground/5 active:bg-foreground/5">
+              <Link href={detailHref} aria-label={`Open ${title} details`}>
+                <Maximize2 aria-hidden="true" />
+              </Link>
+            </Button>
+          ) : null}
+          {backHref ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button asChild size="icon" variant="ghost" className="size-11 hover:bg-foreground/5 active:bg-foreground/5">
+                  <Link href={backHref} aria-label="Back to Essentials">
+                    <ArrowLeft data-icon="inline-start" aria-hidden="true" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Back to Essentials</TooltipContent>
+            </Tooltip>
+          ) : null}
         </CardAction>
       </CardHeader>
-      <CardContent className={cn(expanded && "flex min-h-0 flex-1 flex-col overflow-y-auto pb-4")}>{content}</CardContent>
+      <CardContent className={cn(detail && "px-0")}>{content}</CardContent>
     </Card>
   );
 }
 
-export function EssentialsDashboard({ onExpandedChange }: { onExpandedChange?: (expanded: boolean) => void }) {
+function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) {
+  const detail = detailChart !== undefined;
   const [billPeriod, setBillPeriod] = useState<Period>("rolling");
   const [yoyPeriod, setYoyPeriod] = useState<Period>("rolling");
   const [groceryPeriod, setGroceryPeriod] = useState<Period>("rolling");
-  const [expandedChart, setExpandedChart] = useState<string | null>(null);
   const [selectedBills, setSelectedBills] = useState<BillKey[]>(bills.map((bill) => bill.value));
   const [yoyBill, setYoyBill] = useState<BillKey>("electricity");
   const [dailyRange, setDailyRange] = useState<DateRange>({
@@ -380,33 +373,16 @@ export function EssentialsDashboard({ onExpandedChange }: { onExpandedChange?: (
     });
   }
 
-  function toggleExpandedChart(chart: string) {
-    const nextExpandedChart = expandedChart === chart ? null : chart;
-    const updateExpansion = () => {
-      setExpandedChart(nextExpandedChart);
-      onExpandedChange?.(nextExpandedChart !== null);
-    };
-
-    if (!("startViewTransition" in document) || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      updateExpansion();
-      return;
-    }
-
-    document.startViewTransition(() => {
-      flushSync(updateExpansion);
-    });
-  }
-
   return (
-    <>
-      <section aria-label="Essentials charts" className={cn("grid gap-4 lg:grid-cols-2", expandedChart ? "h-full gap-0" : "mt-6")}>
+    <section aria-label="Essentials charts" className={cn("grid gap-4", detail ? "mt-0" : "mt-6 lg:grid-cols-2")}>
+        {(!detailChart || detailChart === "bills") && (
         <ChartCard
           id="bills"
           title="Bills by month"
           description="Prorated fixture totals by billing period."
-          expanded={expandedChart === "bills"}
-          hidden={expandedChart !== null && expandedChart !== "bills"}
-          onExpand={() => toggleExpandedChart("bills")}
+          detailHref={detailChart ? undefined : "/essentials/bills"}
+          backHref={detail ? "/essentials" : undefined}
+          detail={detail}
           action={
             <ChartConfig label="Bills by month" period={billPeriod} setPeriod={setBillPeriod}>
               <BillOptions selectedBills={selectedBills} toggleBill={toggleBill} />
@@ -440,7 +416,7 @@ export function EssentialsDashboard({ onExpandedChange }: { onExpandedChange?: (
               ))}
             </BarChart>
           </ChartContainer>
-          {expandedChart === "bills" && (
+          {detailChart === "bills" && (
             <ChartTable label="Bills by month">
               <TableHeader>
                 <TableRow>
@@ -471,14 +447,16 @@ export function EssentialsDashboard({ onExpandedChange }: { onExpandedChange?: (
             </ChartTable>
           )}
         </ChartCard>
+        )}
 
+        {(!detailChart || detailChart === "yoy") && (
         <ChartCard
           id="yoy"
           title="Year-over-year"
           description="Current and previous year for one Bills subcategory."
-          expanded={expandedChart === "yoy"}
-          hidden={expandedChart !== null && expandedChart !== "yoy"}
-          onExpand={() => toggleExpandedChart("yoy")}
+          detailHref={detailChart ? undefined : "/essentials/year-over-year"}
+          backHref={detail ? "/essentials" : undefined}
+          detail={detail}
           action={
             <ChartConfig label="Year-over-year" period={yoyPeriod} setPeriod={setYoyPeriod}>
               <BillOptions selectedBills={[yoyBill]} toggleBill={setYoyBill} single />
@@ -501,7 +479,7 @@ export function EssentialsDashboard({ onExpandedChange }: { onExpandedChange?: (
               <Bar dataKey="current" fill="var(--color-current)" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ChartContainer>
-          {expandedChart === "yoy" && (
+          {detailChart === "yoy" && (
             <ChartTable label="Year-over-year">
               <TableHeader>
                 <TableRow>
@@ -522,15 +500,17 @@ export function EssentialsDashboard({ onExpandedChange }: { onExpandedChange?: (
             </ChartTable>
           )}
         </ChartCard>
+        )}
 
+        {(!detailChart || detailChart === "groceries") && (
         <ChartCard
           id="groceries"
           title="Groceries by month"
           description="Posting-date totals against the monthly budget fixture."
-          expanded={expandedChart === "groceries"}
-          hidden={expandedChart !== null && expandedChart !== "groceries"}
-          layoutClassName="lg:col-span-2"
-          onExpand={() => toggleExpandedChart("groceries")}
+          detailHref={detailChart ? undefined : "/essentials/groceries"}
+          backHref={detail ? "/essentials" : undefined}
+          detail={detail}
+          layoutClassName={detailChart ? undefined : "lg:col-span-2"}
           action={<ChartConfig label="Groceries by month" period={groceryPeriod} setPeriod={setGroceryPeriod} />}
         >
           <ChartContainer
@@ -558,7 +538,7 @@ export function EssentialsDashboard({ onExpandedChange }: { onExpandedChange?: (
               </Bar>
             </BarChart>
           </ChartContainer>
-          {expandedChart === "groceries" && (
+          {detailChart === "groceries" && (
             <ChartTable label="Groceries by month">
               <TableHeader>
                 <TableRow>
@@ -583,15 +563,17 @@ export function EssentialsDashboard({ onExpandedChange }: { onExpandedChange?: (
             </ChartTable>
           )}
         </ChartCard>
+        )}
 
+        {(!detailChart || detailChart === "daily") && (
         <ChartCard
           id="daily"
           title="Daily groceries"
           description="Daily spending, including no-spend days."
-          expanded={expandedChart === "daily"}
-          hidden={expandedChart !== null && expandedChart !== "daily"}
-          layoutClassName="lg:col-span-2"
-          onExpand={() => toggleExpandedChart("daily")}
+          detailHref={detailChart ? undefined : "/essentials/daily"}
+          backHref={detail ? "/essentials" : undefined}
+          detail={detail}
+          layoutClassName={detailChart ? undefined : "lg:col-span-2"}
           action={
             <Popover>
               <PopoverTrigger asChild>
@@ -663,7 +645,7 @@ export function EssentialsDashboard({ onExpandedChange }: { onExpandedChange?: (
               </BarChart>
             </ChartContainer>
           </div>
-          {expandedChart === "daily" && (
+          {detailChart === "daily" && (
             <ChartTable label="Daily groceries">
               <TableHeader>
                 <TableRow>
@@ -686,7 +668,15 @@ export function EssentialsDashboard({ onExpandedChange }: { onExpandedChange?: (
             </ChartTable>
           )}
         </ChartCard>
-      </section>
-    </>
+        )}
+    </section>
   );
+}
+
+export function EssentialsDashboard() {
+  return <EssentialsCharts />;
+}
+
+export function EssentialsChartDetail({ chart }: { chart: EssentialsChartId }) {
+  return <EssentialsCharts detailChart={chart} />;
 }

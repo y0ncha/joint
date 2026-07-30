@@ -139,23 +139,37 @@ it("makes the workspace frame full-bleed on mobile", () => {
   );
 
   expect(markup).toContain('class="min-h-screen p-0 text-foreground sm:px-5 sm:py-5 lg:px-8 lg:py-8"');
-  expect(markup).toContain('class="mx-auto flex max-w-[1500px] overflow-hidden bg-white/24');
-  expect(markup).toContain("min-h-screen sm:min-h-[calc(100vh-2.5rem)] lg:min-h-[calc(100vh-4rem)]");
+  expect(markup).toContain('class="mx-auto flex min-h-screen max-w-[1500px] overflow-hidden bg-white/24');
+  expect(markup).toContain("sm:min-h-[calc(100vh-2.5rem)]");
+  expect(markup).toContain("lg:min-h-[calc(100vh-4rem)]");
 });
 
-it("hides workspace chrome for an immersive child card", () => {
+it("keeps workspace chrome visible around Essentials detail content", () => {
   const markup = renderToStaticMarkup(
-    <WorkspaceShell title="Essentials" description="Bills and groceries" immersive>
-      <p>Expanded chart</p>
+    <WorkspaceShell title="Daily groceries" description="Daily spending">
+      <p>Chart detail</p>
     </WorkspaceShell>,
   );
 
-  expect(markup).toContain('<aside hidden=""');
-  expect(markup).toContain('<header hidden=""');
-  expect(markup).toContain('<nav hidden="" aria-label="Primary navigation"');
-  expect(markup).toContain(">Essentials</h1>");
+  expect(markup).toContain("<aside");
+  expect(markup).not.toContain('<aside hidden=""');
+  expect(markup).toContain("<header");
+  expect(markup).not.toContain('<header hidden=""');
+  expect(markup).toContain('<nav aria-label="Primary navigation"');
+  expect(markup).toContain(">Daily groceries</h1>");
   expect(markup).toContain('aria-label="Primary navigation"');
-  expect(markup).toContain("Expanded chart");
-  expect(markup).toContain("duration-150 ease-out flex min-h-0 p-0");
-  expect(markup).toContain("h-dvh min-h-0 sm:h-[calc(100dvh-2.5rem)] lg:h-[calc(100dvh-4rem)]");
+  expect(markup).toContain("Chart detail");
+  expect(markup).toContain("duration-150 ease-out sm:p-6");
+  expect(markup).toContain("min-h-screen");
+  expect(markup).toContain("sm:min-h-[calc(100vh-2.5rem)]");
+});
+
+it("can increase the content-surface opacity for a full-page detail view", () => {
+  const markup = renderToStaticMarkup(
+    <WorkspaceShell opaqueContent>
+      <p>Chart detail</p>
+    </WorkspaceShell>,
+  );
+
+  expect(markup).toContain("bg-white/50");
 });

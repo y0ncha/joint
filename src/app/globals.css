@@ -166,27 +166,6 @@
   }
 }
 
-::view-transition-group(essentials-chart-bills),
-::view-transition-group(essentials-chart-yoy),
-::view-transition-group(essentials-chart-groceries),
-::view-transition-group(essentials-chart-daily),
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 150ms;
-  animation-timing-function: ease-out;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(essentials-chart-bills),
-  ::view-transition-group(essentials-chart-yoy),
-  ::view-transition-group(essentials-chart-groceries),
-  ::view-transition-group(essentials-chart-daily),
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
-    animation-duration: 0s;
-  }
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -2,7 +2,7 @@
 goal: Add protected Bills and Groceries domains with an analytics-only Essentials dashboard
 version: 2.0
 date_created: 2026-07-27
-last_updated: 2026-07-27
+last_updated: 2026-07-30
 owner: Joint maintainers
 status: "Planned"
 tags: [feature, essentials, bills, groceries, analytics, charts, migration, settings]
@@ -21,7 +21,7 @@ This plan replaces the earlier prorated-ledger design with an `Essentials` analy
 - **REQ-003**: Members MUST be able to create, edit, move, and delete user-managed subcategories beneath `Bills`.
 - **REQ-004**: `Groceries` MUST contain exactly two protected children: `Main run` with `subcategories.system_key = 'main_run'` and `Top-ups` with `subcategories.system_key = 'top_ups'`.
 - **REQ-005**: The protected Groceries children MUST reject deletion, archival, renaming, parent changes, and `system_key` changes while permitting color and icon customization; members MUST NOT create or move any additional child beneath `Groceries`.
-- **REQ-006**: The authorized migration MUST delete all rows from `transactions`, `categories`, and `subcategories`, preserve households, members, profiles, member settings, partner access, and opening balances, then seed all protected categories and children atomically for existing households.
+- **REQ-006**: The authorized migration MUST delete all rows from `transactions`, `categories`, and `subcategories`, preserve all rows in `households`, `profiles`, `household_members`, `household_allowed_members`, and `member_cards`, including opening balances stored on `households`, then seed all protected categories and children atomically for existing households.
 - **REQ-007**: Future household creation MUST seed both protected categories and both protected Groceries children in the same database transaction.
 - **REQ-008**: `TransactionSheet` MUST show one `Billing period` range control only when the selected subcategory belongs to `Bills`.
 - **REQ-009**: A Bills transaction MUST persist `service_period_start` and `service_period_end`; every non-Bills transaction MUST persist both columns as `NULL`.
@@ -78,9 +78,16 @@ This plan replaces the earlier prorated-ledger design with an `Essentials` analy
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
 | TASK-001 | Update `docs/design.md` navigation, forms, settings, charts, accessibility, and visible-MVP sections with the approved Essentials contract and verify budgets and bills are no longer listed as wholly excluded features.                                                       | Planned |      |
 | TASK-002 | Run `/Users/yonatan/.bun/bin/bunx --bun shadcn@latest add chart --dry-run`, review the proposed files and dependency, then add the owned Chart primitive and verify only `src/components/ui/chart.tsx`, `package.json`, and `bun.lock` receive registry-owned changes.          | Planned |      |
-| TASK-003 | Add the final fixture-driven `/essentials` route in `src/app/(app)/essentials/page.tsx` and chart composition in `src/components/essentials-dashboard.tsx`, render all four approved cards and controls without database behavior, and verify desktop and mobile visual states. | Planned |      |
-| TASK-004 | Add the conditional fixture-driven `Billing period` control to `src/components/transaction-sheet.tsx`, using an explicit fixture-only parent `systemKey` for create/edit checkpoint rendering because the real read model does not expose it until TASK-014/TASK-029; do not infer it from display names or wire it into live callers. Render create and edit states, then stop until the user approves TASK-003 and TASK-004. | Planned |      |
+| TASK-003 | Add the final fixture-driven `/essentials` route in `src/app/(app)/essentials/page.tsx` and chart composition in `src/components/essentials-dashboard.tsx`, render all four approved cards and controls without database behavior, and verify desktop and mobile visual states. | Approved | 2026-07-30 |
+| TASK-004 | Add the conditional fixture-driven `Billing period` control to `src/components/transaction-sheet.tsx`, using an explicit fixture-only parent `systemKey` for create/edit checkpoint rendering because the real read model does not expose it until TASK-014/TASK-029; do not infer it from display names or wire it into live callers. Render create and edit states, then stop until the user approves TASK-003 and TASK-004. | Approved | 2026-07-30 |
 | TASK-005 | Record the approved card geometry, labels, chart density, scrolling, selector behavior, range-control placement, and mobile presentation in this plan and set TASK-003 and TASK-004 to `Approved` with the approval date.                                                       | Planned |      |
+
+#### Approved visual checkpoint (2026-07-30)
+
+- Desktop renders `Bills by month` and `Year-over-year` in the first responsive row, then `Groceries by month` and `Daily groceries` in the second. Mobile stacks all four cards in that order.
+- Cards retain their existing labels and fixture subtitles. Charts retain the approved density, labelled axes, and visible legends.
+- Daily groceries preserves daily detail through horizontal scrolling. Default cards remain chart-only; each chart links to a dedicated full-content detail page that reveals its equivalent accessible table without a duplicate workspace heading.
+- Bills configuration offers rolling and calendar periods plus a non-empty multi-select. The fixture-only `Billing period` control remains unwired to live callers until the later data-contract work.
 
 ### Implementation Phase 2
 
@@ -90,7 +97,7 @@ This plan replaces the earlier prorated-ledger design with an `Essentials` analy
 
 | Task     | Description                                                                                                                                                                                                                                                                             | Status  | Date |
 | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
-| TASK-006 | Run `SUPABASE_TELEMETRY_DISABLED=1 supabase migration new essentials_dashboard`, use the returned file as the sole Phase 2 migration source, and verify local migration history contains its generated version once.                                                                    | Planned |      |
+| TASK-006 | Run `SUPABASE_TELEMETRY_DISABLED=1 supabase migration new essentials_dashboard` and use the returned file as the sole Phase 2 migration source. The generated migration file MUST exist once in the repository; no local Supabase stack is used. `supabase migration list --linked` MUST confirm `joint-dev` matches every preceding local migration. The generated migration remains pending until its complete reviewed SQL is ready for the approved linked push sequence. | Planned |      |
 | TASK-007 | In the generated Essentials migration, atomically truncate `public.transactions` and `public.categories` with dependent subcategories while preserving REQ-006 records, then verify row counts and opening balances prove the authorized reset boundary.                                | Planned |      |
 | TASK-008 | In the generated Essentials migration, add nullable `categories.system_key` and `subcategories.system_key`, exact partial unique indexes and checks, deterministic existing/future household seeds, and protection triggers and verify every household has only the required built-ins. | Planned |      |
 | TASK-009 | In the generated Essentials migration, add nullable transaction service-period columns, paired/order/366-day checks, extend `private.validate_transaction_subcategory()`, and verify only active Bills children accept non-null periods.                                                | Planned |      |

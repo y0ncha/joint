@@ -89,26 +89,20 @@ export function WorkspaceShell({
   description,
   actions,
   children,
-  immersive = false,
+  opaqueContent = false,
 }: {
-  title: string;
+  title?: string;
   description?: string;
   actions?: ReactNode;
   children: ReactNode;
-  immersive?: boolean;
+  opaqueContent?: boolean;
 }) {
   return (
     <main className="min-h-screen p-0 text-foreground sm:px-5 sm:py-5 lg:px-8 lg:py-8">
       <div
-        className={cn(
-          "mx-auto flex max-w-[1500px] overflow-hidden bg-white/24 shadow-[0_24px_80px_rgba(15,44,55,0.25)] backdrop-blur-sm sm:rounded-[2rem] sm:border sm:border-white/40",
-          immersive ? "h-dvh min-h-0 sm:h-[calc(100dvh-2.5rem)] lg:h-[calc(100dvh-4rem)]" : "min-h-screen sm:min-h-[calc(100vh-2.5rem)] lg:min-h-[calc(100vh-4rem)]",
-        )}
+        className="mx-auto flex min-h-screen max-w-[1500px] overflow-hidden bg-white/24 shadow-[0_24px_80px_rgba(15,44,55,0.25)] backdrop-blur-sm sm:min-h-[calc(100vh-2.5rem)] sm:rounded-[2rem] sm:border sm:border-white/40 lg:min-h-[calc(100vh-4rem)]"
       >
-        <aside
-          hidden={immersive}
-          className="hidden w-[92px] shrink-0 flex-col items-center border-r border-white/35 bg-white/28 px-0 pt-6 pb-6 backdrop-blur-xl md:flex lg:pt-8 lg:pb-8"
-        >
+        <aside className="hidden w-[92px] shrink-0 flex-col items-center border-r border-white/35 bg-white/28 px-0 pt-6 pb-6 backdrop-blur-xl md:flex lg:pt-8 lg:pb-8">
           <BrandMark size={44} />
           <nav aria-label="Primary navigation" className="mt-10 flex flex-col gap-3">
             {navigation.map(([href, label, Icon]) => (
@@ -119,30 +113,21 @@ export function WorkspaceShell({
             <CachedProfileInitialAvatar />
           </div>
         </aside>
-        <section
-          className={cn(
-            "min-w-0 flex-1 animate-in fade-in-0 duration-150 ease-out",
-            immersive ? "flex min-h-0 p-0" : "p-4 pb-[calc(9rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-6 lg:p-8",
-          )}
-        >
-          <header hidden={immersive} className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-primary">Joint</p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
-              {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
-            </div>
-            {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
-          </header>
-          <div data-workspace-content className={cn("w-full", immersive && "min-h-0 flex-1")}>
-            {children}
-          </div>
+        <section className={cn("min-w-0 flex-1 animate-in fade-in-0 p-4 pb-[calc(9rem+env(safe-area-inset-bottom))] duration-150 ease-out sm:p-6 sm:pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-6 lg:p-8", opaqueContent && "bg-white/50 backdrop-blur-sm")}>
+          {title ? (
+            <header className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-primary">Joint</p>
+                <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
+                {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+              </div>
+              {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+            </header>
+          ) : null}
+          <div data-workspace-content className="w-full">{children}</div>
         </section>
       </div>
-      <nav
-        hidden={immersive}
-        aria-label="Primary navigation"
-        className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] flex h-16 items-center justify-around rounded-[calc(2rem-0.75rem)] border border-white/60 bg-white/80 px-3 shadow-lg backdrop-blur-xl md:hidden"
-      >
+      <nav aria-label="Primary navigation" className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] flex h-16 items-center justify-around rounded-[calc(2rem-0.75rem)] border border-white/60 bg-white/80 px-3 shadow-lg backdrop-blur-xl md:hidden">
         {navigation.map(([href, label, Icon]) => (
           <NavigationItem key={href} href={href} label={label} icon={Icon} />
         ))}
