@@ -155,7 +155,7 @@ function ChartTable({ label, children }: { label: string; children: ReactNode })
       <div className="overflow-x-auto">
         <Table
           aria-label={`${label} data table`}
-          className="min-w-[32rem] [&_tbody_tr]:border-border/70 [&_thead_tr]:border-border/70"
+          className="min-w-[32rem] [&_tbody_tr]:border-border/70 [&_tbody_tr:hover]:bg-foreground/5 [&_thead_tr]:border-border/70"
         >
           {children}
         </Table>
@@ -303,7 +303,7 @@ function ChartCard({
   return (
     <Card
       data-chart-card={id}
-      className={cn("min-w-0 border-border", "bg-card/80", "px-3 py-7", detail && "rounded-none border-0 bg-transparent px-0 py-0 ring-0 shadow-none hover:shadow-none", layoutClassName)}
+      className={cn("min-w-0 border-border", "bg-card/80", "px-3 py-7", detail && "rounded-none border-0 bg-transparent px-0 py-0 ring-0 shadow-none hover:shadow-none lg:h-[calc(100dvh-4rem)]", layoutClassName)}
     >
       <CardHeader className={cn(!detail && "has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]", detail && "px-0")}>
         <CardTitle role="heading" aria-level={detail ? 1 : 2}>
@@ -333,13 +333,14 @@ function ChartCard({
           ) : null}
         </CardAction>
       </CardHeader>
-      <CardContent className={cn(detail && "px-0")}>{content}</CardContent>
+      <CardContent className={cn(detail && "flex min-h-0 flex-1 flex-col overflow-y-auto px-0 pb-4")}>{content}</CardContent>
     </Card>
   );
 }
 
 function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) {
   const detail = detailChart !== undefined;
+  const chartHeightClass = detail ? "h-[320px]" : "h-[280px]";
   const [billPeriod, setBillPeriod] = useState<Period>("rolling");
   const [yoyPeriod, setYoyPeriod] = useState<Period>("rolling");
   const [groceryPeriod, setGroceryPeriod] = useState<Period>("rolling");
@@ -391,7 +392,7 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
         >
           <ChartContainer
             config={billChartConfig}
-            className="h-[280px] w-full"
+            className={cn(chartHeightClass, "w-full")}
             role="region"
             aria-label="Stacked monthly Bills chart, use arrow keys to inspect values"
           >
@@ -465,7 +466,7 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
         >
           <ChartContainer
             config={yoyChartConfig}
-            className="h-[280px] w-full"
+            className={cn(chartHeightClass, "w-full")}
             role="region"
             aria-label={`${yoyBillDetails.label} year-over-year chart, use arrow keys to inspect values`}
           >
@@ -515,7 +516,7 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
         >
           <ChartContainer
             config={groceryChartConfig}
-            className="h-[280px] w-full"
+            className={cn(chartHeightClass, "w-full")}
             role="region"
             aria-label="Stacked monthly groceries chart with budget threshold, use arrow keys to inspect values"
           >
@@ -614,7 +615,7 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
           <div className="overflow-x-auto" aria-label="Scrollable daily groceries plot">
             <ChartContainer
               config={groceryChartConfig}
-              className="h-[280px] max-w-none"
+              className={cn(chartHeightClass, "max-w-none")}
               style={{ width: Math.max(720, dailyData.length * 38) }}
               role="region"
               aria-label="Stacked daily groceries chart, use arrow keys to inspect values"

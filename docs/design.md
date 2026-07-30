@@ -141,12 +141,12 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 - Category spending uses labelled green or accent-toned bars. Income and expense comparisons use explicit values and direction labels.
 - Essentials uses the owned shadcn `Chart` primitive backed by Recharts, plus existing `Card`, `Popover`, `Calendar`, `Field`, `Input`, `PillSelect`, and semantic tokens; do not create a chart framework or add another visualization dependency.
 - Essentials shows `Bills by month`, `Year-over-year`, `Groceries by month`, and `Daily groceries`: desktop places the Bills cards in one row and the Groceries cards in the next; mobile stacks them in that order. Its configuration popover switches monthly charts between `Past 12 months` and `Calendar year`; Bills selectors retain a non-empty selection, and daily Groceries ranges use the owned Calendar and retain every date with horizontal scrolling when needed.
-- Every chart has labelled axes, exact ILS tooltips, visible text legends, non-color labels, and keyboard-accessible chart layers. The `/essentials` dashboard is chart-only; each chart has a dedicated full-content detail page with its accessible table of the same values. Detail content uses a more opaque surface; its table omits row and outer borders while retaining the chart-to-table separator. The chart title and description are the page heading, and an icon-only Back control sits beside the configuration control. Decorative chart detail must not obscure the underlying numbers.
+- Every chart has labelled axes, exact ILS tooltips, visible text legends, non-color labels, and keyboard-accessible chart layers. The `/essentials` dashboard is chart-only; each chart has a dedicated full-content detail page with its accessible table of the same values. Detail content uses a more opaque surface; its table keeps muted horizontal row dividers and the chart-to-table separator, without an outer border. The chart title and description are the page heading, and an icon-only Back control sits beside the configuration control. Decorative chart detail must not obscure the underlying numbers.
 
 ## Interaction and motion
 
 - Provide distinct hover, pressed, open, selected, disabled, loading, error, and focus-visible states.
-- Hover, pressed, and open states should increase contrast subtly and respond immediately.
+- Every hoverable component uses the same muted foreground tint (`bg-foreground/5`); hover, pressed, and open states should increase contrast subtly and respond immediately.
 - Animate transform and opacity only. Avoid large-distance movement, bounce, or layout-shifting effects.
 - Honor `prefers-reduced-motion`; pending indicators must remain understandable without animation.
 - Controls must not shift surrounding layout when hovered, opened, submitted, or when their label changes.

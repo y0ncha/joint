@@ -243,3 +243,158 @@ begin
   return new;
 end;
 $$;
+
+alter table public.transactions
+  add column service_period_start date,
+  add column service_period_end date,
+  add constraint transactions_service_period_pair_check check (
+    (service_period_start is null) = (service_period_end is null)
+  ),
+  add constraint transactions_service_period_order_check check (
+    service_period_start is null
+    or service_period_start <= service_period_end
+  ),
+  add constraint transactions_service_period_length_check check (
+    service_period_start is null
+    or service_period_end - service_period_start <= 365
+  );
+
+drop trigger transactions_validate_subcategory on public.transactions;
+drop function public.validate_transaction_subcategory();
+
+create function private.validate_transaction_subcategory()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  subcategory_household uuid;
+  subcategory_archived_at timestamptz;
+  category_type public.category_kind;
+  category_archived_at timestamptz;
+  category_system_key text;
+begin
+  if new.subcategory_id is null then
+    if tg_op = 'UPDATE' and old.subcategory_id is not null then
+      new.service_period_start := null;
+      new.service_period_end := null;
+    elsif new.service_period_start is not null
+      or new.service_period_end is not null
+    then
+      raise exception 'Only Bills transactions can have a service period';
+    end if;
+
+    return new;
+  end if;
+
+  select subcategory.household_id,
+         subcategory.archived_at,
+         category.kind,
+         category.archived_at,
+         category.system_key
+  into subcategory_household,
+       subcategory_archived_at,
+       category_type,
+       category_archived_at,
+       category_system_key
+  from public.subcategories as subcategory
+  join public.categories as category
+    on category.id = subcategory.category_id
+  where subcategory.id = new.subcategory_id
+  for share of subcategory, category;
+
+  if subcategory_household is null or subcategory_household <> new.household_id then
+    raise exception 'Transaction subcategory must belong to its household';
+  end if;
+
+  if category_type::text <> new.kind::text then
+    raise exception 'Transaction category kind must match transaction kind';
+  end if;
+
+  if subcategory_archived_at is not null then
+    raise exception 'Transaction subcategory cannot be archived';
+  end if;
+
+  if category_archived_at is not null then
+    raise exception 'Transaction category cannot be archived';
+  end if;
+
+  if category_system_key = 'bills' then
+    if new.service_period_start is null
+      or new.service_period_end is null
+    then
+      raise exception 'Bills transactions require a service period';
+    end if;
+  elsif new.service_period_start is not null
+    or new.service_period_end is not null
+  then
+    raise exception 'Only Bills transactions can have a service period';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke execute on function private.validate_transaction_subcategory()
+from public, anon, authenticated;
+
+create trigger transactions_validate_subcategory
+before insert or update on public.transactions
+for each row execute function private.validate_transaction_subcategory();
+
+alter table public.households
+  add column groceries_monthly_budget numeric(12, 2),
+  add constraint households_groceries_monthly_budget_check check (
+    groceries_monthly_budget is null
+    or (
+      groceries_monthly_budget <> 'NaN'::numeric
+      and groceries_monthly_budget > 0
+      and scale(groceries_monthly_budget) <= 2
+    )
+  );
+
+create function public.save_current_settings(
+  groceries_monthly_budget numeric,
+  profile_name text default null,
+  household_name text default null,
+  member_color text default null,
+  member_card_last_four text default null
+)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  current_household_id uuid;
+  saved_profile_name text;
+begin
+  select household_id
+    into current_household_id
+    from public.household_members
+    where user_id = auth.uid();
+
+  if current_household_id is null then
+    raise exception 'Not allowed';
+  end if;
+
+  saved_profile_name := public.save_current_settings(
+    profile_name,
+    household_name,
+    member_color,
+    member_card_last_four
+  );
+
+  update public.households
+  set groceries_monthly_budget = $1
+  where id = current_household_id;
+
+  return saved_profile_name;
+end;
+$$;
+
+revoke execute on function public.save_current_settings(numeric, text, text, text, text)
+from public, anon;
+grant execute on function public.save_current_settings(numeric, text, text, text, text)
+to authenticated;
