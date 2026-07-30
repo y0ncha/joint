@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from "recharts";
 import type { DateRange } from "react-day-picker";
 import { ChevronDown, ChevronUp, Settings2 } from "lucide-react";
@@ -299,6 +300,7 @@ function ChartCard({
   return (
     <Card
       data-chart-card={id}
+      style={{ viewTransitionName: `essentials-chart-${id}` }}
       className={cn(
         "min-w-0 border-border",
         "bg-card/80",
@@ -380,8 +382,19 @@ export function EssentialsDashboard({ onExpandedChange }: { onExpandedChange?: (
 
   function toggleExpandedChart(chart: string) {
     const nextExpandedChart = expandedChart === chart ? null : chart;
-    setExpandedChart(nextExpandedChart);
-    onExpandedChange?.(nextExpandedChart !== null);
+    const updateExpansion = () => {
+      setExpandedChart(nextExpandedChart);
+      onExpandedChange?.(nextExpandedChart !== null);
+    };
+
+    if (!("startViewTransition" in document) || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      updateExpansion();
+      return;
+    }
+
+    document.startViewTransition(() => {
+      flushSync(updateExpansion);
+    });
   }
 
   return (

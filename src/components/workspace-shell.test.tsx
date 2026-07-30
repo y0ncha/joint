@@ -150,8 +150,11 @@ it("hides workspace chrome for an immersive child card", () => {
     </WorkspaceShell>,
   );
 
-  expect(markup).not.toContain(">Essentials</h1>");
-  expect(markup).not.toContain('aria-label="Primary navigation"');
+  expect(markup).toContain('<aside hidden=""');
+  expect(markup).toContain('<header hidden=""');
+  expect(markup).toContain('<nav hidden="" aria-label="Primary navigation"');
+  expect(markup).toContain(">Essentials</h1>");
+  expect(markup).toContain('aria-label="Primary navigation"');
   expect(markup).toContain("Expanded chart");
   expect(markup).toContain("duration-150 ease-out flex min-h-0 p-0");
   expect(markup).toContain("h-dvh min-h-0 sm:h-[calc(100dvh-2.5rem)] lg:h-[calc(100dvh-4rem)]");

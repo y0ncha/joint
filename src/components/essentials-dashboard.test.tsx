@@ -9,6 +9,14 @@ it("rounds only the visible top segment of a stack", () => {
   expect(stackedBarRadius([380, 60], 1)).toEqual([3, 3, 0, 0]);
 });
 
+it("gives every chart card a stable view-transition identity", () => {
+  const markup = renderToStaticMarkup(<EssentialsDashboard />);
+
+  for (const chart of ["bills", "yoy", "groceries", "daily"]) {
+    expect(markup).toContain(`view-transition-name:essentials-chart-${chart}`);
+  }
+});
+
 it("keeps chart data tables out of the default card view", () => {
   const markup = renderToStaticMarkup(<EssentialsDashboard />);
 
