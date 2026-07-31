@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { AccentPicker } from "@/components/accent-picker";
 import { MemberCardSettingsControl } from "@/components/member-card-settings-control";
 import { MemberColorSettingsControl } from "@/components/member-color-settings-control";
@@ -5,11 +7,12 @@ import { GroceriesBudgetSettingsControl } from "@/components/groceries-budget-se
 import { MemberManagementSheet, type PartnerAccessState } from "@/components/partner-access-control";
 import { SettingsSaveControl } from "@/components/settings-save-control";
 import { WorkspaceShell } from "@/components/workspace-shell";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { getCurrentHouseholdContext } from "@/lib/household";
-import { ChevronRight, CreditCard, House, Palette, ShoppingBasket, UserRound, UsersRound, type LucideIcon } from "lucide-react";
+import { CreditCard, House, Palette, Pencil, ShoppingBasket, SwatchBook, Tags, UserRound, UsersRound, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 function SettingsRow({
@@ -18,14 +21,12 @@ function SettingsRow({
   description,
   value,
   children,
-  chevron = false,
 }: {
   icon: LucideIcon;
   label: string;
   description?: string;
   value?: string;
   children?: ReactNode;
-  chevron?: boolean;
 }) {
   return (
     <div data-settings-row className="flex min-h-14 items-center gap-3 py-3">
@@ -40,7 +41,6 @@ function SettingsRow({
           {value}
         </p>
       ) : null}
-      {chevron ? <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground/70" /> : null}
     </div>
   );
 }
@@ -138,14 +138,14 @@ export default async function SettingsPage() {
   return (
     <WorkspaceShell title="Settings" actions={<SettingsSaveControl userId={household.userId} />}>
       <div className="mt-6 flex w-full flex-col gap-5">
-        <Card className="border-white/50 bg-card/90">
+        <Card className="border-white/50 bg-card/90 px-2">
           <CardHeader>
             <CardTitle>Appearance</CardTitle>
             <CardDescription>Local visual preferences for this browser.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="divide-y divide-border/70">
-              <SettingsRow icon={Palette} label="Accent color">
+              <SettingsRow icon={SwatchBook} label="Accent color">
                 <div className="w-[min(22rem,55vw)]">
                   <AccentPicker showLabel={false} />
                 </div>
@@ -154,30 +154,16 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-white/50 bg-card/90">
-          <CardHeader>
-            <CardTitle>Essentials</CardTitle>
-            <CardDescription>Set an optional monthly groceries threshold.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="divide-y divide-border/70">
-              <SettingsRow icon={ShoppingBasket} label="Monthly groceries budget" description="Leave blank to hide the chart threshold.">
-                <GroceriesBudgetSettingsControl budget={householdRecord?.groceries_monthly_budget ?? null} />
-              </SettingsRow>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-white/50 bg-card/90">
+        <Card className="border-white/50 bg-card/90 px-2">
           <CardHeader>
             <CardTitle>Household</CardTitle>
-            <CardDescription>Manage shared members and household access.</CardDescription>
+            <CardDescription>Manage shared settings, members, and household access.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="divide-y divide-border/70">
               <SettingsRow
                 icon={House}
-                label={householdRecord?.name?.trim() || "Household"}
+                label="Name"
                 value={household.role === "member" ? householdRecord?.name?.trim() || "Household" : undefined}
               >
                 {household.role === "owner" ? (
@@ -190,6 +176,16 @@ export default async function SettingsPage() {
                     autoComplete="organization"
                   />
                 ) : null}
+              </SettingsRow>
+              <SettingsRow icon={Tags} label="Categories" description="Manage categories & subcategories.">
+                <Button asChild variant="ghost" size="icon" className="size-11 active:translate-y-0">
+                  <Link href="/categories" aria-label="Edit categories">
+                    <Pencil data-icon="inline-start" aria-hidden="true" />
+                  </Link>
+                </Button>
+              </SettingsRow>
+              <SettingsRow icon={ShoppingBasket} label="Groceries budget" description="Leave blank to hide the chart threshold.">
+                <GroceriesBudgetSettingsControl budget={householdRecord?.groceries_monthly_budget ?? null} />
               </SettingsRow>
               {household.role === "owner" && partnerState ? (
                 <SettingsRow icon={UsersRound} label="Members" description="Manage members.">
@@ -212,7 +208,7 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-white/50 bg-card/90">
+        <Card className="border-white/50 bg-card/90 px-2">
           <CardHeader>
             <CardTitle>Account</CardTitle>
             <CardDescription>Manage your name, user color, and card mapping.</CardDescription>

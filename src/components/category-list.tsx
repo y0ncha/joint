@@ -85,44 +85,47 @@ function SubcategoryEditor({
               icon: parent.icon,
               name: parent.name,
               color: parent.color,
+              system_key: parent.system_key,
               subcategoryColors: subcategories
                 .filter((child) => child.category_id === parent.id && child.id !== subcategory.id)
                 .map((child) => child.color),
             }))}
           />
-          {!isProtected ? <div className="flex justify-end">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  aria-label="Delete subcategory"
-                >
-                  <Trash2 aria-hidden="true" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete this subcategory?</AlertDialogTitle>
-                  <AlertDialogDescription>This removes the subcategory. Linked transactions become Uncategorized.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <form
-                    action={async () => {
-                      await deleteSubcategory(subcategory.id);
-                    }}
+          {!isProtected ? (
+            <div className="flex justify-end">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    aria-label="Delete subcategory"
                   >
-                    <AlertDialogAction type="submit" variant="destructive">
-                      Delete subcategory
-                    </AlertDialogAction>
-                  </form>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div> : null}
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this subcategory?</AlertDialogTitle>
+                    <AlertDialogDescription>This removes the subcategory. Linked transactions become Uncategorized.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <form
+                      action={async () => {
+                        await deleteSubcategory(subcategory.id);
+                      }}
+                    >
+                      <AlertDialogAction type="submit" variant="destructive">
+                        Delete subcategory
+                      </AlertDialogAction>
+                    </form>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          ) : null}
         </div>
       </SheetContent>
     </Sheet>
@@ -144,12 +147,14 @@ function SubcategoryList({
 
   return (
     <ul className="flex flex-col gap-0">
-      {subcategories.map((subcategory) => (
-        <li
-          key={subcategory.id}
-          className="relative flex min-h-11 items-center justify-between gap-3 rounded-lg px-4 text-muted-foreground transition-colors duration-700 ease-in-out motion-reduce:transition-none hover:bg-foreground/5 hover:ring-2 hover:ring-foreground/5 before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-[var(--subcategory-color)] md:min-h-9"
-          style={{ "--subcategory-color": subcategory.color } as CSSProperties}
-        >
+      {subcategories.map((subcategory) => {
+        const category = categories.find((parent) => parent.id === subcategory.category_id);
+        return (
+          <li
+            key={subcategory.id}
+            className="relative flex min-h-11 items-center justify-between gap-3 rounded-lg px-4 text-muted-foreground transition-colors duration-700 ease-in-out motion-reduce:transition-none hover:bg-foreground/5 hover:ring-2 hover:ring-foreground/5 before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-[var(--category-color)] md:min-h-9"
+            style={{ "--category-color": category?.color ?? subcategory.color } as CSSProperties}
+          >
           {subcategory.archived_at ? (
             <div className="flex min-w-0 items-center gap-2">
               <span className="truncate">{subcategory.name}</span>
@@ -158,8 +163,9 @@ function SubcategoryList({
           ) : (
             <SubcategoryEditor categories={categories} subcategories={allSubcategories} subcategory={subcategory} />
           )}
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -169,7 +175,7 @@ function CategoryEditor({
   categories,
 }: {
   category: Category;
-  categories: Array<{ id: string; name: string; color: string; icon?: string; subcategoryColors: string[] }>;
+  categories: Array<{ id: string; name: string; color: string; icon?: string; system_key?: string | null; subcategoryColors: string[] }>;
 }) {
   const isProtected = category.system_key !== null && category.system_key !== undefined;
   const isGroceries = category.system_key === "groceries";
@@ -208,31 +214,35 @@ function CategoryEditor({
                     <CategoryIconPicker defaultIcon={isCategoryIcon(category.icon ?? null) ? category.icon : "tag"} />
                   </Field>
                 </>
-              ) : <Field>
-                <FieldLabel htmlFor={`category-name-${category.id}`}>Name</FieldLabel>
-                <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
-                  <Input
-                    id={`category-name-${category.id}`}
-                    name="name"
-                    defaultValue={category.name}
-                    required
-                    className="h-11 rounded-none border-0 bg-transparent focus-visible:border-transparent focus-visible:ring-0"
+              ) : (
+                <Field>
+                  <FieldLabel htmlFor={`category-name-${category.id}`}>Name</FieldLabel>
+                  <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+                    <Input
+                      id={`category-name-${category.id}`}
+                      name="name"
+                      defaultValue={category.name}
+                      required
+                      className="h-11 rounded-none border-0 bg-transparent focus-visible:border-transparent focus-visible:ring-0"
+                    />
+                    <CategoryIconPicker defaultIcon={isCategoryIcon(category.icon ?? null) ? category.icon : "tag"} />
+                  </div>
+                </Field>
+              )}
+              {!isProtected ? (
+                <Field>
+                  <FieldLabel>Type</FieldLabel>
+                  <PillSelect
+                    ariaLabel="Category type"
+                    name="kind"
+                    defaultValue={category.kind}
+                    options={[
+                      { value: "income", label: "Income", className: "border-positive/20 bg-positive/10 text-positive" },
+                      { value: "expense", label: "Expense", className: "border-negative/20 bg-negative/10 text-negative" },
+                    ]}
                   />
-                  <CategoryIconPicker defaultIcon={isCategoryIcon(category.icon ?? null) ? category.icon : "tag"} />
-                </div>
-              </Field>}
-              {!isProtected ? <Field>
-                <FieldLabel>Type</FieldLabel>
-                <PillSelect
-                  ariaLabel="Category type"
-                  name="kind"
-                  defaultValue={category.kind}
-                  options={[
-                    { value: "income", label: "Income", className: "border-positive/20 bg-positive/10 text-positive" },
-                    { value: "expense", label: "Expense", className: "border-negative/20 bg-negative/10 text-negative" },
-                  ]}
-                />
-              </Field> : null}
+                </Field>
+              ) : null}
               <CategoryColorPicker defaultColor={category.color} />
               <Button className="mt-5" type="submit">
                 Save category
@@ -240,41 +250,43 @@ function CategoryEditor({
             </FieldGroup>
           </form>
           {!isGroceries ? <SubcategoryCreationSheet categories={categories} categoryId={category.id} /> : null}
-          {!isProtected ? <div className="flex justify-end">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  aria-label="Delete category"
-                >
-                  <Trash2 aria-hidden="true" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete this category?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This removes the category and its subcategories. Linked transactions become Uncategorized.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <form
-                    action={async () => {
-                      await deleteCategory(category.id);
-                    }}
+          {!isProtected ? (
+            <div className="flex justify-end">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    aria-label="Delete category"
                   >
-                    <AlertDialogAction type="submit" variant="destructive">
-                      Delete category
-                    </AlertDialogAction>
-                  </form>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div> : null}
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this category?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This removes the category and its subcategories. Linked transactions become Uncategorized.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <form
+                      action={async () => {
+                        await deleteCategory(category.id);
+                      }}
+                    >
+                      <AlertDialogAction type="submit" variant="destructive">
+                        Delete category
+                      </AlertDialogAction>
+                    </form>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          ) : null}
         </div>
       </SheetContent>
     </Sheet>
@@ -340,7 +352,7 @@ function CategorySection({
                     className="group/category flex flex-col gap-0"
                   >
                     <div
-                      className="relative flex min-h-11 items-center rounded-lg transition-colors duration-700 ease-in-out motion-reduce:transition-none hover:bg-foreground/5 hover:ring-2 hover:ring-foreground/5 before:absolute before:inset-y-2 before:start-0 before:w-1 before:rounded-full before:bg-[var(--category-color)]"
+                      className="relative flex min-h-11 items-center rounded-lg transition-colors duration-700 ease-in-out motion-reduce:transition-none hover:bg-foreground/5 hover:ring-2 hover:ring-foreground/5 before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-[var(--category-color)]"
                       style={category.color ? ({ "--category-color": category.color } as CSSProperties) : undefined}
                     >
                       {category.archived_at ? (
@@ -358,6 +370,7 @@ function CategorySection({
                               name: parent.name,
                               kind: parent.kind,
                               color: parent.color,
+                              system_key: parent.system_key,
                               subcategoryColors: subcategories
                                 .filter((child) => child.category_id === parent.id)
                                 .map((child) => child.color),

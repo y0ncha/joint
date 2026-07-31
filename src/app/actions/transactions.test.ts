@@ -73,7 +73,16 @@ function configureContextClient({
   mocks.select.mockReturnValue({ eq: sourceEqId });
   mocks.subcategorySelect.mockReturnValue({ eq: subcategoryEqId });
 
-  return { payerEqHousehold, sourceEqHousehold, sourceEqId, subcategoryEqHousehold, subcategoryEqId, transactionEqHousehold, transactionEqId, transactionIn };
+  return {
+    payerEqHousehold,
+    sourceEqHousehold,
+    sourceEqId,
+    subcategoryEqHousehold,
+    subcategoryEqId,
+    transactionEqHousehold,
+    transactionEqId,
+    transactionIn,
+  };
 }
 
 describe("transaction actions", () => {
@@ -139,9 +148,7 @@ describe("transaction actions", () => {
     const { subcategoryEqHousehold, subcategoryEqId } = configureContextClient({ subcategory: { categories: { system_key: "bills" } } });
 
     await expect(
-      transactionsModule.createTransaction(
-        transactionForm({ servicePeriodStart: "2026-07-01", servicePeriodEnd: "2026-07-31" }),
-      ),
+      transactionsModule.createTransaction(transactionForm({ servicePeriodStart: "2026-07-01", servicePeriodEnd: "2026-07-31" })),
     ).resolves.toEqual({ status: "success" });
 
     expect(mocks.subcategorySelect).toHaveBeenCalledWith("category_id, categories!inner(system_key)");
@@ -149,6 +156,18 @@ describe("transaction actions", () => {
     expect(subcategoryEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.insert).toHaveBeenCalledWith(
       expect.objectContaining({ service_period_start: "2026-07-01", service_period_end: "2026-07-31" }),
+    );
+  });
+
+  it("clears forged billing periods for a non-Bills transaction", async () => {
+    configureContextClient();
+
+    await expect(
+      transactionsModule.createTransaction(transactionForm({ servicePeriodStart: "2026-07-01", servicePeriodEnd: "2026-07-31" })),
+    ).resolves.toEqual({ status: "success" });
+
+    expect(mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ service_period_start: null, service_period_end: null, occurred_on: "2026-07-14", amount: 50 }),
     );
   });
 

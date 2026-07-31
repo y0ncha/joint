@@ -10,7 +10,7 @@ type QueryRecord = {
 const mocks = vi.hoisted(() => ({
   getCurrentHouseholdContext: vi.fn(),
   getDashboardData: vi.fn(() => {
-    throw new Error("Essentials must not call getDashboardData().");
+    throw new Error("BillsGroceries must not call getDashboardData().");
   }),
   from: vi.fn(),
 }));
@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/household", () => ({ getCurrentHouseholdContext: mocks.getCurrentHouseholdContext }));
 vi.mock("@/lib/dashboard-data", () => ({ getDashboardData: mocks.getDashboardData }));
 
-const essentialsDataModule = await import("./essentials-data");
+const billsGroceriesDataModule = await import("./bills-groceries-data");
 
 const options = {
   currentDate: "2026-07-31",
@@ -94,7 +94,7 @@ it.each(["unauthenticated", "unmatched"] as const)(
   async (status) => {
     mocks.getCurrentHouseholdContext.mockResolvedValue({ status });
 
-    await expect(essentialsDataModule.getEssentialsData(options)).rejects.toEqual(
+    await expect(billsGroceriesDataModule.getBillsGroceriesData(options)).rejects.toEqual(
       new Error("Create or join a household before viewing the dashboard."),
     );
     expect(mocks.from).not.toHaveBeenCalled();
@@ -105,7 +105,7 @@ it("resolves active protected categories in the member household and returns com
   respond = (query) =>
     query.table === "households" ? { data: { groceries_monthly_budget: null }, error: null } : { data: null, error: null };
 
-  const data = await essentialsDataModule.getEssentialsData(options);
+  const data = await billsGroceriesDataModule.getBillsGroceriesData(options);
 
   expect(queries).toEqual([
     {
@@ -186,7 +186,7 @@ it("resolves active protected categories in the member household and returns com
   expect(queries.some((query) => query.table === "transactions")).toBe(false);
 });
 
-it("loads only bounded chart columns and projects current and previous-year Essentials series", async () => {
+it("loads only bounded chart columns and projects current and previous-year BillsGroceries series", async () => {
   respond = (query) => {
     if (query.table === "households") return { data: { groceries_monthly_budget: 500 }, error: null };
     if (query.table === "categories") {
@@ -258,7 +258,7 @@ it("loads only bounded chart columns and projects current and previous-year Esse
     return { data: [], error: null };
   };
 
-  const data = await essentialsDataModule.getEssentialsData(options);
+  const data = await billsGroceriesDataModule.getBillsGroceriesData(options);
 
   expect(queries.slice(3)).toEqual([
     {
@@ -367,7 +367,7 @@ it("loads only bounded chart columns and projects current and previous-year Esse
 });
 
 it.each(["households", "categories", "subcategories", "transactions"])(
-  "surfaces a %s query error as an Essentials load failure",
+  "surfaces a %s query error as an BillsGroceries load failure",
   async (failingTable) => {
     respond = (query) => {
       if (query.table === failingTable) return { data: null, error: new Error("query failed") };
@@ -391,7 +391,7 @@ it.each(["households", "categories", "subcategories", "transactions"])(
       return { data: [], error: null };
     };
 
-    await expect(essentialsDataModule.getEssentialsData(options)).rejects.toThrow("Unable to load Essentials data.");
+    await expect(billsGroceriesDataModule.getBillsGroceriesData(options)).rejects.toThrow("Unable to load BillsGroceries data.");
   },
 );
 
@@ -417,7 +417,7 @@ it("uses calendar-year monthly bounds and the matching previous-year Bills compa
     return { data: [], error: null };
   };
 
-  const data = await essentialsDataModule.getEssentialsData({ ...options, period: "calendar" });
+  const data = await billsGroceriesDataModule.getBillsGroceriesData({ ...options, period: "calendar" });
   const transactionQueries = queries.filter((query) => query.table === "transactions");
 
   expect(data.months).toEqual([

@@ -1,6 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { expect, it } from "vitest";
+import type { ReactNode } from "react";
+import { expect, it, vi } from "vitest";
 import { categoryPastelColors } from "@/lib/shared-colors";
+
+vi.mock("@/components/ui/popover", () => ({
+  Popover: ({ children }: { children: ReactNode }) => children,
+  PopoverContent: ({ children }: { children: ReactNode }) => children,
+  PopoverTrigger: ({ children }: { children: ReactNode }) => children,
+}));
+
 const categoryFormModule = await import("./category-form").catch(() => null);
 it("starts with the category creation mode", () => {
   const markup = categoryFormModule ? renderToStaticMarkup(<categoryFormModule.CategoryCreationPreview />) : "";
@@ -76,6 +84,20 @@ it("preselects a category in the locked subcategory creation form", () => {
   expect(markup).toContain("Add subcategory");
 });
 
+it("matches the category form action spacing in subcategory mode", () => {
+  const markup = categoryFormModule
+    ? renderToStaticMarkup(
+        <categoryFormModule.CategoryCreationPreview
+          categories={[{ id: "food", name: "Food", kind: "expense", color: "#ccebef", icon: "utensils" }]}
+          initialCategoryId="food"
+          initialMode="subcategory"
+        />,
+      )
+    : "";
+
+  expect(markup).toMatch(/<button[^>]*class="[^"]*mt-\[30px\][^"]*"[^>]*>Add subcategory<\/button>/);
+});
+
 it("infers the type from an initially selected subcategory parent", () => {
   const markup = categoryFormModule
     ? renderToStaticMarkup(
@@ -91,4 +113,23 @@ it("infers the type from an initially selected subcategory parent", () => {
     : "";
 
   expect(markup).toContain("Income");
+});
+
+it("excludes Groceries from general subcategory creation", () => {
+  const markup = categoryFormModule
+    ? renderToStaticMarkup(
+        <categoryFormModule.CategoryCreationPreview
+          initialMode="subcategory"
+          categories={[
+            { id: "bills", name: "Bills", kind: "expense", color: "#ccebef", system_key: "bills" },
+            { id: "groceries", name: "Renamed protected category", kind: "expense", color: "#ffcff0", system_key: "groceries" },
+            { id: "home", name: "Home", kind: "expense", color: "#dcece3" },
+          ]}
+        />,
+      )
+    : "";
+
+  expect(markup).toContain("Bills");
+  expect(markup).toContain("Home");
+  expect(markup).not.toContain("Renamed protected category");
 });

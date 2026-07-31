@@ -16,5 +16,7 @@ describe("hasUnsavedSettings", () => {
     expect(hasUnsavedSettings(settingsData({ profileName: "Ada Lovelace", initialProfileName: "Ada" }))).toBe(true);
     expect(hasUnsavedSettings(settingsData({ accentColor: "#236a8d", initialAccentColor: "#0f6b54" }))).toBe(true);
     expect(hasUnsavedSettings(settingsData({ lastFour: "4548", initialLastFour: "" }))).toBe(true);
+    expect(hasUnsavedSettings(settingsData({ groceriesBudget: "500", initialGroceriesBudget: "" }))).toBe(true);
+    expect(hasUnsavedSettings(settingsData({ groceriesBudget: "", initialGroceriesBudget: "500" }))).toBe(true);
   });
 });

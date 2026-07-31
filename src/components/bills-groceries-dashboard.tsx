@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useState, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from "recharts";
-import type { DateRange } from "react-day-picker";
 import { ArrowLeft, ChevronDown, Maximize2, Settings2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ChartContainer,
@@ -26,18 +25,23 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import type { getBillsGroceriesData } from "@/lib/bills-groceries-data";
 
-type BillKey = "electricity" | "water" | "internet";
+type BillKey = string;
 type Period = "rolling" | "calendar";
-export type EssentialsChartId = "bills" | "yoy" | "groceries" | "daily";
+type GroceryFilter = "all" | "main-run" | "top-ups";
+export type BillsGroceriesChartId = "bills" | "yoy" | "groceries" | "daily";
 type MonthlyFixture = {
   month: string;
+  [key: string]: string | number;
   electricity: number;
   water: number;
   internet: number;
   mainRun: number;
   topUps: number;
 };
+type MonthlyChartDatum = Pick<MonthlyFixture, "month"> & Record<string, string | number>;
+type GroceryMonthlyDatum = Pick<MonthlyFixture, "month" | "mainRun" | "topUps">;
 
 const currency = new Intl.NumberFormat("en-IL", {
   style: "currency",
@@ -108,32 +112,27 @@ const dailyFixtures = Array.from({ length: 31 }, (_, index) => {
     total: mainRun + topUps,
   };
 });
-const dailyFixtureStart = new Date(2026, 6, 1);
-const dailyFixtureEnd = new Date(2026, 6, 31);
 
-const billChartConfig = Object.fromEntries(
-  bills.map((bill) => [bill.value, { label: bill.label, color: bill.color }]),
-) satisfies ChartConfig;
-const groceryChartConfig = {
+const fixtureGroceryChartConfig = {
   mainRun: { label: "Main run", color: "var(--chart-4)" },
   topUps: { label: "Top-ups", color: "var(--chart-5)" },
   budget: { label: "Monthly budget", color: "var(--color-muted-foreground)" },
 } satisfies ChartConfig;
-const dailyHeatLevels = [
-  "bg-muted text-muted-foreground",
-  "bg-chart-4/25",
-  "bg-chart-4/45",
-  "bg-chart-4/70",
-  "bg-chart-4 text-primary-foreground",
-] as const;
+const heatmapStrengths = [0, 25, 45, 70, 100] as const;
 const chartMargin = { top: 24, right: 8, bottom: 32, left: 8 };
 
 export function stackedBarRadius(stack: number[], segmentIndex: number) {
   return stack[segmentIndex] > 0 && stack.slice(segmentIndex + 1).every((value) => value === 0) ? ([3, 3, 0, 0] as const) : 0;
 }
 
-function toIso(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+export function dashboardUrl(pathname: string, searchParams: URLSearchParams, updates: Record<string, string | null>) {
+  const params = new URLSearchParams(searchParams);
+  for (const [name, value] of Object.entries(updates)) {
+    if (value === null) params.delete(name);
+    else params.set(name, value);
+  }
+  const query = params.toString();
+  return query ? `${pathname}?${query}` : pathname;
 }
 
 function ExactTooltip({ labels }: { labels: Record<string, string> }) {
@@ -222,10 +221,12 @@ function ChartConfig({
 }
 
 function BillOptions({
+  bills: options,
   selectedBills,
   toggleBill,
   single = false,
 }: {
+  bills: Array<{ value: BillKey; label: string; color: string }>;
   selectedBills: BillKey[];
   toggleBill: (value: BillKey) => void;
   single?: boolean;
@@ -240,7 +241,7 @@ function BillOptions({
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              {bills.map((bill) => (
+              {options.map((bill) => (
                 <SelectItem key={bill.value} value={bill.value}>
                   {bill.label}
                 </SelectItem>
@@ -258,9 +259,9 @@ function BillOptions({
       <Popover>
         <PopoverTrigger asChild>
           <Button type="button" variant="outline" className="min-h-11 w-full justify-between" aria-label="Select Bills shown">
-            {selectedBills.length === bills.length
+            {selectedBills.length === options.length
               ? "All bills"
-              : selectedBills.map((bill) => bills.find((item) => item.value === bill)?.label).join(", ")}
+              : selectedBills.map((bill) => options.find((item) => item.value === bill)?.label).join(", ")}
             <ChevronDown data-icon="inline-end" aria-hidden="true" />
           </Button>
         </PopoverTrigger>
@@ -269,7 +270,7 @@ function BillOptions({
             <FieldLegend variant="label" className="sr-only">
               Bills shown
             </FieldLegend>
-            {bills.map((bill) => {
+            {options.map((bill) => {
               const selected = selectedBills.includes(bill.value);
               return (
                 <Field key={bill.value} orientation="horizontal" data-disabled={selected && selectedBills.length === 1}>
@@ -279,7 +280,10 @@ function BillOptions({
                     disabled={selected && selectedBills.length === 1}
                     onCheckedChange={() => toggleBill(bill.value)}
                   />
-                  <FieldLabel htmlFor={`bills-${bill.value}`}>{bill.label}</FieldLabel>
+                  <FieldLabel htmlFor={`bills-${bill.value}`}>
+                    <span className="size-2.5 rounded-full" style={{ backgroundColor: bill.color }} aria-hidden="true" />
+                    {bill.label}
+                  </FieldLabel>
                 </Field>
               );
             })}
@@ -353,12 +357,12 @@ function ChartCard({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button asChild size="icon" variant="ghost" className="size-11 hover:bg-foreground/5 active:bg-foreground/5">
-                  <Link href={backHref} aria-label="Back to Essentials">
+                  <Link href={backHref} aria-label="Back to Bills & Groceries">
                     <ArrowLeft data-icon="inline-start" aria-hidden="true" />
                   </Link>
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Back to Essentials</TooltipContent>
+              <TooltipContent>Back to Bills & Groceries</TooltipContent>
             </Tooltip>
           ) : null}
         </CardAction>
@@ -368,62 +372,158 @@ function ChartCard({
   );
 }
 
-function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) {
+type BillsGroceriesData = Awaited<ReturnType<typeof getBillsGroceriesData>>;
+
+function BillsGroceriesCharts({
+  detailChart,
+  data,
+  initialBillIds,
+  initialBillId,
+  initialPeriod,
+}: {
+  detailChart?: BillsGroceriesChartId;
+  data?: BillsGroceriesData;
+  initialBillIds?: string[];
+  initialBillId?: string | null;
+  initialPeriod?: Period;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const detail = detailChart !== undefined;
   const chartHeightClass = detail ? "h-[320px]" : "h-[280px]";
-  const [billPeriod, setBillPeriod] = useState<Period>("rolling");
-  const [yoyPeriod, setYoyPeriod] = useState<Period>("rolling");
-  const [groceryPeriod, setGroceryPeriod] = useState<Period>("rolling");
-  const [selectedBills, setSelectedBills] = useState<BillKey[]>(bills.map((bill) => bill.value));
-  const [yoyBill, setYoyBill] = useState<BillKey>("electricity");
-  const [dailyRange, setDailyRange] = useState<DateRange>({
-    from: dailyFixtureStart,
-    to: dailyFixtureEnd,
-  });
-  const billMonthlyData = monthlyFixtures[billPeriod];
-  const yoyMonthlyData = monthlyFixtures[yoyPeriod];
-  const groceryMonthlyData = monthlyFixtures[groceryPeriod];
-  const yoyBillDetails = bills.find((bill) => bill.value === yoyBill) ?? bills[0];
+  const [fixturePeriod, setFixturePeriod] = useState<Period>(initialPeriod ?? "rolling");
+  const period = data ? (initialPeriod ?? "rolling") : fixturePeriod;
+  const liveBills = data?.bills.subcategories.map((bill) => ({ value: bill.id, label: bill.name, color: bill.color }));
+  const chartBills = liveBills ?? bills;
+  const [fixtureSelectedBills, setFixtureSelectedBills] = useState<BillKey[]>(initialBillIds ?? chartBills.map((bill) => bill.value));
+  const [fixtureYoyBill, setFixtureYoyBill] = useState<BillKey>(
+    initialBillId ?? data?.bills.defaultSubcategoryId ?? chartBills[0]?.value ?? "",
+  );
+  const selectedBills = data ? (initialBillIds ?? chartBills.map((bill) => bill.value)) : fixtureSelectedBills;
+  const yoyBill = data ? (initialBillId ?? data.bills.defaultSubcategoryId ?? chartBills[0]?.value ?? "") : fixtureYoyBill;
+  const groceryParam = searchParams.get("grocery");
+  const groceryFilter: GroceryFilter = groceryParam === "main-run" || groceryParam === "top-ups" ? groceryParam : "all";
+  const billMonthlyData: MonthlyChartDatum[] = data
+    ? data.months.map((month) => ({
+        month,
+        ...Object.fromEntries(
+          chartBills.map((bill) => [
+            bill.value,
+            (data.bills.monthly.find((value) => value.month === month && value.subcategoryId === bill.value)?.agorot ?? 0) / 100,
+          ]),
+        ),
+      }))
+    : monthlyFixtures[period];
+  const yoyMonthlyData = billMonthlyData;
+  const groceryMonthlyData: GroceryMonthlyDatum[] = data
+    ? data.groceries.monthly.months.map((month) => ({
+        month: month.month,
+        mainRun: month.mainRunAgorot / 100,
+        topUps: month.topUpsAgorot / 100,
+      }))
+    : monthlyFixtures[period];
+  const mainRun = data?.groceries.subcategories.mainRun;
+  const topUps = data?.groceries.subcategories.topUps;
+  const groceryChartConfig = data
+    ? ({
+        mainRun: { label: mainRun?.name ?? "Main run", color: mainRun?.color ?? "var(--chart-4)" },
+        topUps: { label: topUps?.name ?? "Top-ups", color: topUps?.color ?? "var(--chart-5)" },
+        budget: { label: "Monthly budget", color: "var(--color-muted-foreground)" },
+      } satisfies ChartConfig)
+    : fixtureGroceryChartConfig;
+  const groceryColor = data?.groceries.category?.color ?? "var(--chart-4)";
+  const groceryBudgetAgorot = data ? data.groceries.monthly.budgetAgorot : 200_000;
+  const yoyBillDetails = chartBills.find((bill) => bill.value === yoyBill) ?? chartBills[0];
   const yoyData = yoyMonthlyData.map((month, index) => ({
     month: month.month,
-    current: month[yoyBill],
-    previous: previousYear[yoyPeriod][yoyBill][index],
+    current: Number(month[yoyBill] ?? 0),
+    previous: data
+      ? data.bills.monthly.find(
+          (value) => value.month === `${Number(month.month.slice(0, 4)) - 1}${month.month.slice(4)}` && value.subcategoryId === yoyBill,
+        )?.agorot
+      : Number(previousYear[period][yoyBill as keyof typeof previousYear.rolling]?.[index] ?? 0),
   }));
+  if (data) {
+    for (const month of yoyData) {
+      if (month.previous !== undefined) month.previous /= 100;
+    }
+  }
+  const hasYoyData = !data || yoyData.some((month) => month.current > 0 || month.previous !== undefined);
   const yoyChartConfig = {
-    current: { label: `${yoyBillDetails.label} · current year`, color: yoyBillDetails.color },
-    previous: { label: `${yoyBillDetails.label} · previous year`, color: yoyBillDetails.color },
+    current: { label: `${yoyBillDetails?.label ?? "Bills"} · current year`, color: yoyBillDetails?.color ?? "var(--chart-1)" },
+    previous: { label: `${yoyBillDetails?.label ?? "Bills"} · previous year`, color: yoyBillDetails?.color ?? "var(--chart-1)" },
   } satisfies ChartConfig;
-  const from = dailyRange.from ? toIso(dailyRange.from) : dailyFixtures[0].date;
-  const to = dailyRange.to ? toIso(dailyRange.to) : from;
-  const dailyData = useMemo(() => dailyFixtures.filter((day) => day.date >= from && day.date <= to), [from, to]);
+  const dailyData = (
+    data
+      ? data.groceries.daily.map((day) => ({
+          date: day.date,
+          mainRun: day.mainRunAgorot / 100,
+          topUps: day.topUpsAgorot / 100,
+          total: day.totalAgorot / 100,
+        }))
+      : dailyFixtures
+  ).map((day) => ({
+    ...day,
+    mainRun: groceryFilter === "top-ups" ? 0 : day.mainRun,
+    topUps: groceryFilter === "main-run" ? 0 : day.topUps,
+    total: groceryFilter === "main-run" ? day.mainRun : groceryFilter === "top-ups" ? day.topUps : day.total,
+  }));
+  const groceryMonth = searchParams.get("groceryMonth") ?? dailyData[0]?.date.slice(0, 7) ?? "";
   const dailyHeatmapOffset = dailyData.length ? new Date(`${dailyData[0].date}T12:00:00`).getDay() : 0;
+  const dailyHeatmapCells: Array<(typeof dailyData)[number] | null> = [
+    ...Array.from({ length: dailyHeatmapOffset }, () => null),
+    ...dailyData,
+  ];
+  const dailyHeatmapWeeks = Array.from({ length: Math.ceil(dailyHeatmapCells.length / 7) }, (_, index) =>
+    dailyHeatmapCells.slice(index * 7, index * 7 + 7),
+  );
   const highestDailyTotal = Math.max(1, ...dailyData.map((day) => day.total));
+  const dailyTableData = dailyData.reduce<Array<(typeof dailyData)[number] & { cumulative: number }>>(
+    (rows, day) => [...rows, { ...day, cumulative: (rows.at(-1)?.cumulative ?? 0) + day.total }],
+    [],
+  );
 
-  function toggleBill(value: BillKey) {
-    setSelectedBills((current) => {
-      if (!current.includes(value)) return [...current, value];
-      return current.length === 1 ? current : current.filter((bill) => bill !== value);
-    });
+  function updateUrl(updates: Record<string, string | null>) {
+    router.push(dashboardUrl(pathname, new URLSearchParams(searchParams), updates));
   }
 
+  function changePeriod(nextPeriod: Period) {
+    if (!data) setFixturePeriod(nextPeriod);
+    updateUrl({ period: nextPeriod });
+  }
+
+  function toggleBill(value: BillKey) {
+    const next = !selectedBills.includes(value)
+      ? [...selectedBills, value]
+      : selectedBills.length === 1
+        ? selectedBills
+        : selectedBills.filter((bill) => bill !== value);
+    if (!data) setFixtureSelectedBills(next);
+    updateUrl({ bills: next.join(",") });
+  }
+
+  const detailQuery = new URLSearchParams(searchParams).toString();
+  const detailSuffix = detailQuery ? `?${detailQuery}` : "";
+
   return (
-    <section aria-label="Essentials charts" className={cn("grid gap-4", detail ? "mt-0" : "mt-6 xl:grid-cols-2")}>
+    <section aria-label="Bills & Groceries charts" className={cn("grid gap-4", detail ? "mt-0" : "mt-6 xl:grid-cols-2")}>
       {(!detailChart || detailChart === "bills") && (
         <ChartCard
           id="bills"
           title="Bills by month"
-          description="Prorated fixture totals by billing period."
-          detailHref={detailChart ? undefined : "/essentials/bills"}
-          backHref={detail ? "/essentials" : undefined}
+          description="Prorated totals by billing period."
+          detailHref={detailChart ? undefined : `/bills-groceries/bills${detailSuffix}`}
+          backHref={detail ? `/bills-groceries${detailSuffix}` : undefined}
           detail={detail}
           action={
-            <ChartConfig label="Bills by month" period={billPeriod} setPeriod={setBillPeriod}>
-              <BillOptions selectedBills={selectedBills} toggleBill={toggleBill} />
+            <ChartConfig label="Bills by month" period={period} setPeriod={changePeriod}>
+              <BillOptions bills={chartBills} selectedBills={selectedBills} toggleBill={toggleBill} />
             </ChartConfig>
           }
         >
           <ChartContainer
-            config={billChartConfig}
+            config={Object.fromEntries(chartBills.map((bill) => [bill.value, { label: bill.label, color: bill.color }]))}
             className={cn(chartHeightClass, "w-full", !detail && "flex-1")}
             role="region"
             aria-label="Stacked monthly Bills chart, use arrow keys to inspect values"
@@ -432,30 +532,37 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
               <CartesianGrid vertical={false} />
               <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
               <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value) => `₪${value}`} />
-              <ExactTooltip labels={Object.fromEntries(bills.map((bill) => [bill.value, bill.label]))} />
+              <ExactTooltip labels={Object.fromEntries(chartBills.map((bill) => [bill.value, bill.label]))} />
               <ChartLegend content={<ChartLegendContent />} />
               {selectedBills.map((bill, index) => (
-                <Bar key={bill} dataKey={bill} stackId="bills" fill={`var(--color-${bill})`}>
+                <Bar key={bill} dataKey={bill} stackId="bills" fill={chartBills.find((item) => item.value === bill)?.color}>
                   {billMonthlyData.map((month) => (
                     <Cell
                       key={month.month}
-                      radius={stackedBarRadius(
-                        selectedBills.map((key) => month[key]),
-                        index,
-                      )}
+                      radius={
+                        stackedBarRadius(
+                          selectedBills.map((key) => Number(month[key] ?? 0)),
+                          index,
+                        ) as unknown as number
+                      }
                     />
                   ))}
                 </Bar>
               ))}
             </BarChart>
           </ChartContainer>
+          {chartBills.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Add a Bills subcategory to see monthly spending.</p>
+          ) : data && !billMonthlyData.some((month) => selectedBills.some((bill) => Number(month[bill] ?? 0) > 0)) ? (
+            <p className="text-sm text-muted-foreground">No Bills data yet.</p>
+          ) : null}
           {detailChart === "bills" && (
             <ChartTable label="Bills by month">
               <TableHeader>
                 <TableRow>
                   <TableHead>Month</TableHead>
                   {selectedBills.map((bill) => (
-                    <TableHead key={bill}>{bills.find((item) => item.value === bill)?.label}</TableHead>
+                    <TableHead key={bill}>{chartBills.find((item) => item.value === bill)?.label}</TableHead>
                   ))}
                   <TableHead>Total</TableHead>
                 </TableRow>
@@ -466,11 +573,11 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
                     <TableCell>{month.month}</TableCell>
                     {selectedBills.map((bill) => (
                       <TableCell key={bill} className="tabular-nums">
-                        {currency.format(month[bill])}
+                        {currency.format(Number(month[bill] ?? 0))}
                       </TableCell>
                     ))}
                     <TableCell className="font-medium tabular-nums">
-                      {currency.format(selectedBills.reduce((total, bill) => total + month[bill], 0))}
+                      {currency.format(selectedBills.reduce((total, bill) => total + Number(month[bill] ?? 0), 0))}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -485,12 +592,20 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
           id="yoy"
           title="Year-over-year"
           description="Current and previous year for one Bills subcategory."
-          detailHref={detailChart ? undefined : "/essentials/year-over-year"}
-          backHref={detail ? "/essentials" : undefined}
+          detailHref={detailChart ? undefined : `/bills-groceries/year-over-year${detailSuffix}`}
+          backHref={detail ? `/bills-groceries${detailSuffix}` : undefined}
           detail={detail}
           action={
-            <ChartConfig label="Year-over-year" period={yoyPeriod} setPeriod={setYoyPeriod}>
-              <BillOptions selectedBills={[yoyBill]} toggleBill={setYoyBill} single />
+            <ChartConfig label="Year-over-year" period={period} setPeriod={changePeriod}>
+              <BillOptions
+                bills={chartBills}
+                selectedBills={[yoyBill]}
+                toggleBill={(value) => {
+                  if (!data) setFixtureYoyBill(value);
+                  updateUrl({ bill: value });
+                }}
+                single
+              />
             </ChartConfig>
           }
         >
@@ -498,7 +613,7 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
             config={yoyChartConfig}
             className={cn(chartHeightClass, "w-full", !detail && "flex-1")}
             role="region"
-            aria-label={`${yoyBillDetails.label} year-over-year chart, use arrow keys to inspect values`}
+            aria-label={`${yoyBillDetails?.label ?? "Bills"} year-over-year chart, use arrow keys to inspect values`}
           >
             <BarChart accessibilityLayer data={yoyData} margin={chartMargin}>
               <CartesianGrid vertical={false} />
@@ -510,6 +625,10 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
               <Bar dataKey="current" fill="var(--color-current)" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ChartContainer>
+          {chartBills.length === 0 || !hasYoyData ? <p className="text-sm text-muted-foreground">No Bills data yet.</p> : null}
+          {data && chartBills.length > 0 && hasYoyData && yoyData.some((month) => month.previous === undefined) ? (
+            <p className="text-sm text-muted-foreground">No previous-year data</p>
+          ) : null}
           {detailChart === "yoy" && (
             <ChartTable label="Year-over-year">
               <TableHeader>
@@ -524,7 +643,9 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
                   <TableRow key={month.month}>
                     <TableCell>{month.month}</TableCell>
                     <TableCell className="tabular-nums">{currency.format(month.current)}</TableCell>
-                    <TableCell className="tabular-nums">{currency.format(month.previous)}</TableCell>
+                    <TableCell className="tabular-nums">
+                      {month.previous === undefined ? "No previous-year data" : currency.format(month.previous)}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -539,11 +660,11 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
             <ChartCard
               id="groceries"
               title="Groceries by month"
-              description="Posting-date totals against the monthly budget fixture."
-              detailHref={detailChart ? undefined : "/essentials/groceries"}
-              backHref={detail ? "/essentials" : undefined}
+              description="Posting-date totals against the monthly budget."
+              detailHref={detailChart ? undefined : `/bills-groceries/groceries${detailSuffix}`}
+              backHref={detail ? `/bills-groceries${detailSuffix}` : undefined}
               detail={detail}
-              action={<ChartConfig label="Groceries by month" period={groceryPeriod} setPeriod={setGroceryPeriod} />}
+              action={<ChartConfig label="Groceries by month" period={period} setPeriod={changePeriod} />}
             >
               <ChartContainer
                 config={groceryChartConfig}
@@ -555,21 +676,33 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
                   <CartesianGrid vertical={false} />
                   <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
                   <YAxis tickLine={false} axisLine={false} width={58} tickFormatter={(value) => `₪${value}`} />
-                  <ExactTooltip labels={{ mainRun: "Main run", topUps: "Top-ups" }} />
+                  <ExactTooltip labels={{ mainRun: mainRun?.name ?? "Main run", topUps: topUps?.name ?? "Top-ups" }} />
                   <ChartLegend content={<ChartLegendContent />} />
-                  <ReferenceLine y={2200} stroke="var(--color-budget)" strokeDasharray="4 4" />
+                  {groceryBudgetAgorot != null ? (
+                    <ReferenceLine
+                      y={groceryBudgetAgorot / 100}
+                      stroke="var(--color-budget)"
+                      strokeDasharray="4 4"
+                      label={{ value: "Monthly budget", position: "insideTopRight", fill: "var(--color-muted-foreground)" }}
+                    />
+                  ) : null}
                   <Bar dataKey="mainRun" stackId="groceries" fill="var(--color-mainRun)">
                     {groceryMonthlyData.map((month) => (
-                      <Cell key={month.month} radius={stackedBarRadius([month.mainRun, month.topUps], 0)} />
+                      <Cell key={month.month} radius={stackedBarRadius([month.mainRun, month.topUps], 0) as unknown as number} />
                     ))}
                   </Bar>
                   <Bar dataKey="topUps" stackId="groceries" fill="var(--color-topUps)">
                     {groceryMonthlyData.map((month) => (
-                      <Cell key={month.month} radius={stackedBarRadius([month.mainRun, month.topUps], 1)} />
+                      <Cell key={month.month} radius={stackedBarRadius([month.mainRun, month.topUps], 1) as unknown as number} />
                     ))}
                   </Bar>
                 </BarChart>
               </ChartContainer>
+              {groceryBudgetAgorot == null ? (
+                <p className="text-sm text-muted-foreground">
+                  <Link href="/settings">Set a monthly groceries budget in Settings.</Link>
+                </p>
+              ) : null}
               {detailChart === "groceries" && (
                 <ChartTable label="Groceries by month">
                   <TableHeader>
@@ -578,17 +711,26 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
                       <TableHead>Main run</TableHead>
                       <TableHead>Top-ups</TableHead>
                       <TableHead>Total</TableHead>
-                      <TableHead>Budget</TableHead>
+                      {groceryBudgetAgorot != null ? <TableHead>Monthly budget</TableHead> : null}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {groceryMonthlyData.map((month) => (
-                      <TableRow key={month.month}>
+                      <TableRow
+                        key={month.month}
+                        className={
+                          groceryBudgetAgorot != null && (month.mainRun + month.topUps) * 100 > groceryBudgetAgorot
+                            ? "bg-destructive/10 hover:bg-destructive/15"
+                            : undefined
+                        }
+                      >
                         <TableCell>{month.month}</TableCell>
                         <TableCell className="tabular-nums">{currency.format(month.mainRun)}</TableCell>
                         <TableCell className="tabular-nums">{currency.format(month.topUps)}</TableCell>
                         <TableCell className="font-medium tabular-nums">{currency.format(month.mainRun + month.topUps)}</TableCell>
-                        <TableCell className="tabular-nums">{currency.format(2200)}</TableCell>
+                        {groceryBudgetAgorot != null ? (
+                          <TableCell className="tabular-nums">{currency.format(groceryBudgetAgorot / 100)}</TableCell>
+                        ) : null}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -602,8 +744,8 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
               id="daily"
               title="Groceries by day"
               description="Daily spending, including no-spend days."
-              detailHref={detailChart ? undefined : "/essentials/daily"}
-              backHref={detail ? "/essentials" : undefined}
+              detailHref={detailChart ? undefined : `/bills-groceries/daily${detailSuffix}`}
+              backHref={detail ? `/bills-groceries${detailSuffix}` : undefined}
               detail={detail}
               action={
                 <Popover>
@@ -620,35 +762,45 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
                   </PopoverTrigger>
                   <PopoverContent align="end" className="w-auto max-w-[calc(100vw-2rem)] p-3">
                     <PopoverHeader>
-                      <PopoverTitle>Groceries by day range</PopoverTitle>
+                      <PopoverTitle>Show spending</PopoverTitle>
                     </PopoverHeader>
-                    <FieldGroup className="grid grid-cols-2 gap-3">
-                      <Field>
-                        <FieldLabel htmlFor="daily-from">From</FieldLabel>
-                        <Input id="daily-from" value={from} readOnly />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="daily-to">To</FieldLabel>
-                        <Input id="daily-to" value={to} readOnly />
-                      </Field>
-                    </FieldGroup>
-                    <Calendar
-                      mode="range"
-                      month={dailyFixtureStart}
-                      startMonth={dailyFixtureStart}
-                      endMonth={dailyFixtureEnd}
-                      disabled={{ before: dailyFixtureStart, after: dailyFixtureEnd }}
-                      selected={dailyRange}
-                      onSelect={(range) => {
-                        if (range?.from) setDailyRange(range);
+                    <Field className="mt-3">
+                      <FieldLabel htmlFor="groceries-month">Month</FieldLabel>
+                      <Input
+                        id="groceries-month"
+                        type="month"
+                        value={groceryMonth}
+                        onChange={(event) => updateUrl({ groceryMonth: event.target.value || null })}
+                        aria-label="Select Groceries month"
+                        className="min-h-11 w-36"
+                      />
+                    </Field>
+                    <Select
+                      value={groceryFilter}
+                      onValueChange={(value: GroceryFilter) => {
+                        updateUrl({ grocery: value === "all" ? null : value });
                       }}
-                      numberOfMonths={1}
-                    />
+                    >
+                      <SelectTrigger aria-label="Show spending" className="min-h-11 w-36">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="main-run">Main run</SelectItem>
+                          <SelectItem value="top-ups">Top-ups</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
                   </PopoverContent>
                 </Popover>
               }
             >
-              <div className="mx-2 mt-1.5 flex w-auto flex-1 flex-col gap-8 pt-1 pr-3.5 pb-0.5 pl-3.5" role="grid" aria-label="Groceries by day heatmap">
+              <div
+                className="mx-2 mt-1.5 flex w-auto flex-1 flex-col gap-8 pt-1 pr-3.5 pb-0.5 pl-3.5"
+                role="grid"
+                aria-label="Groceries by day heatmap"
+              >
                 <div className="grid grid-cols-7 gap-1.5 text-center text-xs text-muted-foreground" role="row">
                   {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
                     <span key={day} role="columnheader">
@@ -656,36 +808,52 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
                     </span>
                   ))}
                 </div>
-                <div className="grid grid-cols-7 gap-1.5">
-                  {Array.from({ length: dailyHeatmapOffset }, (_, index) => (
-                    <span key={index} aria-hidden="true" />
+                <div className="grid grid-cols-7 gap-1.5" role="rowgroup">
+                  {dailyHeatmapWeeks.map((week, weekIndex) => (
+                    <div key={weekIndex} className="contents" role="row">
+                      {week.map((day, dayIndex) => {
+                        if (!day) return <span key={`empty-${dayIndex}`} aria-hidden="true" />;
+                        const level = day.total === 0 ? 0 : Math.min(4, Math.ceil((day.total / highestDailyTotal) * 4));
+                        return (
+                          <div
+                            key={day.date}
+                            role="gridcell"
+                            tabIndex={0}
+                            title={`${day.date}: ${currency.format(day.total)}`}
+                            aria-label={`${day.date}: ${currency.format(day.total)}`}
+                            className={cn(
+                              "relative flex h-11 items-center justify-center rounded-md text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 hover:before:absolute hover:before:inset-0 hover:before:rounded-md hover:before:bg-foreground/5 sm:h-20 xl:h-auto xl:aspect-square",
+                              level === 0 && "bg-muted text-muted-foreground",
+                            )}
+                            style={
+                              level > 0
+                                ? {
+                                    backgroundColor: `color-mix(in oklab, ${groceryColor} ${heatmapStrengths[level]}%, transparent)`,
+                                  }
+                                : undefined
+                            }
+                          >
+                            <span className={cn("relative", level > 0 && "rounded-sm bg-background/85 px-1 text-foreground")}>
+                              {day.date.slice(8)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   ))}
-                  {dailyData.map((day) => {
-                    const level = day.total === 0 ? 0 : Math.min(4, Math.ceil((day.total / highestDailyTotal) * 4));
-                    return (
-                      <div
-                        key={day.date}
-                        role="gridcell"
-                        tabIndex={0}
-                        title={`${day.date}: ${currency.format(day.total)}`}
-                        aria-label={`${day.date}: ${currency.format(day.total)}`}
-                        className={cn(
-                          "relative flex h-11 items-center justify-center rounded-md text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 hover:before:absolute hover:before:inset-0 hover:before:rounded-md hover:before:bg-foreground/5 sm:h-20 xl:h-auto xl:aspect-square",
-                          dailyHeatLevels[level],
-                        )}
-                      >
-                        <span className="relative">{day.date.slice(8)}</span>
-                      </div>
-                    );
-                  })}
                 </div>
                 <div
                   className="mt-auto flex items-center justify-center gap-2 text-xs text-muted-foreground"
                   aria-label="Total daily spending heatmap legend"
                 >
                   <span>Lower</span>
-                  {dailyHeatLevels.map((level, index) => (
-                    <span key={index} aria-hidden="true" className={cn("size-3 rounded-sm", level)} />
+                  {heatmapStrengths.map((strength, index) => (
+                    <span
+                      key={index}
+                      aria-hidden="true"
+                      className={cn("size-3 rounded-sm", index === 0 && "bg-muted text-muted-foreground")}
+                      style={index > 0 ? { backgroundColor: `color-mix(in oklab, ${groceryColor} ${strength}%, transparent)` } : undefined}
+                    />
                   ))}
                   <span>Higher</span>
                 </div>
@@ -698,15 +866,17 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
                       <TableHead>Main run</TableHead>
                       <TableHead>Top-ups</TableHead>
                       <TableHead>Daily total</TableHead>
+                      <TableHead>Cumulative total</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dailyData.map((day) => (
+                    {dailyTableData.map((day) => (
                       <TableRow key={day.date}>
                         <TableCell>{day.date}</TableCell>
                         <TableCell className="tabular-nums">{currency.format(day.mainRun)}</TableCell>
                         <TableCell className="tabular-nums">{currency.format(day.topUps)}</TableCell>
                         <TableCell className="font-medium tabular-nums">{currency.format(day.total)}</TableCell>
+                        <TableCell className="font-medium tabular-nums">{currency.format(day.cumulative)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -720,10 +890,32 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
   );
 }
 
-export function EssentialsDashboard() {
-  return <EssentialsCharts />;
+export function BillsGroceriesDashboard({
+  data,
+  billIds,
+  billId,
+  period,
+}: {
+  data?: BillsGroceriesData;
+  billIds?: string[];
+  billId?: string | null;
+  period?: Period;
+}) {
+  return <BillsGroceriesCharts data={data} initialBillIds={billIds} initialBillId={billId} initialPeriod={period} />;
 }
 
-export function EssentialsChartDetail({ chart }: { chart: EssentialsChartId }) {
-  return <EssentialsCharts detailChart={chart} />;
+export function BillsGroceriesChartDetail({
+  chart,
+  data,
+  billIds,
+  billId,
+  period,
+}: {
+  chart: BillsGroceriesChartId;
+  data?: BillsGroceriesData;
+  billIds?: string[];
+  billId?: string | null;
+  period?: Period;
+}) {
+  return <BillsGroceriesCharts detailChart={chart} data={data} initialBillIds={billIds} initialBillId={billId} initialPeriod={period} />;
 }

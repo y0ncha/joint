@@ -168,23 +168,13 @@ export function buildGroceriesDaily(range: IsoDateRange, transactions: GroceryIn
   }));
 }
 
-function isIsoDate(value: string | null): value is string {
-  if (value === null) return false;
-  try {
-    isoDay(value);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function monthRange(month: string) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return null;
   const monthIndex = Number(month.slice(0, 4)) * 12 + Number(month.slice(5)) - 1;
   return { from: `${month}-01`, to: dayIso(Date.UTC(Math.floor((monthIndex + 1) / 12), (monthIndex + 1) % 12) / DAY_MS - 1) };
 }
 
-export function parseEssentialsUrlDefaults(
+export function parseBillsGroceriesUrlDefaults(
   params: { get(name: string): string | null },
   options: {
     bills: Array<{ id: string; name: string }>;
@@ -197,10 +187,7 @@ export function parseEssentialsUrlDefaults(
   const billsParam = params.get("bills");
   const selectedBills = billsParam?.split(",") ?? [];
   const billParam = params.get("bill");
-  const from = params.get("groceryFrom");
-  const to = params.get("groceryTo");
-  const pair = isIsoDate(from) && isIsoDate(to) && isoDay(from) <= isoDay(to) ? { from, to } : null;
-  const groceryRange = pair ?? (params.get("groceryMonth") ? monthRange(params.get("groceryMonth")!) : null);
+  const groceryRange = params.get("groceryMonth") ? monthRange(params.get("groceryMonth")!) : null;
 
   return {
     period: params.get("period") === "calendar" ? ("calendar" as const) : ("rolling" as const),

@@ -105,16 +105,18 @@ export function TransactionSheet({
   const [subcategoryId, setSubcategoryId] = useState(initialSubcategoryId);
   const selectedSubcategoryId = selectableSubcategories.some((subcategory) => subcategory.id === subcategoryId) ? subcategoryId : "";
   const selectedSubcategory = selectableSubcategories.find((subcategory) => subcategory.id === selectedSubcategoryId);
-  const isBillsSubcategory = selectedSubcategory?.categorySystemKey === "bills" || selectedSubcategory?.systemKey === "bills";
+  const isBillsSubcategory = selectedSubcategory?.categorySystemKey === "bills";
   const [billingPeriod, setBillingPeriod] = useState<DateRange | undefined>(() => {
     const initialSubcategory = subcategories.find((subcategory) => subcategory.id === initialSubcategoryId);
-    const isBills = initialSubcategory?.categorySystemKey === "bills" || initialSubcategory?.systemKey === "bills";
+    const isBills = initialSubcategory?.categorySystemKey === "bills";
     if (!isBills) return undefined;
     return {
       from: dateFromIso(transaction?.servicePeriodStart ?? initialOccurredOn),
       to: dateFromIso(transaction?.servicePeriodEnd ?? transaction?.servicePeriodStart ?? initialOccurredOn),
     };
   });
+  const billingPeriodError =
+    state?.status === "error" ? (state.fieldErrors.servicePeriodStart ?? state.fieldErrors.servicePeriodEnd) : undefined;
   const selectedPaidBy =
     paidBy === "" ? "" : members.some((member) => member.id === paidBy) ? paidBy : currentUserId || members[0]?.id || "";
   const shouldRenderDefaultTrigger = !isEditing && open === undefined && onOpenChange === undefined;
@@ -230,7 +232,7 @@ export function TransactionSheet({
                 onValueChange={(value) => {
                   setSubcategoryId(value);
                   setBillingPeriod((current) =>
-                    selectableSubcategories.find((subcategory) => subcategory.id === value)?.systemKey === "bills"
+                    selectableSubcategories.find((subcategory) => subcategory.id === value)?.categorySystemKey === "bills"
                       ? (current ?? billingPeriodFor(occurredOn))
                       : undefined,
                   );
@@ -247,7 +249,7 @@ export function TransactionSheet({
               {state?.status === "error" ? <FieldError>{state.fieldErrors.subcategoryId}</FieldError> : null}
             </Field>
             {isBillsSubcategory ? (
-              <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.servicePeriodEnd)}>
+              <Field data-invalid={Boolean(billingPeriodError)}>
                 <FieldLabel id="billing-period-label">Billing period</FieldLabel>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -257,6 +259,7 @@ export function TransactionSheet({
                       className="h-11 w-full justify-start rounded-xl bg-white/55"
                       aria-label="Choose billing period"
                       aria-describedby="billing-period-feedback"
+                      aria-invalid={Boolean(billingPeriodError)}
                     >
                       {billingPeriod?.from && billingPeriod.to
                         ? `${displayDate.format(billingPeriod.from)} – ${displayDate.format(billingPeriod.to)}`
@@ -285,7 +288,7 @@ export function TransactionSheet({
                     ? `Inclusive range from ${isoFromDate(billingPeriod.from)} to ${isoFromDate(billingPeriod.to)}.`
                     : "Choose an inclusive range."}
                 </FieldDescription>
-                {state?.status === "error" ? <FieldError>{state.fieldErrors.servicePeriodEnd}</FieldError> : null}
+                {billingPeriodError ? <FieldError>{billingPeriodError}</FieldError> : null}
               </Field>
             ) : null}
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)}>

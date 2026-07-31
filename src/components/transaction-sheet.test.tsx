@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   billingPeriodSelect: undefined as undefined | ((range: { from?: Date; to?: Date } | undefined) => void),
   categoryOptions: [] as Array<{ color?: string; icon?: unknown; label: string; value: string }>,
   categoryChange: undefined as undefined | ((value: string) => void),
+  actionState: null as null | { status: "error"; formError: string; fieldErrors: Record<string, string> },
   createTransaction: vi.fn(),
   dateSelect: undefined as undefined | ((date: Date | undefined) => void),
   formAction: undefined as undefined | ((previousState: unknown, formData: FormData) => unknown),
@@ -21,7 +22,7 @@ vi.mock("react", async (importOriginal) => {
     ...actual,
     useActionState: (action: (previousState: unknown, formData: FormData) => unknown) => {
       mocks.formAction = action;
-      return [null, () => {}, false];
+      return [mocks.actionState, () => {}, false];
     },
     useState: (initialState: unknown | (() => unknown)) => {
       const index = mocks.stateIndex++;
@@ -155,6 +156,7 @@ beforeEach(() => {
   mocks.billingPeriodSelect = undefined;
   mocks.categoryOptions = [];
   mocks.categoryChange = undefined;
+  mocks.actionState = null;
   mocks.createTransaction.mockReset();
   mocks.dateSelect = undefined;
   mocks.formAction = undefined;
@@ -331,7 +333,7 @@ it("submits the locally selected calendar day", async () => {
   expect(mocks.createTransaction.mock.calls[0]?.[0].get("occurredOn")).toBe("2026-01-02");
 });
 
-it("defaults the fixture Billing period from the ledger date in Bills create and edit forms", () => {
+it("defaults the Billing period from the ledger date in Bills create and edit forms", () => {
   const billsSubcategory = {
     id: "electricity",
     name: "Electricity",
@@ -340,7 +342,8 @@ it("defaults the fixture Billing period from the ledger date in Bills create and
     kind: "expense" as const,
     color: "#d9f0fa",
     icon: "zap",
-    systemKey: "bills",
+    systemKey: "electricity",
+    categorySystemKey: "bills",
   };
   mocks.stateIndex = 0;
   const createMarkup = renderToStaticMarkup(<TransactionSheet subcategories={[billsSubcategory]} members={[]} />);
@@ -378,18 +381,8 @@ it("defaults the fixture Billing period from the ledger date in Bills create and
   expect(editMarkup).toContain('type="hidden" name="servicePeriodEnd" value="2026-07-14"');
 });
 
-it("clears the fixture Billing period after selecting a non-Bills subcategory", () => {
+it("initializes and clears the Billing period from the selected parent without changing the ledger date", () => {
   const subcategories = [
-    {
-      id: "electricity",
-      name: "Electricity",
-      categoryId: "bills",
-      categoryName: "Bills",
-      kind: "expense" as const,
-      color: "#d9f0fa",
-      icon: "zap",
-      systemKey: "bills",
-    },
     {
       id: "groceries",
       name: "Groceries",
@@ -399,19 +392,120 @@ it("clears the fixture Billing period after selecting a non-Bills subcategory", 
       color: "#d9f0fa",
       icon: "shopping-basket",
     },
+    {
+      id: "electricity",
+      name: "Electricity",
+      categoryId: "bills",
+      categoryName: "Bills",
+      kind: "expense" as const,
+      color: "#d9f0fa",
+      icon: "zap",
+      systemKey: "electricity",
+      categorySystemKey: "bills",
+    },
   ];
 
   mocks.stateIndex = 0;
   renderToStaticMarkup(<TransactionSheet subcategories={subcategories} members={[]} />);
-  mocks.billingPeriodSelect?.({ from: new Date(2026, 6, 1, 12), to: new Date(2026, 6, 13, 12) });
-  mocks.categoryChange?.("groceries");
+  mocks.dateSelect?.(new Date(2026, 0, 2, 12));
   mocks.stateIndex = 0;
-  const nonBillsMarkup = renderToStaticMarkup(<TransactionSheet subcategories={subcategories} members={[]} />);
+  renderToStaticMarkup(<TransactionSheet subcategories={subcategories} members={[]} />);
   mocks.categoryChange?.("electricity");
   mocks.stateIndex = 0;
   const billsMarkup = renderToStaticMarkup(<TransactionSheet subcategories={subcategories} members={[]} />);
+  mocks.categoryChange?.("groceries");
+  mocks.stateIndex = 0;
+  const nonBillsMarkup = renderToStaticMarkup(<TransactionSheet subcategories={subcategories} members={[]} />);
 
+  expect(billsMarkup).toMatch(/id="billing-period-from"[^>]*value="2026-01-02"/);
+  expect(billsMarkup).toMatch(/id="billing-period-to"[^>]*value="2026-01-02"/);
   expect(nonBillsMarkup).not.toContain("Billing period");
-  expect(billsMarkup).toMatch(/id="billing-period-from"[^>]*value="2026-07-14"/);
-  expect(billsMarkup).toMatch(/id="billing-period-to"[^>]*value="2026-07-14"/);
+  expect(nonBillsMarkup).toContain('type="hidden" name="occurredOn" value="2026-01-02"');
+  expect(nonBillsMarkup).toContain('type="hidden" name="servicePeriodStart" value=""');
+  expect(nonBillsMarkup).toContain('type="hidden" name="servicePeriodEnd" value=""');
+});
+
+it("shows a billing-period start error returned by the server", () => {
+  mocks.actionState = {
+    status: "error",
+    formError: "Check the form details.",
+    fieldErrors: { servicePeriodStart: "Use YYYY-MM-DD." },
+  };
+
+  const markup = renderToStaticMarkup(
+    <TransactionSheet
+      subcategories={[
+        {
+          id: "electricity",
+          name: "Electricity",
+          categoryId: "bills",
+          categoryName: "Bills",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "zap",
+          systemKey: "electricity",
+          categorySystemKey: "bills",
+        },
+      ]}
+      members={[]}
+    />,
+  );
+
+  expect(markup).toContain("Use YYYY-MM-DD.");
+  expect(markup).toContain('aria-invalid="true"');
+});
+
+it("does not activate billing state from a non-Bills child system key", () => {
+  const markup = renderToStaticMarkup(
+    <TransactionSheet
+      subcategories={[
+        {
+          id: "not-bills",
+          name: "Not bills",
+          categoryId: "groceries",
+          categoryName: "Groceries",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "shopping-basket",
+          systemKey: "bills",
+          categorySystemKey: "groceries",
+        },
+      ]}
+      members={[]}
+    />,
+  );
+
+  expect(markup).not.toContain("Billing period");
+  expect(markup).toContain('type="hidden" name="servicePeriodStart" value=""');
+  expect(markup).toContain('type="hidden" name="servicePeriodEnd" value=""');
+});
+
+it("shows a billing-period end error returned by the server", () => {
+  mocks.actionState = {
+    status: "error",
+    formError: "Check the form details.",
+    fieldErrors: { servicePeriodEnd: "End on or after the start date." },
+  };
+
+  const markup = renderToStaticMarkup(
+    <TransactionSheet
+      subcategories={[
+        {
+          id: "electricity",
+          name: "Electricity",
+          categoryId: "bills",
+          categoryName: "Bills",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "zap",
+          systemKey: "electricity",
+          categorySystemKey: "bills",
+        },
+      ]}
+      members={[]}
+    />,
+  );
+
+  expect(markup).toContain("End on or after the start date.");
+  expect(markup).toContain('aria-invalid="true"');
 });

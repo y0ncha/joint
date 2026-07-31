@@ -88,7 +88,7 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
     return { status: "error", formError: "Unable to save the transaction. Please try again.", fieldErrors: {} };
   }
 
-  for (const path of ["/", "/transactions", "/categories", "/essentials"]) {
+  for (const path of ["/", "/transactions", "/categories", "/bills-groceries"]) {
     revalidatePath(path);
   }
   return { status: "success" };
@@ -140,7 +140,7 @@ export async function updateTransaction(transactionId: string, input: FormData):
     .eq("id", transactionId)
     .eq("household_id", household.householdId);
   if (error) return { status: "error", formError: "Unable to update the transaction. Please try again.", fieldErrors: {} };
-  for (const path of ["/", "/transactions", "/categories", "/essentials"]) revalidatePath(path);
+  for (const path of ["/", "/transactions", "/categories", "/bills-groceries"]) revalidatePath(path);
   return { status: "success" };
 }
 
@@ -152,7 +152,7 @@ export async function deleteTransaction(transactionId: string): Promise<ActionRe
     .eq("id", transactionId)
     .eq("household_id", household.householdId);
   if (error) return { status: "error", formError: "Unable to delete the transaction. Please try again.", fieldErrors: {} };
-  for (const path of ["/", "/transactions", "/categories", "/essentials"]) revalidatePath(path);
+  for (const path of ["/", "/transactions", "/categories", "/bills-groceries"]) revalidatePath(path);
   return { status: "success" };
 }
 
@@ -163,6 +163,6 @@ export async function deleteTransactions(transactionIds: string[]): Promise<Acti
   const household = await requireCurrentHousehold();
   const { error } = await household.supabase.from("transactions").delete().in("id", ids).eq("household_id", household.householdId);
   if (error) return { status: "error", formError: "Unable to delete the selected transactions. Please try again.", fieldErrors: {} };
-  for (const path of ["/", "/transactions", "/categories", "/essentials"]) revalidatePath(path);
+  for (const path of ["/", "/transactions", "/categories", "/bills-groceries"]) revalidatePath(path);
   return { status: "success" };
 }

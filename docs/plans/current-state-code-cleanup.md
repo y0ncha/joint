@@ -42,8 +42,8 @@ Completion evidence: focused tests passed 14/14, the full suite passed 220/220, 
 
 - **GOAL-002**: Delete verified dead primitive code without changing any rendered consumer.
 
-| Task     | Description                                                                                                                   | Status      | Date       |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------- |
+| Task     | Description                                                                                                                   | Status   | Date       |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
 | TASK-003 | Delete the unused Toggle and ToggleGroup primitives, remove the stale transaction test mock, and verify no reference remains. | Complete | 2026-07-30 |
 | TASK-004 | Remove the fixed list of unused optional owned-primitive components and their unreachable imports and selector fragments.     | Complete | 2026-07-30 |
 | TASK-005 | Stop exporting internally used-only chart, calendar, dialog, and select helpers while retaining their implementations.        | Complete | 2026-07-30 |
@@ -53,8 +53,8 @@ Completion evidence: focused tests passed 14/14, the full suite passed 220/220, 
 
 - **GOAL-003**: Consolidate duplicate Settings text controls without changing their markup or form contract.
 
-| Task     | Description                                                                                                                                   | Status      | Date       |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------- |
+| Task     | Description                                                                                                                                   | Status   | Date       |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
 | TASK-007 | Add one file-local `SettingsTextControl` to the Settings page with the exact existing wrapper, hidden initial value, label, and input markup. | Complete | 2026-07-30 |
 | TASK-008 | Replace both one-use Settings text components with the local component and delete their source files.                                         | Complete | 2026-07-30 |
 
@@ -62,8 +62,8 @@ Completion evidence: focused tests passed 14/14, the full suite passed 220/220, 
 
 - **GOAL-004**: Verify behavior, visual equivalence, reference cleanup, and net reduction.
 
-| Task     | Description                                                                                                                           | Status  | Date |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
+| Task     | Description                                                                                                                           | Status   | Date       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
 | TASK-009 | Run focused tests, `bun run lint`, `bun run test`, and `git diff --check`, requiring exit code 0.                                     | Complete | 2026-07-30 |
 | TASK-010 | Repeat desktop and mobile captures and require no visible change in the verified Settings, Categories, and transaction-create states. | Complete | 2026-07-30 |
 | TASK-011 | Require no deleted-symbol references, no dependency changes, and at least 250 net deleted lines excluding this plan.                  | Complete | 2026-07-30 |

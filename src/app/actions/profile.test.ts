@@ -43,6 +43,8 @@ describe("profile action", () => {
           initialColor: "#dcece3",
           lastFour: "4548",
           initialLastFour: "",
+          groceriesBudget: "500",
+          initialGroceriesBudget: "500",
         }),
       ),
     ).resolves.toEqual({ status: "success", data: { fullName: "Ada Lovelace" } });
@@ -53,11 +55,12 @@ describe("profile action", () => {
       household_name: "The Lovelaces",
       member_color: "#123456",
       member_card_last_four: "4548",
+      groceries_monthly_budget: 500,
     });
     expect(mocks.from).not.toHaveBeenCalled();
   });
 
-  it("saves changed settings through one RPC while omitting unchanged values", async () => {
+  it("saves changed settings through one RPC while preserving an unchanged budget", async () => {
     await expect(
       actions.saveSettings(
         null,
@@ -68,6 +71,8 @@ describe("profile action", () => {
           initialHouseholdName: "Household",
           color: "#dcece3",
           initialColor: "#dcece3",
+          groceriesBudget: "500",
+          initialGroceriesBudget: "500",
         }),
       ),
     ).resolves.toEqual({ status: "success", data: { fullName: "Ada Lovelace" } });
@@ -75,14 +80,25 @@ describe("profile action", () => {
     expect(mocks.rpc).toHaveBeenCalledOnce();
     expect(mocks.rpc).toHaveBeenCalledWith("save_current_settings", {
       profile_name: "Ada Lovelace",
+      groceries_monthly_budget: 500,
     });
     expect(mocks.from).not.toHaveBeenCalled();
   });
 
-  it("sets or clears the shared groceries budget through the existing atomic RPC", async () => {
-    await expect(
-      actions.saveSettings(null, formData({ groceriesBudget: "", initialGroceriesBudget: "500" })),
-    ).resolves.toEqual({ status: "success", data: { fullName: "" } });
+  it("sets the shared groceries budget through the existing atomic RPC", async () => {
+    await expect(actions.saveSettings(null, formData({ groceriesBudget: "600", initialGroceriesBudget: "500" }))).resolves.toEqual({
+      status: "success",
+      data: { fullName: "" },
+    });
+
+    expect(mocks.rpc).toHaveBeenCalledWith("save_current_settings", { groceries_monthly_budget: 600 });
+  });
+
+  it("clears the shared groceries budget through the existing atomic RPC", async () => {
+    await expect(actions.saveSettings(null, formData({ groceriesBudget: "", initialGroceriesBudget: "500" }))).resolves.toEqual({
+      status: "success",
+      data: { fullName: "" },
+    });
 
     expect(mocks.rpc).toHaveBeenCalledWith("save_current_settings", { groceries_monthly_budget: null });
   });
@@ -98,6 +114,8 @@ describe("profile action", () => {
           initialHouseholdName: "Household",
           color: "#dcece3",
           initialColor: "#dcece3",
+          groceriesBudget: "500",
+          initialGroceriesBudget: "500",
         }),
       ),
     ).resolves.toEqual({ status: "success", data: { fullName: "Ada" } });
@@ -109,7 +127,7 @@ describe("profile action", () => {
   it("keeps the existing duplicate card-mapping error", async () => {
     mocks.rpc.mockResolvedValue({ error: { code: "23505", message: "member_cards_household_id_last_four_key" } });
 
-    await expect(actions.saveSettings(null, formData({ lastFour: "4548", initialLastFour: "" }))).resolves.toEqual({
+    await expect(actions.saveSettings(null, formData({ lastFour: "4548", initialLastFour: "", groceriesBudget: "500", initialGroceriesBudget: "500" }))).resolves.toEqual({
       status: "error",
       formError: "Check the form details.",
       fieldErrors: { lastFour: "These last four digits are already mapped in this household." },

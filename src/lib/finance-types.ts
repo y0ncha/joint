@@ -10,7 +10,15 @@ function number(value: number) {
 }
 
 export function categoryFromRow(row: CategoryRow) {
-  return { id: row.id, name: row.name, kind: row.kind, systemKey: row.system_key, archivedAt: row.archived_at, color: row.color, icon: row.icon };
+  return {
+    id: row.id,
+    name: row.name,
+    kind: row.kind,
+    systemKey: row.system_key,
+    archivedAt: row.archived_at,
+    color: row.color,
+    icon: row.icon,
+  };
 }
 
 export function subcategoryFromRow(row: SubcategoryRow) {

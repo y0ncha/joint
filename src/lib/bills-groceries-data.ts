@@ -6,10 +6,10 @@ import {
   buildMonthlyRange,
   consolidateBillsByMonth,
   pickDefaultBillSubcategory,
-} from "@/lib/essentials";
+} from "@/lib/bills-groceries";
 import { getCurrentHouseholdContext } from "@/lib/household";
 
-type EssentialsDataOptions = {
+type BillsGroceriesDataOptions = {
   currentDate: string;
   groceryRange: { from: string; to: string };
   period: "rolling" | "calendar";
@@ -25,7 +25,7 @@ function previousYearMonth(month: string) {
   return `${Number(month.slice(0, 4)) - 1}${month.slice(4)}`;
 }
 
-export async function getEssentialsData(options: EssentialsDataOptions) {
+export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) {
   const household = await getCurrentHouseholdContext();
 
   if (household.status !== "member") throw new Error("Create or join a household before viewing the dashboard.");
@@ -49,7 +49,7 @@ export async function getEssentialsData(options: EssentialsDataOptions) {
   ]);
 
   if (budgetResult.error || billsCategoryResult.error || groceriesCategoryResult.error) {
-    throw new Error("Unable to load Essentials data.");
+    throw new Error("Unable to load BillsGroceries data.");
   }
 
   const months = buildMonthlyRange(options.period, options.currentDate);
@@ -78,7 +78,7 @@ export async function getEssentialsData(options: EssentialsDataOptions) {
   ]);
 
   if (billSubcategoriesResult.error || grocerySubcategoriesResult.error) {
-    throw new Error("Unable to load Essentials data.");
+    throw new Error("Unable to load BillsGroceries data.");
   }
 
   const billSubcategories = billSubcategoriesResult.data ?? [];
@@ -118,7 +118,7 @@ export async function getEssentialsData(options: EssentialsDataOptions) {
   ]);
 
   if (billTransactionsResult.error || groceryMonthlyTransactionsResult.error || groceryDailyTransactionsResult.error) {
-    throw new Error("Unable to load Essentials data.");
+    throw new Error("Unable to load BillsGroceries data.");
   }
 
   const monthlyBills = consolidateBillsByMonth(

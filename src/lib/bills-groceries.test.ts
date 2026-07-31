@@ -7,9 +7,9 @@ import {
   buildGroceriesMonthly,
   buildMonthlyRange,
   consolidateBillsByMonth,
-  parseEssentialsUrlDefaults,
+  parseBillsGroceriesUrlDefaults,
   pickDefaultBillSubcategory,
-} from "@/lib/essentials";
+} from "@/lib/bills-groceries";
 
 describe("allocateBillDaily", () => {
   it("allocates ₪100.00 evenly across the full inclusive period before clipping", () => {
@@ -214,15 +214,15 @@ describe("buildGroceriesDaily", () => {
   });
 });
 
-describe("parseEssentialsUrlDefaults", () => {
+describe("parseBillsGroceriesUrlDefaults", () => {
   const bills = [
     { id: "electricity", name: "Electricity" },
     { id: "water", name: "Water" },
   ];
 
-  it("retains valid selections and gives a valid custom Groceries pair priority over a month", () => {
+  it("retains valid selections and uses the selected Groceries month", () => {
     expect(
-      parseEssentialsUrlDefaults(
+      parseBillsGroceriesUrlDefaults(
         new URLSearchParams(
           "period=calendar&bills=water,electricity&bill=water&groceryMonth=2026-06&groceryFrom=2026-07-03&groceryTo=2026-07-05",
         ),
@@ -232,11 +232,11 @@ describe("parseEssentialsUrlDefaults", () => {
       period: "calendar",
       billIds: ["water", "electricity"],
       billId: "water",
-      groceryRange: { from: "2026-07-03", to: "2026-07-05" },
+      groceryRange: { from: "2026-06-01", to: "2026-06-30" },
     });
 
     expect(
-      parseEssentialsUrlDefaults(new URLSearchParams("groceryMonth=2024-02"), {
+      parseBillsGroceriesUrlDefaults(new URLSearchParams("groceryMonth=2024-02"), {
         bills,
         defaultBillId: "electricity",
         currentDate: "2026-07-31",
@@ -251,7 +251,7 @@ describe("parseEssentialsUrlDefaults", () => {
 
   it("falls invalid or empty values back to all Bills, the spend default, and the current month", () => {
     expect(
-      parseEssentialsUrlDefaults(
+      parseBillsGroceriesUrlDefaults(
         new URLSearchParams("period=year&bills=&bill=deleted&groceryMonth=2026-13&groceryFrom=2026-07-31&groceryTo=2026-07-01"),
         { bills, defaultBillId: "water", currentDate: "2026-07-31" },
       ),
@@ -263,11 +263,19 @@ describe("parseEssentialsUrlDefaults", () => {
     });
 
     expect(
-      parseEssentialsUrlDefaults(new URLSearchParams("groceryMonth=2026-06&groceryFrom=bad&groceryTo=2026-07-05"), {
+      parseBillsGroceriesUrlDefaults(new URLSearchParams("groceryMonth=2026-06&groceryFrom=bad&groceryTo=2026-07-05"), {
         bills,
         defaultBillId: "water",
         currentDate: "2026-07-31",
       }).groceryRange,
     ).toEqual({ from: "2026-06-01", to: "2026-06-30" });
+
+    expect(
+      parseBillsGroceriesUrlDefaults(new URLSearchParams("groceryFrom=2026-06-30&groceryTo=2026-07-01"), {
+        bills,
+        defaultBillId: "water",
+        currentDate: "2026-07-31",
+      }).groceryRange,
+    ).toEqual({ from: "2026-07-01", to: "2026-07-31" });
   });
 });

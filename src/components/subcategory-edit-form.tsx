@@ -12,7 +12,7 @@ import { PillSelect } from "@/components/pill-select";
 import { selectSubcategoryPastelColor, subcategoryPastelColors } from "@/lib/shared-colors";
 import { isCategoryIcon } from "@/lib/category-icons";
 
-type ParentCategory = { id: string; name: string; color?: string; icon?: string; subcategoryColors: string[] };
+type ParentCategory = { id: string; name: string; color?: string; icon?: string; system_key?: string | null; subcategoryColors: string[] };
 type Subcategory = { id: string; category_id: string; name: string; color: string; icon?: string | null; system_key?: string | null };
 
 export function SubcategoryEditForm({ categories, subcategory }: { categories: ParentCategory[]; subcategory: Subcategory }) {
@@ -45,31 +45,37 @@ export function SubcategoryEditForm({ categories, subcategory }: { categories: P
               <CategoryIconPicker defaultIcon={defaultIcon} inheritedIcon={inheritedIcon} />
             </Field>
           </>
-        ) : <Field>
-          <FieldLabel htmlFor={`subcategory-${subcategory.id}`}>Name</FieldLabel>
-          <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
-            <Input
-              id={`subcategory-${subcategory.id}`}
-              name="name"
-              defaultValue={subcategory.name}
-              required
-              className="h-11 rounded-none border-0 bg-transparent focus-visible:border-transparent focus-visible:ring-0"
-            />
-            <CategoryIconPicker key={categoryId} defaultIcon={defaultIcon} inheritedIcon={inheritedIcon} />
-          </div>
-        </Field>}
+        ) : (
+          <Field>
+            <FieldLabel htmlFor={`subcategory-${subcategory.id}`}>Name</FieldLabel>
+            <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+              <Input
+                id={`subcategory-${subcategory.id}`}
+                name="name"
+                defaultValue={subcategory.name}
+                required
+                className="h-11 rounded-none border-0 bg-transparent focus-visible:border-transparent focus-visible:ring-0"
+              />
+              <CategoryIconPicker key={categoryId} defaultIcon={defaultIcon} inheritedIcon={inheritedIcon} />
+            </div>
+          </Field>
+        )}
         {defaultColor ? <CategoryColorPicker key={categoryId} defaultColor={defaultColor} presetColors={colors} /> : null}
-        {!isProtected ? <Field>
-          <FieldLabel>Parent category</FieldLabel>
-          <PillSelect
-            ariaLabel="Parent category"
-            name="categoryId"
-            value={categoryId}
-            onValueChange={setCategoryId}
-            emptyLabel="Choose a category"
-            options={categories.map((category) => ({ value: category.id, label: category.name, color: category.color }))}
-          />
-        </Field> : null}
+        {!isProtected ? (
+          <Field>
+            <FieldLabel>Parent category</FieldLabel>
+            <PillSelect
+              ariaLabel="Parent category"
+              name="categoryId"
+              value={categoryId}
+              onValueChange={setCategoryId}
+              emptyLabel="Choose a category"
+              options={categories
+                .filter((category) => category.system_key !== "groceries")
+                .map((category) => ({ value: category.id, label: category.name, color: category.color }))}
+            />
+          </Field>
+        ) : null}
         <Button className="mt-5" type="submit">
           Save subcategory
         </Button>
