@@ -1,10 +1,13 @@
 import { LedgerMonthSelector } from "@/components/ledger-month-selector";
 import { LedgerControls, type LedgerFilterKind, type LedgerSort } from "@/components/ledger-controls";
-import { StatementImportSheet } from "@/components/statement-import-sheet";
+import { StatementImportForm } from "@/components/statement-import-form";
 import { TransactionLedger } from "@/components/transaction-ledger";
 import { TransactionSheet } from "@/components/transaction-sheet";
 import { WorkspaceShell } from "@/components/workspace-shell";
+import { FileUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { getDashboardData } from "@/lib/dashboard-data";
 import { currentMonth, formatDateRange, getValidDateRange } from "@/lib/date-range";
 
@@ -57,7 +60,26 @@ export default async function TransactionsPage({
       description={ledgerDescription}
       actions={
         <>
-          <StatementImportSheet defaultOpen={importRequested === "1"} />
+          <Sheet defaultOpen={importRequested === "1"}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" className="h-11 rounded-full px-4 text-foreground hover:bg-foreground/10 hover:text-foreground">
+                <FileUp aria-hidden="true" />
+                Import
+              </Button>
+            </SheetTrigger>
+            <SheetContent
+              side="right"
+              className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg"
+            >
+              <SheetHeader className="p-6">
+                <SheetTitle className="text-xl">Import CSV</SheetTitle>
+                <SheetDescription>Upload a card statement to the shared ledger.</SheetDescription>
+              </SheetHeader>
+              <div className="px-6 pb-6">
+                <StatementImportForm />
+              </div>
+            </SheetContent>
+          </Sheet>
           <TransactionSheet
             subcategories={data.subcategories.filter(
               (subcategory) => subcategory.archivedAt === null && subcategory.categoryArchivedAt === null,

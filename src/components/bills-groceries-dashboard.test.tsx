@@ -3,9 +3,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  activeSelectChange: undefined as undefined | ((value: string) => void),
+  billChanges: new Map<string, (checked: boolean) => void>(),
   monthChange: undefined as undefined | ((event: { target: { value: string } }) => void),
   push: vi.fn(),
   searchParams: new URLSearchParams(),
+  selectChanges: new Map<string, (value: string) => void>(),
   showPopoverContent: false,
 }));
 
@@ -20,12 +23,34 @@ vi.mock("@/components/ui/input", () => ({
     return <input aria-label={ariaLabel} />;
   },
 }));
+vi.mock("@/components/ui/checkbox", () => ({
+  Checkbox: ({ id, onCheckedChange }: { id: string; onCheckedChange: (checked: boolean) => void }) => {
+    mocks.billChanges.set(id, onCheckedChange);
+    return <input id={id} type="checkbox" />;
+  },
+}));
 vi.mock("@/components/ui/popover", () => ({
   Popover: ({ children }: { children: ReactNode }) => <>{children}</>,
   PopoverContent: ({ children }: { children: ReactNode }) => (mocks.showPopoverContent ? <>{children}</> : null),
   PopoverHeader: ({ children }: { children: ReactNode }) => <>{children}</>,
   PopoverTitle: ({ children }: { children: ReactNode }) => <>{children}</>,
   PopoverTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+vi.mock("@/components/ui/select", () => ({
+  Select: ({ children, onValueChange, value }: { children: ReactNode; onValueChange: (value: string) => void; value: string }) => {
+    void value;
+    mocks.activeSelectChange = onValueChange;
+    return <>{children}</>;
+  },
+  SelectContent: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SelectGroup: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SelectItem: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SelectTrigger: ({ "aria-label": ariaLabel, children, id }: { "aria-label"?: string; children: ReactNode; id?: string }) => {
+    const control = id ?? ariaLabel;
+    if (control && mocks.activeSelectChange) mocks.selectChanges.set(control, mocks.activeSelectChange);
+    return <>{children}</>;
+  },
+  SelectValue: () => null,
 }));
 
 import { BillsGroceriesChartDetail, BillsGroceriesDashboard, dashboardUrl, stackedBarRadius } from "./bills-groceries-dashboard";
@@ -50,17 +75,24 @@ const liveData = {
       budgetAgorot: null,
       months: [{ month: "2026-07", mainRunAgorot: 45_600, topUpsAgorot: 7_800 }],
     },
-    daily: [
-      { date: "2026-07-01", mainRunAgorot: 0, topUpsAgorot: 0, totalAgorot: 0 },
-      { date: "2026-07-02", mainRunAgorot: 12_300, topUpsAgorot: 4_500, totalAgorot: 16_800 },
-    ],
+    daily: Array.from({ length: 31 }, (_, index) => {
+      const day = String(index + 1).padStart(2, "0");
+      const mainRunAgorot = index === 1 ? 12_300 : 0;
+      const topUpsAgorot = index === 1 ? 4_500 : 0;
+      return { date: `2026-07-${day}`, mainRunAgorot, topUpsAgorot, totalAgorot: mainRunAgorot + topUpsAgorot };
+    }),
   },
 };
 
+const dashboardProps = { data: liveData as never, billIds: ["rent"], billId: "rent", period: "rolling" as const };
+
 beforeEach(() => {
+  mocks.activeSelectChange = undefined;
+  mocks.billChanges.clear();
   mocks.monthChange = undefined;
   mocks.push.mockReset();
   mocks.searchParams = new URLSearchParams();
+  mocks.selectChanges.clear();
   mocks.showPopoverContent = false;
 });
 
@@ -93,8 +125,54 @@ it("writes the selected daily month without losing dashboard filters", () => {
   expect(mocks.push).toHaveBeenCalledWith("/bills-groceries?period=calendar&bills=rent&bill=rent&groceryMonth=2026-06&grocery=top-ups");
 });
 
+it("writes each configured dashboard filter through its URL handler", () => {
+  mocks.searchParams = new URLSearchParams("period=rolling&bills=rent&bill=rent&groceryMonth=2026-07&grocery=main-run");
+  mocks.showPopoverContent = true;
+  const data = {
+    ...liveData,
+    bills: {
+      ...liveData.bills,
+      subcategories: [...liveData.bills.subcategories, { id: "water", name: "Water", color: "#234567" }],
+    },
+  };
+
+  renderToStaticMarkup(<BillsGroceriesDashboard data={data as never} billIds={["rent"]} billId="rent" period="rolling" />);
+
+  mocks.selectChanges.get("Bills by month-period")?.("calendar");
+  mocks.selectChanges.get("Year-over-year-period")?.("calendar");
+  mocks.selectChanges.get("Groceries by month-period")?.("calendar");
+  mocks.billChanges.get("bills-water")?.(true);
+  mocks.selectChanges.get("yoy-bill")?.("water");
+  mocks.selectChanges.get("Show spending")?.("top-ups");
+
+  expect(mocks.push).toHaveBeenNthCalledWith(
+    1,
+    "/bills-groceries?period=calendar&bills=rent&bill=rent&groceryMonth=2026-07&grocery=main-run",
+  );
+  expect(mocks.push).toHaveBeenNthCalledWith(
+    2,
+    "/bills-groceries?period=calendar&bills=rent&bill=rent&groceryMonth=2026-07&grocery=main-run",
+  );
+  expect(mocks.push).toHaveBeenNthCalledWith(
+    3,
+    "/bills-groceries?period=calendar&bills=rent&bill=rent&groceryMonth=2026-07&grocery=main-run",
+  );
+  expect(mocks.push).toHaveBeenNthCalledWith(
+    4,
+    "/bills-groceries?period=rolling&bills=rent%2Cwater&bill=rent&groceryMonth=2026-07&grocery=main-run",
+  );
+  expect(mocks.push).toHaveBeenNthCalledWith(
+    5,
+    "/bills-groceries?period=rolling&bills=rent&bill=water&groceryMonth=2026-07&grocery=main-run",
+  );
+  expect(mocks.push).toHaveBeenNthCalledWith(
+    6,
+    "/bills-groceries?period=rolling&bills=rent&bill=rent&groceryMonth=2026-07&grocery=top-ups",
+  );
+});
+
 it("links every dashboard chart to its dedicated detail page", () => {
-  const markup = renderToStaticMarkup(<BillsGroceriesDashboard />);
+  const markup = renderToStaticMarkup(<BillsGroceriesDashboard {...dashboardProps} />);
 
   expect(markup).toContain('href="/bills-groceries/bills"');
   expect(markup).toContain('href="/bills-groceries/year-over-year"');
@@ -105,7 +183,7 @@ it("links every dashboard chart to its dedicated detail page", () => {
 it("renders only the requested chart and its table on a detail page", () => {
   const markup = renderToStaticMarkup(
     <TooltipProvider>
-      <BillsGroceriesChartDetail chart="daily" />
+      <BillsGroceriesChartDetail chart="daily" {...dashboardProps} />
     </TooltipProvider>,
   );
 
@@ -121,7 +199,7 @@ it("renders only the requested chart and its table on a detail page", () => {
 });
 
 it("keeps chart data tables out of the default card view", () => {
-  const markup = renderToStaticMarkup(<BillsGroceriesDashboard />);
+  const markup = renderToStaticMarkup(<BillsGroceriesDashboard {...dashboardProps} />);
 
   for (const title of ["Bills by month", "Year-over-year", "Groceries by month", "Groceries by day"]) {
     expect(markup).toContain(title);
@@ -147,7 +225,7 @@ it("keeps chart data tables out of the default card view", () => {
 });
 
 it("renders Groceries by day as a total-spend heatmap", () => {
-  const markup = renderToStaticMarkup(<BillsGroceriesDashboard />);
+  const markup = renderToStaticMarkup(<BillsGroceriesDashboard {...dashboardProps} />);
 
   expect(markup).toContain('aria-label="Groceries by day heatmap"');
   expect(markup).toContain("Total daily spending");

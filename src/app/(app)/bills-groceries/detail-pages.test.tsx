@@ -1,13 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
 
-import BillsPage from "./bills/page";
-import DailyPage from "./daily/page";
-import GroceriesPage from "./groceries/page";
-import YearOverYearPage from "./year-over-year/page";
+import BillsGroceriesDetailPage from "./[chart]/page";
 
 const mocks = vi.hoisted(() => ({
-  getBillsGroceriesData: vi.fn(),
+  loadBillsGroceriesPage: vi.fn(),
 }));
 
 vi.mock("@/components/bills-groceries-dashboard", () => ({
@@ -26,7 +23,7 @@ vi.mock("@/components/bills-groceries-dashboard", () => ({
   }) => <output>{[chart, data?.marker, billIds?.join(","), billId, period].join("|")}</output>,
 }));
 
-vi.mock("@/lib/bills-groceries-data", () => ({ getBillsGroceriesData: mocks.getBillsGroceriesData }));
+vi.mock("@/lib/bills-groceries-page", () => ({ loadBillsGroceriesPage: mocks.loadBillsGroceriesPage }));
 
 vi.mock("@/components/workspace-shell", () => ({
   WorkspaceShell: ({ title, opaqueContent, children }: { title?: string; opaqueContent?: boolean; children: React.ReactNode }) => (
@@ -38,22 +35,19 @@ vi.mock("@/components/workspace-shell", () => ({
   ),
 }));
 
-it.each([
-  [BillsPage, "bills"],
-  [YearOverYearPage, "yoy"],
-  [GroceriesPage, "groceries"],
-  [DailyPage, "daily"],
-])("renders %s as a header-free live chart detail page", async (Page, chart) => {
-  mocks.getBillsGroceriesData.mockResolvedValue({
-    marker: "live",
-    bills: {
-      subcategories: [{ id: "rent", name: "Rent" }],
-      defaultSubcategoryId: "rent",
+it.each(["bills", "yoy", "groceries", "daily"] as const)("renders %s as a header-free live chart detail page", async (chart) => {
+  mocks.loadBillsGroceriesPage.mockResolvedValue({
+    data: { marker: "live" },
+    selected: {
+      billIds: ["rent"],
+      billId: "rent",
+      period: "rolling",
     },
   });
   const currentMonth = new Date().toISOString().slice(0, 7);
   const markup = renderToStaticMarkup(
-    await Page({
+    await BillsGroceriesDetailPage({
+      params: Promise.resolve({ chart }),
       searchParams: Promise.resolve({
         period: "rolling",
         bills: "rent",
@@ -66,12 +60,10 @@ it.each([
   expect(markup).not.toContain("<h1>");
   expect(markup).toContain("<output>true</output>");
   expect(markup).toContain(`<output>${chart}|live|rent|rent|rolling</output>`);
-  expect(mocks.getBillsGroceriesData).toHaveBeenLastCalledWith({
-    currentDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-    groceryRange: {
-      from: `${currentMonth}-01`,
-      to: expect.stringMatching(new RegExp(`^${currentMonth}-\\d{2}$`)),
-    },
+  expect(mocks.loadBillsGroceriesPage).toHaveBeenLastCalledWith({
+    bill: "rent",
+    bills: "rent",
+    groceryMonth: currentMonth,
     period: "rolling",
   });
 });

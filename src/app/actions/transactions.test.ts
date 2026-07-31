@@ -159,6 +159,18 @@ describe("transaction actions", () => {
     );
   });
 
+  it("requires a billing period for a verified Bills subcategory", async () => {
+    configureContextClient({ subcategory: { categories: { system_key: "bills" } } });
+
+    await expect(transactionsModule.createTransaction(transactionForm())).resolves.toEqual({
+      status: "error",
+      formError: "Check the form details.",
+      fieldErrors: { servicePeriodEnd: "Choose a billing period." },
+    });
+
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
   it("clears forged billing periods for a non-Bills transaction", async () => {
     configureContextClient();
 

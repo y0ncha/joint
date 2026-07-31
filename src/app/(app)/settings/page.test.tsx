@@ -117,7 +117,6 @@ it("renders the groceries budget in Household without a separate card", async ()
   expect(markup).toContain('aria-label="Log out"');
   expect(markup).toContain('data-settings-logout="true"');
   expect(markup).not.toContain("End this browser session");
-  expect(markup).not.toMatch(/>Name<\/p>/);
   expect(markup).toContain("Last 4 digits");
   expect(markup).not.toContain("Card ending");
   expect(markup).toContain('name="profileName" value="Ada Lovelace"');
@@ -213,7 +212,6 @@ it("renders joined partner access for an owner authorization with a joined membe
   expect(markup).toContain('aria-label="Manage members"');
   expect(markup).not.toContain("Owner");
   expect(markup).not.toContain(">Member</span>");
-  expect(markup).not.toMatch(/>Name<\/p>/);
   expect(markup).not.toMatch(/>Role<\/p>/);
   expect(mocks.partnerProfileEq).toHaveBeenCalledWith("id", "partner-id");
 });

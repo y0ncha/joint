@@ -1,12 +1,13 @@
 import Link from "next/link";
-import { ArrowDownRight, ArrowUpRight, MoreHorizontal } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, MoreHorizontal, Settings2 } from "lucide-react";
 
-import { DashboardControls } from "@/components/dashboard-controls";
+import { LedgerMonthSelector } from "@/components/ledger-month-selector";
 import { TransactionSheet } from "@/components/transaction-sheet";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { getDashboardData } from "@/lib/dashboard-data";
 import { currentMonth, formatDateRange, getValidDateRange, type DateRange } from "@/lib/date-range";
@@ -40,7 +41,22 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       description="A calm view of your household money."
       actions={
         <>
-          <DashboardControls month={month} range={range} />
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button type="button" size="icon" variant="ghost" className="size-11" aria-label="Dashboard controls">
+                <Settings2 aria-hidden="true" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="border-border bg-card/95 p-0 shadow-lg md:max-w-lg">
+              <SheetHeader className="p-6">
+                <SheetTitle className="text-xl">Dashboard controls</SheetTitle>
+                <SheetDescription>Choose the reporting period.</SheetDescription>
+              </SheetHeader>
+              <div className="px-6 pb-6">
+                <LedgerMonthSelector month={month} range={range} />
+              </div>
+            </SheetContent>
+          </Sheet>
           <TransactionSheet subcategories={transactionSubcategories} currentUserId={data.currentUserId} members={data.members} />
         </>
       }

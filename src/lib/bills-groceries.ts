@@ -1,4 +1,4 @@
-type IsoDateRange = { from: string; to: string };
+import type { DateRange } from "@/lib/date-range";
 
 type BillInput = {
   amount: number;
@@ -31,14 +31,14 @@ function toAgorot(amount: number) {
   return Math.round(amount * 100);
 }
 
-export function allocateBillDaily(bill: BillInput, displayRange?: IsoDateRange) {
+export function allocateBillDaily(bill: BillInput, displayRange?: DateRange) {
   const serviceStart = isoDay(bill.servicePeriodStart);
   const serviceEnd = isoDay(bill.servicePeriodEnd);
   const firstDay = Math.max(serviceStart, displayRange ? isoDay(displayRange.from) : serviceStart);
   const lastDay = Math.min(serviceEnd, displayRange ? isoDay(displayRange.to) : serviceEnd);
-  const totalAgorot = BigInt(toAgorot(bill.amount));
-  const dayCount = BigInt(serviceEnd - serviceStart + 1);
-  const dailyAgorot = totalAgorot / dayCount;
+  const totalAgorot = toAgorot(bill.amount);
+  const dayCount = serviceEnd - serviceStart + 1;
+  const dailyAgorot = Math.floor(totalAgorot / dayCount);
   const remainder = totalAgorot % dayCount;
 
   return firstDay > lastDay
@@ -48,7 +48,7 @@ export function allocateBillDaily(bill: BillInput, displayRange?: IsoDateRange) 
         return {
           date: dayIso(day),
           subcategoryId: bill.subcategoryId,
-          agorot: Number(dailyAgorot + (BigInt(day - serviceStart) < remainder ? 1n : 0n)),
+          agorot: dailyAgorot + (day - serviceStart < remainder ? 1 : 0),
         };
       });
 }
@@ -144,7 +144,7 @@ export function buildGroceriesMonthly(months: string[], transactions: GroceryInp
   };
 }
 
-export function buildGroceriesDaily(range: IsoDateRange, transactions: GroceryInput[]) {
+export function buildGroceriesDaily(range: DateRange, transactions: GroceryInput[]) {
   const firstDay = isoDay(range.from);
   const lastDay = isoDay(range.to);
   const values = new Map<string, { date: string; mainRunAgorot: number; topUpsAgorot: number }>(

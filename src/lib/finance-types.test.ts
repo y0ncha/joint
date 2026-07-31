@@ -65,6 +65,7 @@ it("retains a subcategory row's persisted color and optional icon", () => {
       archived_at: null,
       created_at: "2026-07-26T00:00:00Z",
       household_id: "household-id",
+      system_key: null,
       updated_at: "2026-07-26T00:00:00Z",
     }),
   ).toEqual({
@@ -74,5 +75,6 @@ it("retains a subcategory row's persisted color and optional icon", () => {
     color: "#D8F0D0",
     icon: "shopping-cart",
     archivedAt: null,
+    systemKey: null,
   });
 });

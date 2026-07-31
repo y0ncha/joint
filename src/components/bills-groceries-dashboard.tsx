@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from "recharts";
 import { ArrowLeft, ChevronDown, Maximize2, Settings2 } from "lucide-react";
 
@@ -31,17 +31,8 @@ type BillKey = string;
 type Period = "rolling" | "calendar";
 type GroceryFilter = "all" | "main-run" | "top-ups";
 export type BillsGroceriesChartId = "bills" | "yoy" | "groceries" | "daily";
-type MonthlyFixture = {
-  month: string;
-  [key: string]: string | number;
-  electricity: number;
-  water: number;
-  internet: number;
-  mainRun: number;
-  topUps: number;
-};
-type MonthlyChartDatum = Pick<MonthlyFixture, "month"> & Record<string, string | number>;
-type GroceryMonthlyDatum = Pick<MonthlyFixture, "month" | "mainRun" | "topUps">;
+type MonthlyChartDatum = { month: string } & Record<string, string | number>;
+type GroceryMonthlyDatum = { month: string; mainRun: number; topUps: number };
 
 const currency = new Intl.NumberFormat("en-IL", {
   style: "currency",
@@ -50,74 +41,6 @@ const currency = new Intl.NumberFormat("en-IL", {
   maximumFractionDigits: 2,
 });
 
-const bills = [
-  { value: "electricity", label: "Electricity", color: "var(--chart-1)" },
-  { value: "water", label: "Water", color: "var(--chart-2)" },
-  { value: "internet", label: "Internet", color: "var(--chart-3)" },
-] satisfies Array<{ value: BillKey; label: string; color: string }>;
-
-const monthlyFixtures: Record<Period, MonthlyFixture[]> = {
-  rolling: [
-    { month: "Aug 25", electricity: 312, water: 138, internet: 119, mainRun: 1530, topUps: 342 },
-    { month: "Sep 25", electricity: 286, water: 126, internet: 119, mainRun: 1440, topUps: 298 },
-    { month: "Oct 25", electricity: 264, water: 131, internet: 119, mainRun: 1620, topUps: 366 },
-    { month: "Nov 25", electricity: 248, water: 122, internet: 119, mainRun: 1485, topUps: 315 },
-    { month: "Dec 25", electricity: 278, water: 129, internet: 119, mainRun: 1710, topUps: 402 },
-    { month: "Jan 26", electricity: 336, water: 141, internet: 119, mainRun: 1570, topUps: 348 },
-    { month: "Feb 26", electricity: 354, water: 136, internet: 119, mainRun: 1460, topUps: 321 },
-    { month: "Mar 26", electricity: 310, water: 133, internet: 119, mainRun: 1650, topUps: 386 },
-    { month: "Apr 26", electricity: 282, water: 128, internet: 119, mainRun: 1510, topUps: 304 },
-    { month: "May 26", electricity: 260, water: 124, internet: 119, mainRun: 1680, topUps: 372 },
-    { month: "Jun 26", electricity: 298, water: 132, internet: 119, mainRun: 1595, topUps: 337 },
-    { month: "Jul 26", electricity: 326, water: 145, internet: 119, mainRun: 1725, topUps: 411 },
-  ],
-  calendar: [
-    { month: "Jan", electricity: 336, water: 141, internet: 119, mainRun: 1570, topUps: 348 },
-    { month: "Feb", electricity: 354, water: 136, internet: 119, mainRun: 1460, topUps: 321 },
-    { month: "Mar", electricity: 310, water: 133, internet: 119, mainRun: 1650, topUps: 386 },
-    { month: "Apr", electricity: 282, water: 128, internet: 119, mainRun: 1510, topUps: 304 },
-    { month: "May", electricity: 260, water: 124, internet: 119, mainRun: 1680, topUps: 372 },
-    { month: "Jun", electricity: 298, water: 132, internet: 119, mainRun: 1595, topUps: 337 },
-    { month: "Jul", electricity: 326, water: 145, internet: 119, mainRun: 1725, topUps: 411 },
-    { month: "Aug", electricity: 0, water: 0, internet: 0, mainRun: 0, topUps: 0 },
-    { month: "Sep", electricity: 0, water: 0, internet: 0, mainRun: 0, topUps: 0 },
-    { month: "Oct", electricity: 0, water: 0, internet: 0, mainRun: 0, topUps: 0 },
-    { month: "Nov", electricity: 0, water: 0, internet: 0, mainRun: 0, topUps: 0 },
-    { month: "Dec", electricity: 0, water: 0, internet: 0, mainRun: 0, topUps: 0 },
-  ],
-};
-
-const previousYear = {
-  rolling: {
-    electricity: [284, 302, 251, 243, 269, 310, 328, 296, 271, 248, 276, 301],
-    water: [126, 121, 127, 119, 123, 132, 128, 126, 122, 118, 124, 137],
-    internet: [109, 109, 109, 109, 109, 109, 109, 109, 109, 109, 109, 109],
-  },
-  calendar: {
-    electricity: [310, 328, 296, 271, 248, 276, 301, 284, 302, 251, 243, 269],
-    water: [132, 128, 126, 122, 118, 124, 137, 126, 121, 127, 119, 123],
-    internet: [109, 109, 109, 109, 109, 109, 109, 109, 109, 109, 109, 109],
-  },
-} as const;
-
-const dailyFixtures = Array.from({ length: 31 }, (_, index) => {
-  const day = index + 1;
-  const mainRun = [3, 10, 17, 24, 31].includes(day) ? 380 + day * 3 : 0;
-  const topUps = [2, 6, 9, 13, 16, 20, 23, 27, 29].includes(day) ? 54 + day * 2 : 0;
-
-  return {
-    date: `2026-07-${String(day).padStart(2, "0")}`,
-    mainRun,
-    topUps,
-    total: mainRun + topUps,
-  };
-});
-
-const fixtureGroceryChartConfig = {
-  mainRun: { label: "Main run", color: "var(--chart-4)" },
-  topUps: { label: "Top-ups", color: "var(--chart-5)" },
-  budget: { label: "Monthly budget", color: "var(--color-muted-foreground)" },
-} satisfies ChartConfig;
 const heatmapStrengths = [0, 25, 45, 70, 100] as const;
 const chartMargin = { top: 24, right: 8, bottom: 32, left: 8 };
 
@@ -382,93 +305,75 @@ function BillsGroceriesCharts({
   initialPeriod,
 }: {
   detailChart?: BillsGroceriesChartId;
-  data?: BillsGroceriesData;
-  initialBillIds?: string[];
-  initialBillId?: string | null;
-  initialPeriod?: Period;
+  data: BillsGroceriesData;
+  initialBillIds: string[];
+  initialBillId: string | null;
+  initialPeriod: Period;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const detail = detailChart !== undefined;
   const chartHeightClass = detail ? "h-[320px]" : "h-[280px]";
-  const [fixturePeriod, setFixturePeriod] = useState<Period>(initialPeriod ?? "rolling");
-  const period = data ? (initialPeriod ?? "rolling") : fixturePeriod;
-  const liveBills = data?.bills.subcategories.map((bill) => ({ value: bill.id, label: bill.name, color: bill.color }));
-  const chartBills = liveBills ?? bills;
-  const [fixtureSelectedBills, setFixtureSelectedBills] = useState<BillKey[]>(initialBillIds ?? chartBills.map((bill) => bill.value));
-  const [fixtureYoyBill, setFixtureYoyBill] = useState<BillKey>(
-    initialBillId ?? data?.bills.defaultSubcategoryId ?? chartBills[0]?.value ?? "",
-  );
-  const selectedBills = data ? (initialBillIds ?? chartBills.map((bill) => bill.value)) : fixtureSelectedBills;
-  const yoyBill = data ? (initialBillId ?? data.bills.defaultSubcategoryId ?? chartBills[0]?.value ?? "") : fixtureYoyBill;
+  const period = initialPeriod;
+  const chartBills = data.bills.subcategories.map((bill) => ({ value: bill.id, label: bill.name, color: bill.color }));
+  const selectedBills = initialBillIds;
+  const yoyBill = initialBillId ?? data.bills.defaultSubcategoryId ?? chartBills[0]?.value ?? "";
   const groceryParam = searchParams.get("grocery");
   const groceryFilter: GroceryFilter = groceryParam === "main-run" || groceryParam === "top-ups" ? groceryParam : "all";
-  const billMonthlyData: MonthlyChartDatum[] = data
-    ? data.months.map((month) => ({
-        month,
-        ...Object.fromEntries(
-          chartBills.map((bill) => [
-            bill.value,
-            (data.bills.monthly.find((value) => value.month === month && value.subcategoryId === bill.value)?.agorot ?? 0) / 100,
-          ]),
-        ),
-      }))
-    : monthlyFixtures[period];
-  const yoyMonthlyData = billMonthlyData;
-  const groceryMonthlyData: GroceryMonthlyDatum[] = data
-    ? data.groceries.monthly.months.map((month) => ({
-        month: month.month,
-        mainRun: month.mainRunAgorot / 100,
-        topUps: month.topUpsAgorot / 100,
-      }))
-    : monthlyFixtures[period];
-  const mainRun = data?.groceries.subcategories.mainRun;
-  const topUps = data?.groceries.subcategories.topUps;
-  const groceryChartConfig = data
-    ? ({
-        mainRun: { label: mainRun?.name ?? "Main run", color: mainRun?.color ?? "var(--chart-4)" },
-        topUps: { label: topUps?.name ?? "Top-ups", color: topUps?.color ?? "var(--chart-5)" },
-        budget: { label: "Monthly budget", color: "var(--color-muted-foreground)" },
-      } satisfies ChartConfig)
-    : fixtureGroceryChartConfig;
-  const groceryColor = data?.groceries.category?.color ?? "var(--chart-4)";
-  const groceryBudgetAgorot = data ? data.groceries.monthly.budgetAgorot : 200_000;
-  const yoyBillDetails = chartBills.find((bill) => bill.value === yoyBill) ?? chartBills[0];
-  const yoyData = yoyMonthlyData.map((month, index) => ({
-    month: month.month,
-    current: Number(month[yoyBill] ?? 0),
-    previous: data
-      ? data.bills.monthly.find(
-          (value) => value.month === `${Number(month.month.slice(0, 4)) - 1}${month.month.slice(4)}` && value.subcategoryId === yoyBill,
-        )?.agorot
-      : Number(previousYear[period][yoyBill as keyof typeof previousYear.rolling]?.[index] ?? 0),
+  const billMonthlyData: MonthlyChartDatum[] = data.months.map((month) => ({
+    month,
+    ...Object.fromEntries(
+      chartBills.map((bill) => [
+        bill.value,
+        (data.bills.monthly.find((value) => value.month === month && value.subcategoryId === bill.value)?.agorot ?? 0) / 100,
+      ]),
+    ),
   }));
-  if (data) {
-    for (const month of yoyData) {
-      if (month.previous !== undefined) month.previous /= 100;
-    }
-  }
-  const hasYoyData = !data || yoyData.some((month) => month.current > 0 || month.previous !== undefined);
+  const yoyMonthlyData = billMonthlyData;
+  const groceryMonthlyData: GroceryMonthlyDatum[] = data.groceries.monthly.months.map((month) => ({
+    month: month.month,
+    mainRun: month.mainRunAgorot / 100,
+    topUps: month.topUpsAgorot / 100,
+  }));
+  const mainRun = data.groceries.subcategories.mainRun;
+  const topUps = data.groceries.subcategories.topUps;
+  const groceryChartConfig = {
+    mainRun: { label: mainRun?.name ?? "Main run", color: mainRun?.color ?? "var(--chart-4)" },
+    topUps: { label: topUps?.name ?? "Top-ups", color: topUps?.color ?? "var(--chart-5)" },
+    budget: { label: "Monthly budget", color: "var(--color-muted-foreground)" },
+  } satisfies ChartConfig;
+  const groceryColor = data.groceries.category?.color ?? "var(--chart-4)";
+  const groceryBudgetAgorot = data.groceries.monthly.budgetAgorot;
+  const yoyBillDetails = chartBills.find((bill) => bill.value === yoyBill) ?? chartBills[0];
+  const yoyData = yoyMonthlyData.map((month) => {
+    const previousAgorot = data.bills.monthly.find(
+      (value) => value.month === `${Number(month.month.slice(0, 4)) - 1}${month.month.slice(4)}` && value.subcategoryId === yoyBill,
+    )?.agorot;
+    return {
+      month: month.month,
+      current: Number(month[yoyBill] ?? 0),
+      ...(previousAgorot === undefined ? {} : { previous: previousAgorot / 100 }),
+    };
+  });
+  const hasYoyData = yoyData.some((month) => month.current > 0 || month.previous !== undefined);
   const yoyChartConfig = {
     current: { label: `${yoyBillDetails?.label ?? "Bills"} · current year`, color: yoyBillDetails?.color ?? "var(--chart-1)" },
     previous: { label: `${yoyBillDetails?.label ?? "Bills"} · previous year`, color: yoyBillDetails?.color ?? "var(--chart-1)" },
   } satisfies ChartConfig;
-  const dailyData = (
-    data
-      ? data.groceries.daily.map((day) => ({
-          date: day.date,
-          mainRun: day.mainRunAgorot / 100,
-          topUps: day.topUpsAgorot / 100,
-          total: day.totalAgorot / 100,
-        }))
-      : dailyFixtures
-  ).map((day) => ({
-    ...day,
-    mainRun: groceryFilter === "top-ups" ? 0 : day.mainRun,
-    topUps: groceryFilter === "main-run" ? 0 : day.topUps,
-    total: groceryFilter === "main-run" ? day.mainRun : groceryFilter === "top-ups" ? day.topUps : day.total,
-  }));
+  const dailyData = data.groceries.daily
+    .map((day) => ({
+      date: day.date,
+      mainRun: day.mainRunAgorot / 100,
+      topUps: day.topUpsAgorot / 100,
+      total: day.totalAgorot / 100,
+    }))
+    .map((day) => ({
+      ...day,
+      mainRun: groceryFilter === "top-ups" ? 0 : day.mainRun,
+      topUps: groceryFilter === "main-run" ? 0 : day.topUps,
+      total: groceryFilter === "main-run" ? day.mainRun : groceryFilter === "top-ups" ? day.topUps : day.total,
+    }));
   const groceryMonth = searchParams.get("groceryMonth") ?? dailyData[0]?.date.slice(0, 7) ?? "";
   const dailyHeatmapOffset = dailyData.length ? new Date(`${dailyData[0].date}T12:00:00`).getDay() : 0;
   const dailyHeatmapCells: Array<(typeof dailyData)[number] | null> = [
@@ -489,7 +394,6 @@ function BillsGroceriesCharts({
   }
 
   function changePeriod(nextPeriod: Period) {
-    if (!data) setFixturePeriod(nextPeriod);
     updateUrl({ period: nextPeriod });
   }
 
@@ -499,7 +403,6 @@ function BillsGroceriesCharts({
       : selectedBills.length === 1
         ? selectedBills
         : selectedBills.filter((bill) => bill !== value);
-    if (!data) setFixtureSelectedBills(next);
     updateUrl({ bills: next.join(",") });
   }
 
@@ -553,7 +456,7 @@ function BillsGroceriesCharts({
           </ChartContainer>
           {chartBills.length === 0 ? (
             <p className="text-sm text-muted-foreground">Add a Bills subcategory to see monthly spending.</p>
-          ) : data && !billMonthlyData.some((month) => selectedBills.some((bill) => Number(month[bill] ?? 0) > 0)) ? (
+          ) : !billMonthlyData.some((month) => selectedBills.some((bill) => Number(month[bill] ?? 0) > 0)) ? (
             <p className="text-sm text-muted-foreground">No Bills data yet.</p>
           ) : null}
           {detailChart === "bills" && (
@@ -601,7 +504,6 @@ function BillsGroceriesCharts({
                 bills={chartBills}
                 selectedBills={[yoyBill]}
                 toggleBill={(value) => {
-                  if (!data) setFixtureYoyBill(value);
                   updateUrl({ bill: value });
                 }}
                 single
@@ -626,7 +528,7 @@ function BillsGroceriesCharts({
             </BarChart>
           </ChartContainer>
           {chartBills.length === 0 || !hasYoyData ? <p className="text-sm text-muted-foreground">No Bills data yet.</p> : null}
-          {data && chartBills.length > 0 && hasYoyData && yoyData.some((month) => month.previous === undefined) ? (
+          {chartBills.length > 0 && hasYoyData && yoyData.some((month) => month.previous === undefined) ? (
             <p className="text-sm text-muted-foreground">No previous-year data</p>
           ) : null}
           {detailChart === "yoy" && (
@@ -896,10 +798,10 @@ export function BillsGroceriesDashboard({
   billId,
   period,
 }: {
-  data?: BillsGroceriesData;
-  billIds?: string[];
-  billId?: string | null;
-  period?: Period;
+  data: BillsGroceriesData;
+  billIds: string[];
+  billId: string | null;
+  period: Period;
 }) {
   return <BillsGroceriesCharts data={data} initialBillIds={billIds} initialBillId={billId} initialPeriod={period} />;
 }
@@ -912,10 +814,10 @@ export function BillsGroceriesChartDetail({
   period,
 }: {
   chart: BillsGroceriesChartId;
-  data?: BillsGroceriesData;
-  billIds?: string[];
-  billId?: string | null;
-  period?: Period;
+  data: BillsGroceriesData;
+  billIds: string[];
+  billId: string | null;
+  period: Period;
 }) {
   return <BillsGroceriesCharts detailChart={chart} data={data} initialBillIds={billIds} initialBillId={billId} initialPeriod={period} />;
 }

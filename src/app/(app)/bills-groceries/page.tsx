@@ -1,7 +1,6 @@
 import { BillsGroceriesDashboard } from "@/components/bills-groceries-dashboard";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import { getBillsGroceriesData } from "@/lib/bills-groceries-data";
-import { parseBillsGroceriesUrlDefaults } from "@/lib/bills-groceries";
+import { loadBillsGroceriesPage } from "@/lib/bills-groceries-page";
 import { redirect } from "next/navigation";
 
 export default async function BillsGroceriesPage({
@@ -15,15 +14,7 @@ export default async function BillsGroceriesPage({
   }>;
 }) {
   const requested = await searchParams;
-  const params = new URLSearchParams(Object.entries(requested).flatMap(([key, value]) => (value === undefined ? [] : [[key, value]])));
-  const currentDate = new Date().toISOString().slice(0, 10);
-  const initial = parseBillsGroceriesUrlDefaults(params, { bills: [], defaultBillId: null, currentDate });
-  const data = await getBillsGroceriesData({ currentDate, groceryRange: initial.groceryRange, period: initial.period });
-  const selected = parseBillsGroceriesUrlDefaults(params, {
-    bills: data.bills.subcategories,
-    defaultBillId: data.bills.defaultSubcategoryId,
-    currentDate,
-  });
+  const { data, params, selected } = await loadBillsGroceriesPage(requested);
   const canonical = new URLSearchParams(params);
   canonical.set("period", selected.period);
   canonical.set("bills", selected.billIds.join(","));
