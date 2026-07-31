@@ -20,10 +20,12 @@
 ### Task 1: Route-ready Essentials chart composition
 
 **Files:**
+
 - Modify: `src/components/essentials-dashboard.tsx`
 - Test: `src/components/essentials-dashboard.test.tsx`
 
 **Interfaces:**
+
 - Produces: `EssentialsChartDetail({ chart: "bills" | "yoy" | "groceries" | "daily" })` for route pages.
 - Preserves: `EssentialsDashboard()` for `/essentials`.
 
@@ -31,7 +33,7 @@
 
 ```tsx
 expect(renderToStaticMarkup(<EssentialsDashboard />)).toContain('href="/essentials/daily"');
-expect(renderToStaticMarkup(<EssentialsChartDetail chart="daily" />)).toContain('aria-label="Daily groceries data table"');
+expect(renderToStaticMarkup(<EssentialsChartDetail chart="daily" />)).toContain('aria-label="Groceries by day data table"');
 expect(renderToStaticMarkup(<EssentialsChartDetail chart="daily" />)).not.toContain("Bills by month");
 ```
 
@@ -64,10 +66,12 @@ Expected: PASS.
 ### Task 2: Static detail routes and normal shell
 
 **Files:**
+
 - Modify: `src/app/(app)/essentials/page.tsx`, `src/app/(app)/essentials/page.test.tsx`, `src/components/workspace-shell.tsx`, `src/components/workspace-shell.test.tsx`, `src/app/globals.css`
 - Create: `src/app/(app)/essentials/bills/page.tsx`, `src/app/(app)/essentials/year-over-year/page.tsx`, `src/app/(app)/essentials/groceries/page.tsx`, `src/app/(app)/essentials/daily/page.tsx`
 
 **Interfaces:**
+
 - Consumes: `EssentialsDashboard()` and `EssentialsChartDetail({ chart })`.
 - Produces: four fixed App Router pages and a shell with no `immersive` prop.
 
@@ -76,7 +80,13 @@ Expected: PASS.
 ```tsx
 expect(renderToStaticMarkup(<EssentialsPage />)).not.toContain("onExpandedChange");
 expect(renderToStaticMarkup(<DailyEssentialsPage />)).toContain("Back to Essentials");
-expect(renderToStaticMarkup(<WorkspaceShell title="Essentials"><p>Content</p></WorkspaceShell>)).not.toContain("hidden=\"\"");
+expect(
+  renderToStaticMarkup(
+    <WorkspaceShell title="Essentials">
+      <p>Content</p>
+    </WorkspaceShell>,
+  ),
+).not.toContain('hidden=""');
 ```
 
 - [ ] **Step 2: Run focused route and shell tests to verify they fail**
@@ -90,7 +100,7 @@ Expected: FAIL because the route still owns expansion state and the shell still 
 ```tsx
 export default function DailyEssentialsPage() {
   return (
-    <WorkspaceShell title="Daily groceries" description="Daily spending, including no-spend days.">
+    <WorkspaceShell title="Groceries by day" description="Daily spending, including no-spend days.">
       <EssentialsChartDetail chart="daily" />
     </WorkspaceShell>
   );
@@ -108,6 +118,7 @@ Expected: PASS.
 ### Task 3: Full focused verification
 
 **Files:**
+
 - Modify: `docs/design.md`, `docs/plans/essentials-dashboard.md`
 
 - [ ] **Step 1: Update the Essentials interaction contract**

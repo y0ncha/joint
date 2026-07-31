@@ -259,6 +259,11 @@ alter table public.transactions
     or service_period_end - service_period_start <= 365
   );
 
+create index transactions_household_service_period_idx
+on public.transactions (household_id, service_period_start, service_period_end)
+where service_period_start is not null
+  and service_period_end is not null;
+
 drop trigger transactions_validate_subcategory on public.transactions;
 drop function public.validate_transaction_subcategory();
 
@@ -344,13 +349,18 @@ before insert or update on public.transactions
 for each row execute function private.validate_transaction_subcategory();
 
 alter table public.households
-  add column groceries_monthly_budget numeric(12, 2),
+  add column groceries_monthly_budget numeric,
   add constraint households_groceries_monthly_budget_check check (
     groceries_monthly_budget is null
     or (
-      groceries_monthly_budget <> 'NaN'::numeric
+      groceries_monthly_budget not in (
+        'NaN'::numeric,
+        'Infinity'::numeric,
+        '-Infinity'::numeric
+      )
       and groceries_monthly_budget > 0
       and scale(groceries_monthly_budget) <= 2
+      and abs(groceries_monthly_budget) < 10000000000
     )
   );
 

@@ -2,7 +2,77 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(78);
+select extensions.plan(143);
+
+select extensions.is(
+  (select count(*) from public.transactions),
+  0::bigint,
+  'the Essentials migration resets all financial transactions'
+);
+
+select extensions.ok(
+  (select count(*) > 0 from public.households)
+    and (select count(*) > 0 from public.profiles)
+    and (select count(*) > 0 from public.household_members),
+  'the Essentials migration preserves existing households, profiles, and memberships'
+);
+
+select extensions.ok(
+  not exists (
+    select 1
+    from public.categories
+    where system_key is null
+  )
+    and not exists (
+      select 1
+      from public.households as household
+      where (
+        select count(*)
+        from public.categories as category
+        where category.household_id = household.id
+          and (
+            (category.system_key = 'bills'
+              and category.name = 'Bills'
+              and category.kind = 'expense'
+              and category.icon = 'receipt'
+              and category.archived_at is null)
+            or
+            (category.system_key = 'groceries'
+              and category.name = 'Groceries'
+              and category.kind = 'expense'
+              and category.icon = 'shopping-basket'
+              and category.archived_at is null)
+          )
+      ) <> 2
+    ),
+  'the Essentials migration leaves exactly the protected parent seeds for every existing household'
+);
+
+select extensions.ok(
+  not exists (
+    select 1
+    from public.subcategories
+    where system_key is null
+  )
+    and not exists (
+      select 1
+      from public.households as household
+      where (
+        select count(*)
+        from public.subcategories as subcategory
+        join public.categories as category on category.id = subcategory.category_id
+        where subcategory.household_id = household.id
+          and category.household_id = household.id
+          and category.system_key = 'groceries'
+          and subcategory.archived_at is null
+          and (
+            (subcategory.system_key = 'main_run' and subcategory.name = 'Main run')
+            or (subcategory.system_key = 'top_ups' and subcategory.name = 'Top-ups')
+          )
+      ) <> 2
+    ),
+  'the Essentials migration leaves exactly the protected Groceries children for every existing household'
+);
 
 select extensions.hasnt_table('public', 'accounts', 'has no accounts table');
 select extensions.hasnt_type('public', 'account_kind', 'has no account kind enum');
@@ -115,6 +185,83 @@ values
   ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000402', 'member'),
   ('00000000-0000-0000-0000-000000000411', '00000000-0000-0000-0000-000000000404', 'member');
 
+select extensions.ok(
+  not exists (
+    select 1
+    from (
+      values
+        ('00000000-0000-0000-0000-000000000410'::uuid),
+        ('00000000-0000-0000-0000-000000000411'::uuid)
+    ) as expected(household_id)
+    where (select count(*) from public.categories where household_id = expected.household_id) <> 2
+      or (
+        select count(*)
+        from public.categories as category
+        where category.household_id = expected.household_id
+          and (
+            (category.system_key = 'bills'
+              and category.name = 'Bills'
+              and category.kind = 'expense'
+              and category.icon = 'receipt'
+              and category.archived_at is null)
+            or
+            (category.system_key = 'groceries'
+              and category.name = 'Groceries'
+              and category.kind = 'expense'
+              and category.icon = 'shopping-basket'
+              and category.archived_at is null)
+          )
+      ) <> 2
+  ),
+  'future household provisioning creates both protected parent categories'
+);
+
+select extensions.ok(
+  not exists (
+    select 1
+    from (
+      values
+        ('00000000-0000-0000-0000-000000000410'::uuid),
+        ('00000000-0000-0000-0000-000000000411'::uuid)
+    ) as expected(household_id)
+    where (select count(*) from public.subcategories where household_id = expected.household_id) <> 2
+      or (
+        select count(*)
+        from public.subcategories as subcategory
+        join public.categories as category on category.id = subcategory.category_id
+        where subcategory.household_id = expected.household_id
+          and category.system_key = 'groceries'
+          and subcategory.archived_at is null
+          and (
+            (subcategory.system_key = 'main_run' and subcategory.name = 'Main run')
+            or (subcategory.system_key = 'top_ups' and subcategory.name = 'Top-ups')
+          )
+      ) <> 2
+  ),
+  'future household provisioning creates both protected Groceries children'
+);
+
+select extensions.is(
+  (
+    select count(*)
+    from public.household_members
+    where (household_id, user_id, role) in (
+      (
+        '00000000-0000-0000-0000-000000000410'::uuid,
+        '00000000-0000-0000-0000-000000000401'::uuid,
+        'owner'::public.household_role
+      ),
+      (
+        '00000000-0000-0000-0000-000000000411'::uuid,
+        '00000000-0000-0000-0000-000000000403'::uuid,
+        'owner'::public.household_role
+      )
+    )
+  ),
+  2::bigint,
+  'future household provisioning creates each owner membership with its protected taxonomy'
+);
+
 select extensions.lives_ok(
   $$
     insert into public.categories (household_id, name, kind)
@@ -156,6 +303,103 @@ insert into public.member_cards (household_id, user_id, last_four)
 values ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000402', '5678');
 
 set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000401';
+set local request.jwt.claim.email = 'first-owner@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
+
+select extensions.lives_ok(
+  $$ select public.save_current_settings(1250.50::numeric) $$,
+  'a household owner can set the shared Groceries budget'
+);
+
+select extensions.is(
+  (select groceries_monthly_budget from public.households where id = '00000000-0000-0000-0000-000000000410'),
+  1250.50::numeric,
+  'an owner budget update persists exactly'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000402';
+set local request.jwt.claim.email = 'first-member@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000402","email":"first-member@example.test"}';
+
+select extensions.lives_ok(
+  $$ select public.save_current_settings(900.25::numeric) $$,
+  'a non-owner household member can set the shared Groceries budget'
+);
+
+select extensions.is(
+  (select groceries_monthly_budget from public.households where id = '00000000-0000-0000-0000-000000000410'),
+  900.25::numeric,
+  'a member budget update persists exactly'
+);
+
+select extensions.is_empty(
+  $$
+    update public.households
+    set groceries_monthly_budget = 1
+    where id = '00000000-0000-0000-0000-000000000410'
+    returning 1
+  $$,
+  'a non-owner member cannot bypass the settings function to update the budget directly'
+);
+
+select extensions.lives_ok(
+  $$ select public.save_current_settings(null::numeric, null, null, null, null) $$,
+  'a household member can clear the shared Groceries budget'
+);
+
+select extensions.is(
+  (select groceries_monthly_budget from public.households where id = '00000000-0000-0000-0000-000000000410'),
+  null::numeric,
+  'clearing the shared Groceries budget persists NULL'
+);
+
+select extensions.throws_like(
+  $$ select public.save_current_settings(0::numeric) $$,
+  '%households_groceries_monthly_budget_check%',
+  'the shared Groceries budget rejects zero'
+);
+
+select extensions.throws_like(
+  $$ select public.save_current_settings((-1)::numeric) $$,
+  '%households_groceries_monthly_budget_check%',
+  'the shared Groceries budget rejects negative values'
+);
+
+select extensions.throws_like(
+  $$ select public.save_current_settings(1.001::numeric) $$,
+  '%households_groceries_monthly_budget_check%',
+  'the shared Groceries budget rejects more than two decimal places'
+);
+
+select extensions.throws_like(
+  $$ select public.save_current_settings('NaN'::numeric) $$,
+  '%households_groceries_monthly_budget_check%',
+  'the shared Groceries budget rejects NaN'
+);
+
+select extensions.throws_like(
+  $$ select public.save_current_settings('Infinity'::numeric) $$,
+  '%households_groceries_monthly_budget_check%',
+  'the shared Groceries budget rejects infinity'
+);
+
+select extensions.throws_like(
+  $$ select public.save_current_settings(10000000000::numeric) $$,
+  '%households_groceries_monthly_budget_check%',
+  'the shared Groceries budget rejects the exclusive magnitude boundary'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000405';
+set local request.jwt.claim.email = 'outsider@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000405","email":"outsider@example.test"}';
+
+select extensions.throws_like(
+  $$ select public.save_current_settings(500::numeric) $$,
+  '%Not allowed%',
+  'an authenticated non-member cannot change a household budget'
+);
+
 set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000401';
 set local request.jwt.claim.email = 'first-owner@example.test';
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
@@ -279,7 +523,7 @@ select extensions.throws_like(
 insert into public.categories (id, household_id, name, kind)
 values
   ('00000000-0000-0000-0000-000000000420', '00000000-0000-0000-0000-000000000410', 'Salary', 'income'),
-  ('00000000-0000-0000-0000-000000000421', '00000000-0000-0000-0000-000000000410', 'Groceries', 'expense'),
+  ('00000000-0000-0000-0000-000000000421', '00000000-0000-0000-0000-000000000410', 'Food', 'expense'),
   ('00000000-0000-0000-0000-000000000422', '00000000-0000-0000-0000-000000000411', 'Other income', 'income'),
   ('00000000-0000-0000-0000-000000000423', '00000000-0000-0000-0000-000000000411', 'Other expense', 'expense');
 
@@ -289,6 +533,224 @@ values
   ('00000000-0000-0000-0000-000000000425', '00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000421', 'Groceries'),
   ('00000000-0000-0000-0000-000000000426', '00000000-0000-0000-0000-000000000411', '00000000-0000-0000-0000-000000000422', 'Other income'),
   ('00000000-0000-0000-0000-000000000427', '00000000-0000-0000-0000-000000000411', '00000000-0000-0000-0000-000000000423', 'Other expense');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000401';
+set local request.jwt.claim.email = 'first-owner@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
+
+select extensions.throws_like(
+  $$
+    delete from public.categories
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'bills'
+  $$,
+  '%Essential categories cannot be deleted%',
+  'a protected Bills parent cannot be deleted'
+);
+
+select extensions.throws_like(
+  $$
+    update public.categories
+    set name = 'Utilities'
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'bills'
+  $$,
+  '%Essential category identity cannot be changed%',
+  'a protected Bills parent cannot be renamed'
+);
+
+select extensions.throws_like(
+  $$
+    update public.categories
+    set archived_at = now()
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'groceries'
+  $$,
+  '%Essential category identity cannot be changed%',
+  'a protected Groceries parent cannot be archived'
+);
+
+select extensions.throws_like(
+  $$
+    update public.categories
+    set system_key = null
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'groceries'
+  $$,
+  '%Essential category identity cannot be changed%',
+  'a protected parent cannot lose its system key'
+);
+
+select extensions.lives_ok(
+  $$
+    update public.categories
+    set color = '#ffcff0', icon = 'tag'
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'bills'
+  $$,
+  'a protected parent permits appearance customization'
+);
+
+select extensions.throws_like(
+  $$
+    delete from public.subcategories
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'main_run'
+  $$,
+  '%Essential subcategories cannot be deleted%',
+  'a protected Groceries child cannot be deleted'
+);
+
+select extensions.throws_like(
+  $$
+    update public.subcategories
+    set name = 'Main shop'
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'main_run'
+  $$,
+  '%Essential subcategory identity cannot be changed%',
+  'a protected Groceries child cannot be renamed'
+);
+
+select extensions.throws_like(
+  $$
+    update public.subcategories
+    set archived_at = now()
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'top_ups'
+  $$,
+  '%Essential subcategory identity cannot be changed%',
+  'a protected Groceries child cannot be archived'
+);
+
+select extensions.throws_like(
+  $$
+    update public.subcategories
+    set category_id = (
+      select id
+      from public.categories
+      where household_id = '00000000-0000-0000-0000-000000000410'
+        and system_key = 'bills'
+    ), color = null
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'top_ups'
+  $$,
+  '%Essential subcategory identity cannot be changed%',
+  'a protected Groceries child cannot move to another parent'
+);
+
+select extensions.throws_like(
+  $$
+    update public.subcategories
+    set system_key = null
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'main_run'
+  $$,
+  '%Essential subcategory identity cannot be changed%',
+  'a protected Groceries child cannot lose its system key'
+);
+
+select extensions.lives_ok(
+  $$
+    update public.subcategories
+    set icon = 'tag'
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'main_run'
+  $$,
+  'a protected Groceries child permits appearance customization'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.subcategories (household_id, category_id, name)
+    select household_id, id, 'Extra groceries'
+    from public.categories
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'groceries'
+  $$,
+  '%Groceries accepts only its protected subcategories%',
+  'Groceries rejects an additional user-managed child'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.subcategories (household_id, category_id, name, system_key)
+    select household_id, id, 'Main run', 'main_run'
+    from public.categories
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'bills'
+  $$,
+  '%Essential grocery subcategories must belong to Groceries%',
+  'a protected Groceries system key cannot be forged beneath Bills'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.subcategories (id, household_id, category_id, name)
+    select
+      '00000000-0000-0000-0000-000000000428',
+      household_id,
+      id,
+      'Utilities'
+    from public.categories
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'bills'
+  $$,
+  'a household member can create a user-managed Bills child'
+);
+
+select extensions.lives_ok(
+  $$
+    update public.subcategories
+    set name = 'Home utilities'
+    where id = '00000000-0000-0000-0000-000000000428'
+  $$,
+  'a household member can rename a user-managed Bills child'
+);
+
+select extensions.lives_ok(
+  $$
+    update public.subcategories
+    set category_id = '00000000-0000-0000-0000-000000000421', color = null
+    where id = '00000000-0000-0000-0000-000000000428'
+  $$,
+  'a household member can move a user-managed Bills child to another allowed parent'
+);
+
+select extensions.lives_ok(
+  $$
+    update public.subcategories
+    set category_id = (
+      select id
+      from public.categories
+      where household_id = '00000000-0000-0000-0000-000000000410'
+        and system_key = 'bills'
+    ), color = null
+    where id = '00000000-0000-0000-0000-000000000428'
+  $$,
+  'a household member can move a user-managed child back beneath Bills'
+);
+
+select extensions.throws_like(
+  $$
+    update public.subcategories
+    set category_id = (
+      select id
+      from public.categories
+      where household_id = '00000000-0000-0000-0000-000000000410'
+        and system_key = 'groceries'
+    ), color = null
+    where id = '00000000-0000-0000-0000-000000000428'
+  $$,
+  '%Groceries accepts only its protected subcategories%',
+  'a user-managed Bills child cannot move beneath Groceries'
+);
+
+reset role;
+set local request.jwt.claim.sub = '';
+set local request.jwt.claim.email = '';
+set local request.jwt.claims = '{}';
 
 insert into public.transactions (
   id,
@@ -514,6 +976,163 @@ select extensions.is(
 select extensions.lives_ok(
   $$
     insert into public.transactions (
+      id,
+      household_id,
+      kind,
+      amount,
+      occurred_on,
+      subcategory_id,
+      created_by,
+      paid_by,
+      service_period_start,
+      service_period_end
+    )
+    values (
+      '00000000-0000-0000-0000-000000000433',
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      60.00,
+      date '2026-07-31',
+      '00000000-0000-0000-0000-000000000428',
+      '00000000-0000-0000-0000-000000000401',
+      '00000000-0000-0000-0000-000000000401',
+      date '2024-01-01',
+      date '2024-12-31'
+    )
+  $$,
+  'a Bills transaction accepts an inclusive 366-day service period'
+);
+
+select extensions.is(
+  (
+    select jsonb_build_object(
+      'amount', amount,
+      'occurred_on', occurred_on,
+      'service_period_start', service_period_start,
+      'service_period_end', service_period_end
+    )
+    from public.transactions
+    where id = '00000000-0000-0000-0000-000000000433'
+  ),
+  jsonb_build_object(
+    'amount', 60.00::numeric,
+    'occurred_on', date '2026-07-31',
+    'service_period_start', date '2024-01-01',
+    'service_period_end', date '2024-12-31'
+  ),
+  'a Bills service period does not change its stored amount or posting date'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (
+      household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by
+    )
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10,
+      date '2026-07-03',
+      '00000000-0000-0000-0000-000000000428',
+      '00000000-0000-0000-0000-000000000401',
+      '00000000-0000-0000-0000-000000000401'
+    )
+  $$,
+  '%Bills transactions require a service period%',
+  'a Bills transaction rejects a missing service period'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (
+      household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by,
+      service_period_start
+    )
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10,
+      date '2026-07-03',
+      '00000000-0000-0000-0000-000000000428',
+      '00000000-0000-0000-0000-000000000401',
+      '00000000-0000-0000-0000-000000000401',
+      date '2026-07-01'
+    )
+  $$,
+  '%Bills transactions require a service period%',
+  'a Bills transaction rejects an unpaired service period'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (
+      household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by,
+      service_period_start, service_period_end
+    )
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10,
+      date '2026-07-03',
+      '00000000-0000-0000-0000-000000000428',
+      '00000000-0000-0000-0000-000000000401',
+      '00000000-0000-0000-0000-000000000401',
+      date '2026-08-01',
+      date '2026-07-31'
+    )
+  $$,
+  '%transactions_service_period_order_check%',
+  'a Bills transaction rejects a reversed service period'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (
+      household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by,
+      service_period_start, service_period_end
+    )
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10,
+      date '2026-07-03',
+      '00000000-0000-0000-0000-000000000428',
+      '00000000-0000-0000-0000-000000000401',
+      '00000000-0000-0000-0000-000000000401',
+      date '2024-01-01',
+      date '2025-01-01'
+    )
+  $$,
+  '%transactions_service_period_length_check%',
+  'a Bills transaction rejects a service period longer than 366 inclusive days'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (
+      household_id, kind, amount, occurred_on, subcategory_id, created_by, paid_by,
+      service_period_start, service_period_end
+    )
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'expense',
+      10,
+      date '2026-07-03',
+      '00000000-0000-0000-0000-000000000425',
+      '00000000-0000-0000-0000-000000000401',
+      '00000000-0000-0000-0000-000000000401',
+      date '2026-07-01',
+      date '2026-07-31'
+    )
+  $$,
+  '%Only Bills transactions can have a service period%',
+  'a non-Bills transaction rejects a service period'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.transactions (
+      id,
       household_id,
       kind,
       amount,
@@ -526,6 +1145,7 @@ select extensions.lives_ok(
       import_row_number
     )
     values (
+      '00000000-0000-0000-0000-000000000432',
       '00000000-0000-0000-0000-000000000410',
       'expense',
       10.00,
@@ -539,6 +1159,46 @@ select extensions.lives_ok(
     )
   $$,
   'an imported transaction may be uncategorized and unassigned'
+);
+
+select extensions.throws_like(
+  $$
+    update public.transactions
+    set subcategory_id = '00000000-0000-0000-0000-000000000428'
+    where id = '00000000-0000-0000-0000-000000000432'
+  $$,
+  '%Bills transactions require a service period%',
+  'assigning an imported transaction to Bills requires a service period'
+);
+
+select extensions.lives_ok(
+  $$
+    update public.transactions
+    set
+      subcategory_id = '00000000-0000-0000-0000-000000000428',
+      service_period_start = date '2026-07-01',
+      service_period_end = date '2026-07-31'
+    where id = '00000000-0000-0000-0000-000000000432'
+  $$,
+  'an imported transaction can be assigned to Bills with a service period'
+);
+
+select extensions.is(
+  (
+    select jsonb_build_object(
+      'source', source,
+      'import_file_hash', import_file_hash,
+      'import_row_number', import_row_number
+    )
+    from public.transactions
+    where id = '00000000-0000-0000-0000-000000000432'
+  ),
+  jsonb_build_object(
+    'source', 'statement_import'::public.transaction_source,
+    'import_file_hash', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'::text,
+    'import_row_number', 7
+  ),
+  'Bills assignment preserves statement-import provenance'
 );
 
 select extensions.lives_ok(
@@ -725,6 +1385,39 @@ select extensions.lives_ok(
     )
   $$,
   'the same imported file row may exist in another household'
+);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000401';
+set local request.jwt.claim.email = 'first-owner@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
+
+select extensions.lives_ok(
+  $$
+    delete from public.subcategories
+    where id = '00000000-0000-0000-0000-000000000428'
+  $$,
+  'a household member can delete a user-managed Bills child'
+);
+
+reset role;
+set local request.jwt.claim.sub = '';
+set local request.jwt.claim.email = '';
+set local request.jwt.claims = '{}';
+
+select extensions.ok(
+  (
+    select count(*) = 2
+      and bool_and(subcategory_id is null)
+      and bool_and(service_period_start is null)
+      and bool_and(service_period_end is null)
+    from public.transactions
+    where id in (
+      '00000000-0000-0000-0000-000000000432',
+      '00000000-0000-0000-0000-000000000433'
+    )
+  ),
+  'deleting a Bills child uncategorizes linked transactions and clears their service periods'
 );
 
 select extensions.throws_like(
@@ -1029,6 +1722,211 @@ select extensions.ok(
 select extensions.ok(
   not has_function_privilege('authenticated', 'public.assign_household_member_color()', 'EXECUTE'),
   'authenticated users cannot execute the member-color trigger function'
+);
+
+select extensions.has_column(
+  'public',
+  'categories',
+  'system_key',
+  'categories expose a stable protected system key'
+);
+
+select extensions.has_column(
+  'public',
+  'subcategories',
+  'system_key',
+  'subcategories expose a stable protected system key'
+);
+
+select extensions.has_column(
+  'public',
+  'transactions',
+  'service_period_start',
+  'transactions expose a service-period start'
+);
+
+select extensions.has_column(
+  'public',
+  'transactions',
+  'service_period_end',
+  'transactions expose a service-period end'
+);
+
+select extensions.has_column(
+  'public',
+  'households',
+  'groceries_monthly_budget',
+  'households expose the optional Groceries budget'
+);
+
+select extensions.ok(
+  (
+    select attribute.atttypid = 'numeric'::regtype
+      and attribute.atttypmod = -1
+    from pg_catalog.pg_attribute as attribute
+    where attribute.attrelid = 'public.households'::regclass
+      and attribute.attname = 'groceries_monthly_budget'
+      and not attribute.attisdropped
+  ),
+  'the Groceries budget uses unconstrained numeric storage'
+);
+
+select extensions.is(
+  (
+    select array_agg(constraint_meta.conname::text order by constraint_meta.conname)
+    from pg_catalog.pg_constraint as constraint_meta
+    where constraint_meta.conrelid in (
+      'public.categories'::regclass,
+      'public.subcategories'::regclass,
+      'public.transactions'::regclass,
+      'public.households'::regclass
+    )
+      and constraint_meta.conname in (
+        'categories_system_key_check',
+        'subcategories_system_key_check',
+        'transactions_service_period_pair_check',
+        'transactions_service_period_order_check',
+        'transactions_service_period_length_check',
+        'households_groceries_monthly_budget_check'
+      )
+  ),
+  array[
+    'categories_system_key_check',
+    'households_groceries_monthly_budget_check',
+    'subcategories_system_key_check',
+    'transactions_service_period_length_check',
+    'transactions_service_period_order_check',
+    'transactions_service_period_pair_check'
+  ],
+  'all planned Essentials check constraints are present'
+);
+
+select extensions.ok(
+  (
+    select count(*) = 3
+      and bool_and(index_meta.indisvalid)
+      and bool_and(index_meta.indisready)
+      and bool_and(index_meta.indpred is not null)
+      and count(*) filter (
+        where index_relation.relname in (
+          'categories_household_system_key_key',
+          'subcategories_household_system_key_key'
+        )
+          and index_meta.indisunique
+      ) = 2
+    from pg_catalog.pg_index as index_meta
+    join pg_catalog.pg_class as index_relation on index_relation.oid = index_meta.indexrelid
+    join pg_catalog.pg_namespace as index_schema on index_schema.oid = index_relation.relnamespace
+    where index_schema.nspname = 'public'
+      and index_relation.relname in (
+        'categories_household_system_key_key',
+        'subcategories_household_system_key_key',
+        'transactions_household_service_period_idx'
+      )
+  ),
+  'the planned partial Essentials indexes are valid, ready, and uniquely scoped where required'
+);
+
+select extensions.ok(
+  exists (
+    select 1
+    from pg_catalog.pg_index as index_meta
+    join pg_catalog.pg_class as index_relation on index_relation.oid = index_meta.indexrelid
+    join pg_catalog.pg_namespace as index_schema on index_schema.oid = index_relation.relnamespace
+    where index_schema.nspname = 'public'
+      and index_relation.relname = 'transactions_household_service_period_idx'
+      and pg_get_indexdef(index_meta.indexrelid) =
+        'CREATE INDEX transactions_household_service_period_idx ON public.transactions USING btree (household_id, service_period_start, service_period_end) WHERE ((service_period_start IS NOT NULL) AND (service_period_end IS NOT NULL))'
+  ),
+  'transactions have the planned household service-period overlap index'
+);
+
+select extensions.ok(
+  (
+    select count(*) = 4
+    from pg_catalog.pg_trigger as trigger_meta
+    where not trigger_meta.tgisinternal
+      and (
+        (
+          trigger_meta.tgrelid = 'public.categories'::regclass
+          and trigger_meta.tgname = 'categories_protect_essential_identity'
+          and trigger_meta.tgfoid = 'private.protect_essential_category()'::regprocedure
+        )
+        or (
+          trigger_meta.tgrelid = 'public.subcategories'::regclass
+          and trigger_meta.tgname = 'subcategories_protect_essential_identity'
+          and trigger_meta.tgfoid = 'private.protect_essential_subcategory()'::regprocedure
+        )
+        or (
+          trigger_meta.tgrelid = 'public.transactions'::regclass
+          and trigger_meta.tgname = 'transactions_validate_subcategory'
+          and trigger_meta.tgfoid = 'private.validate_transaction_subcategory()'::regprocedure
+        )
+        or (
+          trigger_meta.tgrelid = 'public.households'::regclass
+          and trigger_meta.tgname = 'on_household_created'
+          and trigger_meta.tgfoid = 'public.add_household_owner()'::regprocedure
+        )
+      )
+  ),
+  'the planned protection, validation, and future-provisioning triggers are present'
+);
+
+select extensions.ok(
+  (
+    select count(*) = 6
+      and bool_and(coalesce(function_meta.proconfig, array[]::text[]) @> array['search_path=""'])
+      and count(*) filter (where function_meta.prosecdef) = 2
+    from pg_catalog.pg_proc as function_meta
+    where function_meta.oid = any(array[
+      'private.protect_essential_category()'::regprocedure,
+      'private.protect_essential_subcategory()'::regprocedure,
+      'private.seed_essential_categories(uuid)'::regprocedure,
+      'private.validate_transaction_subcategory()'::regprocedure,
+      'public.add_household_owner()'::regprocedure,
+      'public.save_current_settings(numeric,text,text,text,text)'::regprocedure
+    ])
+  ),
+  'Essentials functions pin an empty search path and only trusted entry points are security definers'
+);
+
+select extensions.ok(
+  (
+    select bool_and(
+      not has_function_privilege('anon', function_meta.oid, 'EXECUTE')
+        and not has_function_privilege('authenticated', function_meta.oid, 'EXECUTE')
+    )
+    from pg_catalog.pg_proc as function_meta
+    where function_meta.oid = any(array[
+      'private.protect_essential_category()'::regprocedure,
+      'private.protect_essential_subcategory()'::regprocedure,
+      'private.seed_essential_categories(uuid)'::regprocedure,
+      'private.validate_transaction_subcategory()'::regprocedure
+    ])
+  ),
+  'application roles cannot execute private Essentials trigger helpers'
+);
+
+select extensions.ok(
+  has_function_privilege(
+    'authenticated',
+    'public.save_current_settings(numeric,text,text,text,text)',
+    'EXECUTE'
+  )
+    and not has_function_privilege(
+      'anon',
+      'public.save_current_settings(numeric,text,text,text,text)',
+      'EXECUTE'
+    ),
+  'only authenticated callers can execute the Groceries-budget settings function'
+);
+
+select extensions.ok(
+  not has_table_privilege('anon', 'public.households', 'SELECT')
+    and not has_table_privilege('anon', 'public.categories', 'SELECT')
+    and not has_table_privilege('anon', 'public.subcategories', 'SELECT')
+    and not has_table_privilege('anon', 'public.transactions', 'SELECT'),
+  'anonymous callers cannot read any Essentials household data'
 );
 
 select extensions.ok(

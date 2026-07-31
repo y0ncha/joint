@@ -146,7 +146,7 @@ it("makes the workspace frame full-bleed on mobile", () => {
 
 it("keeps workspace chrome visible around Essentials detail content", () => {
   const markup = renderToStaticMarkup(
-    <WorkspaceShell title="Daily groceries" description="Daily spending">
+    <WorkspaceShell title="Groceries by day" description="Daily spending">
       <p>Chart detail</p>
     </WorkspaceShell>,
   );
@@ -156,7 +156,7 @@ it("keeps workspace chrome visible around Essentials detail content", () => {
   expect(markup).toContain("<header");
   expect(markup).not.toContain('<header hidden=""');
   expect(markup).toContain('<nav aria-label="Primary navigation"');
-  expect(markup).toContain(">Daily groceries</h1>");
+  expect(markup).toContain(">Groceries by day</h1>");
   expect(markup).toContain('aria-label="Primary navigation"');
   expect(markup).toContain("Chart detail");
   expect(markup).toContain("duration-150 ease-out sm:p-6");

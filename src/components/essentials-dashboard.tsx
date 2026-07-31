@@ -119,6 +119,13 @@ const groceryChartConfig = {
   topUps: { label: "Top-ups", color: "var(--chart-5)" },
   budget: { label: "Monthly budget", color: "var(--color-muted-foreground)" },
 } satisfies ChartConfig;
+const dailyHeatLevels = [
+  "bg-muted text-muted-foreground",
+  "bg-chart-4/25",
+  "bg-chart-4/45",
+  "bg-chart-4/70",
+  "bg-chart-4 text-primary-foreground",
+] as const;
 const chartMargin = { top: 24, right: 8, bottom: 32, left: 8 };
 
 export function stackedBarRadius(stack: number[], segmentIndex: number) {
@@ -178,7 +185,13 @@ function ChartConfig({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button type="button" size="icon" variant="ghost" className="size-11 hover:bg-foreground/5 active:bg-foreground/5" aria-label={`Configure ${label}`}>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="size-11 hover:bg-foreground/5 active:bg-foreground/5"
+          aria-label={`Configure ${label}`}
+        >
           <Settings2 aria-hidden="true" />
         </Button>
       </PopoverTrigger>
@@ -298,19 +311,36 @@ function ChartCard({
   backHref?: string;
   detail?: boolean;
 }) {
-  const content = <div className="flex flex-col gap-6">{children}</div>;
+  const content = <div className={cn("flex flex-col gap-6", !detail && "h-full")}>{children}</div>;
 
   return (
     <Card
       data-chart-card={id}
-      className={cn("min-w-0 border-border", "bg-card/80", "px-3 py-7", detail && "rounded-none border-0 bg-transparent px-0 py-0 ring-0 shadow-none hover:shadow-none lg:h-[calc(100dvh-4rem)]", layoutClassName)}
+      className={cn(
+        "min-w-0 border-border",
+        "bg-card/80",
+        "px-3 py-7",
+        detail && "rounded-none border-0 bg-transparent px-0 py-0 ring-0 shadow-none hover:shadow-none lg:h-[calc(100dvh-4rem)]",
+        layoutClassName,
+      )}
     >
-      <CardHeader className={cn(!detail && "has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]", detail && "px-0")}>
+      <CardHeader
+        className={cn(
+          !detail && "has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]",
+          detail && "px-0",
+        )}
+      >
         <CardTitle role="heading" aria-level={detail ? 1 : 2}>
           {title}
         </CardTitle>
         <CardDescription>{description}</CardDescription>
-        <CardAction className={cn("flex gap-1", !detail && "col-start-1 row-start-3 mt-2 justify-self-stretch sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:mt-1 sm:justify-self-end")}>
+        <CardAction
+          className={cn(
+            "flex gap-1",
+            !detail &&
+              "col-start-1 row-start-3 mt-2 justify-self-stretch sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:mt-1 sm:justify-self-end",
+          )}
+        >
           {action}
           {detailHref ? (
             <Button asChild size="icon" variant="ghost" className="size-11 hover:bg-foreground/5 active:bg-foreground/5">
@@ -333,7 +363,7 @@ function ChartCard({
           ) : null}
         </CardAction>
       </CardHeader>
-      <CardContent className={cn(detail && "flex min-h-0 flex-1 flex-col overflow-y-auto px-0 pb-4")}>{content}</CardContent>
+      <CardContent className={cn("flex flex-1 flex-col", detail && "min-h-0 overflow-y-auto px-0 pb-4")}>{content}</CardContent>
     </Card>
   );
 }
@@ -366,6 +396,8 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
   const from = dailyRange.from ? toIso(dailyRange.from) : dailyFixtures[0].date;
   const to = dailyRange.to ? toIso(dailyRange.to) : from;
   const dailyData = useMemo(() => dailyFixtures.filter((day) => day.date >= from && day.date <= to), [from, to]);
+  const dailyHeatmapOffset = dailyData.length ? new Date(`${dailyData[0].date}T12:00:00`).getDay() : 0;
+  const highestDailyTotal = Math.max(1, ...dailyData.map((day) => day.total));
 
   function toggleBill(value: BillKey) {
     setSelectedBills((current) => {
@@ -375,8 +407,8 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
   }
 
   return (
-    <section aria-label="Essentials charts" className={cn("grid gap-4", detail ? "mt-0" : "mt-6 lg:grid-cols-2")}>
-        {(!detailChart || detailChart === "bills") && (
+    <section aria-label="Essentials charts" className={cn("grid gap-4", detail ? "mt-0" : "mt-6 xl:grid-cols-2")}>
+      {(!detailChart || detailChart === "bills") && (
         <ChartCard
           id="bills"
           title="Bills by month"
@@ -392,7 +424,7 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
         >
           <ChartContainer
             config={billChartConfig}
-            className={cn(chartHeightClass, "w-full")}
+            className={cn(chartHeightClass, "w-full", !detail && "flex-1")}
             role="region"
             aria-label="Stacked monthly Bills chart, use arrow keys to inspect values"
           >
@@ -423,9 +455,7 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
                 <TableRow>
                   <TableHead>Month</TableHead>
                   {selectedBills.map((bill) => (
-                    <TableHead key={bill}>
-                      {bills.find((item) => item.value === bill)?.label}
-                    </TableHead>
+                    <TableHead key={bill}>{bills.find((item) => item.value === bill)?.label}</TableHead>
                   ))}
                   <TableHead>Total</TableHead>
                 </TableRow>
@@ -448,9 +478,9 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
             </ChartTable>
           )}
         </ChartCard>
-        )}
+      )}
 
-        {(!detailChart || detailChart === "yoy") && (
+      {(!detailChart || detailChart === "yoy") && (
         <ChartCard
           id="yoy"
           title="Year-over-year"
@@ -466,7 +496,7 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
         >
           <ChartContainer
             config={yoyChartConfig}
-            className={cn(chartHeightClass, "w-full")}
+            className={cn(chartHeightClass, "w-full", !detail && "flex-1")}
             role="region"
             aria-label={`${yoyBillDetails.label} year-over-year chart, use arrow keys to inspect values`}
           >
@@ -501,175 +531,191 @@ function EssentialsCharts({ detailChart }: { detailChart?: EssentialsChartId }) 
             </ChartTable>
           )}
         </ChartCard>
-        )}
+      )}
 
-        {(!detailChart || detailChart === "groceries") && (
-        <ChartCard
-          id="groceries"
-          title="Groceries by month"
-          description="Posting-date totals against the monthly budget fixture."
-          detailHref={detailChart ? undefined : "/essentials/groceries"}
-          backHref={detail ? "/essentials" : undefined}
-          detail={detail}
-          layoutClassName={detailChart ? undefined : "lg:col-span-2"}
-          action={<ChartConfig label="Groceries by month" period={groceryPeriod} setPeriod={setGroceryPeriod} />}
-        >
-          <ChartContainer
-            config={groceryChartConfig}
-            className={cn(chartHeightClass, "w-full")}
-            role="region"
-            aria-label="Stacked monthly groceries chart with budget threshold, use arrow keys to inspect values"
-          >
-            <BarChart accessibilityLayer data={groceryMonthlyData} margin={chartMargin}>
-              <CartesianGrid vertical={false} />
-              <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
-              <YAxis tickLine={false} axisLine={false} width={58} tickFormatter={(value) => `₪${value}`} />
-              <ExactTooltip labels={{ mainRun: "Main run", topUps: "Top-ups" }} />
-              <ChartLegend content={<ChartLegendContent />} />
-              <ReferenceLine y={2200} stroke="var(--color-budget)" strokeDasharray="4 4" />
-              <Bar dataKey="mainRun" stackId="groceries" fill="var(--color-mainRun)">
-                {groceryMonthlyData.map((month) => (
-                  <Cell key={month.month} radius={stackedBarRadius([month.mainRun, month.topUps], 0)} />
-                ))}
-              </Bar>
-              <Bar dataKey="topUps" stackId="groceries" fill="var(--color-topUps)">
-                {groceryMonthlyData.map((month) => (
-                  <Cell key={month.month} radius={stackedBarRadius([month.mainRun, month.topUps], 1)} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ChartContainer>
-          {detailChart === "groceries" && (
-            <ChartTable label="Groceries by month">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Month</TableHead>
-                  <TableHead>Main run</TableHead>
-                  <TableHead>Top-ups</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Budget</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {groceryMonthlyData.map((month) => (
-                  <TableRow key={month.month}>
-                    <TableCell>{month.month}</TableCell>
-                    <TableCell className="tabular-nums">{currency.format(month.mainRun)}</TableCell>
-                    <TableCell className="tabular-nums">{currency.format(month.topUps)}</TableCell>
-                    <TableCell className="font-medium tabular-nums">{currency.format(month.mainRun + month.topUps)}</TableCell>
-                    <TableCell className="tabular-nums">{currency.format(2200)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </ChartTable>
-          )}
-        </ChartCard>
-        )}
-
-        {(!detailChart || detailChart === "daily") && (
-        <ChartCard
-          id="daily"
-          title="Daily groceries"
-          description="Daily spending, including no-spend days."
-          detailHref={detailChart ? undefined : "/essentials/daily"}
-          backHref={detail ? "/essentials" : undefined}
-          detail={detail}
-          layoutClassName={detailChart ? undefined : "lg:col-span-2"}
-          action={
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button type="button" size="icon" variant="ghost" className="size-11 hover:bg-foreground/5 active:bg-foreground/5" aria-label="Configure Daily groceries">
-                  <Settings2 aria-hidden="true" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-auto max-w-[calc(100vw-2rem)] p-3">
-                <PopoverHeader>
-                  <PopoverTitle>Daily range</PopoverTitle>
-                </PopoverHeader>
-                <FieldGroup className="grid grid-cols-2 gap-3">
-                  <Field>
-                    <FieldLabel htmlFor="daily-from">From</FieldLabel>
-                    <Input id="daily-from" value={from} readOnly />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="daily-to">To</FieldLabel>
-                    <Input id="daily-to" value={to} readOnly />
-                  </Field>
-                </FieldGroup>
-                <Calendar
-                  mode="range"
-                  month={dailyFixtureStart}
-                  startMonth={dailyFixtureStart}
-                  endMonth={dailyFixtureEnd}
-                  disabled={{ before: dailyFixtureStart, after: dailyFixtureEnd }}
-                  selected={dailyRange}
-                  onSelect={(range) => {
-                    if (range?.from) setDailyRange(range);
-                  }}
-                  numberOfMonths={1}
-                />
-              </PopoverContent>
-            </Popover>
-          }
-        >
-          <div className="overflow-x-auto" aria-label="Scrollable daily groceries plot">
-            <ChartContainer
-              config={groceryChartConfig}
-              className={cn(chartHeightClass, "max-w-none")}
-              style={{ width: Math.max(720, dailyData.length * 38) }}
-              role="region"
-              aria-label="Stacked daily groceries chart, use arrow keys to inspect values"
+      {(!detailChart || detailChart === "groceries" || detailChart === "daily") && (
+        <div className={cn("grid gap-4", !detail && "xl:col-span-2 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]")}>
+          {(!detailChart || detailChart === "groceries") && (
+            <ChartCard
+              id="groceries"
+              title="Groceries by month"
+              description="Posting-date totals against the monthly budget fixture."
+              detailHref={detailChart ? undefined : "/essentials/groceries"}
+              backHref={detail ? "/essentials" : undefined}
+              detail={detail}
+              action={<ChartConfig label="Groceries by month" period={groceryPeriod} setPeriod={setGroceryPeriod} />}
             >
-              <BarChart accessibilityLayer data={dailyData} margin={chartMargin}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  interval={2}
-                  tickFormatter={(value) => String(value).slice(8)}
-                />
-                <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value) => `₪${value}`} />
-                <ExactTooltip labels={{ mainRun: "Main run", topUps: "Top-ups" }} />
-                <ChartLegend content={<ChartLegendContent />} />
-                <Bar dataKey="mainRun" stackId="daily" fill="var(--color-mainRun)">
-                  {dailyData.map((day) => (
-                    <Cell key={day.date} radius={stackedBarRadius([day.mainRun, day.topUps], 0)} />
-                  ))}
-                </Bar>
-                <Bar dataKey="topUps" stackId="daily" fill="var(--color-topUps)">
-                  {dailyData.map((day) => (
-                    <Cell key={day.date} radius={stackedBarRadius([day.mainRun, day.topUps], 1)} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ChartContainer>
-          </div>
-          {detailChart === "daily" && (
-            <ChartTable label="Daily groceries">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Main run</TableHead>
-                  <TableHead>Top-ups</TableHead>
-                  <TableHead>Daily total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dailyData.map((day) => (
-                  <TableRow key={day.date}>
-                    <TableCell>{day.date}</TableCell>
-                    <TableCell className="tabular-nums">{currency.format(day.mainRun)}</TableCell>
-                    <TableCell className="tabular-nums">{currency.format(day.topUps)}</TableCell>
-                    <TableCell className="font-medium tabular-nums">{currency.format(day.total)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </ChartTable>
+              <ChartContainer
+                config={groceryChartConfig}
+                className={cn(chartHeightClass, "w-full", !detail && "flex-1")}
+                role="region"
+                aria-label="Stacked monthly groceries chart with budget threshold, use arrow keys to inspect values"
+              >
+                <BarChart accessibilityLayer data={groceryMonthlyData} margin={chartMargin}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
+                  <YAxis tickLine={false} axisLine={false} width={58} tickFormatter={(value) => `₪${value}`} />
+                  <ExactTooltip labels={{ mainRun: "Main run", topUps: "Top-ups" }} />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <ReferenceLine y={2200} stroke="var(--color-budget)" strokeDasharray="4 4" />
+                  <Bar dataKey="mainRun" stackId="groceries" fill="var(--color-mainRun)">
+                    {groceryMonthlyData.map((month) => (
+                      <Cell key={month.month} radius={stackedBarRadius([month.mainRun, month.topUps], 0)} />
+                    ))}
+                  </Bar>
+                  <Bar dataKey="topUps" stackId="groceries" fill="var(--color-topUps)">
+                    {groceryMonthlyData.map((month) => (
+                      <Cell key={month.month} radius={stackedBarRadius([month.mainRun, month.topUps], 1)} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+              {detailChart === "groceries" && (
+                <ChartTable label="Groceries by month">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Month</TableHead>
+                      <TableHead>Main run</TableHead>
+                      <TableHead>Top-ups</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Budget</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {groceryMonthlyData.map((month) => (
+                      <TableRow key={month.month}>
+                        <TableCell>{month.month}</TableCell>
+                        <TableCell className="tabular-nums">{currency.format(month.mainRun)}</TableCell>
+                        <TableCell className="tabular-nums">{currency.format(month.topUps)}</TableCell>
+                        <TableCell className="font-medium tabular-nums">{currency.format(month.mainRun + month.topUps)}</TableCell>
+                        <TableCell className="tabular-nums">{currency.format(2200)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </ChartTable>
+              )}
+            </ChartCard>
           )}
-        </ChartCard>
-        )}
+
+          {(!detailChart || detailChart === "daily") && (
+            <ChartCard
+              id="daily"
+              title="Groceries by day"
+              description="Daily spending, including no-spend days."
+              detailHref={detailChart ? undefined : "/essentials/daily"}
+              backHref={detail ? "/essentials" : undefined}
+              detail={detail}
+              action={
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="size-11 hover:bg-foreground/5 active:bg-foreground/5"
+                      aria-label="Configure Groceries by day"
+                    >
+                      <Settings2 aria-hidden="true" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-auto max-w-[calc(100vw-2rem)] p-3">
+                    <PopoverHeader>
+                      <PopoverTitle>Groceries by day range</PopoverTitle>
+                    </PopoverHeader>
+                    <FieldGroup className="grid grid-cols-2 gap-3">
+                      <Field>
+                        <FieldLabel htmlFor="daily-from">From</FieldLabel>
+                        <Input id="daily-from" value={from} readOnly />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="daily-to">To</FieldLabel>
+                        <Input id="daily-to" value={to} readOnly />
+                      </Field>
+                    </FieldGroup>
+                    <Calendar
+                      mode="range"
+                      month={dailyFixtureStart}
+                      startMonth={dailyFixtureStart}
+                      endMonth={dailyFixtureEnd}
+                      disabled={{ before: dailyFixtureStart, after: dailyFixtureEnd }}
+                      selected={dailyRange}
+                      onSelect={(range) => {
+                        if (range?.from) setDailyRange(range);
+                      }}
+                      numberOfMonths={1}
+                    />
+                  </PopoverContent>
+                </Popover>
+              }
+            >
+              <div className="mx-2 mt-1.5 flex w-auto flex-1 flex-col gap-8 pt-1 pr-3.5 pb-0.5 pl-3.5" role="grid" aria-label="Groceries by day heatmap">
+                <div className="grid grid-cols-7 gap-1.5 text-center text-xs text-muted-foreground" role="row">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                    <span key={day} role="columnheader">
+                      {day}
+                    </span>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1.5">
+                  {Array.from({ length: dailyHeatmapOffset }, (_, index) => (
+                    <span key={index} aria-hidden="true" />
+                  ))}
+                  {dailyData.map((day) => {
+                    const level = day.total === 0 ? 0 : Math.min(4, Math.ceil((day.total / highestDailyTotal) * 4));
+                    return (
+                      <div
+                        key={day.date}
+                        role="gridcell"
+                        tabIndex={0}
+                        title={`${day.date}: ${currency.format(day.total)}`}
+                        aria-label={`${day.date}: ${currency.format(day.total)}`}
+                        className={cn(
+                          "relative flex h-11 items-center justify-center rounded-md text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 hover:before:absolute hover:before:inset-0 hover:before:rounded-md hover:before:bg-foreground/5 sm:h-20 xl:h-auto xl:aspect-square",
+                          dailyHeatLevels[level],
+                        )}
+                      >
+                        <span className="relative">{day.date.slice(8)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div
+                  className="mt-auto flex items-center justify-center gap-2 text-xs text-muted-foreground"
+                  aria-label="Total daily spending heatmap legend"
+                >
+                  <span>Lower</span>
+                  {dailyHeatLevels.map((level, index) => (
+                    <span key={index} aria-hidden="true" className={cn("size-3 rounded-sm", level)} />
+                  ))}
+                  <span>Higher</span>
+                </div>
+              </div>
+              {detailChart === "daily" && (
+                <ChartTable label="Groceries by day">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Main run</TableHead>
+                      <TableHead>Top-ups</TableHead>
+                      <TableHead>Daily total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {dailyData.map((day) => (
+                      <TableRow key={day.date}>
+                        <TableCell>{day.date}</TableCell>
+                        <TableCell className="tabular-nums">{currency.format(day.mainRun)}</TableCell>
+                        <TableCell className="tabular-nums">{currency.format(day.topUps)}</TableCell>
+                        <TableCell className="font-medium tabular-nums">{currency.format(day.total)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </ChartTable>
+              )}
+            </ChartCard>
+          )}
+        </div>
+      )}
     </section>
   );
 }
