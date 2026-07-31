@@ -219,10 +219,10 @@ export function CategorySheet({ categories = [], defaultColor = "#dcece3" }: { c
         <Button
           size="icon"
           variant="ghost"
-          className="size-11 rounded-full text-primary hover:bg-primary/10 hover:text-primary"
+          className="size-11 rounded-full text-primary"
           aria-label="Add category"
         >
-          <span className="flex size-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-sm transition-colors group-hover/button:bg-primary">
+          <span className="flex size-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-sm">
             <Plus aria-hidden="true" />
           </span>
         </Button>

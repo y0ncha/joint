@@ -7,7 +7,6 @@ import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { Button } from "@/components/ui/button";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function MemberCardSettingsControl({ lastFour }: { lastFour: string | null }) {
   const [value, setValue] = useState(lastFour ?? "");
@@ -16,16 +15,11 @@ export function MemberCardSettingsControl({ lastFour }: { lastFour: string | nul
     <Popover>
       <input form="settings-save-form" type="hidden" name="initialLastFour" value={lastFour ?? ""} />
       <input form="settings-save-form" type="hidden" name="lastFour" value={value} />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button type="button" variant="ghost" size="icon" className="size-11" aria-label="Edit last four digits">
-              <Pencil aria-hidden="true" />
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent>Edit last four digits</TooltipContent>
-      </Tooltip>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="ghost" size="icon" className="size-11" aria-label="Edit last four digits">
+          <Pencil aria-hidden="true" />
+        </Button>
+      </PopoverTrigger>
       <PopoverContent align="end" className="w-[min(22rem,calc(100vw-2rem))] p-4">
         <PopoverHeader>
           <PopoverTitle>Card last four</PopoverTitle>

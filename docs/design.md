@@ -135,7 +135,7 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 
 - Use Lucide as the only general-purpose icon package.
 - Standard interface icons are 16–20px; primary navigation icons sit inside 44px targets.
-- Icons supplement visible text. Icon-only controls require an accessible label and, where useful, a tooltip.
+- Icons supplement visible text. Icon-only controls require an accessible label; buttons do not use tooltips.
 - Keep stroke weight and optical size consistent within a component family.
 - Category spending uses labelled green or accent-toned bars. Income and expense comparisons use explicit values and direction labels.
 - Bills & Groceries uses the owned shadcn `Chart` primitive backed by Recharts, plus existing `Card`, `Popover`, `Calendar`, `Field`, `Input`, `PillSelect`, and semantic tokens; do not create a chart framework or add another visualization dependency.
@@ -145,7 +145,7 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 ## Interaction and motion
 
 - Provide distinct hover, pressed, open, selected, disabled, loading, error, and focus-visible states.
-- Every hoverable component uses the same muted foreground tint (`bg-foreground/5`); hover, pressed, and open states should increase contrast subtly and respond immediately.
+- Every hoverable component uses the same muted foreground tint (`bg-foreground/5`); hover, pressed, and open states should increase contrast subtly and respond immediately. Icon buttons use `bg-foreground/10` while pressed or open, without movement.
 - Animate transform and opacity only. Avoid large-distance movement, bounce, or layout-shifting effects.
 - Honor `prefers-reduced-motion`; pending indicators must remain understandable without animation.
 - Controls must not shift surrounding layout when hovered, opened, submitted, or when their label changes.

@@ -99,7 +99,7 @@ function SubcategoryEditor({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="size-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    className="size-11 text-destructive"
                     aria-label="Delete subcategory"
                   >
                     <Trash2 aria-hidden="true" />
@@ -258,7 +258,7 @@ function CategoryEditor({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="size-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    className="size-11 text-destructive"
                     aria-label="Delete category"
                   >
                     <Trash2 aria-hidden="true" />
@@ -322,7 +322,7 @@ function CategorySection({
               type="button"
               variant="ghost"
               size="icon"
-              className="size-11 rounded-full text-foreground hover:bg-foreground/10 hover:text-foreground md:size-9"
+              className="size-11 rounded-full text-foreground md:size-9"
               aria-label={`${allExpanded ? "Collapse" : "Expand"} ${title.toLowerCase()}`}
               onClick={() =>
                 onSectionOpenChange(
@@ -383,7 +383,7 @@ function CategorySection({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="group/category-toggle size-11 shrink-0 rounded-none hover:bg-transparent aria-expanded:bg-transparent"
+                          className="group/category-toggle size-11 shrink-0 rounded-none"
                           aria-label={`Toggle ${category.name} subcategories`}
                         >
                           <ChevronRight

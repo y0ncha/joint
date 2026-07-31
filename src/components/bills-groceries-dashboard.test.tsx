@@ -54,7 +54,6 @@ vi.mock("@/components/ui/select", () => ({
 }));
 
 import { BillsGroceriesChartDetail, BillsGroceriesDashboard, dashboardUrl, stackedBarRadius } from "./bills-groceries-dashboard";
-import { TooltipProvider } from "./ui/tooltip";
 
 const liveData = {
   months: ["2026-07"],
@@ -181,11 +180,7 @@ it("links every dashboard chart to its dedicated detail page", () => {
 });
 
 it("renders only the requested chart and its table on a detail page", () => {
-  const markup = renderToStaticMarkup(
-    <TooltipProvider>
-      <BillsGroceriesChartDetail chart="daily" {...dashboardProps} />
-    </TooltipProvider>,
-  );
+  const markup = renderToStaticMarkup(<BillsGroceriesChartDetail chart="daily" {...dashboardProps} />);
 
   expect(markup).toContain("Groceries by day");
   expect(markup).toContain('aria-label="Groceries by day data table"');
@@ -289,14 +284,10 @@ it("renders the Bills empty state instead of a missing-prior-year notice when no
 
 it("renders equivalent live values, including zero-spend days, in detail tables", () => {
   const billsMarkup = renderToStaticMarkup(
-    <TooltipProvider>
-      <BillsGroceriesChartDetail chart="bills" data={liveData as never} billIds={["rent"]} billId="rent" period="rolling" />
-    </TooltipProvider>,
+    <BillsGroceriesChartDetail chart="bills" data={liveData as never} billIds={["rent"]} billId="rent" period="rolling" />,
   );
   const dailyMarkup = renderToStaticMarkup(
-    <TooltipProvider>
-      <BillsGroceriesChartDetail chart="daily" data={liveData as never} billIds={["rent"]} billId="rent" period="rolling" />
-    </TooltipProvider>,
+    <BillsGroceriesChartDetail chart="daily" data={liveData as never} billIds={["rent"]} billId="rent" period="rolling" />,
   );
 
   expect(billsMarkup).toContain("Rent");
@@ -309,23 +300,21 @@ it("renders equivalent live values, including zero-spend days, in detail tables"
 
 it("includes the configured budget in the equivalent monthly Groceries table", () => {
   const markup = renderToStaticMarkup(
-    <TooltipProvider>
-      <BillsGroceriesChartDetail
-        chart="groceries"
-        data={
-          {
-            ...liveData,
-            groceries: {
-              ...liveData.groceries,
-              monthly: { ...liveData.groceries.monthly, budgetAgorot: 200_000 },
-            },
-          } as never
-        }
-        billIds={["rent"]}
-        billId="rent"
-        period="rolling"
-      />
-    </TooltipProvider>,
+    <BillsGroceriesChartDetail
+      chart="groceries"
+      data={
+        {
+          ...liveData,
+          groceries: {
+            ...liveData.groceries,
+            monthly: { ...liveData.groceries.monthly, budgetAgorot: 200_000 },
+          },
+        } as never
+      }
+      billIds={["rent"]}
+      billId="rent"
+      period="rolling"
+    />,
   );
 
   expect(markup).toContain("Monthly budget");

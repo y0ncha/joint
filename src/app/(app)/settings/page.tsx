@@ -178,7 +178,7 @@ export default async function SettingsPage() {
                 ) : null}
               </SettingsRow>
               <SettingsRow icon={Tags} label="Categories" description="Manage categories & subcategories.">
-                <Button asChild variant="ghost" size="icon" className="size-11 active:translate-y-0">
+                <Button asChild variant="ghost" size="icon" className="size-11">
                   <Link href="/categories" aria-label="Edit categories">
                     <Pencil data-icon="inline-start" aria-hidden="true" />
                   </Link>

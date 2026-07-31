@@ -20,7 +20,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function hasUnsavedSettings(formData: FormData) {
   return [
@@ -117,26 +116,21 @@ export function SettingsSaveControl({ userId }: { userId: string }) {
   return (
     <>
       <form id="settings-save-form" action={formAction} />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            form="settings-save-form"
-            type="submit"
-            variant="ghost"
-            size="icon"
-            className="size-14 text-foreground hover:bg-transparent hover:text-foreground"
-            disabled={isPending}
-            aria-label="Save changes"
-          >
-            {isPending ? (
-              <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin motion-reduce:animate-none" />
-            ) : (
-              <Save aria-hidden="true" />
-            )}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Save changes</TooltipContent>
-      </Tooltip>
+      <Button
+        form="settings-save-form"
+        type="submit"
+        variant="ghost"
+        size="icon"
+        className="size-14 text-foreground"
+        disabled={isPending}
+        aria-label="Save changes"
+      >
+        {isPending ? (
+          <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin motion-reduce:animate-none" />
+        ) : (
+          <Save aria-hidden="true" />
+        )}
+      </Button>
       <form
         data-settings-logout="true"
         action={logOut}
@@ -147,20 +141,9 @@ export function SettingsSaveControl({ userId }: { userId: string }) {
           }
         }}
       >
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="submit"
-              variant="ghost"
-              size="icon"
-              className="size-14 text-foreground hover:bg-transparent hover:text-foreground"
-              aria-label="Log out"
-            >
-              <LogOut aria-hidden="true" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Log out</TooltipContent>
-        </Tooltip>
+        <Button type="submit" variant="ghost" size="icon" className="size-14 text-foreground" aria-label="Log out">
+          <LogOut aria-hidden="true" />
+        </Button>
       </form>
       <AlertDialog
         open={Boolean(leaveTo)}

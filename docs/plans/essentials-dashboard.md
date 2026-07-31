@@ -2,15 +2,15 @@
 goal: Add protected Bills and Groceries domains with an analytics-only Bills & Groceries dashboard
 version: 2.1
 date_created: 2026-07-27
-last_updated: 2026-07-31
+last_updated: 2026-08-01
 owner: Joint maintainers
-status: "Planned"
+status: "Complete"
 tags: [feature, bills-groceries, bills, groceries, analytics, charts, migration, settings]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: Complete](https://img.shields.io/badge/status-Complete-brightgreen)
 
 This plan replaces the earlier prorated-ledger design with an `Bills & Groceries` analytics route. The ledger and shared balance remain exact snapshots of stored transaction amounts and posting dates. Bills additionally store an inclusive service period used only for prorated Bills & Groceries analytics. Groceries analytics use actual posting dates, one optional fixed monthly household budget, and the protected `Main run` and `Top-ups` subcategories.
 
@@ -175,14 +175,21 @@ This plan replaces the earlier prorated-ledger design with an `Bills & Groceries
 
 | Task     | Description                                                                                                                                                                                                                                                                                        | Status  | Date |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
-| TASK-036 | Add `docs/architecture/bills-groceries-analytics.md` with trust boundaries, reset, protected taxonomy, source-versus-analytics semantics, proration, bounded queries, budget persistence, URL state, chart accessibility, failure behavior, and non-goals and link it from `docs/architecture.md`. | Planned |      |
-| TASK-037 | Update `docs/architecture/financial-model.md` and `docs/roadmap.md` to distinguish the implemented Bills & Groceries subset from future generalized budgets and obligations and verify neither document claims unverified delivery.                                                                | Planned |      |
-| TASK-038 | Run the repository formatter on changed files, `bun run lint`, every focused test in Section 6, and `bun run test`, and report results without running `bun run build`.                                                                                                                            | Planned |      |
-| TASK-039 | Verify desktop, mobile, keyboard-only, reduced-motion, empty, missing-budget, missing-YoY, month switching, transaction create/edit, both-role budget save, and ledger-isolation flows in the local browser.                                                                                       | Planned |      |
-| TASK-040 | Immediately before any linked command, read `supabase/.temp/project-ref`, require `magcvzqnwrwxkhtsfspg`, confirm exclusive `joint-dev` migration-writer access, and stop if either check fails.                                                                                                   | Planned |      |
-| TASK-041 | After explicit `joint-dev` mutation authorization, run linked migration list, dry-run push, push, and final migration list with `SUPABASE_TELEMETRY_DISABLED=1` and verify the immutable migration appears exactly once locally and remotely.                                                      | Planned |      |
-| TASK-042 | After TASK-041, verify hosted reset counts, protected seeds, columns, constraints, triggers, RLS, grants, representative authenticated behavior, query plans, and Supabase advisors, regenerate hosted types, and confirm they match `src/lib/database.types.ts`.                                  | Planned |      |
-| TASK-043 | Leave production migration and deployment exclusively to `.github/workflows/cd.yml` after separately authorized merge/release work and report that the approved destructive migration will execute before the application deployment.                                                              | Planned |      |
+| TASK-036 | Add `docs/architecture/bills-groceries-analytics.md` with trust boundaries, reset, protected taxonomy, source-versus-analytics semantics, proration, bounded queries, budget persistence, URL state, chart accessibility, failure behavior, and non-goals and link it from `docs/architecture.md`. | Complete | 2026-08-01 |
+| TASK-037 | Update `docs/architecture/financial-model.md` and `docs/roadmap.md` to distinguish the implemented Bills & Groceries subset from future generalized budgets and obligations and verify neither document claims unverified delivery.                                                                | Complete | 2026-08-01 |
+| TASK-038 | Run the repository formatter on changed files, `bun run lint`, every focused test in Section 6, and `bun run test`, and report results without running `bun run build`.                                                                                                                            | Complete | 2026-08-01 |
+| TASK-039 | Verify desktop, mobile, keyboard-only, reduced-motion, empty, missing-budget, missing-YoY, month switching, transaction create/edit, both-role budget save, and ledger-isolation flows in the local browser.                                                                                       | Complete | 2026-08-01 |
+| TASK-040 | Immediately before any linked command, read `supabase/.temp/project-ref`, require `magcvzqnwrwxkhtsfspg`, confirm exclusive `joint-dev` migration-writer access, and stop if either check fails.                                                                                                   | Complete | 2026-08-01 |
+| TASK-041 | After explicit `joint-dev` mutation authorization, run linked migration list, dry-run push, push, and final migration list with `SUPABASE_TELEMETRY_DISABLED=1` and verify the immutable migration appears exactly once locally and remotely.                                                      | Complete | 2026-08-01 |
+| TASK-042 | After TASK-041, verify hosted reset counts, protected seeds, columns, constraints, triggers, RLS, grants, representative authenticated behavior, query plans, and Supabase advisors, regenerate hosted types, and confirm they match `src/lib/database.types.ts`.                                  | Complete | 2026-08-01 |
+| TASK-043 | Leave production migration and deployment exclusively to `.github/workflows/cd.yml` after separately authorized merge/release work and report that the approved destructive migration will execute before the application deployment.                                                              | Complete | 2026-08-01 |
+
+#### Phase 6 verification record (2026-08-01)
+
+- Documentation, formatter, lint, all focused Section 6 tests, and the full suite passed; `bun run build` was not run.
+- `joint-dev` migration history contains `20260730125519_essentials_dashboard` exactly once; its linked dry run had no pending migration. The rollback-wrapped hosted pgTAP suite passed 143 assertions, and regenerated types exactly match `src/lib/database.types.ts`.
+- Browser verification covered authenticated desktop/mobile empty states, missing YoY, zero-day heatmap, month switching, keyboard-focusable cells, detail tables, and a temporary transaction create/edit/delete flow with cleanup.
+- Accepted gaps: second-member budget set/clear and reduced-motion browser proof remain manual follow-up checks. Production remains a separately authorized CI/CD release only.
 
 ## 3. Alternatives
 

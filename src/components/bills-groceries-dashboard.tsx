@@ -23,7 +23,6 @@ import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } 
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { getBillsGroceriesData } from "@/lib/bills-groceries-data";
 
@@ -111,7 +110,7 @@ function ChartConfig({
           type="button"
           size="icon"
           variant="ghost"
-          className="size-11 hover:bg-foreground/5 active:bg-foreground/5"
+          className="size-11"
           aria-label={`Configure ${label}`}
         >
           <Settings2 aria-hidden="true" />
@@ -270,23 +269,18 @@ function ChartCard({
         >
           {action}
           {detailHref ? (
-            <Button asChild size="icon" variant="ghost" className="size-11 hover:bg-foreground/5 active:bg-foreground/5">
+            <Button asChild size="icon" variant="ghost" className="size-11">
               <Link href={detailHref} aria-label={`Open ${title} details`}>
                 <Maximize2 aria-hidden="true" />
               </Link>
             </Button>
           ) : null}
           {backHref ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button asChild size="icon" variant="ghost" className="size-11 hover:bg-foreground/5 active:bg-foreground/5">
-                  <Link href={backHref} aria-label="Back to Bills & Groceries">
-                    <ArrowLeft data-icon="inline-start" aria-hidden="true" />
-                  </Link>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Back to Bills & Groceries</TooltipContent>
-            </Tooltip>
+            <Button asChild size="icon" variant="ghost" className="size-11">
+              <Link href={backHref} aria-label="Back to Bills & Groceries">
+                <ArrowLeft data-icon="inline-start" aria-hidden="true" />
+              </Link>
+            </Button>
           ) : null}
         </CardAction>
       </CardHeader>
@@ -656,7 +650,7 @@ function BillsGroceriesCharts({
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="size-11 hover:bg-foreground/5 active:bg-foreground/5"
+                      className="size-11"
                       aria-label="Configure Groceries by day"
                     >
                       <Settings2 aria-hidden="true" />

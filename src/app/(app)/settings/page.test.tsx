@@ -37,11 +37,6 @@ vi.mock("@/components/partner-access-control", () => ({
     </button>
   ),
 }));
-vi.mock("@/components/ui/tooltip", () => ({
-  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipContent: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
-}));
 vi.mock("@/components/member-card-settings-control", () => ({
   MemberCardSettingsControl: ({ lastFour }: { lastFour: string | null }) => <span data-card-last-four={lastFour ?? "none"} />,
 }));
@@ -109,9 +104,9 @@ it("renders the groceries budget in Household without a separate card", async ()
   expect(markup).toContain("The Lovelaces");
   expect(markup).toContain('href="/categories"');
   expect(markup).toContain('aria-label="Edit categories"');
-  expect(markup).toContain("active:translate-y-0");
+  expect(markup).toContain("active:bg-foreground/10");
   expect(markup).toContain("Manage categories &amp; subcategories.");
-  expect(markup).not.toContain("hover:bg-foreground/5");
+  expect(markup).toContain("hover:bg-foreground/5");
   expect(markup).toContain("User color");
   expect(markup).toContain("User name");
   expect(markup).toContain('aria-label="Log out"');
