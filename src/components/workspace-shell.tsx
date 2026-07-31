@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
-import { LayoutDashboard, Settings, Tags, WalletCards, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, ReceiptText, Settings, Tags, WalletCards, type LucideIcon } from "lucide-react";
 
 import { BrandMark } from "@/components/brand-mark";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -15,6 +15,7 @@ const navigation = [
   ["/", "Overview", LayoutDashboard],
   ["/transactions", "Transactions", WalletCards],
   ["/categories", "Categories", Tags],
+  ["/essentials", "Essentials", ReceiptText],
   ["/settings", "Settings", Settings],
 ] as const;
 

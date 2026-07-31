@@ -6,6 +6,7 @@ import { z } from "zod";
 import { validationError, type ActionResult } from "@/app/actions/result";
 import { requireCurrentHousehold } from "@/lib/household";
 import { isHexColor } from "@/lib/shared-colors";
+import { groceriesBudgetSchema } from "@/lib/validation";
 
 const profileNameSchema = z.object({
   name: z.string().trim().min(1, "Enter a display name."),
@@ -23,15 +24,18 @@ export async function saveSettings(_previousState: ActionResult | null, formData
   const householdName = changedValue(formData, "householdName", "initialHouseholdName");
   const color = changedValue(formData, "color", "initialColor");
   const lastFour = changedValue(formData, "lastFour", "initialLastFour");
+  const groceriesBudget = changedValue(formData, "groceriesBudget", "initialGroceriesBudget");
   const parsedProfileName = profileName === null ? null : profileNameSchema.safeParse({ name: profileName });
   const parsedHouseholdName = householdName === null ? null : profileNameSchema.safeParse({ name: householdName });
   const parsedLastFour = lastFour === null ? null : lastFourSchema.safeParse(lastFour);
+  const parsedGroceriesBudget = groceriesBudget === null ? null : groceriesBudgetSchema.safeParse(groceriesBudget);
 
   if (parsedProfileName && !parsedProfileName.success) return validationError(parsedProfileName.error.issues);
   if (parsedHouseholdName && !parsedHouseholdName.success) return validationError(parsedHouseholdName.error.issues);
   if (parsedLastFour && !parsedLastFour.success) return validationError(parsedLastFour.error.issues);
+  if (parsedGroceriesBudget && !parsedGroceriesBudget.success) return validationError(parsedGroceriesBudget.error.issues);
   if (color !== null && !isHexColor(color)) return { status: "error", formError: "Choose a valid color.", fieldErrors: {} };
-  if (profileName === null && householdName === null && color === null && lastFour === null) {
+  if (profileName === null && householdName === null && color === null && lastFour === null && groceriesBudget === null) {
     return { status: "success", data: { fullName: String(formData.get("profileName") ?? "") } };
   }
 
@@ -41,6 +45,7 @@ export async function saveSettings(_previousState: ActionResult | null, formData
     ...(parsedHouseholdName?.success ? { household_name: parsedHouseholdName.data.name } : {}),
     ...(color === null ? {} : { member_color: color }),
     ...(parsedLastFour?.success ? { member_card_last_four: parsedLastFour.data } : {}),
+    ...(parsedGroceriesBudget?.success ? { groceries_monthly_budget: parsedGroceriesBudget.data } : {}),
   });
   if (error?.code === "23505" && error.message.includes("member_cards_household_id_last_four_key")) {
     return {
@@ -51,9 +56,10 @@ export async function saveSettings(_previousState: ActionResult | null, formData
   }
   if (error) return { status: "error", formError: "Unable to save settings. Please try again.", fieldErrors: {} };
 
-  if (profileName !== null || householdName !== null || color !== null || lastFour !== null) {
+  if (profileName !== null || householdName !== null || color !== null || lastFour !== null || groceriesBudget !== null) {
     revalidatePath("/settings");
     if (color !== null) revalidatePath("/transactions");
+    if (groceriesBudget !== null) revalidatePath("/essentials");
   }
   return {
     status: "success",

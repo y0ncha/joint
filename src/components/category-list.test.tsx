@@ -75,6 +75,23 @@ it("shows category and subcategory names without pills", () => {
   expect(markup).not.toContain("background-color:#c5e8f7");
 });
 
+it("limits protected Essentials rows to appearance controls", () => {
+  const markup = categoryListModule
+    ? renderToStaticMarkup(
+        <categoryListModule.CategoryList
+          categories={[{ id: "groceries", name: "Groceries", kind: "expense", color: "#dcece3", transactionCount: 0, archived_at: null, system_key: "groceries" }]}
+          subcategories={[{ id: "main-run", category_id: "groceries", name: "Main run", color: "#c5e8f7", transactionCount: 0, archived_at: null, system_key: "main_run" }]}
+        />,
+      )
+    : "";
+
+  expect(markup).not.toContain("Add subcategory");
+  expect(markup).not.toContain("Delete category");
+  expect(markup).not.toContain("Delete subcategory");
+  expect(markup).not.toContain("Category type");
+  expect(markup).not.toContain("Parent category");
+});
+
 it("places independent collapse actions in each category card", () => {
   const markup = categoryListModule
     ? renderToStaticMarkup(

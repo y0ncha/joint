@@ -37,6 +37,7 @@ type Subcategory = {
   kind: "income" | "expense";
   color: string;
   icon: string | null;
+  categorySystemKey?: string | null;
   systemKey?: string | null;
 };
 type Member = { id: string; label: string; color?: string };
@@ -104,12 +105,16 @@ export function TransactionSheet({
   const [subcategoryId, setSubcategoryId] = useState(initialSubcategoryId);
   const selectedSubcategoryId = selectableSubcategories.some((subcategory) => subcategory.id === subcategoryId) ? subcategoryId : "";
   const selectedSubcategory = selectableSubcategories.find((subcategory) => subcategory.id === selectedSubcategoryId);
-  const isBillsSubcategory = selectedSubcategory?.systemKey === "bills";
-  const [billingPeriod, setBillingPeriod] = useState<DateRange | undefined>(() =>
-    subcategories.find((subcategory) => subcategory.id === initialSubcategoryId)?.systemKey === "bills"
-      ? billingPeriodFor(initialOccurredOn)
-      : undefined,
-  );
+  const isBillsSubcategory = selectedSubcategory?.categorySystemKey === "bills" || selectedSubcategory?.systemKey === "bills";
+  const [billingPeriod, setBillingPeriod] = useState<DateRange | undefined>(() => {
+    const initialSubcategory = subcategories.find((subcategory) => subcategory.id === initialSubcategoryId);
+    const isBills = initialSubcategory?.categorySystemKey === "bills" || initialSubcategory?.systemKey === "bills";
+    if (!isBills) return undefined;
+    return {
+      from: dateFromIso(transaction?.servicePeriodStart ?? initialOccurredOn),
+      to: dateFromIso(transaction?.servicePeriodEnd ?? transaction?.servicePeriodStart ?? initialOccurredOn),
+    };
+  });
   const selectedPaidBy =
     paidBy === "" ? "" : members.some((member) => member.id === paidBy) ? paidBy : currentUserId || members[0]?.id || "";
   const shouldRenderDefaultTrigger = !isEditing && open === undefined && onOpenChange === undefined;
@@ -145,6 +150,8 @@ export function TransactionSheet({
             <input name="occurredOn" type="hidden" value={occurredOn} />
             <input name="subcategoryId" type="hidden" value={selectedSubcategoryId} />
             <input name="paidBy" type="hidden" value={selectedPaidBy} />
+            <input name="servicePeriodStart" type="hidden" value={billingPeriod?.from ? isoFromDate(billingPeriod.from) : ""} />
+            <input name="servicePeriodEnd" type="hidden" value={billingPeriod?.to ? isoFromDate(billingPeriod.to) : ""} />
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.amount)}>
               <FieldLabel htmlFor="amount">Amount</FieldLabel>
               <Input
@@ -240,7 +247,7 @@ export function TransactionSheet({
               {state?.status === "error" ? <FieldError>{state.fieldErrors.subcategoryId}</FieldError> : null}
             </Field>
             {isBillsSubcategory ? (
-              <Field>
+              <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.servicePeriodEnd)}>
                 <FieldLabel id="billing-period-label">Billing period</FieldLabel>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -278,6 +285,7 @@ export function TransactionSheet({
                     ? `Inclusive range from ${isoFromDate(billingPeriod.from)} to ${isoFromDate(billingPeriod.to)}.`
                     : "Choose an inclusive range."}
                 </FieldDescription>
+                {state?.status === "error" ? <FieldError>{state.fieldErrors.servicePeriodEnd}</FieldError> : null}
               </Field>
             ) : null}
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)}>

@@ -29,6 +29,7 @@ export function hasUnsavedSettings(formData: FormData) {
     ["color", "initialColor"],
     ["accentColor", "initialAccentColor"],
     ["lastFour", "initialLastFour"],
+    ["groceriesBudget", "initialGroceriesBudget"],
   ].some(([name, initialName]) => String(formData.get(name) ?? "").trim() !== String(formData.get(initialName) ?? "").trim());
 }
 
@@ -47,6 +48,7 @@ function markSettingsSaved() {
     ["color", "initialColor"],
     ["accentColor", "initialAccentColor"],
     ["lastFour", "initialLastFour"],
+    ["groceriesBudget", "initialGroceriesBudget"],
   ].forEach(([name, initialName]) => {
     const value = form.elements.namedItem(name);
     const initialValue = form.elements.namedItem(initialName);

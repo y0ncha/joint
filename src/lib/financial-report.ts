@@ -20,6 +20,8 @@ export type ReportTransaction = {
   kind: "income" | "expense";
   amount: number;
   occurredOn: string;
+  servicePeriodStart?: string | null;
+  servicePeriodEnd?: string | null;
   subcategoryId: string | null;
   note: string;
   merchant?: string;

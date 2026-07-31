@@ -1,6 +1,7 @@
 import { AccentPicker } from "@/components/accent-picker";
 import { MemberCardSettingsControl } from "@/components/member-card-settings-control";
 import { MemberColorSettingsControl } from "@/components/member-color-settings-control";
+import { GroceriesBudgetSettingsControl } from "@/components/groceries-budget-settings-control";
 import { MemberManagementSheet, type PartnerAccessState } from "@/components/partner-access-control";
 import { SettingsSaveControl } from "@/components/settings-save-control";
 import { WorkspaceShell } from "@/components/workspace-shell";
@@ -8,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { getCurrentHouseholdContext } from "@/lib/household";
-import { ChevronRight, CreditCard, House, Palette, UserRound, UsersRound, type LucideIcon } from "lucide-react";
+import { ChevronRight, CreditCard, House, Palette, ShoppingBasket, UserRound, UsersRound, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 function SettingsRow({
@@ -101,7 +102,7 @@ export default async function SettingsPage() {
       .select("user_id, role, color, joined_at")
       .eq("household_id", household.householdId)
       .order("joined_at"),
-    household.supabase.from("households").select("name").eq("id", household.householdId).maybeSingle(),
+    household.supabase.from("households").select("name, groceries_monthly_budget").eq("id", household.householdId).maybeSingle(),
   ]);
   if (cardMappingError || profileError || membersError || householdError) throw new Error("Unable to load account settings.");
   const currentCardLastFour = cardMapping?.last_four ?? null;
@@ -148,6 +149,20 @@ export default async function SettingsPage() {
                 <div className="w-[min(22rem,55vw)]">
                   <AccentPicker showLabel={false} />
                 </div>
+              </SettingsRow>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-white/50 bg-card/90">
+          <CardHeader>
+            <CardTitle>Essentials</CardTitle>
+            <CardDescription>Set an optional monthly groceries threshold.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y divide-border/70">
+              <SettingsRow icon={ShoppingBasket} label="Monthly groceries budget" description="Leave blank to hide the chart threshold.">
+                <GroceriesBudgetSettingsControl budget={householdRecord?.groceries_monthly_budget ?? null} />
               </SettingsRow>
             </div>
           </CardContent>

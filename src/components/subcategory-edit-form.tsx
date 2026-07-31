@@ -13,9 +13,10 @@ import { selectSubcategoryPastelColor, subcategoryPastelColors } from "@/lib/sha
 import { isCategoryIcon } from "@/lib/category-icons";
 
 type ParentCategory = { id: string; name: string; color?: string; icon?: string; subcategoryColors: string[] };
-type Subcategory = { id: string; category_id: string; name: string; color: string; icon?: string | null };
+type Subcategory = { id: string; category_id: string; name: string; color: string; icon?: string | null; system_key?: string | null };
 
 export function SubcategoryEditForm({ categories, subcategory }: { categories: ParentCategory[]; subcategory: Subcategory }) {
+  const isProtected = subcategory.system_key !== null && subcategory.system_key !== undefined;
   const [categoryId, setCategoryId] = useState(subcategory.category_id);
   const parent = categories.find((category) => category.id === categoryId);
   const parentIcon = parent?.icon ?? null;
@@ -35,7 +36,16 @@ export function SubcategoryEditForm({ categories, subcategory }: { categories: P
       }}
     >
       <FieldGroup>
-        <Field>
+        {isProtected ? (
+          <>
+            <input name="name" type="hidden" value={subcategory.name} />
+            <input name="categoryId" type="hidden" value={subcategory.category_id} />
+            <Field>
+              <FieldLabel>Icon</FieldLabel>
+              <CategoryIconPicker defaultIcon={defaultIcon} inheritedIcon={inheritedIcon} />
+            </Field>
+          </>
+        ) : <Field>
           <FieldLabel htmlFor={`subcategory-${subcategory.id}`}>Name</FieldLabel>
           <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
             <Input
@@ -47,9 +57,9 @@ export function SubcategoryEditForm({ categories, subcategory }: { categories: P
             />
             <CategoryIconPicker key={categoryId} defaultIcon={defaultIcon} inheritedIcon={inheritedIcon} />
           </div>
-        </Field>
+        </Field>}
         {defaultColor ? <CategoryColorPicker key={categoryId} defaultColor={defaultColor} presetColors={colors} /> : null}
-        <Field>
+        {!isProtected ? <Field>
           <FieldLabel>Parent category</FieldLabel>
           <PillSelect
             ariaLabel="Parent category"
@@ -59,7 +69,7 @@ export function SubcategoryEditForm({ categories, subcategory }: { categories: P
             emptyLabel="Choose a category"
             options={categories.map((category) => ({ value: category.id, label: category.name, color: category.color }))}
           />
-        </Field>
+        </Field> : null}
         <Button className="mt-5" type="submit">
           Save subcategory
         </Button>

@@ -34,6 +34,7 @@ export type Category = {
   name: string;
   transactionCount: number;
   archived_at: string | null;
+  system_key?: string | null;
 };
 
 export type Subcategory = {
@@ -44,6 +45,7 @@ export type Subcategory = {
   name: string;
   transactionCount: number;
   archived_at: string | null;
+  system_key?: string | null;
 };
 
 const sheetContentClassName =
@@ -58,6 +60,7 @@ function SubcategoryEditor({
   subcategories: Subcategory[];
   subcategory: Subcategory;
 }) {
+  const isProtected = subcategory.system_key !== null && subcategory.system_key !== undefined;
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -87,7 +90,7 @@ function SubcategoryEditor({
                 .map((child) => child.color),
             }))}
           />
-          <div className="flex justify-end">
+          {!isProtected ? <div className="flex justify-end">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
@@ -119,7 +122,7 @@ function SubcategoryEditor({
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-          </div>
+          </div> : null}
         </div>
       </SheetContent>
     </Sheet>
@@ -168,6 +171,8 @@ function CategoryEditor({
   category: Category;
   categories: Array<{ id: string; name: string; color: string; icon?: string; subcategoryColors: string[] }>;
 }) {
+  const isProtected = category.system_key !== null && category.system_key !== undefined;
+  const isGroceries = category.system_key === "groceries";
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -194,7 +199,16 @@ function CategoryEditor({
             }}
           >
             <FieldGroup>
-              <Field>
+              {isProtected ? (
+                <>
+                  <input name="name" type="hidden" value={category.name} />
+                  <input name="kind" type="hidden" value={category.kind} />
+                  <Field>
+                    <FieldLabel>Icon</FieldLabel>
+                    <CategoryIconPicker defaultIcon={isCategoryIcon(category.icon ?? null) ? category.icon : "tag"} />
+                  </Field>
+                </>
+              ) : <Field>
                 <FieldLabel htmlFor={`category-name-${category.id}`}>Name</FieldLabel>
                 <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
                   <Input
@@ -206,8 +220,8 @@ function CategoryEditor({
                   />
                   <CategoryIconPicker defaultIcon={isCategoryIcon(category.icon ?? null) ? category.icon : "tag"} />
                 </div>
-              </Field>
-              <Field>
+              </Field>}
+              {!isProtected ? <Field>
                 <FieldLabel>Type</FieldLabel>
                 <PillSelect
                   ariaLabel="Category type"
@@ -218,15 +232,15 @@ function CategoryEditor({
                     { value: "expense", label: "Expense", className: "border-negative/20 bg-negative/10 text-negative" },
                   ]}
                 />
-              </Field>
+              </Field> : null}
               <CategoryColorPicker defaultColor={category.color} />
               <Button className="mt-5" type="submit">
                 Save category
               </Button>
             </FieldGroup>
           </form>
-          <SubcategoryCreationSheet categories={categories} categoryId={category.id} />
-          <div className="flex justify-end">
+          {!isGroceries ? <SubcategoryCreationSheet categories={categories} categoryId={category.id} /> : null}
+          {!isProtected ? <div className="flex justify-end">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
@@ -260,7 +274,7 @@ function CategoryEditor({
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-          </div>
+          </div> : null}
         </div>
       </SheetContent>
     </Sheet>

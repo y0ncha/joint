@@ -355,6 +355,8 @@ it("defaults the fixture Billing period from the ledger date in Bills create and
         kind: "expense",
         amount: 120,
         occurredOn: "2026-07-03",
+        servicePeriodStart: "2026-06-15",
+        servicePeriodEnd: "2026-07-14",
         subcategoryId: "electricity",
         note: "",
         merchant: "Electric company",
@@ -370,8 +372,10 @@ it("defaults the fixture Billing period from the ledger date in Bills create and
   }
   expect(createMarkup).toMatch(/id="billing-period-from"[^>]*value="2026-07-14"/);
   expect(createMarkup).toMatch(/id="billing-period-to"[^>]*value="2026-07-14"/);
-  expect(editMarkup).toMatch(/id="billing-period-from"[^>]*value="2026-07-03"/);
-  expect(editMarkup).toMatch(/id="billing-period-to"[^>]*value="2026-07-03"/);
+  expect(editMarkup).toMatch(/id="billing-period-from"[^>]*value="2026-06-15"/);
+  expect(editMarkup).toMatch(/id="billing-period-to"[^>]*value="2026-07-14"/);
+  expect(editMarkup).toContain('type="hidden" name="servicePeriodStart" value="2026-06-15"');
+  expect(editMarkup).toContain('type="hidden" name="servicePeriodEnd" value="2026-07-14"');
 });
 
 it("clears the fixture Billing period after selecting a non-Bills subcategory", () => {

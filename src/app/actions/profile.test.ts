@@ -79,6 +79,14 @@ describe("profile action", () => {
     expect(mocks.from).not.toHaveBeenCalled();
   });
 
+  it("sets or clears the shared groceries budget through the existing atomic RPC", async () => {
+    await expect(
+      actions.saveSettings(null, formData({ groceriesBudget: "", initialGroceriesBudget: "500" })),
+    ).resolves.toEqual({ status: "success", data: { fullName: "" } });
+
+    expect(mocks.rpc).toHaveBeenCalledWith("save_current_settings", { groceries_monthly_budget: null });
+  });
+
   it("does not write unchanged settings", async () => {
     await expect(
       actions.saveSettings(
