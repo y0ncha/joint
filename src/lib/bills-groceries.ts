@@ -1,4 +1,4 @@
-import type { DateRange } from "@/lib/date-range";
+import { epochDayToIsoDate, getIsoMonthRange, isoDateToEpochDay, shiftIsoMonth, type DateRange } from "@/lib/date-range";
 
 type BillInput = {
   amount: number;
@@ -13,29 +13,15 @@ type GroceryInput = {
   subcategoryKey: "main_run" | "top_ups";
 };
 
-const DAY_MS = 86_400_000;
-
-function isoDay(value: string) {
-  const day = Date.parse(`${value}T00:00:00Z`) / DAY_MS;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || new Date(day * DAY_MS).toISOString().slice(0, 10) !== value) {
-    throw new Error(`Invalid ISO date: ${value}`);
-  }
-  return day;
-}
-
-function dayIso(day: number) {
-  return new Date(day * DAY_MS).toISOString().slice(0, 10);
-}
-
 function toAgorot(amount: number) {
   return Math.round(amount * 100);
 }
 
 export function allocateBillDaily(bill: BillInput, displayRange?: DateRange) {
-  const serviceStart = isoDay(bill.servicePeriodStart);
-  const serviceEnd = isoDay(bill.servicePeriodEnd);
-  const firstDay = Math.max(serviceStart, displayRange ? isoDay(displayRange.from) : serviceStart);
-  const lastDay = Math.min(serviceEnd, displayRange ? isoDay(displayRange.to) : serviceEnd);
+  const serviceStart = isoDateToEpochDay(bill.servicePeriodStart);
+  const serviceEnd = isoDateToEpochDay(bill.servicePeriodEnd);
+  const firstDay = Math.max(serviceStart, displayRange ? isoDateToEpochDay(displayRange.from) : serviceStart);
+  const lastDay = Math.min(serviceEnd, displayRange ? isoDateToEpochDay(displayRange.to) : serviceEnd);
   const totalAgorot = toAgorot(bill.amount);
   const dayCount = serviceEnd - serviceStart + 1;
   const dailyAgorot = Math.floor(totalAgorot / dayCount);
@@ -46,7 +32,7 @@ export function allocateBillDaily(bill: BillInput, displayRange?: DateRange) {
     : Array.from({ length: lastDay - firstDay + 1 }, (_, index) => {
         const day = firstDay + index;
         return {
-          date: dayIso(day),
+          date: epochDayToIsoDate(day),
           subcategoryId: bill.subcategoryId,
           agorot: dailyAgorot + (day - serviceStart < remainder ? 1 : 0),
         };
@@ -72,17 +58,11 @@ export function consolidateBillsByMonth(allocations: ReturnType<typeof allocateB
     );
 }
 
-function monthIso(monthIndex: number) {
-  const year = Math.floor(monthIndex / 12);
-  return `${year}-${String((monthIndex % 12) + 1).padStart(2, "0")}`;
-}
-
 export function buildMonthlyRange(period: "rolling" | "calendar", currentDate: string) {
-  const current = new Date(isoDay(currentDate) * DAY_MS);
-  const currentMonth = current.getUTCFullYear() * 12 + current.getUTCMonth();
-  const firstMonth = period === "rolling" ? currentMonth - 11 : current.getUTCFullYear() * 12;
+  const currentMonth = epochDayToIsoDate(isoDateToEpochDay(currentDate)).slice(0, 7);
+  const firstMonth = period === "rolling" ? shiftIsoMonth(currentMonth, -11) : `${currentMonth.slice(0, 4)}-01`;
 
-  return Array.from({ length: 12 }, (_, index) => monthIso(firstMonth + index));
+  return Array.from({ length: 12 }, (_, index) => shiftIsoMonth(firstMonth, index));
 }
 
 export function alignBillYearOverYear(months: string[], monthly: ReturnType<typeof consolidateBillsByMonth>, subcategoryId: string) {
@@ -145,11 +125,11 @@ export function buildGroceriesMonthly(months: string[], transactions: GroceryInp
 }
 
 export function buildGroceriesDaily(range: DateRange, transactions: GroceryInput[]) {
-  const firstDay = isoDay(range.from);
-  const lastDay = isoDay(range.to);
+  const firstDay = isoDateToEpochDay(range.from);
+  const lastDay = isoDateToEpochDay(range.to);
   const values = new Map<string, { date: string; mainRunAgorot: number; topUpsAgorot: number }>(
     Array.from({ length: lastDay - firstDay + 1 }, (_, index) => {
-      const date = dayIso(firstDay + index);
+      const date = epochDayToIsoDate(firstDay + index);
       return [date, { date, mainRunAgorot: 0, topUpsAgorot: 0 }];
     }),
   );
@@ -168,12 +148,6 @@ export function buildGroceriesDaily(range: DateRange, transactions: GroceryInput
   }));
 }
 
-function monthRange(month: string) {
-  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return null;
-  const monthIndex = Number(month.slice(0, 4)) * 12 + Number(month.slice(5)) - 1;
-  return { from: `${month}-01`, to: dayIso(Date.UTC(Math.floor((monthIndex + 1) / 12), (monthIndex + 1) % 12) / DAY_MS - 1) };
-}
-
 export function parseBillsGroceriesUrlDefaults(
   params: { get(name: string): string | null },
   options: {
@@ -187,7 +161,7 @@ export function parseBillsGroceriesUrlDefaults(
   const billsParam = params.get("bills");
   const selectedBills = billsParam?.split(",") ?? [];
   const billParam = params.get("bill");
-  const groceryRange = params.get("groceryMonth") ? monthRange(params.get("groceryMonth")!) : null;
+  const groceryRange = params.get("groceryMonth") ? getIsoMonthRange(params.get("groceryMonth")!) : undefined;
 
   return {
     period: params.get("period") === "calendar" ? ("calendar" as const) : ("rolling" as const),
@@ -198,6 +172,6 @@ export function parseBillsGroceriesUrlDefaults(
           ? [...new Set(selectedBills)]
           : allBillIds,
     billId: billParam !== null && validBillIds.has(billParam) ? billParam : options.defaultBillId,
-    groceryRange: groceryRange ?? monthRange(options.currentDate.slice(0, 7))!,
+    groceryRange: groceryRange ?? getIsoMonthRange(options.currentDate.slice(0, 7))!,
   };
 }

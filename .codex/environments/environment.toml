@@ -19,6 +19,6 @@ command = "bun run build"
 name = "Test"
 icon = "test"
 command = '''
-bun run test
 bun run lint
-bun run format'''
+bun run format
+bun run test'''

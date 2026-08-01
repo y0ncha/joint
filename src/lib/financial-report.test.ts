@@ -375,6 +375,40 @@ describe("buildMonthlyReport", () => {
     });
   });
 
+  it("caps a March 31 comparison at February's leap-day month end", () => {
+    const report = buildMonthlyReport({
+      openingBalance: 0,
+      categories,
+      subcategories,
+      transactions: [
+        {
+          id: "march-income",
+          kind: "income",
+          amount: 120,
+          occurredOn: "2024-03-31",
+          subcategoryId: "salary",
+          note: "Current",
+          createdAt: "2024-03-31T08:00:00Z",
+          paidBy: "member-id",
+        },
+        {
+          id: "february-income-included",
+          kind: "income",
+          amount: 100,
+          occurredOn: "2024-02-29",
+          subcategoryId: "salary",
+          note: "Included",
+          createdAt: "2024-02-29T08:00:00Z",
+          paidBy: "member-id",
+        },
+      ],
+      month: "2024-03",
+      asOfDate: "2024-03-31",
+    });
+
+    expect(report.incomeChangePercentage).toBeCloseTo(260);
+  });
+
   it("sorts parent totals, keeps loaded archived hierarchy, and excludes missing hierarchy", () => {
     const report = buildMonthlyReport({
       openingBalance: 0,

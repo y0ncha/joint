@@ -68,6 +68,10 @@ describe("transactionSchema", () => {
       { servicePeriodStart: "2026-01-01", servicePeriodEnd: "2027-01-01" },
       { servicePeriodStart: "2026-01-01", servicePeriodEnd: "2027-01-01" },
     ],
+    [
+      { servicePeriodStart: "2024-02-29", servicePeriodEnd: "2024-02-29" },
+      { servicePeriodStart: "2024-02-29", servicePeriodEnd: "2024-02-29" },
+    ],
   ])("accepts an omitted, empty, or 366-day inclusive service period", (period, expected) => {
     expect(transactionSchema.parse({ kind: "expense", ...validTransaction, ...period })).toMatchObject(expected);
   });
@@ -77,10 +81,29 @@ describe("transactionSchema", () => {
     [{ servicePeriodEnd: "2026-07-31" }, "Enter both service period dates."],
     [{ servicePeriodStart: "2026-02-30", servicePeriodEnd: "2026-03-01" }, "Use YYYY-MM-DD."],
     [{ servicePeriodStart: "2026-13-01", servicePeriodEnd: "2026-03-01" }, "Use YYYY-MM-DD."],
+    [{ servicePeriodStart: "2026-6-01", servicePeriodEnd: "2026-06-01" }, "Use YYYY-MM-DD."],
     [{ servicePeriodStart: "2026-07-02", servicePeriodEnd: "2026-07-01" }, "End on or after the start date."],
     [{ servicePeriodStart: "2026-01-01", servicePeriodEnd: "2027-01-02" }, "Use 366 days or fewer."],
   ])("rejects an invalid service period", (period, message) => {
     expect(() => transactionSchema.parse({ kind: "expense", ...validTransaction, ...period })).toThrowError(message);
+  });
+
+  it("keeps the reversal error alongside an invalid start-date error", () => {
+    const result = transactionSchema.safeParse({
+      kind: "expense",
+      ...validTransaction,
+      servicePeriodStart: "2026-13-01",
+      servicePeriodEnd: "2026-03-01",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: ["servicePeriodStart"], message: "Use YYYY-MM-DD." }),
+          expect.objectContaining({ path: ["servicePeriodEnd"], message: "End on or after the start date." }),
+        ]),
+      );
   });
 });
 

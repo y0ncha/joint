@@ -1,5 +1,4 @@
 import {
-  alignBillYearOverYear,
   allocateBillDaily,
   buildGroceriesDaily,
   buildGroceriesMonthly,
@@ -7,6 +6,7 @@ import {
   consolidateBillsByMonth,
   pickDefaultBillSubcategory,
 } from "@/lib/bills-groceries";
+import { getIsoMonthRange, shiftIsoMonth } from "@/lib/date-range";
 import { getCurrentHouseholdContext } from "@/lib/household";
 
 type BillsGroceriesDataOptions = {
@@ -15,14 +15,22 @@ type BillsGroceriesDataOptions = {
   period: "rolling" | "calendar";
 };
 
-function monthEnd(month: string) {
-  const year = Number(month.slice(0, 4));
-  const monthNumber = Number(month.slice(5));
-  return new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
-}
+async function readAllPages<Row>(
+  loadPage: (from: number, to: number) => PromiseLike<{ count: number | null; data: Row[] | null; error: unknown }>,
+) {
+  const firstPage = await loadPage(0, 999);
+  if (firstPage.error || firstPage.count === null || (firstPage.count > 0 && !firstPage.data?.length)) {
+    throw new Error("Unable to load BillsGroceries data.");
+  }
 
-function previousYearMonth(month: string) {
-  return `${Number(month.slice(0, 4)) - 1}${month.slice(4)}`;
+  const rows = [...(firstPage.data ?? [])];
+  while (rows.length < firstPage.count) {
+    const page = await loadPage(rows.length, rows.length + 999);
+    if (page.error || !page.data?.length) throw new Error("Unable to load BillsGroceries data.");
+    rows.push(...page.data);
+  }
+
+  return rows.slice(0, firstPage.count);
 }
 
 export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) {
@@ -53,8 +61,8 @@ export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) 
   }
 
   const months = buildMonthlyRange(options.period, options.currentDate);
-  const displayedRange = { from: `${months[0]}-01`, to: monthEnd(months[months.length - 1]) };
-  const billsRange = { from: `${previousYearMonth(months[0])}-01`, to: displayedRange.to };
+  const displayedRange = { from: `${months[0]}-01`, to: getIsoMonthRange(months[months.length - 1])!.to };
+  const billsRange = { from: `${shiftIsoMonth(months[0], -12)}-01`, to: displayedRange.to };
   const [billSubcategoriesResult, grocerySubcategoriesResult] = await Promise.all([
     billsCategoryResult.data
       ? household.supabase
@@ -84,45 +92,60 @@ export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) 
   const billSubcategories = billSubcategoriesResult.data ?? [];
   const grocerySubcategories = grocerySubcategoriesResult.data ?? [];
   const groceryIds = grocerySubcategories.map((subcategory) => subcategory.id);
-  const [billTransactionsResult, groceryMonthlyTransactionsResult, groceryDailyTransactionsResult] = await Promise.all([
-    billSubcategories.length
-      ? household.supabase
-          .from("transactions")
-          .select("amount, subcategory_id, service_period_start, service_period_end")
-          .eq("household_id", household.householdId)
-          .in(
-            "subcategory_id",
-            billSubcategories.map((subcategory) => subcategory.id),
+  let billTransactions;
+  let groceryMonthlyTransactions;
+  let groceryDailyTransactions;
+  try {
+    [billTransactions, groceryMonthlyTransactions, groceryDailyTransactions] = await Promise.all([
+      billSubcategories.length
+        ? readAllPages((from, to) =>
+            household.supabase
+              .from("transactions")
+              .select("amount, subcategory_id, service_period_start, service_period_end", { count: "exact" })
+              .eq("household_id", household.householdId)
+              .in(
+                "subcategory_id",
+                billSubcategories.map((subcategory) => subcategory.id),
+              )
+              .lte("service_period_start", billsRange.to)
+              .gte("service_period_end", billsRange.from)
+              .order("id")
+              .range(from, to),
           )
-          .lte("service_period_start", billsRange.to)
-          .gte("service_period_end", billsRange.from)
-      : Promise.resolve({ data: [], error: null }),
-    groceryIds.length
-      ? household.supabase
-          .from("transactions")
-          .select("amount, occurred_on, subcategory_id")
-          .eq("household_id", household.householdId)
-          .in("subcategory_id", groceryIds)
-          .gte("occurred_on", displayedRange.from)
-          .lte("occurred_on", displayedRange.to)
-      : Promise.resolve({ data: [], error: null }),
-    groceryIds.length
-      ? household.supabase
-          .from("transactions")
-          .select("amount, occurred_on, subcategory_id")
-          .eq("household_id", household.householdId)
-          .in("subcategory_id", groceryIds)
-          .gte("occurred_on", options.groceryRange.from)
-          .lte("occurred_on", options.groceryRange.to)
-      : Promise.resolve({ data: [], error: null }),
-  ]);
-
-  if (billTransactionsResult.error || groceryMonthlyTransactionsResult.error || groceryDailyTransactionsResult.error) {
+        : Promise.resolve([]),
+      groceryIds.length
+        ? readAllPages((from, to) =>
+            household.supabase
+              .from("transactions")
+              .select("id, amount, occurred_on, subcategory_id", { count: "exact" })
+              .eq("household_id", household.householdId)
+              .in("subcategory_id", groceryIds)
+              .gte("occurred_on", displayedRange.from)
+              .lte("occurred_on", displayedRange.to)
+              .order("id")
+              .range(from, to),
+          )
+        : Promise.resolve([]),
+      groceryIds.length
+        ? readAllPages((from, to) =>
+            household.supabase
+              .from("transactions")
+              .select("id, amount, occurred_on, subcategory_id", { count: "exact" })
+              .eq("household_id", household.householdId)
+              .in("subcategory_id", groceryIds)
+              .gte("occurred_on", options.groceryRange.from)
+              .lte("occurred_on", options.groceryRange.to)
+              .order("id")
+              .range(from, to),
+          )
+        : Promise.resolve([]),
+    ]);
+  } catch {
     throw new Error("Unable to load BillsGroceries data.");
   }
 
   const monthlyBills = consolidateBillsByMonth(
-    (billTransactionsResult.data ?? []).flatMap((transaction) =>
+    billTransactions.flatMap((transaction) =>
       transaction.subcategory_id && transaction.service_period_start && transaction.service_period_end
         ? allocateBillDaily(
             {
@@ -144,7 +167,7 @@ export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) 
         : [],
     ),
   );
-  const groceryInputs = (transactions: typeof groceryMonthlyTransactionsResult.data) =>
+  const groceryInputs = (transactions: typeof groceryMonthlyTransactions) =>
     (transactions ?? []).flatMap((transaction) => {
       const subcategoryKey = transaction.subcategory_id ? groceryKeyById.get(transaction.subcategory_id) : undefined;
       return subcategoryKey ? [{ amount: transaction.amount, occurredOn: transaction.occurred_on, subcategoryKey }] : [];
@@ -159,7 +182,6 @@ export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) 
       subcategories: billSubcategories,
       monthly: monthlyBills,
       defaultSubcategoryId,
-      yearOverYear: defaultSubcategoryId ? alignBillYearOverYear(months, monthlyBills, defaultSubcategoryId) : [],
     },
     groceries: {
       category: groceriesCategoryResult.data,
@@ -169,10 +191,10 @@ export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) 
       },
       monthly: buildGroceriesMonthly(
         months,
-        groceryInputs(groceryMonthlyTransactionsResult.data),
+        groceryInputs(groceryMonthlyTransactions),
         budgetResult.data?.groceries_monthly_budget ?? null,
       ),
-      daily: buildGroceriesDaily(options.groceryRange, groceryInputs(groceryDailyTransactionsResult.data)),
+      daily: buildGroceriesDaily(options.groceryRange, groceryInputs(groceryDailyTransactions)),
     },
   };
 }

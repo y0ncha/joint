@@ -23,13 +23,16 @@ import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } 
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { alignBillYearOverYear } from "@/lib/bills-groceries";
+import type { BillsGroceriesChartId } from "@/lib/bills-groceries-chart-ids";
 import { cn } from "@/lib/utils";
 import type { getBillsGroceriesData } from "@/lib/bills-groceries-data";
+
+export { billsGroceriesChartIds, type BillsGroceriesChartId } from "@/lib/bills-groceries-chart-ids";
 
 type BillKey = string;
 type Period = "rolling" | "calendar";
 type GroceryFilter = "all" | "main-run" | "top-ups";
-export type BillsGroceriesChartId = "bills" | "yoy" | "groceries" | "daily";
 type MonthlyChartDatum = { month: string } & Record<string, string | number>;
 type GroceryMonthlyDatum = { month: string; mainRun: number; topUps: number };
 
@@ -150,9 +153,9 @@ function BillOptions({
   if (single) {
     return (
       <Field>
-        <FieldLabel htmlFor="yoy-bill">Bill</FieldLabel>
+        <FieldLabel htmlFor="year-over-year-bill">Bill</FieldLabel>
         <Select value={selectedBills[0]} onValueChange={(value) => toggleBill(value as BillKey)}>
-          <SelectTrigger id="yoy-bill" className="min-h-11 w-full" aria-label="Select Bill">
+          <SelectTrigger id="year-over-year-bill" className="min-h-11 w-full" aria-label="Select Bill">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -217,17 +220,17 @@ function ChartCard({
   action,
   children,
   layoutClassName,
-  detailHref,
+  detailSuffix,
   backHref,
   detail,
 }: {
-  id: string;
+  id: BillsGroceriesChartId;
   title: string;
   description: string;
   action?: ReactNode;
   children: ReactNode;
   layoutClassName?: string;
-  detailHref?: string;
+  detailSuffix: string;
   backHref?: string;
   detail?: boolean;
 }) {
@@ -262,9 +265,9 @@ function ChartCard({
           )}
         >
           {action}
-          {detailHref ? (
+          {!detail ? (
             <Button asChild size="icon" variant="ghost" className="size-11">
-              <Link href={detailHref} aria-label={`Open ${title} details`}>
+              <Link href={`/bills-groceries/${id}${detailSuffix}`} aria-label={`Open ${title} details`}>
                 <Maximize2 aria-hidden="true" />
               </Link>
             </Button>
@@ -306,7 +309,7 @@ function BillsGroceriesCharts({
   const period = initialPeriod;
   const chartBills = data.bills.subcategories.map((bill) => ({ value: bill.id, label: bill.name, color: bill.color }));
   const selectedBills = initialBillIds;
-  const yoyBill = initialBillId ?? data.bills.defaultSubcategoryId ?? chartBills[0]?.value ?? "";
+  const yearOverYearBill = initialBillId ?? data.bills.defaultSubcategoryId ?? chartBills[0]?.value ?? "";
   const groceryParam = searchParams.get("grocery");
   const groceryFilter: GroceryFilter = groceryParam === "main-run" || groceryParam === "top-ups" ? groceryParam : "all";
   const billMonthlyData: MonthlyChartDatum[] = data.months.map((month) => ({
@@ -318,7 +321,6 @@ function BillsGroceriesCharts({
       ]),
     ),
   }));
-  const yoyMonthlyData = billMonthlyData;
   const groceryMonthlyData: GroceryMonthlyDatum[] = data.groceries.monthly.months.map((month) => ({
     month: month.month,
     mainRun: month.mainRunAgorot / 100,
@@ -333,21 +335,24 @@ function BillsGroceriesCharts({
   } satisfies ChartConfig;
   const groceryColor = data.groceries.category?.color ?? "var(--chart-4)";
   const groceryBudgetAgorot = data.groceries.monthly.budgetAgorot;
-  const yoyBillDetails = chartBills.find((bill) => bill.value === yoyBill) ?? chartBills[0];
-  const yoyData = yoyMonthlyData.map((month) => {
-    const previousAgorot = data.bills.monthly.find(
-      (value) => value.month === `${Number(month.month.slice(0, 4)) - 1}${month.month.slice(4)}` && value.subcategoryId === yoyBill,
-    )?.agorot;
-    return {
-      month: month.month,
-      current: Number(month[yoyBill] ?? 0),
+  const yearOverYearBillDetails = chartBills.find((bill) => bill.value === yearOverYearBill) ?? chartBills[0];
+  const yearOverYearData = alignBillYearOverYear(data.months, data.bills.monthly, yearOverYearBill).map(
+    ({ month, currentAgorot, previousAgorot }) => ({
+      month,
+      current: currentAgorot / 100,
       ...(previousAgorot === undefined ? {} : { previous: previousAgorot / 100 }),
-    };
-  });
-  const hasYoyData = yoyData.some((month) => month.current > 0 || month.previous !== undefined);
-  const yoyChartConfig = {
-    current: { label: `${yoyBillDetails?.label ?? "Bills"} · current year`, color: yoyBillDetails?.color ?? "var(--chart-1)" },
-    previous: { label: `${yoyBillDetails?.label ?? "Bills"} · previous year`, color: yoyBillDetails?.color ?? "var(--chart-1)" },
+    }),
+  );
+  const hasYearOverYearData = yearOverYearData.some((month) => month.current > 0 || month.previous !== undefined);
+  const yearOverYearChartConfig = {
+    current: {
+      label: `${yearOverYearBillDetails?.label ?? "Bills"} · current year`,
+      color: yearOverYearBillDetails?.color ?? "var(--chart-1)",
+    },
+    previous: {
+      label: `${yearOverYearBillDetails?.label ?? "Bills"} · previous year`,
+      color: yearOverYearBillDetails?.color ?? "var(--chart-1)",
+    },
   } satisfies ChartConfig;
   const dailyData = data.groceries.daily
     .map((day) => ({
@@ -404,7 +409,7 @@ function BillsGroceriesCharts({
           id="bills"
           title="Bills by month"
           description="Prorated totals by billing period."
-          detailHref={detailChart ? undefined : `/bills-groceries/bills${detailSuffix}`}
+          detailSuffix={detailSuffix}
           backHref={detail ? `/bills-groceries${detailSuffix}` : undefined}
           detail={detail}
           action={
@@ -478,19 +483,19 @@ function BillsGroceriesCharts({
         </ChartCard>
       )}
 
-      {(!detailChart || detailChart === "yoy") && (
+      {(!detailChart || detailChart === "year-over-year") && (
         <ChartCard
-          id="yoy"
+          id="year-over-year"
           title="Year-over-year"
           description="Current and previous year for one Bills subcategory."
-          detailHref={detailChart ? undefined : `/bills-groceries/year-over-year${detailSuffix}`}
+          detailSuffix={detailSuffix}
           backHref={detail ? `/bills-groceries${detailSuffix}` : undefined}
           detail={detail}
           action={
             <ChartConfig label="Year-over-year" period={period} setPeriod={changePeriod}>
               <BillOptions
                 bills={chartBills}
-                selectedBills={[yoyBill]}
+                selectedBills={[yearOverYearBill]}
                 toggleBill={(value) => {
                   updateUrl({ bill: value });
                 }}
@@ -500,12 +505,12 @@ function BillsGroceriesCharts({
           }
         >
           <ChartContainer
-            config={yoyChartConfig}
+            config={yearOverYearChartConfig}
             className={cn(chartHeightClass, "w-full", !detail && "flex-1")}
             role="region"
-            aria-label={`${yoyBillDetails?.label ?? "Bills"} year-over-year chart, use arrow keys to inspect values`}
+            aria-label={`${yearOverYearBillDetails?.label ?? "Bills"} year-over-year chart, use arrow keys to inspect values`}
           >
-            <BarChart accessibilityLayer data={yoyData} margin={chartMargin}>
+            <BarChart accessibilityLayer data={yearOverYearData} margin={chartMargin}>
               <CartesianGrid vertical={false} />
               <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
               <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value) => `₪${value}`} />
@@ -515,11 +520,11 @@ function BillsGroceriesCharts({
               <Bar dataKey="current" fill="var(--color-current)" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ChartContainer>
-          {chartBills.length === 0 || !hasYoyData ? <p className="text-sm text-muted-foreground">No Bills data yet.</p> : null}
-          {chartBills.length > 0 && hasYoyData && yoyData.some((month) => month.previous === undefined) ? (
+          {chartBills.length === 0 || !hasYearOverYearData ? <p className="text-sm text-muted-foreground">No Bills data yet.</p> : null}
+          {chartBills.length > 0 && hasYearOverYearData && yearOverYearData.some((month) => month.previous === undefined) ? (
             <p className="text-sm text-muted-foreground">No previous-year data</p>
           ) : null}
-          {detailChart === "yoy" && (
+          {detailChart === "year-over-year" && (
             <ChartTable label="Year-over-year">
               <TableHeader>
                 <TableRow>
@@ -529,7 +534,7 @@ function BillsGroceriesCharts({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {yoyData.map((month) => (
+                {yearOverYearData.map((month) => (
                   <TableRow key={month.month}>
                     <TableCell>{month.month}</TableCell>
                     <TableCell className="tabular-nums">{currency.format(month.current)}</TableCell>
@@ -551,7 +556,7 @@ function BillsGroceriesCharts({
               id="groceries"
               title="Groceries by month"
               description="Posting-date totals against the monthly budget."
-              detailHref={detailChart ? undefined : `/bills-groceries/groceries${detailSuffix}`}
+              detailSuffix={detailSuffix}
               backHref={detail ? `/bills-groceries${detailSuffix}` : undefined}
               detail={detail}
               action={<ChartConfig label="Groceries by month" period={period} setPeriod={changePeriod} />}
@@ -634,7 +639,7 @@ function BillsGroceriesCharts({
               id="daily"
               title="Groceries by day"
               description="Daily spending, including no-spend days."
-              detailHref={detailChart ? undefined : `/bills-groceries/daily${detailSuffix}`}
+              detailSuffix={detailSuffix}
               backHref={detail ? `/bills-groceries${detailSuffix}` : undefined}
               detail={detail}
               action={

@@ -4,6 +4,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   activeSelectChange: undefined as undefined | ((value: string) => void),
+  alignBillYearOverYear: vi.fn(),
   billChanges: new Map<string, (checked: boolean) => void>(),
   monthChange: undefined as undefined | ((event: { target: { value: string } }) => void),
   push: vi.fn(),
@@ -17,6 +18,11 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mocks.push }),
   useSearchParams: () => mocks.searchParams,
 }));
+vi.mock("@/lib/bills-groceries", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/bills-groceries")>();
+  mocks.alignBillYearOverYear.mockImplementation(actual.alignBillYearOverYear);
+  return { ...actual, alignBillYearOverYear: mocks.alignBillYearOverYear };
+});
 vi.mock("@/components/ui/input", () => ({
   Input: ({ "aria-label": ariaLabel, onChange }: { "aria-label"?: string; onChange?: (event: { target: { value: string } }) => void }) => {
     if (ariaLabel === "Select Groceries month") mocks.monthChange = onChange;
@@ -53,7 +59,13 @@ vi.mock("@/components/ui/select", () => ({
   SelectValue: () => null,
 }));
 
-import { BillsGroceriesChartDetail, BillsGroceriesDashboard, dashboardUrl, stackedBarRadius } from "./bills-groceries-dashboard";
+import {
+  BillsGroceriesChartDetail,
+  BillsGroceriesDashboard,
+  billsGroceriesChartIds,
+  dashboardUrl,
+  stackedBarRadius,
+} from "./bills-groceries-dashboard";
 
 const liveData = {
   months: ["2026-07"],
@@ -62,7 +74,6 @@ const liveData = {
     subcategories: [{ id: "rent", name: "Rent", color: "#123456" }],
     monthly: [{ month: "2026-07", subcategoryId: "rent", agorot: 12_345 }],
     defaultSubcategoryId: "rent",
-    yearOverYear: [{ month: "2026-07", currentAgorot: 12_345 }],
   },
   groceries: {
     category: { id: "groceries", name: "Groceries", color: "#654321" },
@@ -87,6 +98,7 @@ const dashboardProps = { data: liveData as never, billIds: ["rent"], billId: "re
 
 beforeEach(() => {
   mocks.activeSelectChange = undefined;
+  mocks.alignBillYearOverYear.mockClear();
   mocks.billChanges.clear();
   mocks.monthChange = undefined;
   mocks.push.mockReset();
@@ -141,7 +153,7 @@ it("writes each configured dashboard filter through its URL handler", () => {
   mocks.selectChanges.get("Year-over-year-period")?.("calendar");
   mocks.selectChanges.get("Groceries by month-period")?.("calendar");
   mocks.billChanges.get("bills-water")?.(true);
-  mocks.selectChanges.get("yoy-bill")?.("water");
+  mocks.selectChanges.get("year-over-year-bill")?.("water");
   mocks.selectChanges.get("Show spending")?.("top-ups");
 
   expect(mocks.push).toHaveBeenNthCalledWith(
@@ -170,13 +182,14 @@ it("writes each configured dashboard filter through its URL handler", () => {
   );
 });
 
-it("links every dashboard chart to its dedicated detail page", () => {
+it("links every dashboard chart to the detail route for its exported ID", () => {
+  mocks.searchParams = new URLSearchParams("period=calendar&bill=rent");
   const markup = renderToStaticMarkup(<BillsGroceriesDashboard {...dashboardProps} />);
 
-  expect(markup).toContain('href="/bills-groceries/bills"');
-  expect(markup).toContain('href="/bills-groceries/year-over-year"');
-  expect(markup).toContain('href="/bills-groceries/groceries"');
-  expect(markup).toContain('href="/bills-groceries/daily"');
+  for (const id of billsGroceriesChartIds) {
+    expect(markup).toContain(`href="/bills-groceries/${id}?period=calendar&amp;bill=rent"`);
+  }
+  expect(markup).not.toContain('href="/bills-groceries/yoy"');
 });
 
 it("renders only the requested chart and its table on a detail page", () => {
@@ -269,7 +282,7 @@ it("renders the Bills empty state instead of a missing-prior-year notice when no
       data={
         {
           ...liveData,
-          bills: { ...liveData.bills, monthly: [], yearOverYear: [] },
+          bills: { ...liveData.bills, monthly: [] },
         } as never
       }
       billIds={["rent"]}
@@ -280,6 +293,43 @@ it("renders the Bills empty state instead of a missing-prior-year notice when no
 
   expect(markup.match(/No Bills data yet\./g)).toHaveLength(2);
   expect(markup).not.toContain("No previous-year data");
+});
+
+it("renders the selected Bill's aligned year-over-year agorot values and missing prior year", () => {
+  mocks.alignBillYearOverYear.mockReturnValueOnce([
+    { month: "2026-07", currentAgorot: 12_345, previousAgorot: 6_789 },
+    { month: "2026-08", currentAgorot: 2_500 },
+  ]);
+
+  const markup = renderToStaticMarkup(
+    <BillsGroceriesChartDetail
+      chart="year-over-year"
+      data={
+        {
+          ...liveData,
+          months: ["2026-07", "2026-08"],
+          bills: {
+            ...liveData.bills,
+            subcategories: [...liveData.bills.subcategories, { id: "water", name: "Water", color: "#234567" }],
+            monthly: [{ month: "2026-07", subcategoryId: "water", agorot: 1 }],
+          },
+        } as never
+      }
+      billIds={["rent"]}
+      billId="water"
+      period="rolling"
+    />,
+  );
+
+  expect(mocks.alignBillYearOverYear).toHaveBeenCalledWith(
+    ["2026-07", "2026-08"],
+    [{ month: "2026-07", subcategoryId: "water", agorot: 1 }],
+    "water",
+  );
+  expect(markup).toContain("₪123.45");
+  expect(markup).toContain("₪67.89");
+  expect(markup).toContain("₪25.00");
+  expect(markup.match(/No previous-year data/g)).toHaveLength(2);
 });
 
 it("renders equivalent live values, including zero-spend days, in detail tables", () => {
