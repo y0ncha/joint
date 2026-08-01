@@ -3,10 +3,7 @@ import { getBillsGroceriesData } from "@/lib/bills-groceries-data";
 
 export type BillsGroceriesSearchParams = Record<string, string | string[] | undefined>;
 
-export function canonicalBillsGroceriesParams(
-  params: URLSearchParams,
-  selected: ReturnType<typeof parseBillsGroceriesUrlDefaults>,
-) {
+export function canonicalBillsGroceriesParams(params: URLSearchParams, selected: ReturnType<typeof parseBillsGroceriesUrlDefaults>) {
   const canonical = new URLSearchParams(params);
   canonical.set("period", selected.period);
   canonical.set("bills", selected.billIds.join(","));

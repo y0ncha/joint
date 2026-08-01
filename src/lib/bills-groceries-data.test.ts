@@ -282,9 +282,7 @@ it.each(["bills", "monthly", "daily"] as const)(
       return { data: [], error: null };
     };
 
-    await expect(billsGroceriesDataModule.getBillsGroceriesData(options)).rejects.toEqual(
-      new Error("Unable to load BillsGroceries data."),
-    );
+    await expect(billsGroceriesDataModule.getBillsGroceriesData(options)).rejects.toEqual(new Error("Unable to load BillsGroceries data."));
     expect(failed).toBe(true);
   },
 );

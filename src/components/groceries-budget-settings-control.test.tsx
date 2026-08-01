@@ -3,7 +3,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  actionState: { status: "error" as const, formError: "Check the form details.", fieldErrors: { groceriesBudget: "Enter an amount greater than zero." } },
+  actionState: {
+    status: "error" as const,
+    formError: "Check the form details.",
+    fieldErrors: { groceriesBudget: "Enter an amount greater than zero." },
+  },
 }));
 
 vi.mock("react", async (importOriginal) => {
