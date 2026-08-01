@@ -66,14 +66,7 @@ function SettingsTextControl({
         <FieldLabel htmlFor={id} className="sr-only">
           {label}
         </FieldLabel>
-        <Input
-          id={id}
-          name={name}
-          defaultValue={value}
-          autoComplete={autoComplete}
-          required
-          className="min-h-11"
-        />
+        <Input id={id} name={name} defaultValue={value} autoComplete={autoComplete} required className="min-h-11" />
       </Field>
     </div>
   );

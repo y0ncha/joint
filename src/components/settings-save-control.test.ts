@@ -51,9 +51,7 @@ it("submits Settings descendants through the save form while retaining header co
   };
   const SettingsFormForTest = settingsModule.SettingsForm as (props: { userId: string; children?: React.ReactNode }) => React.ReactNode;
 
-  const markup = renderToStaticMarkup(
-    createElement(SettingsFormForTest, { userId: "user-id" }, createElement(ActionState)),
-  );
+  const markup = renderToStaticMarkup(createElement(SettingsFormForTest, { userId: "user-id" }, createElement(ActionState)));
 
   expect(markup).toContain('id="settings-save-form"');
   expect(markup).toContain('aria-label="Save changes"');
