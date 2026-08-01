@@ -192,13 +192,7 @@ export function MemberManagementSheet({ owner, partner, member }: { owner: Membe
               <CardContent className="flex justify-end pt-0">
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-11 text-destructive"
-                      aria-label="Remove member"
-                    >
+                    <Button type="button" variant="ghost" size="icon" className="size-11 text-destructive" aria-label="Remove member">
                       <Trash2 aria-hidden="true" />
                     </Button>
                   </AlertDialogTrigger>

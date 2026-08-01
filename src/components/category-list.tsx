@@ -95,13 +95,7 @@ function SubcategoryEditor({
             <div className="flex justify-end">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-11 text-destructive"
-                    aria-label="Delete subcategory"
-                  >
+                  <Button type="button" variant="ghost" size="icon" className="size-11 text-destructive" aria-label="Delete subcategory">
                     <Trash2 aria-hidden="true" />
                   </Button>
                 </AlertDialogTrigger>
@@ -155,14 +149,14 @@ function SubcategoryList({
             className="relative flex min-h-11 items-center justify-between gap-3 rounded-lg px-4 text-muted-foreground transition-colors duration-700 ease-in-out motion-reduce:transition-none hover:bg-foreground/5 hover:ring-2 hover:ring-foreground/5 before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-[var(--category-color)] md:min-h-9"
             style={{ "--category-color": category?.color ?? subcategory.color } as CSSProperties}
           >
-          {subcategory.archived_at ? (
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="truncate">{subcategory.name}</span>
-              <span className="text-sm text-muted-foreground">Archived</span>
-            </div>
-          ) : (
-            <SubcategoryEditor categories={categories} subcategories={allSubcategories} subcategory={subcategory} />
-          )}
+            {subcategory.archived_at ? (
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="truncate">{subcategory.name}</span>
+                <span className="text-sm text-muted-foreground">Archived</span>
+              </div>
+            ) : (
+              <SubcategoryEditor categories={categories} subcategories={allSubcategories} subcategory={subcategory} />
+            )}
           </li>
         );
       })}
@@ -254,13 +248,7 @@ function CategoryEditor({
             <div className="flex justify-end">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-11 text-destructive"
-                    aria-label="Delete category"
-                  >
+                  <Button type="button" variant="ghost" size="icon" className="size-11 text-destructive" aria-label="Delete category">
                     <Trash2 aria-hidden="true" />
                   </Button>
                 </AlertDialogTrigger>

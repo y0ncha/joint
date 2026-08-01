@@ -126,12 +126,7 @@ export function TransactionSheet({
       {trigger ??
         (shouldRenderDefaultTrigger ? (
           <SheetTrigger asChild>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="size-11 rounded-full text-primary"
-              aria-label="Add transaction"
-            >
+            <Button size="icon" variant="ghost" className="size-11 rounded-full text-primary" aria-label="Add transaction">
               <span className="flex size-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-sm">
                 <Plus aria-hidden="true" />
               </span>

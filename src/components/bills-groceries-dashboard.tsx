@@ -106,13 +106,7 @@ function ChartConfig({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className="size-11"
-          aria-label={`Configure ${label}`}
-        >
+        <Button type="button" size="icon" variant="ghost" className="size-11" aria-label={`Configure ${label}`}>
           <Settings2 aria-hidden="true" />
         </Button>
       </PopoverTrigger>
@@ -646,13 +640,7 @@ function BillsGroceriesCharts({
               action={
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="size-11"
-                      aria-label="Configure Groceries by day"
-                    >
+                    <Button type="button" size="icon" variant="ghost" className="size-11" aria-label="Configure Groceries by day">
                       <Settings2 aria-hidden="true" />
                     </Button>
                   </PopoverTrigger>

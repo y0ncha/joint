@@ -127,7 +127,12 @@ describe("profile action", () => {
   it("keeps the existing duplicate card-mapping error", async () => {
     mocks.rpc.mockResolvedValue({ error: { code: "23505", message: "member_cards_household_id_last_four_key" } });
 
-    await expect(actions.saveSettings(null, formData({ lastFour: "4548", initialLastFour: "", groceriesBudget: "500", initialGroceriesBudget: "500" }))).resolves.toEqual({
+    await expect(
+      actions.saveSettings(
+        null,
+        formData({ lastFour: "4548", initialLastFour: "", groceriesBudget: "500", initialGroceriesBudget: "500" }),
+      ),
+    ).resolves.toEqual({
       status: "error",
       formError: "Check the form details.",
       fieldErrors: { lastFour: "These last four digits are already mapped in this household." },

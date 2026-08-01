@@ -216,12 +216,7 @@ export function CategorySheet({ categories = [], defaultColor = "#dcece3" }: { c
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-11 rounded-full text-primary"
-          aria-label="Add category"
-        >
+        <Button size="icon" variant="ghost" className="size-11 rounded-full text-primary" aria-label="Add category">
           <span className="flex size-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-sm">
             <Plus aria-hidden="true" />
           </span>
