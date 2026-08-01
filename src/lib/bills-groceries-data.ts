@@ -7,6 +7,7 @@ import {
   consolidateBillsByMonth,
   pickDefaultBillSubcategory,
 } from "@/lib/bills-groceries";
+import { getIsoMonthRange, shiftIsoMonth } from "@/lib/date-range";
 import { getCurrentHouseholdContext } from "@/lib/household";
 
 type BillsGroceriesDataOptions = {
@@ -14,16 +15,6 @@ type BillsGroceriesDataOptions = {
   groceryRange: { from: string; to: string };
   period: "rolling" | "calendar";
 };
-
-function monthEnd(month: string) {
-  const year = Number(month.slice(0, 4));
-  const monthNumber = Number(month.slice(5));
-  return new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
-}
-
-function previousYearMonth(month: string) {
-  return `${Number(month.slice(0, 4)) - 1}${month.slice(4)}`;
-}
 
 export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) {
   const household = await getCurrentHouseholdContext();
@@ -53,8 +44,8 @@ export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) 
   }
 
   const months = buildMonthlyRange(options.period, options.currentDate);
-  const displayedRange = { from: `${months[0]}-01`, to: monthEnd(months[months.length - 1]) };
-  const billsRange = { from: `${previousYearMonth(months[0])}-01`, to: displayedRange.to };
+  const displayedRange = { from: `${months[0]}-01`, to: getIsoMonthRange(months[months.length - 1])!.to };
+  const billsRange = { from: `${shiftIsoMonth(months[0], -12)}-01`, to: displayedRange.to };
   const [billSubcategoriesResult, grocerySubcategoriesResult] = await Promise.all([
     billsCategoryResult.data
       ? household.supabase

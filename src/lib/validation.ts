@@ -1,11 +1,8 @@
 import { z } from "zod";
 
+import { inclusiveIsoDayCount, isCanonicalIsoDate } from "./date-range";
+
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.");
-function isIsoDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00Z`);
-  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
 const optionalIdentifierSchema = z
   .string()
   .trim()
@@ -16,7 +13,7 @@ const optionalDateSchema = z
   .trim()
   .nullish()
   .transform((value) => value || null)
-  .refine((value) => value === null || isIsoDate(value), "Use YYYY-MM-DD.");
+  .refine((value) => value === null || isCanonicalIsoDate(value), "Use YYYY-MM-DD.");
 function hasAtMostTwoDecimalPlaces(amount: number) {
   return Number(amount.toFixed(2)) === amount;
 }
@@ -64,7 +61,8 @@ export const transactionSchema = z
       context.addIssue({ code: "custom", path: ["servicePeriodEnd"], message: "End on or after the start date." });
       return;
     }
-    if ((Date.parse(servicePeriodEnd) - Date.parse(servicePeriodStart)) / 86_400_000 + 1 > 366) {
+    if (!isCanonicalIsoDate(servicePeriodStart) || !isCanonicalIsoDate(servicePeriodEnd)) return;
+    if (inclusiveIsoDayCount(servicePeriodStart, servicePeriodEnd) > 366) {
       context.addIssue({ code: "custom", path: ["servicePeriodEnd"], message: "Use 366 days or fewer." });
     }
   });

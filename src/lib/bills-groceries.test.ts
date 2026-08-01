@@ -126,6 +126,16 @@ describe("buildMonthlyRange", () => {
       "2026-12",
     ]);
   });
+
+  it("keeps the rolling window ordered across a UTC year boundary", () => {
+    expect(buildMonthlyRange("rolling", "2026-01-01").slice(0, 2)).toEqual(["2025-02", "2025-03"]);
+    expect(buildMonthlyRange("rolling", "2026-01-01").at(-1)).toBe("2026-01");
+  });
+
+  it("keeps early-year months canonical and rejects rolling underflow", () => {
+    expect(buildMonthlyRange("calendar", "0001-01-01").slice(0, 2)).toEqual(["0001-01", "0001-02"]);
+    expect(() => buildMonthlyRange("rolling", "0000-01-01")).toThrow("Invalid ISO month: 0000-01");
+  });
 });
 
 describe("alignBillYearOverYear", () => {
@@ -212,6 +222,14 @@ describe("buildGroceriesDaily", () => {
       { date: "2026-07-03", mainRunAgorot: 0, topUpsAgorot: 100, totalAgorot: 100 },
     ]);
   });
+
+  it("zero-fills UTC leap days without transactions", () => {
+    expect(buildGroceriesDaily({ from: "2024-02-28", to: "2024-03-01" }, [])).toEqual([
+      { date: "2024-02-28", mainRunAgorot: 0, topUpsAgorot: 0, totalAgorot: 0 },
+      { date: "2024-02-29", mainRunAgorot: 0, topUpsAgorot: 0, totalAgorot: 0 },
+      { date: "2024-03-01", mainRunAgorot: 0, topUpsAgorot: 0, totalAgorot: 0 },
+    ]);
+  });
 });
 
 describe("parseBillsGroceriesUrlDefaults", () => {
@@ -277,5 +295,13 @@ describe("parseBillsGroceriesUrlDefaults", () => {
         currentDate: "2026-07-31",
       }).groceryRange,
     ).toEqual({ from: "2026-07-01", to: "2026-07-31" });
+
+    expect(
+      parseBillsGroceriesUrlDefaults(new URLSearchParams(), {
+        bills,
+        defaultBillId: "water",
+        currentDate: "2024-02-29",
+      }).groceryRange,
+    ).toEqual({ from: "2024-02-01", to: "2024-02-29" });
   });
 });
