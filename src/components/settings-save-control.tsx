@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { createContext, useActionState, useContext, useEffect, useState, type ReactNode } from "react";
 import { LoaderCircle, LogOut, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import { saveSettings } from "@/app/actions/profile";
 import type { ActionResult } from "@/app/actions/result";
 import { serializeAccentCookie } from "@/lib/accent";
 import { Button } from "@/components/ui/button";
+import { WorkspaceShell } from "@/components/workspace-shell";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,7 +21,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function hasUnsavedSettings(formData: FormData) {
   return [
@@ -29,7 +29,14 @@ export function hasUnsavedSettings(formData: FormData) {
     ["color", "initialColor"],
     ["accentColor", "initialAccentColor"],
     ["lastFour", "initialLastFour"],
+    ["groceriesBudget", "initialGroceriesBudget"],
   ].some(([name, initialName]) => String(formData.get(name) ?? "").trim() !== String(formData.get(initialName) ?? "").trim());
+}
+
+const SettingsFormContext = createContext<ActionResult | null>(null);
+
+export function useSettingsFormState() {
+  return useContext(SettingsFormContext);
 }
 
 function hasDirtySettingsForm() {
@@ -47,6 +54,7 @@ function markSettingsSaved() {
     ["color", "initialColor"],
     ["accentColor", "initialAccentColor"],
     ["lastFour", "initialLastFour"],
+    ["groceriesBudget", "initialGroceriesBudget"],
   ].forEach(([name, initialName]) => {
     const value = form.elements.namedItem(name);
     const initialValue = form.elements.namedItem(initialName);
@@ -54,7 +62,7 @@ function markSettingsSaved() {
   });
 }
 
-export function SettingsSaveControl({ userId }: { userId: string }) {
+export function SettingsForm({ userId, children }: { userId: string; children: ReactNode }) {
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(saveSettings, null);
   const [leaveTo, setLeaveTo] = useState<string | null>(null);
   const router = useRouter();
@@ -113,29 +121,9 @@ export function SettingsSaveControl({ userId }: { userId: string }) {
   }, []);
 
   return (
-    <>
-      <form id="settings-save-form" action={formAction} />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            form="settings-save-form"
-            type="submit"
-            variant="ghost"
-            size="icon"
-            className="size-14 text-foreground hover:bg-transparent hover:text-foreground"
-            disabled={isPending}
-            aria-label="Save changes"
-          >
-            {isPending ? (
-              <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin motion-reduce:animate-none" />
-            ) : (
-              <Save aria-hidden="true" />
-            )}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Save changes</TooltipContent>
-      </Tooltip>
+    <SettingsFormContext.Provider value={state}>
       <form
+        id="settings-logout-form"
         data-settings-logout="true"
         action={logOut}
         onSubmit={(event) => {
@@ -144,21 +132,41 @@ export function SettingsSaveControl({ userId }: { userId: string }) {
             setLeaveTo("logout");
           }
         }}
-      >
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="submit"
-              variant="ghost"
-              size="icon"
-              className="size-14 text-foreground hover:bg-transparent hover:text-foreground"
-              aria-label="Log out"
-            >
-              <LogOut aria-hidden="true" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Log out</TooltipContent>
-        </Tooltip>
+      />
+      <form id="settings-save-form" action={formAction}>
+        <WorkspaceShell
+          title="Settings"
+          actions={
+            <>
+              <Button
+                type="submit"
+                variant="ghost"
+                size="icon"
+                className="size-14 text-foreground"
+                disabled={isPending}
+                aria-label="Save changes"
+              >
+                {isPending ? (
+                  <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin motion-reduce:animate-none" />
+                ) : (
+                  <Save aria-hidden="true" />
+                )}
+              </Button>
+              <Button
+                form="settings-logout-form"
+                type="submit"
+                variant="ghost"
+                size="icon"
+                className="size-14 text-foreground"
+                aria-label="Log out"
+              >
+                <LogOut aria-hidden="true" />
+              </Button>
+            </>
+          }
+        >
+          {children}
+        </WorkspaceShell>
       </form>
       <AlertDialog
         open={Boolean(leaveTo)}
@@ -194,6 +202,6 @@ export function SettingsSaveControl({ userId }: { userId: string }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </SettingsFormContext.Provider>
   );
 }

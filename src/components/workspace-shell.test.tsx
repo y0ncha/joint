@@ -5,7 +5,9 @@ import { getProfileInitials } from "@/lib/profile";
 
 import { loadVerifiedProfileName, ProfileInitialAvatar, WorkspaceShell } from "./workspace-shell";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/settings" }));
+const currentPathname = vi.hoisted(() => ({ value: "/settings" }));
+
+vi.mock("next/navigation", () => ({ usePathname: () => currentPathname.value }));
 
 const mocks = vi.hoisted(() => ({
   getClaims: vi.fn(),
@@ -33,6 +35,7 @@ const browserClient = {
 beforeEach(() => {
   vi.resetAllMocks();
   cache.clear();
+  currentPathname.value = "/settings";
   profileName = "  Ada Lovelace  ";
   vi.stubGlobal("localStorage", {
     getItem: vi.fn((key: string) => cache.get(key) ?? null),
@@ -127,8 +130,52 @@ it("renders the desktop rail with navigation and a plain profile avatar", () => 
   expect(desktopRail).toContain('aria-label="Primary navigation"');
   expect(desktopRail).toContain('href="/"');
   expect(desktopRail).toContain('href="/transactions"');
-  expect(desktopRail).toContain('href="/categories"');
+  expect(desktopRail).not.toContain('href="/categories"');
   expect(desktopRail).toContain('href="/settings"');
+});
+
+it("renders Bills & Groceries between Transactions and Settings in both primary navigations", () => {
+  const markup = renderToStaticMarkup(
+    <WorkspaceShell title="Bills & Groceries">
+      <p>Content</p>
+    </WorkspaceShell>,
+  );
+  const navigations = [...markup.matchAll(/<nav\b[\s\S]*?<\/nav>/g)].map(([navigation]) => navigation);
+
+  expect(navigations).toHaveLength(2);
+  for (const navigation of navigations) {
+    expect(navigation).toMatch(/href="\/transactions"[\s\S]*href="\/bills-groceries"[\s\S]*href="\/settings"/);
+    expect(navigation).not.toContain('href="/categories"');
+    expect(navigation).toContain('href="/bills-groceries"');
+    expect(navigation).toContain('aria-label="Bills &amp; Groceries"');
+    expect(navigation).toMatch(/<a[^>]*class="[^"]*size-11[^>]*href="\/bills-groceries"/);
+  }
+
+  expect(navigations[1]).not.toContain("Bills &amp; Groceries</span>");
+});
+
+it("marks Bills & Groceries active for its route and nested paths", () => {
+  currentPathname.value = "/bills-groceries/groceries";
+
+  const markup = renderToStaticMarkup(
+    <WorkspaceShell title="Bills & Groceries">
+      <p>Content</p>
+    </WorkspaceShell>,
+  );
+
+  expect(markup.match(/aria-current="page"[\s\S]*?href="\/bills-groceries"/g)).toHaveLength(2);
+});
+
+it("marks Settings active for Categories", () => {
+  currentPathname.value = "/categories";
+
+  const markup = renderToStaticMarkup(
+    <WorkspaceShell title="Categories">
+      <p>Content</p>
+    </WorkspaceShell>,
+  );
+
+  expect(markup.match(/aria-current="page"[\s\S]*?href="\/settings"/g)).toHaveLength(2);
 });
 
 it("makes the workspace frame full-bleed on mobile", () => {
@@ -139,7 +186,37 @@ it("makes the workspace frame full-bleed on mobile", () => {
   );
 
   expect(markup).toContain('class="min-h-screen p-0 text-foreground sm:px-5 sm:py-5 lg:px-8 lg:py-8"');
-  expect(markup).toContain(
-    'class="mx-auto flex min-h-screen max-w-[1500px] overflow-hidden bg-white/24 shadow-[0_24px_80px_rgba(15,44,55,0.25)] backdrop-blur-sm sm:min-h-[calc(100vh-2.5rem)] sm:rounded-[2rem] sm:border sm:border-white/40 lg:min-h-[calc(100vh-4rem)]"',
+  expect(markup).toContain('class="mx-auto flex min-h-screen max-w-[1500px] overflow-hidden bg-white/24');
+  expect(markup).toContain("sm:min-h-[calc(100vh-2.5rem)]");
+  expect(markup).toContain("lg:min-h-[calc(100vh-4rem)]");
+});
+
+it("keeps workspace chrome visible around BillsGroceries detail content", () => {
+  const markup = renderToStaticMarkup(
+    <WorkspaceShell title="Groceries by day" description="Daily spending">
+      <p>Chart detail</p>
+    </WorkspaceShell>,
   );
+
+  expect(markup).toContain("<aside");
+  expect(markup).not.toContain('<aside hidden=""');
+  expect(markup).toContain("<header");
+  expect(markup).not.toContain('<header hidden=""');
+  expect(markup).toContain('<nav aria-label="Primary navigation"');
+  expect(markup).toContain(">Groceries by day</h1>");
+  expect(markup).toContain('aria-label="Primary navigation"');
+  expect(markup).toContain("Chart detail");
+  expect(markup).toContain("duration-150 ease-out sm:p-6");
+  expect(markup).toContain("min-h-screen");
+  expect(markup).toContain("sm:min-h-[calc(100vh-2.5rem)]");
+});
+
+it("can increase the content-surface opacity for a full-page detail view", () => {
+  const markup = renderToStaticMarkup(
+    <WorkspaceShell opaqueContent>
+      <p>Chart detail</p>
+    </WorkspaceShell>,
+  );
+
+  expect(markup).toContain("bg-white/50");
 });

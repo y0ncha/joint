@@ -10,7 +10,7 @@ const memberCardSchema = z.object({
   lastFour: z.string().regex(/^[0-9]{4}$/, "Enter exactly four digits."),
 });
 
-export async function saveCurrentMemberCard(previousState: ActionResult | null, formData: FormData): Promise<ActionResult> {
+export async function saveCurrentMemberCard(_previousState: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const parsed = memberCardSchema.safeParse({ lastFour: formData.get("lastFour") });
   if (!parsed.success) return validationError(parsed.error.issues);
 

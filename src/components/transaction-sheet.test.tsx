@@ -1,11 +1,14 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  calendarSelect: undefined as undefined | ((date: Date | undefined) => void),
+  billingPeriodSelect: undefined as undefined | ((range: { from?: Date; to?: Date } | undefined) => void),
   categoryOptions: [] as Array<{ color?: string; icon?: unknown; label: string; value: string }>,
+  categoryChange: undefined as undefined | ((value: string) => void),
+  actionState: null as null | { status: "error"; formError: string; fieldErrors: Record<string, string> },
   createTransaction: vi.fn(),
+  dateSelect: undefined as undefined | ((date: Date | undefined) => void),
   formAction: undefined as undefined | ((previousState: unknown, formData: FormData) => unknown),
   kindChange: undefined as undefined | ((value: string) => void),
   state: [] as unknown[],
@@ -19,7 +22,7 @@ vi.mock("react", async (importOriginal) => {
     ...actual,
     useActionState: (action: (previousState: unknown, formData: FormData) => unknown) => {
       mocks.formAction = action;
-      return [null, () => {}, false];
+      return [mocks.actionState, () => {}, false];
     },
     useState: (initialState: unknown | (() => unknown)) => {
       const index = mocks.stateIndex++;
@@ -54,13 +57,23 @@ vi.mock("@/components/pill-select", () => ({
     value?: string;
   }) => {
     if (ariaLabel === "Type") mocks.kindChange = onValueChange;
-    if (ariaLabel === "Categories") mocks.categoryOptions = options;
+    if (ariaLabel === "Categories") {
+      mocks.categoryOptions = options;
+      mocks.categoryChange = onValueChange;
+    }
     return <button aria-label={ariaLabel}>{options.find((option) => option.value === value)?.label ?? emptyLabel}</button>;
   },
 }));
 vi.mock("@/components/ui/calendar", () => ({
-  Calendar: ({ onSelect }: { onSelect: (date: Date | undefined) => void }) => {
-    mocks.calendarSelect = onSelect;
+  Calendar: ({
+    mode,
+    onSelect,
+  }: {
+    mode: "range" | "single";
+    onSelect: (value: Date | { from?: Date; to?: Date } | undefined) => void;
+  }) => {
+    if (mode === "range") mocks.billingPeriodSelect = onSelect as typeof mocks.billingPeriodSelect;
+    else mocks.dateSelect = onSelect as typeof mocks.dateSelect;
     return <button type="button">Calendar</button>;
   },
 }));
@@ -68,13 +81,6 @@ vi.mock("@/components/ui/popover", () => ({
   Popover: ({ children }: { children: ReactNode }) => <>{children}</>,
   PopoverContent: ({ children }: { children: ReactNode }) => <>{children}</>,
   PopoverTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
-}));
-vi.mock("@/components/ui/toggle-group", () => ({
-  ToggleGroup: ({ children, onValueChange }: { children: ReactNode; onValueChange: (value: string) => void }) => {
-    mocks.kindChange = onValueChange;
-    return <div>{children}</div>;
-  },
-  ToggleGroupItem: ({ children }: { children: ReactNode }) => <button type="button">{children}</button>,
 }));
 vi.mock("@/components/ui/alert-dialog", () => ({
   AlertDialog: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -145,14 +151,21 @@ function renderSheet() {
 }
 
 beforeEach(() => {
-  mocks.calendarSelect = undefined;
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 6, 14, 12));
+  mocks.billingPeriodSelect = undefined;
   mocks.categoryOptions = [];
+  mocks.categoryChange = undefined;
+  mocks.actionState = null;
   mocks.createTransaction.mockReset();
+  mocks.dateSelect = undefined;
   mocks.formAction = undefined;
   mocks.kindChange = undefined;
   mocks.state = [];
   mocks.stateIndex = 0;
 });
+
+afterEach(() => vi.useRealTimers());
 
 type ImportedTransaction = {
   id: string;
@@ -307,7 +320,7 @@ it("exposes only matching subcategories and clears the selection when the type c
 
 it("submits the locally selected calendar day", async () => {
   renderSheet();
-  mocks.calendarSelect?.(new Date(2026, 0, 2, 12));
+  mocks.dateSelect?.(new Date(2026, 0, 2, 12));
 
   const markup = renderSheet();
 
@@ -318,4 +331,181 @@ it("submits the locally selected calendar day", async () => {
   await mocks.formAction?.(null, formData);
   expect(mocks.createTransaction).toHaveBeenCalledWith(formData);
   expect(mocks.createTransaction.mock.calls[0]?.[0].get("occurredOn")).toBe("2026-01-02");
+});
+
+it("defaults the Billing period from the ledger date in Bills create and edit forms", () => {
+  const billsSubcategory = {
+    id: "electricity",
+    name: "Electricity",
+    categoryId: "bills",
+    categoryName: "Bills",
+    kind: "expense" as const,
+    color: "#d9f0fa",
+    icon: "zap",
+    systemKey: "electricity",
+    categorySystemKey: "bills",
+  };
+  mocks.stateIndex = 0;
+  const createMarkup = renderToStaticMarkup(<TransactionSheet subcategories={[billsSubcategory]} members={[]} />);
+  mocks.state = [];
+  mocks.stateIndex = 0;
+  const editMarkup = renderToStaticMarkup(
+    <TransactionSheet
+      subcategories={[billsSubcategory]}
+      members={[]}
+      transaction={{
+        id: "electricity-id",
+        kind: "expense",
+        amount: 120,
+        occurredOn: "2026-07-03",
+        servicePeriodStart: "2026-06-15",
+        servicePeriodEnd: "2026-07-14",
+        subcategoryId: "electricity",
+        note: "",
+        merchant: "Electric company",
+        createdAt: "2026-07-03T08:00:00Z",
+        paidBy: null,
+      }}
+    />,
+  );
+
+  for (const markup of [createMarkup, editMarkup]) {
+    expect(markup).toContain("Billing period");
+    expect(markup).toContain('aria-label="Choose billing period"');
+  }
+  expect(createMarkup).toMatch(/id="billing-period-from"[^>]*value="2026-07-14"/);
+  expect(createMarkup).toMatch(/id="billing-period-to"[^>]*value="2026-07-14"/);
+  expect(editMarkup).toMatch(/id="billing-period-from"[^>]*value="2026-06-15"/);
+  expect(editMarkup).toMatch(/id="billing-period-to"[^>]*value="2026-07-14"/);
+  expect(editMarkup).toContain('type="hidden" name="servicePeriodStart" value="2026-06-15"');
+  expect(editMarkup).toContain('type="hidden" name="servicePeriodEnd" value="2026-07-14"');
+});
+
+it("initializes and clears the Billing period from the selected parent without changing the ledger date", () => {
+  const subcategories = [
+    {
+      id: "groceries",
+      name: "Groceries",
+      categoryId: "groceries",
+      categoryName: "Groceries",
+      kind: "expense" as const,
+      color: "#d9f0fa",
+      icon: "shopping-basket",
+    },
+    {
+      id: "electricity",
+      name: "Electricity",
+      categoryId: "bills",
+      categoryName: "Bills",
+      kind: "expense" as const,
+      color: "#d9f0fa",
+      icon: "zap",
+      systemKey: "electricity",
+      categorySystemKey: "bills",
+    },
+  ];
+
+  mocks.stateIndex = 0;
+  renderToStaticMarkup(<TransactionSheet subcategories={subcategories} members={[]} />);
+  mocks.dateSelect?.(new Date(2026, 0, 2, 12));
+  mocks.stateIndex = 0;
+  renderToStaticMarkup(<TransactionSheet subcategories={subcategories} members={[]} />);
+  mocks.categoryChange?.("electricity");
+  mocks.stateIndex = 0;
+  const billsMarkup = renderToStaticMarkup(<TransactionSheet subcategories={subcategories} members={[]} />);
+  mocks.categoryChange?.("groceries");
+  mocks.stateIndex = 0;
+  const nonBillsMarkup = renderToStaticMarkup(<TransactionSheet subcategories={subcategories} members={[]} />);
+
+  expect(billsMarkup).toMatch(/id="billing-period-from"[^>]*value="2026-01-02"/);
+  expect(billsMarkup).toMatch(/id="billing-period-to"[^>]*value="2026-01-02"/);
+  expect(nonBillsMarkup).not.toContain("Billing period");
+  expect(nonBillsMarkup).toContain('type="hidden" name="occurredOn" value="2026-01-02"');
+  expect(nonBillsMarkup).toContain('type="hidden" name="servicePeriodStart" value=""');
+  expect(nonBillsMarkup).toContain('type="hidden" name="servicePeriodEnd" value=""');
+});
+
+it("shows a billing-period start error returned by the server", () => {
+  mocks.actionState = {
+    status: "error",
+    formError: "Check the form details.",
+    fieldErrors: { servicePeriodStart: "Use YYYY-MM-DD." },
+  };
+
+  const markup = renderToStaticMarkup(
+    <TransactionSheet
+      subcategories={[
+        {
+          id: "electricity",
+          name: "Electricity",
+          categoryId: "bills",
+          categoryName: "Bills",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "zap",
+          systemKey: "electricity",
+          categorySystemKey: "bills",
+        },
+      ]}
+      members={[]}
+    />,
+  );
+
+  expect(markup).toContain("Use YYYY-MM-DD.");
+  expect(markup).toContain('aria-invalid="true"');
+});
+
+it("does not activate billing state from a non-Bills child system key", () => {
+  const markup = renderToStaticMarkup(
+    <TransactionSheet
+      subcategories={[
+        {
+          id: "not-bills",
+          name: "Not bills",
+          categoryId: "groceries",
+          categoryName: "Groceries",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "shopping-basket",
+          systemKey: "bills",
+          categorySystemKey: "groceries",
+        },
+      ]}
+      members={[]}
+    />,
+  );
+
+  expect(markup).not.toContain("Billing period");
+  expect(markup).toContain('type="hidden" name="servicePeriodStart" value=""');
+  expect(markup).toContain('type="hidden" name="servicePeriodEnd" value=""');
+});
+
+it("shows a billing-period end error returned by the server", () => {
+  mocks.actionState = {
+    status: "error",
+    formError: "Check the form details.",
+    fieldErrors: { servicePeriodEnd: "End on or after the start date." },
+  };
+
+  const markup = renderToStaticMarkup(
+    <TransactionSheet
+      subcategories={[
+        {
+          id: "electricity",
+          name: "Electricity",
+          categoryId: "bills",
+          categoryName: "Bills",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "zap",
+          systemKey: "electricity",
+          categorySystemKey: "bills",
+        },
+      ]}
+      members={[]}
+    />,
+  );
+
+  expect(markup).toContain("End on or after the start date.");
+  expect(markup).toContain('aria-invalid="true"');
 });

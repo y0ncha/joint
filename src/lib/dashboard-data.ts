@@ -27,6 +27,7 @@ export async function getDashboardData(month: string, range?: DateRange) {
           {
             ...subcategory,
             categoryName: category.name,
+            categorySystemKey: category.systemKey,
             kind: category.kind,
             color: subcategory.color,
             icon: subcategory.icon ?? category.icon,

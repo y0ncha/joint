@@ -24,6 +24,7 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["category_kind"]
           name: string
+          system_key: string | null
           updated_at: string
         }
         Insert: {
@@ -35,6 +36,7 @@ export type Database = {
           id?: string
           kind: Database["public"]["Enums"]["category_kind"]
           name: string
+          system_key?: string | null
           updated_at?: string
         }
         Update: {
@@ -46,6 +48,7 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["category_kind"]
           name?: string
+          system_key?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -130,6 +133,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
+          groceries_monthly_budget: number | null
           id: string
           name: string
           opening_balance: number
@@ -138,6 +142,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by: string
+          groceries_monthly_budget?: number | null
           id?: string
           name: string
           opening_balance?: number
@@ -146,6 +151,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string
+          groceries_monthly_budget?: number | null
           id?: string
           name?: string
           opening_balance?: number
@@ -224,6 +230,7 @@ export type Database = {
           icon: string | null
           id: string
           name: string
+          system_key: string | null
           updated_at: string
         }
         Insert: {
@@ -235,6 +242,7 @@ export type Database = {
           icon?: string | null
           id?: string
           name: string
+          system_key?: string | null
           updated_at?: string
         }
         Update: {
@@ -246,6 +254,7 @@ export type Database = {
           icon?: string | null
           id?: string
           name?: string
+          system_key?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -279,6 +288,8 @@ export type Database = {
           note: string
           occurred_on: string
           paid_by: string | null
+          service_period_end: string | null
+          service_period_start: string | null
           source: Database["public"]["Enums"]["transaction_source"]
           subcategory_id: string | null
           updated_at: string
@@ -296,6 +307,8 @@ export type Database = {
           note?: string
           occurred_on: string
           paid_by?: string | null
+          service_period_end?: string | null
+          service_period_start?: string | null
           source?: Database["public"]["Enums"]["transaction_source"]
           subcategory_id?: string | null
           updated_at?: string
@@ -313,6 +326,8 @@ export type Database = {
           note?: string
           occurred_on?: string
           paid_by?: string | null
+          service_period_end?: string | null
+          service_period_start?: string | null
           source?: Database["public"]["Enums"]["transaction_source"]
           subcategory_id?: string | null
           updated_at?: string
@@ -370,15 +385,26 @@ export type Database = {
         Args: { target_household_id: string }
         Returns: boolean
       }
-      save_current_settings: {
-        Args: {
-          household_name?: string
-          member_card_last_four?: string
-          member_color?: string
-          profile_name?: string
-        }
-        Returns: string
-      }
+      save_current_settings:
+        | {
+            Args: {
+              groceries_monthly_budget: number
+              household_name?: string
+              member_card_last_four?: string
+              member_color?: string
+              profile_name?: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              household_name?: string
+              member_card_last_four?: string
+              member_color?: string
+              profile_name?: string
+            }
+            Returns: string
+          }
       set_current_household_member_color: {
         Args: { target_color: string }
         Returns: undefined

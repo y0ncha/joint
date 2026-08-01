@@ -24,6 +24,7 @@ When documents disagree, stop and resolve the conflict with the user. Do not sil
 - Read only the documents relevant to the change; resolve contract conflicts with the user.
 - For UI work, get visual confirmation before adding behavior: use a visual-only component or mockup.
 - The user controls branches. Never create, switch, clean, merge, or push without explicit approval.
+- After completing a phase, commit its changes with an appropriate message.
 - Keep changes in scope; update design or architecture docs first when their contract changes.
 - Test domain and behavior changes. Run lint/tests when useful; do not run `bun run build` unless asked.
 - Report changes, evidence, risks, and how to evaluate them; distinguish local checks from live proof.

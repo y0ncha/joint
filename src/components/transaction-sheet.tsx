@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState, type ReactNode } from "react";
+import type { DateRange } from "react-day-picker";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,7 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { PillSelect } from "@/components/pill-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -36,6 +37,8 @@ type Subcategory = {
   kind: "income" | "expense";
   color: string;
   icon: string | null;
+  categorySystemKey?: string | null;
+  systemKey?: string | null;
 };
 type Member = { id: string; label: string; color?: string };
 
@@ -59,6 +62,11 @@ function dateOnlyFromLocalDate(value: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function billingPeriodFor(occurredOn: string): DateRange {
+  const date = dateFromIso(occurredOn);
+  return { from: date, to: date };
+}
+
 export function TransactionSheet({
   subcategories = [],
   currentUserId = "",
@@ -78,6 +86,10 @@ export function TransactionSheet({
 }) {
   const initialKind = transaction?.kind === "income" ? "income" : "expense";
   const isEditing = Boolean(transaction);
+  const initialOccurredOn = transaction?.occurredOn ?? todayIso();
+  const initialSubcategoryId = transaction
+    ? (transaction.subcategoryId ?? "")
+    : (subcategories.find((subcategory) => subcategory.kind === initialKind)?.id ?? "");
   const [kind, setKind] = useState<"income" | "expense">(initialKind);
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
     async (_state, formData) => (transaction ? updateTransaction(transaction.id, formData) : createTransaction(formData)),
@@ -88,12 +100,23 @@ export function TransactionSheet({
     if (state?.status === "error") toast.error(state.formError, { id: "transaction-save" });
   }, [isEditing, state]);
   const selectableSubcategories = useMemo(() => subcategories.filter((subcategory) => subcategory.kind === kind), [subcategories, kind]);
-  const [occurredOn, setOccurredOn] = useState(transaction?.occurredOn ?? todayIso);
+  const [occurredOn, setOccurredOn] = useState(initialOccurredOn);
   const [paidBy, setPaidBy] = useState(() => transaction?.paidBy ?? currentUserId ?? members[0]?.id ?? "");
-  const [subcategoryId, setSubcategoryId] = useState(() =>
-    transaction ? (transaction.subcategoryId ?? "") : (subcategories.find((subcategory) => subcategory.kind === initialKind)?.id ?? ""),
-  );
+  const [subcategoryId, setSubcategoryId] = useState(initialSubcategoryId);
   const selectedSubcategoryId = selectableSubcategories.some((subcategory) => subcategory.id === subcategoryId) ? subcategoryId : "";
+  const selectedSubcategory = selectableSubcategories.find((subcategory) => subcategory.id === selectedSubcategoryId);
+  const isBillsSubcategory = selectedSubcategory?.categorySystemKey === "bills";
+  const [billingPeriod, setBillingPeriod] = useState<DateRange | undefined>(() => {
+    const initialSubcategory = subcategories.find((subcategory) => subcategory.id === initialSubcategoryId);
+    const isBills = initialSubcategory?.categorySystemKey === "bills";
+    if (!isBills) return undefined;
+    return {
+      from: dateFromIso(transaction?.servicePeriodStart ?? initialOccurredOn),
+      to: dateFromIso(transaction?.servicePeriodEnd ?? transaction?.servicePeriodStart ?? initialOccurredOn),
+    };
+  });
+  const billingPeriodError =
+    state?.status === "error" ? (state.fieldErrors.servicePeriodStart ?? state.fieldErrors.servicePeriodEnd) : undefined;
   const selectedPaidBy =
     paidBy === "" ? "" : members.some((member) => member.id === paidBy) ? paidBy : currentUserId || members[0]?.id || "";
   const shouldRenderDefaultTrigger = !isEditing && open === undefined && onOpenChange === undefined;
@@ -103,13 +126,8 @@ export function TransactionSheet({
       {trigger ??
         (shouldRenderDefaultTrigger ? (
           <SheetTrigger asChild>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="size-11 rounded-full text-primary hover:bg-primary/10 hover:text-primary"
-              aria-label="Add transaction"
-            >
-              <span className="flex size-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-sm transition-colors group-hover/button:bg-primary">
+            <Button size="icon" variant="ghost" className="size-11 rounded-full text-primary" aria-label="Add transaction">
+              <span className="flex size-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-sm">
                 <Plus aria-hidden="true" />
               </span>
             </Button>
@@ -129,6 +147,8 @@ export function TransactionSheet({
             <input name="occurredOn" type="hidden" value={occurredOn} />
             <input name="subcategoryId" type="hidden" value={selectedSubcategoryId} />
             <input name="paidBy" type="hidden" value={selectedPaidBy} />
+            <input name="servicePeriodStart" type="hidden" value={billingPeriod?.from ? isoFromDate(billingPeriod.from) : ""} />
+            <input name="servicePeriodEnd" type="hidden" value={billingPeriod?.to ? isoFromDate(billingPeriod.to) : ""} />
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.amount)}>
               <FieldLabel htmlFor="amount">Amount</FieldLabel>
               <Input
@@ -177,6 +197,7 @@ export function TransactionSheet({
                 onValueChange={(value) => {
                   setKind(value as typeof kind);
                   setSubcategoryId("");
+                  setBillingPeriod(undefined);
                 }}
                 options={[
                   { value: "income", label: "Income", className: "border-positive/20 bg-positive/10 text-positive" },
@@ -203,7 +224,14 @@ export function TransactionSheet({
               <PillSelect
                 ariaLabel="Categories"
                 value={selectedSubcategoryId}
-                onValueChange={setSubcategoryId}
+                onValueChange={(value) => {
+                  setSubcategoryId(value);
+                  setBillingPeriod((current) =>
+                    selectableSubcategories.find((subcategory) => subcategory.id === value)?.categorySystemKey === "bills"
+                      ? (current ?? billingPeriodFor(occurredOn))
+                      : undefined,
+                  );
+                }}
                 disabled={selectableSubcategories.length === 0}
                 emptyLabel="Uncategorized"
                 options={selectableSubcategories.map((subcategory) => ({
@@ -215,6 +243,49 @@ export function TransactionSheet({
               />
               {state?.status === "error" ? <FieldError>{state.fieldErrors.subcategoryId}</FieldError> : null}
             </Field>
+            {isBillsSubcategory ? (
+              <Field data-invalid={Boolean(billingPeriodError)}>
+                <FieldLabel id="billing-period-label">Billing period</FieldLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 w-full justify-start rounded-xl bg-white/55"
+                      aria-label="Choose billing period"
+                      aria-describedby="billing-period-feedback"
+                      aria-invalid={Boolean(billingPeriodError)}
+                    >
+                      {billingPeriod?.from && billingPeriod.to
+                        ? `${displayDate.format(billingPeriod.from)} – ${displayDate.format(billingPeriod.to)}`
+                        : "Choose billing period"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    className="w-auto max-w-[calc(100vw-2rem)] rounded-2xl border-white/70 bg-card p-3 shadow-[0_20px_60px_rgba(15,44,55,0.18)]"
+                  >
+                    <FieldGroup className="grid grid-cols-2 gap-3">
+                      <Field>
+                        <FieldLabel htmlFor="billing-period-from">From</FieldLabel>
+                        <Input id="billing-period-from" value={billingPeriod?.from ? isoFromDate(billingPeriod.from) : ""} readOnly />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="billing-period-to">To</FieldLabel>
+                        <Input id="billing-period-to" value={billingPeriod?.to ? isoFromDate(billingPeriod.to) : ""} readOnly />
+                      </Field>
+                    </FieldGroup>
+                    <Calendar mode="range" selected={billingPeriod} onSelect={setBillingPeriod} buttonVariant="ghost" />
+                  </PopoverContent>
+                </Popover>
+                <FieldDescription id="billing-period-feedback" aria-live="polite">
+                  {billingPeriod?.from && billingPeriod.to
+                    ? `Inclusive range from ${isoFromDate(billingPeriod.from)} to ${isoFromDate(billingPeriod.to)}.`
+                    : "Choose an inclusive range."}
+                </FieldDescription>
+                {billingPeriodError ? <FieldError>{billingPeriodError}</FieldError> : null}
+              </Field>
+            ) : null}
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)}>
               <FieldLabel htmlFor="merchant">Merchant</FieldLabel>
               <Input

@@ -1,14 +1,17 @@
+import Link from "next/link";
+
 import { AccentPicker } from "@/components/accent-picker";
-import { HouseholdNameSettingsControl } from "@/components/household-name-settings-control";
 import { MemberCardSettingsControl } from "@/components/member-card-settings-control";
 import { MemberColorSettingsControl } from "@/components/member-color-settings-control";
+import { GroceriesBudgetSettingsControl } from "@/components/groceries-budget-settings-control";
 import { MemberManagementSheet, type PartnerAccessState } from "@/components/partner-access-control";
-import { ProfileNameSettingsControl } from "@/components/profile-name-settings-control";
-import { SettingsSaveControl } from "@/components/settings-save-control";
-import { WorkspaceShell } from "@/components/workspace-shell";
+import { SettingsForm } from "@/components/settings-save-control";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { getCurrentHouseholdContext } from "@/lib/household";
-import { ChevronRight, CreditCard, House, Palette, UserRound, UsersRound, type LucideIcon } from "lucide-react";
+import { CreditCard, House, Palette, Pencil, ShoppingBasket, SwatchBook, Tags, UserRound, UsersRound, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 function SettingsRow({
@@ -17,14 +20,12 @@ function SettingsRow({
   description,
   value,
   children,
-  chevron = false,
 }: {
   icon: LucideIcon;
   label: string;
   description?: string;
   value?: string;
   children?: ReactNode;
-  chevron?: boolean;
 }) {
   return (
     <div data-settings-row className="flex min-h-14 items-center gap-3 py-3">
@@ -39,7 +40,34 @@ function SettingsRow({
           {value}
         </p>
       ) : null}
-      {chevron ? <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground/70" /> : null}
+    </div>
+  );
+}
+
+function SettingsTextControl({
+  id,
+  label,
+  name,
+  initialName,
+  value,
+  autoComplete,
+}: {
+  id: string;
+  label: string;
+  name: string;
+  initialName: string;
+  value: string;
+  autoComplete: string;
+}) {
+  return (
+    <div className="w-[min(22rem,55vw)]">
+      <input type="hidden" name={initialName} value={value} />
+      <Field className="min-w-0 flex-1">
+        <FieldLabel htmlFor={id} className="sr-only">
+          {label}
+        </FieldLabel>
+        <Input id={id} name={name} defaultValue={value} autoComplete={autoComplete} required className="min-h-11" />
+      </Field>
     </div>
   );
 }
@@ -65,7 +93,7 @@ export default async function SettingsPage() {
       .select("user_id, role, color, joined_at")
       .eq("household_id", household.householdId)
       .order("joined_at"),
-    household.supabase.from("households").select("name").eq("id", household.householdId).maybeSingle(),
+    household.supabase.from("households").select("name, groceries_monthly_budget").eq("id", household.householdId).maybeSingle(),
   ]);
   if (cardMappingError || profileError || membersError || householdError) throw new Error("Unable to load account settings.");
   const currentCardLastFour = cardMapping?.last_four ?? null;
@@ -99,16 +127,16 @@ export default async function SettingsPage() {
     partnerState = authorization ? { status: hasPartner ? "joined" : "pending", email: authorization.email } : { status: "empty" };
   }
   return (
-    <WorkspaceShell title="Settings" actions={<SettingsSaveControl userId={household.userId} />}>
+    <SettingsForm userId={household.userId}>
       <div className="mt-6 flex w-full flex-col gap-5">
-        <Card className="border-white/50 bg-card/90">
+        <Card className="border-white/50 bg-card/90 px-2">
           <CardHeader>
             <CardTitle>Appearance</CardTitle>
             <CardDescription>Local visual preferences for this browser.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="divide-y divide-border/70">
-              <SettingsRow icon={Palette} label="Accent color">
+              <SettingsRow icon={SwatchBook} label="Accent color">
                 <div className="w-[min(22rem,55vw)]">
                   <AccentPicker showLabel={false} />
                 </div>
@@ -117,19 +145,38 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-white/50 bg-card/90">
+        <Card className="border-white/50 bg-card/90 px-2">
           <CardHeader>
             <CardTitle>Household</CardTitle>
-            <CardDescription>Manage shared members and household access.</CardDescription>
+            <CardDescription>Manage shared settings, members, and household access.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="divide-y divide-border/70">
               <SettingsRow
                 icon={House}
-                label={householdRecord?.name?.trim() || "Household"}
+                label="Name"
                 value={household.role === "member" ? householdRecord?.name?.trim() || "Household" : undefined}
               >
-                {household.role === "owner" ? <HouseholdNameSettingsControl name={householdRecord?.name?.trim() || "Household"} /> : null}
+                {household.role === "owner" ? (
+                  <SettingsTextControl
+                    id="household-name"
+                    label="Household name"
+                    name="householdName"
+                    initialName="initialHouseholdName"
+                    value={householdRecord?.name?.trim() || "Household"}
+                    autoComplete="organization"
+                  />
+                ) : null}
+              </SettingsRow>
+              <SettingsRow icon={Tags} label="Categories" description="Manage categories & subcategories.">
+                <Button asChild variant="ghost" size="icon" className="size-11">
+                  <Link href="/categories" aria-label="Edit categories">
+                    <Pencil data-icon="inline-start" aria-hidden="true" />
+                  </Link>
+                </Button>
+              </SettingsRow>
+              <SettingsRow icon={ShoppingBasket} label="Groceries budget" description="Leave blank to hide the chart threshold.">
+                <GroceriesBudgetSettingsControl budget={householdRecord?.groceries_monthly_budget ?? null} />
               </SettingsRow>
               {household.role === "owner" && partnerState ? (
                 <SettingsRow icon={UsersRound} label="Members" description="Manage members.">
@@ -152,7 +199,7 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-white/50 bg-card/90">
+        <Card className="border-white/50 bg-card/90 px-2">
           <CardHeader>
             <CardTitle>Account</CardTitle>
             <CardDescription>Manage your name, user color, and card mapping.</CardDescription>
@@ -160,7 +207,14 @@ export default async function SettingsPage() {
           <CardContent>
             <div className="divide-y divide-border/70">
               <SettingsRow icon={UserRound} label="User name">
-                <ProfileNameSettingsControl fullName={profile?.full_name?.trim() ?? ""} />
+                <SettingsTextControl
+                  id="profile-name"
+                  label="User name"
+                  name="profileName"
+                  initialName="initialProfileName"
+                  value={profile?.full_name?.trim() ?? ""}
+                  autoComplete="name"
+                />
               </SettingsRow>
               <SettingsRow icon={Palette} label="User color">
                 <div className="w-[min(22rem,55vw)]">
@@ -176,6 +230,6 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
       </div>
-    </WorkspaceShell>
+    </SettingsForm>
   );
 }

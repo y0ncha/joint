@@ -41,10 +41,6 @@ export function subcategoryPastelColors(categoryColor: string) {
   return categoryColorFamilies.find(({ category }) => category === categoryColor.toLowerCase())?.subcategories ?? [];
 }
 
-export function isSubcategoryPastelColor(categoryColor: string, value: unknown): boolean {
-  return typeof value === "string" && subcategoryPastelColors(categoryColor).includes(value.toLowerCase() as never);
-}
-
 export function selectSubcategoryPastelColor(categoryColor: string, usedColors: Iterable<string | null | undefined>, random = Math.random) {
   const colors = subcategoryPastelColors(categoryColor);
   if (colors.length === 0) return null;

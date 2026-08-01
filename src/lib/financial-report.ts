@@ -1,3 +1,6 @@
+import { getIsoMonthRange, inclusiveIsoDayCount, shiftIsoDate, shiftIsoMonth } from "@/lib/date-range";
+import type { DateRange } from "@/lib/date-range";
+
 export type ReportCategory = {
   id: string;
   name: string;
@@ -20,6 +23,8 @@ export type ReportTransaction = {
   kind: "income" | "expense";
   amount: number;
   occurredOn: string;
+  servicePeriodStart?: string | null;
+  servicePeriodEnd?: string | null;
   subcategoryId: string | null;
   note: string;
   merchant?: string;
@@ -39,28 +44,10 @@ export type MonthlyReport = {
   recentTransactions: ReportTransaction[];
 };
 
-function nextMonth(month: string) {
-  const [year, monthNumber] = month.split("-").map(Number);
-  const date = new Date(Date.UTC(year, monthNumber, 1));
-  return date.toISOString().slice(0, 10);
-}
-
-function previousMonths(month: string, count: number) {
-  const [year, monthNumber] = month.split("-").map(Number);
-
-  return Array.from({ length: count }, (_, index) => {
-    const date = new Date(Date.UTC(year, monthNumber - 2 - index, 1));
-    return date.toISOString().slice(0, 7);
-  });
-}
-
-function daysInMonth(month: string) {
-  const [year, monthNumber] = month.split("-").map(Number);
-  return new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
-}
-
 function dateInMonth(month: string, day: number) {
-  return `${month}-${String(Math.min(day, daysInMonth(month))).padStart(2, "0")}`;
+  const monthEnd = getIsoMonthRange(month)?.to;
+  if (!monthEnd) throw new Error(`Invalid ISO month: ${month}`);
+  return `${month}-${String(Math.min(day, Number(monthEnd.slice(8)))).padStart(2, "0")}`;
 }
 
 function localToday() {
@@ -70,12 +57,6 @@ function localToday() {
 
 function percentageChange(value: number, average: number) {
   return average === 0 ? null : ((value - average) / average) * 100;
-}
-
-function shiftDate(value: string, days: number) {
-  const date = new Date(`${value}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
 }
 
 function periodTotals(transactions: ReportTransaction[], from: string, to: string) {
@@ -92,15 +73,15 @@ function periodTotals(transactions: ReportTransaction[], from: string, to: strin
 
 function priorPeriods(from: string, to: string, earliestDate: string | undefined) {
   if (!earliestDate) return [];
-  const periodDays = Math.round((new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime()) / 86_400_000) + 1;
+  const periodDays = inclusiveIsoDayCount(from, to);
   const periods: Array<{ from: string; to: string }> = [];
-  let periodEnd = shiftDate(from, -1);
+  let periodEnd = shiftIsoDate(from, -1);
 
   while (periods.length < 3 && periodEnd >= earliestDate) {
-    const periodStart = shiftDate(periodEnd, 1 - periodDays);
+    const periodStart = shiftIsoDate(periodEnd, 1 - periodDays);
     if (periodStart < earliestDate) break;
     periods.push({ from: periodStart, to: periodEnd });
-    periodEnd = shiftDate(periodStart, -1);
+    periodEnd = shiftIsoDate(periodStart, -1);
   }
 
   return periods;
@@ -178,7 +159,7 @@ export function buildMonthlyReport({
   asOfDate?: string;
 }): MonthlyReport {
   const monthStart = `${month}-01`;
-  const monthEnd = nextMonth(month);
+  const monthEnd = `${shiftIsoMonth(month, 1)}-01`;
   const categoriesById = new Map(categories.map((category) => [category.id, category]));
   const subcategoriesById = new Map(subcategories.map((subcategory) => [subcategory.id, subcategory]));
   const sharedBalance = transactions
@@ -200,7 +181,8 @@ export function buildMonthlyReport({
   const categoryTotals = new Map<string, number>();
   let income = 0;
   let expenses = 0;
-  const recentIncomeMonths = new Set(previousMonths(month, 3));
+  const previousIncomeMonths = Array.from({ length: 3 }, (_, index) => shiftIsoMonth(month, -1 - index));
+  const recentIncomeMonths = new Set(previousIncomeMonths);
   const recentIncomeByMonth = new Map<string, number>();
 
   for (const transaction of currentPeriodTransactions) {
@@ -224,7 +206,7 @@ export function buildMonthlyReport({
   const expectedMonthlyIncome = recentIncomeValues.length
     ? recentIncomeValues.reduce((total, amount) => total + amount, 0) / recentIncomeValues.length
     : null;
-  const previousPeriodTotals = previousMonths(month, 3).map((previousMonth) => {
+  const previousPeriodTotals = previousIncomeMonths.map((previousMonth) => {
     const previousPeriodEnd = dateInMonth(previousMonth, comparisonDay);
     return transactions.reduce(
       (totals, transaction) => {
@@ -252,4 +234,3 @@ export function buildMonthlyReport({
     recentTransactions: monthlyTransactions,
   };
 }
-import type { DateRange } from "@/lib/date-range";

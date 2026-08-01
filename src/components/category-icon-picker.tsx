@@ -28,7 +28,7 @@ export function CategoryIconPicker({ defaultIcon = "tag", inheritedIcon }: { def
             type="button"
             variant="outline"
             size="icon"
-            className="size-11 rounded-none border-0 border-l border-input bg-transparent focus-visible:border-transparent focus-visible:ring-0"
+            className="size-11 rounded-none border-0 border-l border-input bg-transparent"
             aria-label="Choose icon"
           >
             {createElement(categoryIcon(icon), { "aria-hidden": true })}
@@ -42,7 +42,7 @@ export function CategoryIconPicker({ defaultIcon = "tag", inheritedIcon }: { def
                 type="button"
                 variant="ghost"
                 size="icon"
-                className={icon === name ? "size-11 bg-primary/10 text-primary hover:bg-primary/15" : "size-11"}
+                className={icon === name ? "size-11 bg-primary/10 text-primary" : "size-11"}
                 aria-label={label}
                 aria-pressed={icon === name}
                 onClick={() => setOverrideIcon(name)}

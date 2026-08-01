@@ -11,7 +11,7 @@ import {
 const categories: ReportCategory[] = [
   { id: "income", name: "Salary", kind: "income", archivedAt: null },
   { id: "food", name: "Food", kind: "expense", archivedAt: null },
-  { id: "home", name: "Home", kind: "expense", archivedAt: null },
+  { id: "home", name: "Bills", kind: "expense", archivedAt: null },
   { id: "archived", name: "Archived parent", kind: "expense", archivedAt: "2026-06-01T00:00:00Z" },
 ];
 
@@ -19,7 +19,7 @@ const subcategories: ReportSubcategory[] = [
   { id: "salary", name: "Salary", categoryId: "income", color: "#dcece3", icon: null, archivedAt: null },
   { id: "groceries", name: "Groceries", categoryId: "food", color: "#c5e8f7", icon: null, archivedAt: null },
   { id: "restaurants", name: "Restaurants", categoryId: "food", color: "#f8d7d7", icon: null, archivedAt: null },
-  { id: "housing", name: "Housing", categoryId: "home", color: "#efeffc", icon: null, archivedAt: null },
+  { id: "housing", name: "Electricity", categoryId: "home", color: "#efeffc", icon: null, archivedAt: null },
   {
     id: "archived-child",
     name: "Archived child",
@@ -30,7 +30,7 @@ const subcategories: ReportSubcategory[] = [
   },
 ];
 
-const transactions: ReportTransaction[] = [
+const transactions: Array<ReportTransaction & { servicePeriodStart?: string | null; servicePeriodEnd?: string | null }> = [
   {
     id: "income",
     kind: "income",
@@ -66,8 +66,10 @@ const transactions: ReportTransaction[] = [
     kind: "expense",
     amount: 99,
     occurredOn: "2026-08-01",
-    subcategoryId: "groceries",
-    note: "Later",
+    servicePeriodStart: "2026-07-15",
+    servicePeriodEnd: "2026-09-15",
+    subcategoryId: "housing",
+    note: "Electricity bill",
     createdAt: "2026-08-01T08:00:00Z",
     paidBy: "member-id",
   },
@@ -103,6 +105,60 @@ describe("buildMonthlyReport", () => {
         asOfDate: "2026-07-16",
       }).recentTransactions.map((transaction) => transaction.id),
     ).toEqual(["restaurant", "groceries", "income"]);
+  });
+
+  it("keeps Bills service periods out of monthly and custom-range ledger and shared-balance calculations", () => {
+    const julyMonthly = buildMonthlyReport({
+      openingBalance: -200,
+      categories,
+      subcategories,
+      transactions,
+      month: "2026-07",
+      asOfDate: "2026-07-16",
+    });
+    const augustMonthly = buildMonthlyReport({
+      openingBalance: -200,
+      categories,
+      subcategories,
+      transactions,
+      month: "2026-08",
+      asOfDate: "2026-08-16",
+    });
+    const julyRange = buildRangeReport({
+      openingBalance: -200,
+      categories,
+      subcategories,
+      transactions,
+      from: "2026-07-01",
+      to: "2026-07-31",
+    });
+    const augustRange = buildRangeReport({
+      openingBalance: -200,
+      categories,
+      subcategories,
+      transactions,
+      from: "2026-08-01",
+      to: "2026-08-31",
+    });
+
+    expect(julyMonthly).toMatchObject({ sharedBalance: -70, income: 500, expenses: 370 });
+    expect(julyMonthly.recentTransactions.map((transaction) => transaction.id)).not.toContain("future");
+    expect(augustMonthly).toMatchObject({ sharedBalance: -169, income: 0, expenses: 99 });
+    expect(augustMonthly.categoryTotals).toEqual([{ categoryId: "home", categoryName: "Bills", amount: 99 }]);
+    expect(augustMonthly.recentTransactions).toEqual([
+      expect.objectContaining({
+        id: "future",
+        amount: 99,
+        occurredOn: "2026-08-01",
+        servicePeriodStart: "2026-07-15",
+        servicePeriodEnd: "2026-09-15",
+      }),
+    ]);
+    expect(julyRange).toMatchObject({ sharedBalance: -70, income: 500, expenses: 370 });
+    expect(julyRange.recentTransactions.map((transaction) => transaction.id)).not.toContain("future");
+    expect(augustRange).toMatchObject({ sharedBalance: -169, income: 0, expenses: 99 });
+    expect(augustRange.categoryTotals).toEqual([{ categoryId: "home", categoryName: "Bills", amount: 99 }]);
+    expect(augustRange.recentTransactions).toEqual(augustMonthly.recentTransactions);
   });
 
   it("uses the previous three months of income as expected monthly income", () => {
@@ -319,6 +375,40 @@ describe("buildMonthlyReport", () => {
     });
   });
 
+  it("caps a March 31 comparison at February's leap-day month end", () => {
+    const report = buildMonthlyReport({
+      openingBalance: 0,
+      categories,
+      subcategories,
+      transactions: [
+        {
+          id: "march-income",
+          kind: "income",
+          amount: 120,
+          occurredOn: "2024-03-31",
+          subcategoryId: "salary",
+          note: "Current",
+          createdAt: "2024-03-31T08:00:00Z",
+          paidBy: "member-id",
+        },
+        {
+          id: "february-income-included",
+          kind: "income",
+          amount: 100,
+          occurredOn: "2024-02-29",
+          subcategoryId: "salary",
+          note: "Included",
+          createdAt: "2024-02-29T08:00:00Z",
+          paidBy: "member-id",
+        },
+      ],
+      month: "2024-03",
+      asOfDate: "2024-03-31",
+    });
+
+    expect(report.incomeChangePercentage).toBeCloseTo(260);
+  });
+
   it("sorts parent totals, keeps loaded archived hierarchy, and excludes missing hierarchy", () => {
     const report = buildMonthlyReport({
       openingBalance: 0,
@@ -372,8 +462,8 @@ describe("buildMonthlyReport", () => {
 
     expect(report.categoryTotals).toEqual([
       { categoryId: "archived", categoryName: "Archived parent", amount: 150 },
+      { categoryId: "home", categoryName: "Bills", amount: 100 },
       { categoryId: "food", categoryName: "Food", amount: 100 },
-      { categoryId: "home", categoryName: "Home", amount: 100 },
     ]);
   });
 

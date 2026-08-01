@@ -22,7 +22,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getProfileInitials } from "@/lib/profile";
 
 const initialState: ActionResult | null = null;
@@ -99,16 +98,11 @@ export function MemberManagementSheet({ owner, partner, member }: { owner: Membe
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <Tooltip>
-        <SheetTrigger asChild>
-          <TooltipTrigger asChild>
-            <Button ref={triggerRef} type="button" variant="ghost" size="icon" className="size-11" aria-label="Manage members">
-              <Pencil aria-hidden="true" />
-            </Button>
-          </TooltipTrigger>
-        </SheetTrigger>
-        <TooltipContent>Manage members</TooltipContent>
-      </Tooltip>
+      <SheetTrigger asChild>
+        <Button ref={triggerRef} type="button" variant="ghost" size="icon" className="size-11" aria-label="Manage members">
+          <Pencil aria-hidden="true" />
+        </Button>
+      </SheetTrigger>
       <SheetContent
         side="right"
         className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg"
@@ -198,13 +192,7 @@ export function MemberManagementSheet({ owner, partner, member }: { owner: Membe
               <CardContent className="flex justify-end pt-0">
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      aria-label="Remove member"
-                    >
+                    <Button type="button" variant="ghost" size="icon" className="size-11 text-destructive" aria-label="Remove member">
                       <Trash2 aria-hidden="true" />
                     </Button>
                   </AlertDialogTrigger>

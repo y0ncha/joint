@@ -21,6 +21,31 @@ async function validatePaidBy(
   return !error && Boolean(data);
 }
 
+async function servicePeriodsFor(
+  household: Awaited<ReturnType<typeof requireCurrentHousehold>>,
+  subcategoryId: string | null,
+  servicePeriodStart: string | null,
+  servicePeriodEnd: string | null,
+): Promise<{ service_period_start: string | null; service_period_end: string | null } | ActionResult> {
+  if (!subcategoryId) return { service_period_start: null, service_period_end: null };
+
+  const { data, error } = await household.supabase
+    .from("subcategories")
+    .select("category_id, categories!inner(system_key)")
+    .eq("id", subcategoryId)
+    .eq("household_id", household.householdId)
+    .maybeSingle();
+  const systemKey = (data as { categories: { system_key: string | null } | null } | null)?.categories?.system_key;
+  if (error || !data) {
+    return { status: "error", formError: "Check the form details.", fieldErrors: { subcategoryId: "Select a value." } };
+  }
+  if (systemKey !== "bills") return { service_period_start: null, service_period_end: null };
+  if (!servicePeriodStart || !servicePeriodEnd) {
+    return { status: "error", formError: "Check the form details.", fieldErrors: { servicePeriodEnd: "Choose a billing period." } };
+  }
+  return { service_period_start: servicePeriodStart, service_period_end: servicePeriodEnd };
+}
+
 export async function createTransaction(input: FormData): Promise<ActionResult> {
   const parsed = transactionSchema.safeParse(Object.fromEntries(input));
   if (!parsed.success) {
@@ -31,6 +56,13 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
   }
 
   const household = await requireCurrentHousehold();
+  const servicePeriods = await servicePeriodsFor(
+    household,
+    parsed.data.subcategoryId,
+    parsed.data.servicePeriodStart,
+    parsed.data.servicePeriodEnd,
+  );
+  if ("status" in servicePeriods) return servicePeriods;
   if (parsed.data.paidBy && !(await validatePaidBy(household.supabase, household.householdId, parsed.data.paidBy))) {
     return {
       status: "error",
@@ -49,13 +81,14 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
     subcategory_id: parsed.data.subcategoryId,
     note: parsed.data.note,
     ...(parsed.data.merchant === undefined ? {} : { merchant: parsed.data.merchant }),
+    ...servicePeriods,
   });
 
   if (error) {
     return { status: "error", formError: "Unable to save the transaction. Please try again.", fieldErrors: {} };
   }
 
-  for (const path of ["/", "/transactions", "/categories"]) {
+  for (const path of ["/", "/transactions", "/categories", "/bills-groceries"]) {
     revalidatePath(path);
   }
   return { status: "success" };
@@ -77,6 +110,13 @@ export async function updateTransaction(transactionId: string, input: FormData):
   if (existingTransaction.source === "manual" && !parsed.data.subcategoryId) {
     return { status: "error", formError: "Check the form details.", fieldErrors: { subcategoryId: "Select a value." } };
   }
+  const servicePeriods = await servicePeriodsFor(
+    household,
+    parsed.data.subcategoryId,
+    parsed.data.servicePeriodStart,
+    parsed.data.servicePeriodEnd,
+  );
+  if ("status" in servicePeriods) return servicePeriods;
   if (parsed.data.paidBy && !(await validatePaidBy(household.supabase, household.householdId, parsed.data.paidBy))) {
     return {
       status: "error",
@@ -95,11 +135,12 @@ export async function updateTransaction(transactionId: string, input: FormData):
       subcategory_id: parsed.data.subcategoryId,
       note: parsed.data.note,
       ...(parsed.data.merchant === undefined ? {} : { merchant: parsed.data.merchant }),
+      ...servicePeriods,
     })
     .eq("id", transactionId)
     .eq("household_id", household.householdId);
   if (error) return { status: "error", formError: "Unable to update the transaction. Please try again.", fieldErrors: {} };
-  for (const path of ["/", "/transactions", "/categories"]) revalidatePath(path);
+  for (const path of ["/", "/transactions", "/categories", "/bills-groceries"]) revalidatePath(path);
   return { status: "success" };
 }
 
@@ -111,7 +152,7 @@ export async function deleteTransaction(transactionId: string): Promise<ActionRe
     .eq("id", transactionId)
     .eq("household_id", household.householdId);
   if (error) return { status: "error", formError: "Unable to delete the transaction. Please try again.", fieldErrors: {} };
-  for (const path of ["/", "/transactions", "/categories"]) revalidatePath(path);
+  for (const path of ["/", "/transactions", "/categories", "/bills-groceries"]) revalidatePath(path);
   return { status: "success" };
 }
 
@@ -122,6 +163,6 @@ export async function deleteTransactions(transactionIds: string[]): Promise<Acti
   const household = await requireCurrentHousehold();
   const { error } = await household.supabase.from("transactions").delete().in("id", ids).eq("household_id", household.householdId);
   if (error) return { status: "error", formError: "Unable to delete the selected transactions. Please try again.", fieldErrors: {} };
-  for (const path of ["/", "/transactions", "/categories"]) revalidatePath(path);
+  for (const path of ["/", "/transactions", "/categories", "/bills-groceries"]) revalidatePath(path);
   return { status: "success" };
 }

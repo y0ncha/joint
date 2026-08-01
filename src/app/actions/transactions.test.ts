@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   transactionIn: vi.fn(),
   revalidatePath: vi.fn(),
   select: vi.fn(),
+  subcategorySelect: vi.fn(),
 }));
 
 vi.mock("@/lib/household", () => ({ requireCurrentHousehold: mocks.requireCurrentHousehold }));
@@ -38,10 +39,12 @@ function configureContextClient({
   payer = { user_id: "partner-id" },
   transactionError = null,
   existingTransaction = { source: "manual" },
+  subcategory = { categories: { system_key: null } },
 }: {
   payer?: { user_id: string } | null;
   transactionError?: unknown;
   existingTransaction?: { source: "manual" | "statement_import" } | null;
+  subcategory?: { categories: { system_key: string | null } } | null;
 } = {}) {
   const payerMaybeSingle = vi.fn().mockResolvedValue({ data: payer, error: null });
   const payerEqUser = vi.fn().mockReturnValue({ maybeSingle: payerMaybeSingle });
@@ -53,6 +56,9 @@ function configureContextClient({
   const sourceMaybeSingle = vi.fn().mockResolvedValue({ data: existingTransaction, error: null });
   const sourceEqHousehold = vi.fn().mockReturnValue({ maybeSingle: sourceMaybeSingle });
   const sourceEqId = vi.fn().mockReturnValue({ eq: sourceEqHousehold });
+  const subcategoryMaybeSingle = vi.fn().mockResolvedValue({ data: subcategory, error: null });
+  const subcategoryEqHousehold = vi.fn().mockReturnValue({ maybeSingle: subcategoryMaybeSingle });
+  const subcategoryEqId = vi.fn().mockReturnValue({ eq: subcategoryEqHousehold });
 
   mocks.insert.mockResolvedValue({ error: transactionError });
   mocks.update.mockReturnValue({ eq: transactionEqId });
@@ -60,12 +66,23 @@ function configureContextClient({
   mocks.from.mockImplementation((table: string) => {
     if (table === "household_members") return { select: payerSelect };
     if (table === "transactions") return { insert: mocks.insert, update: mocks.update, delete: mocks.delete, select: mocks.select };
+    if (table === "subcategories") return { select: mocks.subcategorySelect };
     throw new Error(`Unexpected table: ${table}`);
   });
 
   mocks.select.mockReturnValue({ eq: sourceEqId });
+  mocks.subcategorySelect.mockReturnValue({ eq: subcategoryEqId });
 
-  return { payerEqHousehold, sourceEqHousehold, sourceEqId, transactionEqHousehold, transactionEqId, transactionIn };
+  return {
+    payerEqHousehold,
+    sourceEqHousehold,
+    sourceEqId,
+    subcategoryEqHousehold,
+    subcategoryEqId,
+    transactionEqHousehold,
+    transactionEqId,
+    transactionIn,
+  };
 }
 
 describe("transaction actions", () => {
@@ -97,10 +114,12 @@ describe("transaction actions", () => {
       occurred_on: "2026-07-14",
       subcategory_id: "groceries",
       note: "Groceries",
+      service_period_start: null,
+      service_period_end: null,
     });
     expect(mocks.from).not.toHaveBeenCalledWith("accounts");
     expect(payerEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
-    expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(4);
   });
 
   it.each(["", undefined])("requires a subcategory for manual creates when it is %s", async (subcategoryId) => {
@@ -123,6 +142,45 @@ describe("transaction actions", () => {
 
     expect(mocks.from).not.toHaveBeenCalledWith("household_members");
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ paid_by: null, subcategory_id: "groceries" }));
+  });
+
+  it("persists the inclusive billing period only for a verified Bills subcategory", async () => {
+    const { subcategoryEqHousehold, subcategoryEqId } = configureContextClient({ subcategory: { categories: { system_key: "bills" } } });
+
+    await expect(
+      transactionsModule.createTransaction(transactionForm({ servicePeriodStart: "2026-07-01", servicePeriodEnd: "2026-07-31" })),
+    ).resolves.toEqual({ status: "success" });
+
+    expect(mocks.subcategorySelect).toHaveBeenCalledWith("category_id, categories!inner(system_key)");
+    expect(subcategoryEqId).toHaveBeenCalledWith("id", "groceries");
+    expect(subcategoryEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
+    expect(mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ service_period_start: "2026-07-01", service_period_end: "2026-07-31" }),
+    );
+  });
+
+  it("requires a billing period for a verified Bills subcategory", async () => {
+    configureContextClient({ subcategory: { categories: { system_key: "bills" } } });
+
+    await expect(transactionsModule.createTransaction(transactionForm())).resolves.toEqual({
+      status: "error",
+      formError: "Check the form details.",
+      fieldErrors: { servicePeriodEnd: "Choose a billing period." },
+    });
+
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("clears forged billing periods for a non-Bills transaction", async () => {
+    configureContextClient();
+
+    await expect(
+      transactionsModule.createTransaction(transactionForm({ servicePeriodStart: "2026-07-01", servicePeriodEnd: "2026-07-31" })),
+    ).resolves.toEqual({ status: "success" });
+
+    expect(mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ service_period_start: null, service_period_end: null, occurred_on: "2026-07-14", amount: 50 }),
+    );
   });
 
   it("rejects a payer outside the verified household", async () => {
@@ -161,12 +219,14 @@ describe("transaction actions", () => {
       paid_by: "member-id",
       subcategory_id: "groceries",
       note: "Updated",
+      service_period_start: null,
+      service_period_end: null,
     });
     expect(transactionEqId).toHaveBeenCalledWith("id", "transaction-id");
     expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(payerEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.from).not.toHaveBeenCalledWith("accounts");
-    expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(4);
   });
 
   it("keeps imported transactions uncategorized and unassigned when editing", async () => {
@@ -224,7 +284,7 @@ describe("transaction actions", () => {
 
     expect(transactionEqId).toHaveBeenCalledWith("id", "transaction-id");
     expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
-    expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(4);
   });
 
   it("sanitizes delete database failures", async () => {
@@ -244,7 +304,7 @@ describe("transaction actions", () => {
 
     expect(transactionIn).toHaveBeenCalledWith("id", ["transaction-a", "transaction-b"]);
     expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
-    expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(4);
   });
 
   it("rejects transfer submissions at the validation boundary", async () => {

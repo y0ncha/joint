@@ -37,11 +37,18 @@ beforeEach(() => {
       table === "households"
         ? { data: { opening_balance: "9000.50" }, error: null }
         : table === "categories"
-          ? { data: [{ id: "food", name: "Food", kind: "expense", color: "#D96B6B", icon: "utensils", archived_at: null }], error: null }
+          ? {
+              data: [
+                { id: "food", name: "Food", kind: "expense", color: "#D96B6B", icon: "utensils", archived_at: null },
+                { id: "bills", name: "Bills", kind: "expense", color: "#D8E0F0", icon: "receipt", archived_at: null },
+              ],
+              error: null,
+            }
           : table === "subcategories"
             ? {
                 data: [
                   { id: "groceries", name: "Groceries", category_id: "food", color: "#D8F0D0", icon: null, archived_at: null },
+                  { id: "electricity", name: "Electricity", category_id: "bills", color: "#D8E0F0", icon: null, archived_at: null },
                   { id: "orphan", name: "Orphan", category_id: "missing", color: "#F0D8D0", icon: "circle", archived_at: null },
                 ],
                 error: null,
@@ -54,6 +61,8 @@ beforeEach(() => {
                       kind: "expense",
                       amount: "125",
                       occurred_on: "2026-07-14",
+                      service_period_start: null,
+                      service_period_end: null,
                       subcategory_id: null,
                       note: "Statement note",
                       merchant: "Super Pharm",
@@ -66,11 +75,27 @@ beforeEach(() => {
                       kind: "expense",
                       amount: "75",
                       occurred_on: "2026-07-15",
+                      service_period_start: null,
+                      service_period_end: null,
                       subcategory_id: "groceries",
                       note: "Groceries",
                       merchant: "",
                       source: "manual",
                       created_at: "2026-07-15T08:00:00Z",
+                      paid_by: "member-id",
+                    },
+                    {
+                      id: "bill-transaction-id",
+                      kind: "expense",
+                      amount: "300",
+                      occurred_on: "2026-07-16",
+                      service_period_start: "2026-07-01",
+                      service_period_end: "2026-07-31",
+                      subcategory_id: "electricity",
+                      note: "Electricity bill",
+                      merchant: "",
+                      source: "manual",
+                      created_at: "2026-07-16T08:00:00Z",
                       paid_by: "member-id",
                     },
                   ],
@@ -124,12 +149,26 @@ it("loads inherited subcategory data and passes hierarchy-aware transactions to 
       icon: "utensils",
       categoryArchivedAt: null,
     },
+    {
+      id: "electricity",
+      name: "Electricity",
+      categoryId: "bills",
+      archivedAt: null,
+      categoryName: "Bills",
+      kind: "expense",
+      color: "#D8E0F0",
+      icon: "receipt",
+      categoryArchivedAt: null,
+    },
   ]);
 
   expect(mocks.buildMonthlyReport).toHaveBeenCalledWith(
     expect.objectContaining({
-      categories: [expect.objectContaining({ id: "food", color: "#D96B6B" })],
-      subcategories: [expect.objectContaining({ id: "groceries", categoryId: "food" })],
+      categories: [expect.objectContaining({ id: "food", color: "#D96B6B" }), expect.objectContaining({ id: "bills", color: "#D8E0F0" })],
+      subcategories: [
+        expect.objectContaining({ id: "groceries", categoryId: "food" }),
+        expect.objectContaining({ id: "electricity", categoryId: "bills" }),
+      ],
       transactions: expect.arrayContaining([
         expect.objectContaining({
           subcategoryId: null,
@@ -138,6 +177,16 @@ it("loads inherited subcategory data and passes hierarchy-aware transactions to 
           source: "statement_import",
         }),
         expect.objectContaining({ subcategoryId: "groceries", paidBy: "member-id", note: "Groceries", source: "manual" }),
+        expect.objectContaining({
+          subcategoryId: "electricity",
+          paidBy: "member-id",
+          note: "Electricity bill",
+          source: "manual",
+          amount: 300,
+          occurredOn: "2026-07-16",
+          servicePeriodStart: "2026-07-01",
+          servicePeriodEnd: "2026-07-31",
+        }),
       ]),
     }),
   );
@@ -148,11 +197,23 @@ it("passes categories, subcategories, and transactions to range reports", async 
 
   expect(mocks.buildRangeReport).toHaveBeenCalledWith(
     expect.objectContaining({
-      categories: [expect.objectContaining({ id: "food" })],
-      subcategories: [expect.objectContaining({ id: "groceries", categoryId: "food" })],
+      categories: [expect.objectContaining({ id: "food" }), expect.objectContaining({ id: "bills" })],
+      subcategories: [
+        expect.objectContaining({ id: "groceries", categoryId: "food" }),
+        expect.objectContaining({ id: "electricity", categoryId: "bills" }),
+      ],
       transactions: expect.arrayContaining([
         expect.objectContaining({ subcategoryId: null, merchant: "Super Pharm", paidBy: null }),
         expect.objectContaining({ subcategoryId: "groceries", paidBy: "member-id", note: "Groceries" }),
+        expect.objectContaining({
+          subcategoryId: "electricity",
+          paidBy: "member-id",
+          note: "Electricity bill",
+          amount: 300,
+          occurredOn: "2026-07-16",
+          servicePeriodStart: "2026-07-01",
+          servicePeriodEnd: "2026-07-31",
+        }),
       ]),
       from: "2026-07-01",
       to: "2026-07-31",

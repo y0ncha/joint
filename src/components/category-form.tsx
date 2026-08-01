@@ -37,7 +37,15 @@ export function CategoryColorPicker({
 }
 
 type CategoryKind = "income" | "expense";
-type CategoryOption = { id: string; name: string; kind?: CategoryKind; color: string; icon?: string; subcategoryColors?: string[] };
+type CategoryOption = {
+  id: string;
+  name: string;
+  kind?: CategoryKind;
+  color: string;
+  icon?: string;
+  system_key?: string | null;
+  subcategoryColors?: string[];
+};
 
 export function CategoryCreationPreview({
   categories = [],
@@ -56,7 +64,9 @@ export function CategoryCreationPreview({
   const [categoryId, setCategoryId] = useState(initialCategoryId);
   const [kind, setKind] = useState<CategoryKind | "">(() => categories.find((category) => category.id === initialCategoryId)?.kind ?? "");
   const selectedCategory = categories.find((category) => category.id === categoryId);
-  const filteredCategories = kind ? categories.filter((category) => category.kind === kind) : categories;
+  const filteredCategories = (kind ? categories.filter((category) => category.kind === kind) : categories).filter(
+    (category) => category.system_key !== "groceries",
+  );
   const selectedIcon = selectedCategory?.icon ?? null;
   const selectedCategoryIcon = isCategoryIcon(selectedIcon) ? selectedIcon : "tag";
   const childColors = selectedCategory ? subcategoryPastelColors(selectedCategory.color) : [];
@@ -166,7 +176,7 @@ export function CategoryCreationPreview({
             {defaultSubcategoryColor ? (
               <CategoryColorPicker key={categoryId} defaultColor={defaultSubcategoryColor} presetColors={childColors} />
             ) : null}
-            <Button disabled={isPending || !categoryId} type="submit">
+            <Button className="mt-[30px]" disabled={isPending || !categoryId} type="submit">
               Add subcategory
             </Button>
           </FieldGroup>
@@ -206,13 +216,8 @@ export function CategorySheet({ categories = [], defaultColor = "#dcece3" }: { c
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-11 rounded-full text-primary hover:bg-primary/10 hover:text-primary"
-          aria-label="Add category"
-        >
-          <span className="flex size-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-sm transition-colors group-hover/button:bg-primary">
+        <Button size="icon" variant="ghost" className="size-11 rounded-full text-primary" aria-label="Add category">
+          <span className="flex size-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-sm">
             <Plus aria-hidden="true" />
           </span>
         </Button>

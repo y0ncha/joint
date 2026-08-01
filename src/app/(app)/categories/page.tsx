@@ -7,14 +7,14 @@ export default async function CategoriesPage() {
   if (household.status !== "member") return null;
   const categories = household.supabase
     .from("categories")
-    .select("id, name, kind, color, icon, archived_at")
+    .select("id, name, kind, color, icon, archived_at, system_key")
     .eq("household_id", household.householdId);
   categories.order("kind");
   const [categoriesResult, subcategoriesResult] = await Promise.all([
     categories.order("name"),
     household.supabase
       .from("subcategories")
-      .select("id, category_id, name, color, icon, archived_at, transactions(count)")
+      .select("id, category_id, name, color, icon, archived_at, system_key, transactions(count)")
       .eq("household_id", household.householdId)
       .order("name"),
   ]);

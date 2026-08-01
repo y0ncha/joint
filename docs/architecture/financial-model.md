@@ -18,14 +18,14 @@ household
 
 ## Data model and invariants
 
-| Record              | Implemented purpose                                                                                                                            |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `households`        | Shared container with a signed `opening_balance`.                                                                                              |
-| `household_members` | Household membership and `owner` or `member` role.                                                                                             |
-| `categories`        | Household-owned `income` or `expense` parent categories with a registered family color and icon.                                               |
-| `subcategories`     | Household-owned children with a persisted color from the parent category's database family palette and an optional icon override.              |
-| `member_cards`      | Optional household-scoped mapping of a member to one card's last four digits.                                                                  |
-| `transactions`      | Positive ILS amount, date, `income` or `expense` direction, creator, optional payer and `subcategory_id`, source, merchant, and optional note. |
+| Record              | Implemented purpose                                                                                                                                                           |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `households`        | Shared container with a signed `opening_balance` and optional shared Groceries monthly threshold.                                                                             |
+| `household_members` | Household membership and `owner` or `member` role.                                                                                                                            |
+| `categories`        | Household-owned `income` or `expense` parent categories with a registered family color and icon.                                                                              |
+| `subcategories`     | Household-owned children with a persisted color from the parent category's database family palette and an optional icon override.                                             |
+| `member_cards`      | Optional household-scoped mapping of a member to one card's last four digits.                                                                                                 |
+| `transactions`      | Positive ILS amount, date, `income` or `expense` direction, creator, optional payer and `subcategory_id`, source, merchant, optional note, and optional Bills service period. |
 
 - The opening balance may be positive, zero, or negative.
 - Transaction amounts are positive ILS values with at most two decimal places; direction comes only from `kind`.
@@ -48,6 +48,12 @@ For a selected `YYYY-MM` month, the shared balance includes transactions before 
 
 Uncategorized statement imports and historical transactions orphaned by category or subcategory deletion remain valid and are included in shared-balance, income, expense, comparison, and recent-activity calculations, but omitted from parent-category totals. They render as `Uncategorized`. `src/app/actions/transactions.ts` persists manual edits after server-side membership, payer, and active matching-kind subcategory checks; `src/app/actions/statement-import.ts` performs authenticated, atomic statement imports.
 
+## Bills & Groceries subset
+
+Bills & Groceries is an implemented, narrow analytics subset, not a generalized budget or obligations model. Each household has protected `Bills` and `Groceries` expense categories identified by stable system keys. Groceries has exactly the protected `Main run` and `Top-ups` children; Bills may have household-managed children.
+
+Only Bills transactions may have an optional inclusive `service_period_start` and `service_period_end`. Those dates are used solely to prorate the transaction's stored amount for Bills analytics; they never change the ledger row, `occurred_on` posting date, stored amount, or shared-balance calculation. `households.groceries_monthly_budget` is one optional shared monthly Groceries threshold, not a general budget facility. [`bills-groceries-analytics.md`](bills-groceries-analytics.md) records the complete analytics mechanism.
+
 ## Shared-balance migration
 
 `20260717210731_align_shared_balance.sql` converted the legacy schema in one transaction. It locks the affected tables, rejects archived accounts, adds `households.opening_balance`, and backfills it from signed legacy opening balances. It deletes no-longer-supported transaction rows, narrows transaction kinds to `income` and `expense`, required a legacy category at that stage, installed category-link validation, and removed obsolete schema. Final checks rejected a missing opening balance or an invalid category relationship before commit.
@@ -55,6 +61,8 @@ Uncategorized statement imports and historical transactions orphaned by category
 `20260721183411_add_statement_import.sql` added authenticated CSV/XLSX statement imports, `member_cards`, nullable imported categories and payers, source metadata, and duplicate-import protection. The original manual-entry category invariant remains intact.
 
 `20260725223804_category_subcategory_hierarchy.sql` replaced direct category assignment with household-scoped `subcategories` and `transactions.subcategory_id`. Later grouped-color and icon migrations constrained categories to registered families, persisted each child's database-validated family color, and added optional child icon overrides. `20260726130058_category_deletion_uncategorizes_transactions.sql` made category or subcategory deletion preserve transaction history by setting the linked `subcategory_id` to null.
+
+`20260730125519_essentials_dashboard.sql` added the protected Bills/Groceries taxonomy, optional Bills service-period columns, and the optional shared Groceries monthly threshold. Its constraints keep periods paired, inclusive, ordered, and limited to Bills transactions while preserving stored ledger values and posting dates.
 
 ## Primary verification
 
@@ -68,5 +76,5 @@ Uncategorized statement imports and historical transactions orphaned by category
 
 ## Non-goals
 
-- No double-entry ledger, bank connection, financial credential, attachment, budget, recurring transaction, automatic categorization, or audit-history model is implemented. CSV/XLSX statement import is supported, but source files and full card details are never stored.
+- No double-entry ledger, bank connection, financial credential, attachment, generalized budget, recurring transaction, manually maintained obligation, upcoming/overdue state, expected-versus-recorded analysis, automatic categorization, or audit-history model is implemented. CSV/XLSX statement import is supported, but source files and full card details are never stored.
 - The directional roadmap does not change these invariants.

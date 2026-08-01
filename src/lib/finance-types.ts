@@ -10,7 +10,15 @@ function number(value: number) {
 }
 
 export function categoryFromRow(row: CategoryRow) {
-  return { id: row.id, name: row.name, kind: row.kind, archivedAt: row.archived_at, color: row.color, icon: row.icon };
+  return {
+    id: row.id,
+    name: row.name,
+    kind: row.kind,
+    systemKey: row.system_key,
+    archivedAt: row.archived_at,
+    color: row.color,
+    icon: row.icon,
+  };
 }
 
 export function subcategoryFromRow(row: SubcategoryRow) {
@@ -18,6 +26,7 @@ export function subcategoryFromRow(row: SubcategoryRow) {
     id: row.id,
     name: row.name,
     categoryId: row.category_id,
+    systemKey: row.system_key,
     color: row.color,
     icon: row.icon,
     archivedAt: row.archived_at,
@@ -30,6 +39,8 @@ export function transactionFromRow(row: TransactionRow) {
     kind: row.kind,
     amount: number(Number(row.amount)),
     occurredOn: row.occurred_on,
+    servicePeriodStart: row.service_period_start,
+    servicePeriodEnd: row.service_period_end,
     subcategoryId: row.subcategory_id,
     note: row.note,
     merchant: row.merchant,

@@ -88,6 +88,7 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 
 - Desktop navigation is icon-only with a clear active state and accessible label.
 - Mobile navigation exposes the same primary destinations in the bottom bar.
+- Desktop and mobile primary navigation include `/bills-groceries`; desktop follows the existing icon-only pattern with the accessible label `Bills & Groceries`, while mobile exposes the visible destination label.
 - The desktop rail ends with a non-interactive avatar that shows the signed-in user's cached profile-name initials. It has no notification badge, popover, or notification behavior.
 - Navigation labels and route names must remain consistent across desktop, mobile, page titles, and tests.
 
@@ -111,6 +112,7 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 - Transaction entry prioritizes amount, then follows the ledger order: date, type, payer, category, merchant, and notes. The ledger shows `Merchant`; notes remain in the transaction Sheet.
 - Use `Sheet` for desktop transaction entry and a full-height mobile presentation.
 - Use `Popover` with the owned `Calendar` for dates; do not use the browser-native date picker in transaction entry.
+- A selected Bills subcategory reveals a `Billing period` range control. It uses inclusive ISO dates, defaults to the transaction date, and clears when a non-Bills subcategory is selected; the period is for Bills & Groceries analytics only.
 - Use `AlertDialog` for irreversible deletion, removal, or archival unless a reliable undo path exists.
 - Validation errors stay close to the field, receive focus when appropriate, and include a live status message for asynchronous submission.
 - Empty states are concise and single-purpose; do not repeat the same message in a title, description, and body.
@@ -118,8 +120,8 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 ### Settings
 
 - Appearance, household, and account concerns use separate section cards, in that order.
-- The `Household` card sits above `Account` and contains the owner-editable household name and partner-access controls. Members may view the household name but cannot edit it.
-- User name, user color, card mapping, and session controls are rows inside the `Account` card, not separate cards. A header Save control atomically persists changed user name, household name, and user color; a member can edit only their own display name. A saved change updates their profile and desktop avatar initials. Header Log out confirms leaving when settings are unsaved.
+- The `Household` card contains the owner-editable household name, a Categories link, and an optional `Monthly groceries budget` `Field` with an `Input`, all available to both members; it also contains owner-only partner-access controls. Members may view the household name but cannot edit it. Clearing the budget saves no budget, hides the Bills & Groceries chart threshold, and does not block the route.
+- User name, user color, card mapping, and session controls are rows inside the `Account` card, not separate cards. A header Save control atomically persists changed user name, household name, user color, and monthly groceries budget. A member can edit only their own display name. A saved change updates their profile and desktop avatar initials. Header Log out confirms leaving when settings are unsaved.
 - A member may select only their own user color from Account. User colors and the browser-local accent use fixed `react-color` CirclePicker presets with no custom hex input. Categories retain the final `Custom color` circle that opens a BlockPicker, including its hex input. User colors remain labelled supplemental visuals; the accent never changes financial or destructive semantics. New members receive the next available pastel until they change it.
 - Only the household owner sees the `Members` field with the `UsersRound` icon, a short management description, and an accessible icon-only edit control. It opens the established right-side Sheet with read-only owner and partner-access cards. Joined household summaries show both people with avatars, display names (falling back to the known email), email, and joined date; do not show card mappings, colors, or role pills. The owner may invite one Google email, or remove a pending or joined partner after confirmation; authorizing another email requires removal first. A member never sees household member details or controls in Settings.
 
@@ -133,15 +135,17 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 
 - Use Lucide as the only general-purpose icon package.
 - Standard interface icons are 16–20px; primary navigation icons sit inside 44px targets.
-- Icons supplement visible text. Icon-only controls require an accessible label and, where useful, a tooltip.
+- Icons supplement visible text. Icon-only controls require an accessible label; buttons do not use tooltips.
 - Keep stroke weight and optical size consistent within a component family.
 - Category spending uses labelled green or accent-toned bars. Income and expense comparisons use explicit values and direction labels.
-- Every chart requires a textual or table equivalent. Decorative chart detail must not obscure the underlying numbers.
+- Bills & Groceries uses the owned shadcn `Chart` primitive backed by Recharts, plus existing `Card`, `Popover`, `Calendar`, `Field`, `Input`, `PillSelect`, and semantic tokens; do not create a chart framework or add another visualization dependency.
+- Bills & Groceries shows `Bills by month`, `Year-over-year`, `Groceries by month`, and `Groceries by day`: at the shared `xl` viewport threshold, the Bills cards appear in one row and the Groceries cards in a second row with the monthly chart filling the remaining width and the day heatmap squarish; smaller layouts stack them in that order. Its configuration popover switches monthly charts between `Past 12 months` and `Calendar year`; Bills selectors retain a non-empty selection, and daily Groceries ranges use the owned Calendar and retain every selected date in a total-spend calendar heatmap.
+- Monthly charts have labelled axes, exact ILS tooltips, visible text legends, non-color labels, and keyboard-accessible chart layers. The Groceries-by-day heatmap has weekday labels, a total-spend intensity legend, keyboard-focusable day cells with exact ILS values, and an equivalent table that retains the Main run/Top-ups split. The `/bills-groceries` dashboard is chart-only; each chart has a dedicated full-content detail page with its accessible table of the same values. Detail content uses a more opaque surface; its table keeps muted horizontal row dividers and the chart-to-table separator, without an outer border. The chart title and description are the page heading, and an icon-only Back control sits beside the configuration control. Decorative chart detail must not obscure the underlying numbers.
 
 ## Interaction and motion
 
 - Provide distinct hover, pressed, open, selected, disabled, loading, error, and focus-visible states.
-- Hover, pressed, and open states should increase contrast subtly and respond immediately.
+- Every hoverable component uses the same muted foreground tint (`bg-foreground/5`); hover, pressed, and open states should increase contrast subtly and respond immediately. Icon buttons use `bg-foreground/10` while pressed or open, without movement.
 - Animate transform and opacity only. Avoid large-distance movement, bounce, or layout-shifting effects.
 - Honor `prefers-reduced-motion`; pending indicators must remain understandable without animation.
 - Controls must not shift surrounding layout when hovered, opened, submitted, or when their label changes.
@@ -155,14 +159,16 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 - Loading, success, and error changes require appropriate live-region feedback.
 - Do not use color, position, placeholder text, or icons as the only source of meaning.
 - Support empty, loading, validation-error, server-error, reduced-motion, and keyboard-only states.
+- Chart focus, tooltips, legends, and equivalent tables must remain usable with a keyboard, without color, and with reduced motion.
 
 ## Visible MVP contract
 
 - The interface is English with logical-property-friendly layout so Hebrew and RTL can be added later.
 - Joint has exactly one shared household balance: opening balance plus income minus expenses. The shared balance may be negative.
 - The MVP accepts manual income and expenses plus authenticated CSV/XLSX statement imports using the documented Hebrew export format.
-- The primary experience exposes that shared balance, categories, manual income and expenses, statement imports, monthly reporting, recent activity, and partner access.
+- The primary experience exposes that shared balance, categories, manual income and expenses, statement imports, monthly reporting, recent activity, partner access, and Bills & Groceries analytics.
 - Income and expense use a dropdown choice.
 - Expense entry may identify a household member who paid and defaults to the signed-in member; `Unassigned` is an explicit valid state for both manual and imported transactions.
 - Imported transactions may remain `Uncategorized`. Opening an imported transaction lets a member assign a matching category later, change it, or return it to `Uncategorized`; import itself never asks for a category.
-- A member may optionally save one card's last four digits during onboarding or later in Settings, and may replace only their own saved digits. Imports snapshot a recognized mapping into the newly saved transaction's payer; changing the mapping never changes an existing transaction's payer. Unmatched cards remain unassigned. Full card numbers, bank connections, card accounts, transfers, budgets, recurring transactions, automatic categorization, attachments, financial credentials, and audit history remain outside the MVP unless a separately approved plan changes this contract.
+- Bills and Groceries are protected expense categories. Bills transactions require an inclusive billing period for Bills & Groceries-only prorated analytics; the ledger, reports, and shared balance continue to use the exact stored amount and posting date. Groceries has the protected `Main run` and `Top-ups` subcategories and supports one optional fixed monthly household budget for its Bills & Groceries threshold.
+- A member may optionally save one card's last four digits during onboarding or later in Settings, and may replace only their own saved digits. Imports snapshot a recognized mapping into the newly saved transaction's payer; changing the mapping never changes an existing transaction's payer. Unmatched cards remain unassigned. Full card numbers, bank connections, card accounts, transfers, generalized budgets, recurring transactions, automatic categorization, attachments, financial credentials, and audit history remain outside the MVP unless a separately approved plan changes this contract.

@@ -37,16 +37,15 @@ vi.mock("@/components/partner-access-control", () => ({
     </button>
   ),
 }));
-vi.mock("@/components/ui/tooltip", () => ({
-  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipContent: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
-}));
 vi.mock("@/components/member-card-settings-control", () => ({
   MemberCardSettingsControl: ({ lastFour }: { lastFour: string | null }) => <span data-card-last-four={lastFour ?? "none"} />,
 }));
 vi.mock("@/components/member-color-settings-control", () => ({
   MemberColorSettingsControl: ({ color }: { color: string }) => <span data-member-color={color} />,
+}));
+vi.mock("@/components/settings-save-control", () => ({
+  SettingsForm: ({ children }: { children: React.ReactNode }) => <section data-settings-form-owner>{children}</section>,
+  useSettingsFormState: () => null,
 }));
 
 const settingsModule = await import("./page");
@@ -98,29 +97,73 @@ beforeEach(() => {
   mocks.householdMaybeSingle.mockResolvedValue({ data: { name: "The Lovelaces" }, error: null });
 });
 
-it("renders Appearance, Household, and Account cards", async () => {
+it("keeps the Household groceries budget inside the Settings form-owned workspace", async () => {
   const markup = renderToStaticMarkup(await settingsModule.default());
 
+  expect(markup).toMatch(/<section[^>]*data-settings-form-owner[^>]*>[\s\S]*<div class="mt-6/);
   expect(markup).toContain("Appearance");
+  expect(markup).not.toContain("Set an optional monthly groceries threshold.");
   expect(markup).toContain("Household");
   expect(markup).toContain("Account");
-  expect(markup).toContain('aria-label="Save changes"');
   expect(markup).toContain("The Lovelaces");
+  expect(markup).toContain('href="/categories"');
+  expect(markup).toContain('aria-label="Edit categories"');
+  expect(markup).toContain("active:bg-foreground/10");
+  expect(markup).toContain("Manage categories &amp; subcategories.");
+  expect(markup).toContain("hover:bg-foreground/5");
   expect(markup).toContain("User color");
   expect(markup).toContain("User name");
-  expect(markup).toContain('aria-label="Log out"');
-  expect(markup).toContain('data-settings-logout="true"');
-  expect(markup).not.toContain("End this browser session");
-  expect(markup).not.toMatch(/>Name<\/p>/);
   expect(markup).toContain("Last 4 digits");
   expect(markup).not.toContain("Card ending");
   expect(markup).toContain('name="profileName" value="Ada Lovelace"');
   expect(markup).not.toContain('aria-label="Save household name"');
-  expect(markup.match(/w-\[min\(22rem,55vw\)\]/g)).toHaveLength(4);
+  expect(markup.match(/w-\[min\(22rem,55vw\)\]/g)).toHaveLength(5);
   expect(mocks.from).toHaveBeenCalledWith("profiles");
   expect(mocks.from).toHaveBeenCalledWith("households");
   expect(mocks.profileEq).toHaveBeenCalledWith("id", "owner-id");
-  expect(markup.indexOf("Household")).toBeLessThan(markup.indexOf("Account"));
+  expect([...markup.matchAll(/data-slot="card-title"[^>]*>([^<]+)</g)].map((match) => match[1])).toEqual([
+    "Appearance",
+    "Household",
+    "Account",
+  ]);
+});
+
+it.each(["owner", "member"] as const)("renders a positive groceries budget for a %s", async (role) => {
+  mocks.getCurrentHouseholdContext.mockResolvedValue({
+    status: "member",
+    supabase: { from: mocks.from },
+    userId: `${role}-id`,
+    email: `${role}@example.com`,
+    householdId: "household-id",
+    role,
+  });
+  mocks.householdMaybeSingle.mockResolvedValue({ data: { name: "The Lovelaces", groceries_monthly_budget: 125.5 }, error: null });
+
+  const markup = renderToStaticMarkup(await settingsModule.default());
+
+  expect(markup).toContain('href="/categories"');
+  expect(markup).toContain('name="initialGroceriesBudget" value="125.5"');
+  expect(markup).toMatch(
+    /<input(?=[^>]*type="number")(?=[^>]*min="0\.01")(?=[^>]*step="0\.01")(?=[^>]*name="groceriesBudget")(?=[^>]*value="125\.5")(?![^>]*form="settings-save-form")[^>]*>/,
+  );
+});
+
+it.each(["owner", "member"] as const)("renders an empty groceries budget for a %s", async (role) => {
+  mocks.getCurrentHouseholdContext.mockResolvedValue({
+    status: "member",
+    supabase: { from: mocks.from },
+    userId: `${role}-id`,
+    email: `${role}@example.com`,
+    householdId: "household-id",
+    role,
+  });
+
+  const markup = renderToStaticMarkup(await settingsModule.default());
+
+  expect(markup).toContain('name="initialGroceriesBudget" value=""');
+  expect(markup).toMatch(
+    /<input(?=[^>]*type="number")(?=[^>]*min="0\.01")(?=[^>]*step="0\.01")(?=[^>]*name="groceriesBudget")(?=[^>]*value="")(?![^>]*form="settings-save-form")[^>]*>/,
+  );
 });
 
 it("derives the empty owner state through the member request context", async () => {
@@ -165,7 +208,6 @@ it("renders joined partner access for an owner authorization with a joined membe
   expect(markup).toContain('aria-label="Manage members"');
   expect(markup).not.toContain("Owner");
   expect(markup).not.toContain(">Member</span>");
-  expect(markup).not.toMatch(/>Name<\/p>/);
   expect(markup).not.toMatch(/>Role<\/p>/);
   expect(mocks.partnerProfileEq).toHaveBeenCalledWith("id", "partner-id");
 });

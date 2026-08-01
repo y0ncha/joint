@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
-import { LayoutDashboard, Settings, Tags, WalletCards, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, PieChart, Settings, WalletCards, type LucideIcon } from "lucide-react";
 
 import { BrandMark } from "@/components/brand-mark";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 const navigation = [
   ["/", "Overview", LayoutDashboard],
   ["/transactions", "Transactions", WalletCards],
-  ["/categories", "Categories", Tags],
+  ["/bills-groceries", "Bills & Groceries", PieChart],
   ["/settings", "Settings", Settings],
 ] as const;
 
@@ -25,7 +25,7 @@ type ProfileClient = {
 };
 
 function isActivePath(pathname: string, href: string) {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+  return href === "/" ? pathname === "/" : pathname.startsWith(href) || (href === "/settings" && pathname.startsWith("/categories"));
 }
 
 export async function loadVerifiedProfileName(client: ProfileClient) {
@@ -89,11 +89,13 @@ export function WorkspaceShell({
   description,
   actions,
   children,
+  opaqueContent = false,
 }: {
-  title: string;
+  title?: string;
   description?: string;
   actions?: ReactNode;
   children: ReactNode;
+  opaqueContent?: boolean;
 }) {
   return (
     <main className="min-h-screen p-0 text-foreground sm:px-5 sm:py-5 lg:px-8 lg:py-8">
@@ -109,15 +111,22 @@ export function WorkspaceShell({
             <CachedProfileInitialAvatar />
           </div>
         </aside>
-        <section className="min-w-0 flex-1 p-4 pb-[calc(9rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-6 lg:p-8 animate-in fade-in-0 duration-150 ease-out">
-          <header className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-primary">Joint</p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
-              {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
-            </div>
-            {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
-          </header>
+        <section
+          className={cn(
+            "min-w-0 flex-1 animate-in fade-in-0 p-4 pb-[calc(9rem+env(safe-area-inset-bottom))] duration-150 ease-out sm:p-6 sm:pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-6 lg:p-8",
+            opaqueContent && "bg-white/50 backdrop-blur-sm",
+          )}
+        >
+          {title ? (
+            <header className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-primary">Joint</p>
+                <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
+                {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+              </div>
+              {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+            </header>
+          ) : null}
           <div data-workspace-content className="w-full">
             {children}
           </div>

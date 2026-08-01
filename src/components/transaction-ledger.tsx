@@ -246,7 +246,7 @@ export function TransactionLedger({
               type="button"
               variant="ghost"
               size="icon"
-              className="size-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              className="size-11 text-destructive"
               aria-label="Delete selected transactions"
               disabled={selectedIds.length === 0 || isDeleting}
             >
