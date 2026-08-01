@@ -122,45 +122,52 @@ export function SettingsForm({ userId, children }: { userId: string; children: R
 
   return (
     <SettingsFormContext.Provider value={state}>
-      <form id="settings-save-form" action={formAction} />
-      <WorkspaceShell
-        title="Settings"
-        actions={
-          <>
-            <Button
-              form="settings-save-form"
-              type="submit"
-              variant="ghost"
-              size="icon"
-              className="size-14 text-foreground"
-              disabled={isPending}
-              aria-label="Save changes"
-            >
-              {isPending ? (
-                <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin motion-reduce:animate-none" />
-              ) : (
-                <Save aria-hidden="true" />
-              )}
-            </Button>
-            <form
-              data-settings-logout="true"
-              action={logOut}
-              onSubmit={(event) => {
-                if (hasDirtySettingsForm()) {
-                  event.preventDefault();
-                  setLeaveTo("logout");
-                }
-              }}
-            >
-              <Button type="submit" variant="ghost" size="icon" className="size-14 text-foreground" aria-label="Log out">
+      <form
+        id="settings-logout-form"
+        data-settings-logout="true"
+        action={logOut}
+        onSubmit={(event) => {
+          if (hasDirtySettingsForm()) {
+            event.preventDefault();
+            setLeaveTo("logout");
+          }
+        }}
+      />
+      <form id="settings-save-form" action={formAction}>
+        <WorkspaceShell
+          title="Settings"
+          actions={
+            <>
+              <Button
+                type="submit"
+                variant="ghost"
+                size="icon"
+                className="size-14 text-foreground"
+                disabled={isPending}
+                aria-label="Save changes"
+              >
+                {isPending ? (
+                  <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin motion-reduce:animate-none" />
+                ) : (
+                  <Save aria-hidden="true" />
+                )}
+              </Button>
+              <Button
+                form="settings-logout-form"
+                type="submit"
+                variant="ghost"
+                size="icon"
+                className="size-14 text-foreground"
+                aria-label="Log out"
+              >
                 <LogOut aria-hidden="true" />
               </Button>
-            </form>
-          </>
-        }
-      >
-        {children}
-      </WorkspaceShell>
+            </>
+          }
+        >
+          {children}
+        </WorkspaceShell>
+      </form>
       <AlertDialog
         open={Boolean(leaveTo)}
         onOpenChange={(open) => {

@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
-import { BillsGroceriesChartDetail, billsGroceriesChartIds, type BillsGroceriesChartId } from "@/components/bills-groceries-dashboard";
+import { BillsGroceriesChartDetail } from "@/components/bills-groceries-dashboard";
+import { billsGroceriesChartIds, type BillsGroceriesChartId } from "@/lib/bills-groceries-chart-ids";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { loadBillsGroceriesPage, type BillsGroceriesSearchParams } from "@/lib/bills-groceries-page";
 

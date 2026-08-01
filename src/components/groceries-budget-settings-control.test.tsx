@@ -29,6 +29,8 @@ it("associates the groceries budget validation error through the shared Settings
   expect(markup).toContain('name="initialGroceriesBudget" value="500"');
   expect(markup).toContain('id="groceries-budget"');
   expect(markup).toContain('name="groceriesBudget"');
+  expect(markup).not.toContain('form="settings-save-form"');
+  expect(markup).toMatch(/<form[^>]*id="settings-save-form"[^>]*>(?:(?!<\/form>)[\s\S])*name="groceriesBudget"/);
   expect(markup).toContain('min="0.01"');
   expect(markup).toContain('step="0.01"');
   expect(markup).toContain('aria-invalid="true"');

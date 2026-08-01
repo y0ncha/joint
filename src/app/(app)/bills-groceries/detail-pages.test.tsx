@@ -16,7 +16,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound, redirect: mocks.redirect }));
 
 vi.mock("@/components/bills-groceries-dashboard", () => ({
-  billsGroceriesChartIds: ["bills", "year-over-year", "groceries", "daily"],
   BillsGroceriesChartDetail: ({
     chart,
     data,
@@ -30,6 +29,10 @@ vi.mock("@/components/bills-groceries-dashboard", () => ({
     billId?: string | null;
     period?: string;
   }) => <output>{[chart, data?.marker, billIds?.join(","), billId, period].join("|")}</output>,
+}));
+
+vi.mock("@/lib/bills-groceries-chart-ids", () => ({
+  billsGroceriesChartIds: ["bills", "year-over-year", "groceries", "daily"],
 }));
 
 vi.mock("@/lib/bills-groceries-page", () => ({ loadBillsGroceriesPage: mocks.loadBillsGroceriesPage }));

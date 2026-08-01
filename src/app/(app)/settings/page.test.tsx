@@ -144,7 +144,7 @@ it.each(["owner", "member"] as const)("renders a positive groceries budget for a
   expect(markup).toContain('href="/categories"');
   expect(markup).toContain('name="initialGroceriesBudget" value="125.5"');
   expect(markup).toMatch(
-    /<input(?=[^>]*type="number")(?=[^>]*min="0\.01")(?=[^>]*step="0\.01")(?=[^>]*form="settings-save-form")(?=[^>]*name="groceriesBudget")(?=[^>]*value="125\.5")[^>]*>/,
+    /<input(?=[^>]*type="number")(?=[^>]*min="0\.01")(?=[^>]*step="0\.01")(?=[^>]*name="groceriesBudget")(?=[^>]*value="125\.5")(?![^>]*form="settings-save-form")[^>]*>/,
   );
 });
 
@@ -162,7 +162,7 @@ it.each(["owner", "member"] as const)("renders an empty groceries budget for a %
 
   expect(markup).toContain('name="initialGroceriesBudget" value=""');
   expect(markup).toMatch(
-    /<input(?=[^>]*type="number")(?=[^>]*min="0\.01")(?=[^>]*step="0\.01")(?=[^>]*form="settings-save-form")(?=[^>]*name="groceriesBudget")(?=[^>]*value="")[^>]*>/,
+    /<input(?=[^>]*type="number")(?=[^>]*min="0\.01")(?=[^>]*step="0\.01")(?=[^>]*name="groceriesBudget")(?=[^>]*value="")(?![^>]*form="settings-save-form")[^>]*>/,
   );
 });
 

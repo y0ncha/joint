@@ -38,19 +38,26 @@ describe("hasUnsavedSettings", () => {
   });
 });
 
-it("shares the save action state with descendant Settings fields while retaining the existing form and header controls", () => {
+it("submits Settings descendants through the save form while retaining header controls", () => {
   mocks.actionState = { status: "error", formError: "Invalid settings", fieldErrors: { groceriesBudget: "Enter a valid amount." } };
   const ActionState = () => {
     const state = settingsModule.useSettingsFormState();
-    return createElement("output", null, state?.status === "error" ? state.fieldErrors.groceriesBudget : null);
+    return createElement(
+      "output",
+      null,
+      state?.status === "error" ? state.fieldErrors.groceriesBudget : null,
+      createElement("input", { name: "groceriesBudget", value: "1000001", readOnly: true }),
+    );
   };
+  const SettingsFormForTest = settingsModule.SettingsForm as (props: { userId: string; children?: React.ReactNode }) => React.ReactNode;
 
   const markup = renderToStaticMarkup(
-    createElement(settingsModule.SettingsForm, { userId: "user-id", children: createElement(ActionState) }),
+    createElement(SettingsFormForTest, { userId: "user-id" }, createElement(ActionState)),
   );
 
   expect(markup).toContain('id="settings-save-form"');
   expect(markup).toContain('aria-label="Save changes"');
   expect(markup).toContain('aria-label="Log out"');
   expect(markup).toContain("Enter a valid amount.");
+  expect(markup).toMatch(/<form[^>]*id="settings-save-form"[^>]*>(?:(?!<\/form>)[\s\S])*name="groceriesBudget"/);
 });

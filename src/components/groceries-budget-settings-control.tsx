@@ -13,19 +13,18 @@ export function GroceriesBudgetSettingsControl({ budget }: { budget: number | nu
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (error) inputRef.current?.focus();
-  }, [error]);
+    if (state?.status === "error" && state.fieldErrors.groceriesBudget) inputRef.current?.focus();
+  }, [state]);
 
   return (
     <div className="w-[min(22rem,55vw)]">
-      <input form="settings-save-form" type="hidden" name="initialGroceriesBudget" value={value} />
+      <input type="hidden" name="initialGroceriesBudget" value={value} />
       <Field data-invalid={error ? true : undefined}>
         <FieldLabel htmlFor="groceries-budget" className="sr-only">
           Monthly groceries budget
         </FieldLabel>
         <Input
           ref={inputRef}
-          form="settings-save-form"
           id="groceries-budget"
           name="groceriesBudget"
           type="number"

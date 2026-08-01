@@ -24,14 +24,15 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { alignBillYearOverYear } from "@/lib/bills-groceries";
+import type { BillsGroceriesChartId } from "@/lib/bills-groceries-chart-ids";
 import { cn } from "@/lib/utils";
 import type { getBillsGroceriesData } from "@/lib/bills-groceries-data";
+
+export { billsGroceriesChartIds, type BillsGroceriesChartId } from "@/lib/bills-groceries-chart-ids";
 
 type BillKey = string;
 type Period = "rolling" | "calendar";
 type GroceryFilter = "all" | "main-run" | "top-ups";
-export const billsGroceriesChartIds = ["bills", "year-over-year", "groceries", "daily"] as const;
-export type BillsGroceriesChartId = (typeof billsGroceriesChartIds)[number];
 type MonthlyChartDatum = { month: string } & Record<string, string | number>;
 type GroceryMonthlyDatum = { month: string; mainRun: number; topUps: number };
 

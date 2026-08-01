@@ -13,8 +13,8 @@ export function MemberCardSettingsControl({ lastFour }: { lastFour: string | nul
 
   return (
     <Popover>
-      <input form="settings-save-form" type="hidden" name="initialLastFour" value={lastFour ?? ""} />
-      <input form="settings-save-form" type="hidden" name="lastFour" value={value} />
+      <input type="hidden" name="initialLastFour" value={lastFour ?? ""} />
+      <input type="hidden" name="lastFour" value={value} />
       <PopoverTrigger asChild>
         <Button type="button" variant="ghost" size="icon" className="size-11" aria-label="Edit last four digits">
           <Pencil aria-hidden="true" />

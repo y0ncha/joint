@@ -37,8 +37,8 @@ export function AccentPicker({ showLabel = true }: { showLabel?: boolean } = {})
 
   return (
     <div className="flex flex-col gap-2">
-      <input form="settings-save-form" type="hidden" name="accentColor" value={accent} />
-      <input form="settings-save-form" type="hidden" name="initialAccentColor" value={browserAccent} />
+      <input type="hidden" name="accentColor" value={accent} />
+      <input type="hidden" name="initialAccentColor" value={browserAccent} />
       {showLabel ? (
         <p id="accent-color-label" className="text-sm text-muted-foreground">
           Accent

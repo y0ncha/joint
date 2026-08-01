@@ -61,13 +61,12 @@ function SettingsTextControl({
 }) {
   return (
     <div className="w-[min(22rem,55vw)]">
-      <input form="settings-save-form" type="hidden" name={initialName} value={value} />
+      <input type="hidden" name={initialName} value={value} />
       <Field className="min-w-0 flex-1">
         <FieldLabel htmlFor={id} className="sr-only">
           {label}
         </FieldLabel>
         <Input
-          form="settings-save-form"
           id={id}
           name={name}
           defaultValue={value}

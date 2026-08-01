@@ -1,7 +1,7 @@
 import { parseBillsGroceriesUrlDefaults } from "@/lib/bills-groceries";
 import { getBillsGroceriesData } from "@/lib/bills-groceries-data";
 
-export type BillsGroceriesSearchParams = Record<string, string | undefined>;
+export type BillsGroceriesSearchParams = Record<string, string | string[] | undefined>;
 
 export function canonicalBillsGroceriesParams(
   params: URLSearchParams,
@@ -19,7 +19,11 @@ export function canonicalBillsGroceriesParams(
 }
 
 export async function loadBillsGroceriesPage(searchParams: BillsGroceriesSearchParams) {
-  const params = new URLSearchParams(Object.entries(searchParams).flatMap(([key, value]) => (value === undefined ? [] : [[key, value]])));
+  const params = new URLSearchParams(
+    Object.entries(searchParams).flatMap(([key, value]) =>
+      value === undefined ? [] : (Array.isArray(value) ? value : [value]).map((entry) => [key, entry]),
+    ),
+  );
   const currentDate = new Date().toISOString().slice(0, 10);
   const initial = parseBillsGroceriesUrlDefaults(params, { bills: [], defaultBillId: null, currentDate });
   const data = await getBillsGroceriesData({ currentDate, groceryRange: initial.groceryRange, period: initial.period });
