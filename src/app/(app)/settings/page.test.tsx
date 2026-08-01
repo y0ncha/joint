@@ -43,6 +43,10 @@ vi.mock("@/components/member-card-settings-control", () => ({
 vi.mock("@/components/member-color-settings-control", () => ({
   MemberColorSettingsControl: ({ color }: { color: string }) => <span data-member-color={color} />,
 }));
+vi.mock("@/components/settings-save-control", () => ({
+  SettingsForm: ({ children }: { children: React.ReactNode }) => <section data-settings-form-owner>{children}</section>,
+  useSettingsFormState: () => null,
+}));
 
 const settingsModule = await import("./page");
 
@@ -93,14 +97,14 @@ beforeEach(() => {
   mocks.householdMaybeSingle.mockResolvedValue({ data: { name: "The Lovelaces" }, error: null });
 });
 
-it("renders the groceries budget in Household without a separate card", async () => {
+it("keeps the Household groceries budget inside the Settings form-owned workspace", async () => {
   const markup = renderToStaticMarkup(await settingsModule.default());
 
+  expect(markup).toMatch(/<section[^>]*data-settings-form-owner[^>]*>[\s\S]*<div class="mt-6/);
   expect(markup).toContain("Appearance");
   expect(markup).not.toContain("Set an optional monthly groceries threshold.");
   expect(markup).toContain("Household");
   expect(markup).toContain("Account");
-  expect(markup).toContain('aria-label="Save changes"');
   expect(markup).toContain("The Lovelaces");
   expect(markup).toContain('href="/categories"');
   expect(markup).toContain('aria-label="Edit categories"');
@@ -109,9 +113,6 @@ it("renders the groceries budget in Household without a separate card", async ()
   expect(markup).toContain("hover:bg-foreground/5");
   expect(markup).toContain("User color");
   expect(markup).toContain("User name");
-  expect(markup).toContain('aria-label="Log out"');
-  expect(markup).toContain('data-settings-logout="true"');
-  expect(markup).not.toContain("End this browser session");
   expect(markup).toContain("Last 4 digits");
   expect(markup).not.toContain("Card ending");
   expect(markup).toContain('name="profileName" value="Ada Lovelace"');

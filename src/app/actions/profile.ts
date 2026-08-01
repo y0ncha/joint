@@ -28,7 +28,9 @@ export async function saveSettings(_previousState: ActionResult | null, formData
   const parsedProfileName = profileName === null ? null : profileNameSchema.safeParse({ name: profileName });
   const parsedHouseholdName = householdName === null ? null : profileNameSchema.safeParse({ name: householdName });
   const parsedLastFour = lastFour === null ? null : lastFourSchema.safeParse(lastFour);
-  const parsedGroceriesBudget = groceriesBudgetSchema.safeParse(groceriesBudget ?? formData.get("initialGroceriesBudget"));
+  const parsedGroceriesBudget = z
+    .object({ groceriesBudget: groceriesBudgetSchema })
+    .safeParse({ groceriesBudget: groceriesBudget ?? formData.get("initialGroceriesBudget") });
 
   if (parsedProfileName && !parsedProfileName.success) return validationError(parsedProfileName.error.issues);
   if (parsedHouseholdName && !parsedHouseholdName.success) return validationError(parsedHouseholdName.error.issues);
@@ -45,7 +47,7 @@ export async function saveSettings(_previousState: ActionResult | null, formData
     ...(parsedHouseholdName?.success ? { household_name: parsedHouseholdName.data.name } : {}),
     ...(color === null ? {} : { member_color: color }),
     ...(parsedLastFour?.success ? { member_card_last_four: parsedLastFour.data } : {}),
-    groceries_monthly_budget: parsedGroceriesBudget.data,
+    groceries_monthly_budget: parsedGroceriesBudget.data.groceriesBudget,
   });
   if (error?.code === "23505" && error.message.includes("member_cards_household_id_last_four_key")) {
     return {

@@ -1,11 +1,15 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
 type QueryRecord = {
+  count: "exact" | null;
   filters: Array<{ method: string; column: string; value: unknown }>;
+  range: { from: number; to: number } | null;
   select: string | null;
   table: string;
   terminal: string | null;
 };
+
+type QueryResponse = { count?: number | null; data: unknown; error: unknown };
 
 const mocks = vi.hoisted(() => ({
   getCurrentHouseholdContext: vi.fn(),
@@ -27,14 +31,17 @@ const options = {
 };
 
 const queries: QueryRecord[] = [];
-let respond: (query: QueryRecord) => { data: unknown; error: unknown };
+let respond: (query: QueryRecord) => QueryResponse;
 
 function queryFor(table: string) {
-  const record: QueryRecord = { filters: [], select: null, table, terminal: null };
+  const record: QueryRecord = { count: null, filters: [], range: null, select: null, table, terminal: null };
+  Object.defineProperty(record, "range", { enumerable: false, value: null, writable: true });
+  Object.defineProperty(record, "count", { enumerable: false, value: null, writable: true });
   queries.push(record);
   const query = {
-    select(columns: string) {
+    select(columns: string, options?: { count?: "exact" }) {
       record.select = columns;
+      record.count = options?.count ?? null;
       return query;
     },
     eq(column: string, value: unknown) {
@@ -59,6 +66,10 @@ function queryFor(table: string) {
     },
     order(column: string) {
       record.filters.push({ method: "order", column, value: null });
+      return query;
+    },
+    range(from: number, to: number) {
+      record.range = { from, to };
       return query;
     },
     maybeSingle() {
@@ -100,6 +111,215 @@ it.each(["unauthenticated", "unmatched"] as const)(
     expect(mocks.from).not.toHaveBeenCalled();
   },
 );
+
+it("reads every exact-count Bills transaction page before projecting the chart", async () => {
+  respond = (query) => {
+    if (query.table === "households") return { data: { groceries_monthly_budget: null }, error: null };
+    if (query.table === "categories") {
+      const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
+      return { data: { id: `${systemKey}-id`, name: String(systemKey), color: "#112233" }, error: null };
+    }
+    if (query.table === "subcategories") {
+      const categoryId = query.filters.find((filter) => filter.column === "category_id")?.value;
+      return categoryId === "bills-id"
+        ? { data: [{ id: "electricity", name: "Electricity", color: "#abcdef" }], error: null }
+        : { data: [], error: null };
+    }
+    if (query.table === "transactions" && query.select?.includes("service_period_start")) {
+      const rows = Array.from({ length: query.range?.from === 0 ? 400 : query.range?.from === 400 ? 400 : 201 }, () => ({
+        amount: 1,
+        subcategory_id: "electricity",
+        service_period_start: "2026-07-31",
+        service_period_end: "2026-07-31",
+      }));
+      return { data: rows, error: null, count: 1001 };
+    }
+    return { data: [], error: null };
+  };
+
+  const data = await billsGroceriesDataModule.getBillsGroceriesData(options);
+
+  expect(data.bills.monthly).toContainEqual({ month: "2026-07", subcategoryId: "electricity", agorot: 100100 });
+  expect(
+    queries.filter((query) => query.table === "transactions" && query.select?.includes("service_period_start")).map((query) => query.range),
+  ).toEqual([
+    { from: 0, to: 999 },
+    { from: 400, to: 1399 },
+    { from: 800, to: 1799 },
+  ]);
+});
+
+it("reads every exact-count monthly Groceries transaction page before projecting the chart", async () => {
+  respond = (query) => {
+    if (query.table === "households") return { data: { groceries_monthly_budget: null }, error: null };
+    if (query.table === "categories") {
+      const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
+      return { data: { id: `${systemKey}-id`, name: String(systemKey), color: "#112233" }, error: null };
+    }
+    if (query.table === "subcategories") {
+      const categoryId = query.filters.find((filter) => filter.column === "category_id")?.value;
+      return categoryId === "groceries-id"
+        ? { data: [{ id: "main-run", name: "Main run", color: "#abcdef", system_key: "main_run" }], error: null }
+        : { data: [], error: null };
+    }
+    if (query.table === "transactions") {
+      const from = query.filters.find((filter) => filter.method === "gte" && filter.column === "occurred_on")?.value;
+      if (from === "2025-08-01") {
+        const rows = Array.from({ length: query.range?.from === 0 ? 1_000 : 1 }, () => ({
+          amount: 1,
+          occurred_on: "2026-07-31",
+          subcategory_id: "main-run",
+        }));
+        return { count: 1_001, data: rows, error: null };
+      }
+      return { count: 0, data: [], error: null };
+    }
+    return { data: [], error: null };
+  };
+
+  const data = await billsGroceriesDataModule.getBillsGroceriesData(options);
+
+  expect(data.groceries.monthly.months).toContainEqual({ month: "2026-07", mainRunAgorot: 100100, topUpsAgorot: 0 });
+  expect(
+    queries
+      .filter(
+        (query) =>
+          query.table === "transactions" &&
+          query.filters.some((filter) => filter.method === "gte" && filter.column === "occurred_on" && filter.value === "2025-08-01"),
+      )
+      .map((query) => query.range),
+  ).toEqual([
+    { from: 0, to: 999 },
+    { from: 1000, to: 1999 },
+  ]);
+});
+
+it("aggregates Bills and both Groceries streams after short server-capped pages", async () => {
+  respond = (query) => {
+    if (query.table === "households") return { data: { groceries_monthly_budget: null }, error: null };
+    if (query.table === "categories") {
+      const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
+      return { data: { id: `${systemKey}-id`, name: String(systemKey), color: "#112233" }, error: null };
+    }
+    if (query.table === "subcategories") {
+      const categoryId = query.filters.find((filter) => filter.column === "category_id")?.value;
+      return categoryId === "bills-id"
+        ? { data: [{ id: "electricity", name: "Electricity", color: "#abcdef" }], error: null }
+        : { data: [{ id: "main-run", name: "Main run", color: "#abcdef", system_key: "main_run" }], error: null };
+    }
+    if (query.table === "transactions") {
+      const stream = query.select?.includes("service_period_start")
+        ? "bills"
+        : query.filters.some((filter) => filter.method === "gte" && filter.value === "2025-08-01")
+          ? "monthly"
+          : "daily";
+      const amount = stream === "bills" ? 1 : stream === "monthly" ? 2 : 3;
+      const rows = Array.from({ length: query.range?.from === 800 ? 1 : 400 }, () =>
+        stream === "bills"
+          ? { amount, subcategory_id: "electricity", service_period_start: "2026-07-31", service_period_end: "2026-07-31" }
+          : { amount, occurred_on: "2026-07-31", subcategory_id: "main-run" },
+      );
+      return { count: 801, data: rows, error: null };
+    }
+    return { data: [], error: null };
+  };
+
+  const data = await billsGroceriesDataModule.getBillsGroceriesData(options);
+
+  expect(data.bills.monthly).toContainEqual({ month: "2026-07", subcategoryId: "electricity", agorot: 80100 });
+  expect(data.groceries.monthly.months).toContainEqual({ month: "2026-07", mainRunAgorot: 160200, topUpsAgorot: 0 });
+  expect(data.groceries.daily[30]).toEqual({ date: "2026-07-31", mainRunAgorot: 240300, topUpsAgorot: 0, totalAgorot: 240300 });
+  const transactionQueries = queries.filter((query) => query.table === "transactions");
+  expect(transactionQueries.every((query) => query.count === "exact" && query.filters.at(-1)?.column === "id")).toBe(true);
+  expect(transactionQueries.map((query) => query.range)).toEqual([
+    { from: 0, to: 999 },
+    { from: 0, to: 999 },
+    { from: 0, to: 999 },
+    { from: 400, to: 1399 },
+    { from: 400, to: 1399 },
+    { from: 400, to: 1399 },
+    { from: 800, to: 1799 },
+    { from: 800, to: 1799 },
+    { from: 800, to: 1799 },
+  ]);
+});
+
+it.each(["bills", "monthly", "daily"] as const)(
+  "rejects a later %s page error or no-progress response without returning partial analytics",
+  async (failingStream) => {
+    let failed = false;
+    respond = (query) => {
+      if (query.table === "households") return { data: { groceries_monthly_budget: null }, error: null };
+      if (query.table === "categories") {
+        const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
+        return { data: { id: `${systemKey}-id`, name: String(systemKey), color: "#112233" }, error: null };
+      }
+      if (query.table === "subcategories") {
+        const categoryId = query.filters.find((filter) => filter.column === "category_id")?.value;
+        return categoryId === "bills-id"
+          ? { data: [{ id: "electricity", name: "Electricity", color: "#abcdef" }], error: null }
+          : { data: [{ id: "main-run", name: "Main run", color: "#abcdef", system_key: "main_run" }], error: null };
+      }
+      if (query.table === "transactions") {
+        const stream = query.select?.includes("service_period_start")
+          ? "bills"
+          : query.filters.some((filter) => filter.method === "gte" && filter.value === "2025-08-01")
+            ? "monthly"
+            : "daily";
+        if (stream === failingStream && query.range?.from === 400) {
+          failed = true;
+          return failingStream === "monthly"
+            ? { count: 801, data: null, error: new Error("late failure") }
+            : { count: 801, data: [], error: null };
+        }
+        const rows = Array.from({ length: query.range?.from === 0 ? 400 : 401 }, () =>
+          stream === "bills"
+            ? { amount: 1, subcategory_id: "electricity", service_period_start: "2026-07-31", service_period_end: "2026-07-31" }
+            : { amount: 1, occurred_on: "2026-07-31", subcategory_id: "main-run" },
+        );
+        return { count: 801, data: rows, error: null };
+      }
+      return { data: [], error: null };
+    };
+
+    await expect(billsGroceriesDataModule.getBillsGroceriesData(options)).rejects.toEqual(
+      new Error("Unable to load BillsGroceries data."),
+    );
+    expect(failed).toBe(true);
+  },
+);
+
+it("rejects a no-progress first Bills page with the sanitized load failure", async () => {
+  let billPageReads = 0;
+  respond = (query) => {
+    if (query.table === "households") return { data: { groceries_monthly_budget: null }, error: null };
+    if (query.table === "categories") {
+      const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
+      return { data: { id: `${systemKey}-id`, name: String(systemKey), color: "#112233" }, error: null };
+    }
+    if (query.table === "subcategories") {
+      const categoryId = query.filters.find((filter) => filter.column === "category_id")?.value;
+      return categoryId === "bills-id"
+        ? { data: [{ id: "electricity", name: "Electricity", color: "#abcdef" }], error: null }
+        : { data: [], error: null };
+    }
+    if (query.table === "transactions" && query.select?.includes("service_period_start")) {
+      billPageReads += 1;
+      return {
+        count: 1,
+        data:
+          billPageReads === 1
+            ? []
+            : [{ amount: 1, subcategory_id: "electricity", service_period_start: "2026-07-31", service_period_end: "2026-07-31" }],
+        error: null,
+      };
+    }
+    return { data: [], error: null };
+  };
+
+  await expect(billsGroceriesDataModule.getBillsGroceriesData(options)).rejects.toThrow("Unable to load BillsGroceries data.");
+  expect(billPageReads).toBe(1);
+});
 
 it("resolves active protected categories in the member household and returns compact empty chart states", async () => {
   respond = (query) =>
@@ -154,7 +374,6 @@ it("resolves active protected categories in the member household and returns com
     subcategories: [],
     monthly: [],
     defaultSubcategoryId: null,
-    yearOverYear: [],
   });
   expect(data.groceries).toMatchObject({
     category: null,
@@ -292,28 +511,31 @@ it("loads only bounded chart columns and projects current and previous-year Bill
         { method: "in", column: "subcategory_id", value: ["electricity", "water"] },
         { method: "lte", column: "service_period_start", value: "2026-07-31" },
         { method: "gte", column: "service_period_end", value: "2024-08-01" },
+        { method: "order", column: "id", value: null },
       ],
       terminal: null,
     },
     {
       table: "transactions",
-      select: "amount, occurred_on, subcategory_id",
+      select: "id, amount, occurred_on, subcategory_id",
       filters: [
         { method: "eq", column: "household_id", value: "household-id" },
         { method: "in", column: "subcategory_id", value: ["main-run", "top-ups"] },
         { method: "gte", column: "occurred_on", value: "2025-08-01" },
         { method: "lte", column: "occurred_on", value: "2026-07-31" },
+        { method: "order", column: "id", value: null },
       ],
       terminal: null,
     },
     {
       table: "transactions",
-      select: "amount, occurred_on, subcategory_id",
+      select: "id, amount, occurred_on, subcategory_id",
       filters: [
         { method: "eq", column: "household_id", value: "household-id" },
         { method: "in", column: "subcategory_id", value: ["main-run", "top-ups"] },
         { method: "gte", column: "occurred_on", value: "2026-07-01" },
         { method: "lte", column: "occurred_on", value: "2026-07-31" },
+        { method: "order", column: "id", value: null },
       ],
       terminal: null,
     },
@@ -329,20 +551,6 @@ it("loads only bounded chart columns and projects current and previous-year Bill
       { month: "2026-07", subcategoryId: "electricity", agorot: 10000 },
     ],
     defaultSubcategoryId: "electricity",
-    yearOverYear: [
-      { month: "2025-08", currentAgorot: 0 },
-      { month: "2025-09", currentAgorot: 0 },
-      { month: "2025-10", currentAgorot: 0 },
-      { month: "2025-11", currentAgorot: 0 },
-      { month: "2025-12", currentAgorot: 0 },
-      { month: "2026-01", currentAgorot: 0 },
-      { month: "2026-02", currentAgorot: 0 },
-      { month: "2026-03", currentAgorot: 0 },
-      { month: "2026-04", currentAgorot: 0 },
-      { month: "2026-05", currentAgorot: 0 },
-      { month: "2026-06", currentAgorot: 0 },
-      { month: "2026-07", currentAgorot: 10000, previousAgorot: 8000 },
-    ],
   });
   expect(data.groceries).toMatchObject({
     category: { id: "groceries-id", name: "Groceries", color: "#445566" },
@@ -439,11 +647,13 @@ it("uses calendar-year monthly bounds and the matching previous-year Bills compa
     { method: "in", column: "subcategory_id", value: ["electricity"] },
     { method: "lte", column: "service_period_start", value: "2026-12-31" },
     { method: "gte", column: "service_period_end", value: "2025-01-01" },
+    { method: "order", column: "id", value: null },
   ]);
   expect(transactionQueries[1].filters).toEqual([
     { method: "eq", column: "household_id", value: "household-id" },
     { method: "in", column: "subcategory_id", value: ["main-run", "top-ups"] },
     { method: "gte", column: "occurred_on", value: "2026-01-01" },
     { method: "lte", column: "occurred_on", value: "2026-12-31" },
+    { method: "order", column: "id", value: null },
   ]);
 });

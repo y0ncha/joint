@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { createContext, useActionState, useContext, useEffect, useState, type ReactNode } from "react";
 import { LoaderCircle, LogOut, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import { saveSettings } from "@/app/actions/profile";
 import type { ActionResult } from "@/app/actions/result";
 import { serializeAccentCookie } from "@/lib/accent";
 import { Button } from "@/components/ui/button";
+import { WorkspaceShell } from "@/components/workspace-shell";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +31,12 @@ export function hasUnsavedSettings(formData: FormData) {
     ["lastFour", "initialLastFour"],
     ["groceriesBudget", "initialGroceriesBudget"],
   ].some(([name, initialName]) => String(formData.get(name) ?? "").trim() !== String(formData.get(initialName) ?? "").trim());
+}
+
+const SettingsFormContext = createContext<ActionResult | null>(null);
+
+export function useSettingsFormState() {
+  return useContext(SettingsFormContext);
 }
 
 function hasDirtySettingsForm() {
@@ -55,7 +62,7 @@ function markSettingsSaved() {
   });
 }
 
-export function SettingsSaveControl({ userId }: { userId: string }) {
+export function SettingsForm({ userId, children }: { userId: string; children: ReactNode }) {
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(saveSettings, null);
   const [leaveTo, setLeaveTo] = useState<string | null>(null);
   const router = useRouter();
@@ -114,37 +121,46 @@ export function SettingsSaveControl({ userId }: { userId: string }) {
   }, []);
 
   return (
-    <>
+    <SettingsFormContext.Provider value={state}>
       <form id="settings-save-form" action={formAction} />
-      <Button
-        form="settings-save-form"
-        type="submit"
-        variant="ghost"
-        size="icon"
-        className="size-14 text-foreground"
-        disabled={isPending}
-        aria-label="Save changes"
+      <WorkspaceShell
+        title="Settings"
+        actions={
+          <>
+            <Button
+              form="settings-save-form"
+              type="submit"
+              variant="ghost"
+              size="icon"
+              className="size-14 text-foreground"
+              disabled={isPending}
+              aria-label="Save changes"
+            >
+              {isPending ? (
+                <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin motion-reduce:animate-none" />
+              ) : (
+                <Save aria-hidden="true" />
+              )}
+            </Button>
+            <form
+              data-settings-logout="true"
+              action={logOut}
+              onSubmit={(event) => {
+                if (hasDirtySettingsForm()) {
+                  event.preventDefault();
+                  setLeaveTo("logout");
+                }
+              }}
+            >
+              <Button type="submit" variant="ghost" size="icon" className="size-14 text-foreground" aria-label="Log out">
+                <LogOut aria-hidden="true" />
+              </Button>
+            </form>
+          </>
+        }
       >
-        {isPending ? (
-          <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin motion-reduce:animate-none" />
-        ) : (
-          <Save aria-hidden="true" />
-        )}
-      </Button>
-      <form
-        data-settings-logout="true"
-        action={logOut}
-        onSubmit={(event) => {
-          if (hasDirtySettingsForm()) {
-            event.preventDefault();
-            setLeaveTo("logout");
-          }
-        }}
-      >
-        <Button type="submit" variant="ghost" size="icon" className="size-14 text-foreground" aria-label="Log out">
-          <LogOut aria-hidden="true" />
-        </Button>
-      </form>
+        {children}
+      </WorkspaceShell>
       <AlertDialog
         open={Boolean(leaveTo)}
         onOpenChange={(open) => {
@@ -179,6 +195,6 @@ export function SettingsSaveControl({ userId }: { userId: string }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </SettingsFormContext.Provider>
   );
 }

@@ -1,10 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
-import { BillsGroceriesChartDetail, type BillsGroceriesChartId } from "@/components/bills-groceries-dashboard";
+import { BillsGroceriesChartDetail, billsGroceriesChartIds, type BillsGroceriesChartId } from "@/components/bills-groceries-dashboard";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { loadBillsGroceriesPage, type BillsGroceriesSearchParams } from "@/lib/bills-groceries-page";
-
-const chartIds = new Set<BillsGroceriesChartId>(["bills", "yoy", "groceries", "daily"]);
 
 export default async function BillsGroceriesDetailPage({
   params,
@@ -14,9 +12,11 @@ export default async function BillsGroceriesDetailPage({
   searchParams: Promise<BillsGroceriesSearchParams>;
 }) {
   const [{ chart }, requested] = await Promise.all([params, searchParams]);
-  if (!chartIds.has(chart as BillsGroceriesChartId)) notFound();
+  if (!billsGroceriesChartIds.includes(chart as BillsGroceriesChartId)) notFound();
 
-  const { data, selected } = await loadBillsGroceriesPage(requested);
+  const { canonical, data, params: requestedParams, selected } = await loadBillsGroceriesPage(requested);
+  if (canonical.toString() !== requestedParams.toString()) redirect(`/bills-groceries/${chart}?${canonical}`);
+
   return (
     <WorkspaceShell opaqueContent>
       <BillsGroceriesChartDetail

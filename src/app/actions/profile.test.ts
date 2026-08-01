@@ -103,6 +103,23 @@ describe("profile action", () => {
     expect(mocks.rpc).toHaveBeenCalledWith("save_current_settings", { groceries_monthly_budget: null });
   });
 
+  it.each([
+    ["an invalid format", "not-money", "Invalid input: expected number, received NaN"],
+    ["a non-finite value", "Infinity", "Invalid input: expected number, received NaN"],
+    ["a non-positive value", "0", "Enter an amount greater than zero."],
+    ["a value at the database limit", "10000000000", "Enter an amount below 10000000000."],
+    ["a value with excessive scale", "12.345", "Invalid input: expected number, received NaN"],
+  ])("returns a keyed Groceries budget error for %s", async (_description, groceriesBudget, error) => {
+    await expect(actions.saveSettings(null, formData({ groceriesBudget, initialGroceriesBudget: "" }))).resolves.toEqual({
+      status: "error",
+      formError: "Check the form details.",
+      fieldErrors: { groceriesBudget: error },
+    });
+
+    expect(mocks.requireCurrentHousehold).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
   it("does not write unchanged settings", async () => {
     await expect(
       actions.saveSettings(
