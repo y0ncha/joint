@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { updateSubcategory } from "@/app/actions/categories";
+import type { ActionResult } from "@/app/actions/result";
 import { CategoryColorPicker } from "@/components/category-form";
 import { CategoryIconPicker } from "@/components/category-icon-picker";
 import { Button } from "@/components/ui/button";
@@ -28,13 +30,17 @@ export function SubcategoryEditForm({ categories, subcategory }: { categories: P
     categoryId === subcategory.category_id
       ? subcategory.color
       : (selectSubcategoryPastelColor(parent?.color ?? "", parent?.subcategoryColors ?? []) ?? colors[0]);
+  const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
+    async (_state, input) => updateSubcategory(subcategory.id, input),
+    null,
+  );
+  useEffect(() => {
+    if (state?.status === "success") toast.success("Saved", { id: "subcategory-save" });
+    if (state?.status === "error") toast.error(state.formError, { id: "subcategory-save" });
+  }, [state]);
 
   return (
-    <form
-      action={async (formData) => {
-        await updateSubcategory(subcategory.id, formData);
-      }}
-    >
+    <form action={formAction}>
       <FieldGroup>
         {isProtected ? (
           <>
@@ -76,7 +82,7 @@ export function SubcategoryEditForm({ categories, subcategory }: { categories: P
             />
           </Field>
         ) : null}
-        <Button className="mt-5" type="submit">
+        <Button className="mt-5" disabled={isPending} type="submit">
           Save subcategory
         </Button>
       </FieldGroup>

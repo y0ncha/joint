@@ -2,6 +2,9 @@
 
 import { deleteCategory, deleteSubcategory, updateCategory } from "@/app/actions/categories";
 import { ChevronRight, FoldVertical, Trash2, UnfoldVertical } from "lucide-react";
+import { useActionState, useEffect, type CSSProperties } from "react";
+import { toast } from "sonner";
+import type { ActionResult } from "@/app/actions/result";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +27,6 @@ import { PillSelect } from "@/components/pill-select";
 import { SubcategoryEditForm } from "@/components/subcategory-edit-form";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { isCategoryIcon } from "@/lib/category-icons";
-import type { CSSProperties } from "react";
 
 export type Category = {
   color: string;
@@ -142,12 +144,11 @@ function SubcategoryList({
   return (
     <ul className="flex flex-col gap-0">
       {subcategories.map((subcategory) => {
-        const category = categories.find((parent) => parent.id === subcategory.category_id);
         return (
           <li
             key={subcategory.id}
             className="relative flex min-h-11 items-center justify-between gap-3 rounded-lg px-4 text-muted-foreground transition-colors duration-700 ease-in-out motion-reduce:transition-none hover:bg-foreground/5 hover:ring-2 hover:ring-foreground/5 before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-[var(--category-color)] md:min-h-9"
-            style={{ "--category-color": category?.color ?? subcategory.color } as CSSProperties}
+            style={{ "--category-color": subcategory.color } as CSSProperties}
           >
             {subcategory.archived_at ? (
               <div className="flex min-w-0 items-center gap-2">
@@ -173,6 +174,14 @@ function CategoryEditor({
 }) {
   const isProtected = category.system_key !== null && category.system_key !== undefined;
   const isGroceries = category.system_key === "groceries";
+  const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
+    async (_state, input) => updateCategory(category.id, input),
+    null,
+  );
+  useEffect(() => {
+    if (state?.status === "success") toast.success("Saved", { id: "category-save" });
+    if (state?.status === "error") toast.error(state.formError, { id: "category-save" });
+  }, [state]);
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -193,11 +202,7 @@ function CategoryEditor({
           <SheetDescription>Update this category.</SheetDescription>
         </SheetHeader>
         <div className="flex flex-col gap-6 px-6 pb-6">
-          <form
-            action={async (input) => {
-              await updateCategory(category.id, input);
-            }}
-          >
+          <form action={formAction}>
             <FieldGroup>
               {isProtected ? (
                 <>
@@ -238,7 +243,7 @@ function CategoryEditor({
                 </Field>
               ) : null}
               <CategoryColorPicker defaultColor={category.color} />
-              <Button className="mt-5" type="submit">
+              <Button className="mt-5" disabled={isPending} type="submit">
                 Save category
               </Button>
             </FieldGroup>
@@ -371,7 +376,7 @@ function CategorySection({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="group/category-toggle size-11 shrink-0 rounded-none"
+                          className="group/category-toggle size-11 shrink-0 rounded-full"
                           aria-label={`Toggle ${category.name} subcategories`}
                         >
                           <ChevronRight
