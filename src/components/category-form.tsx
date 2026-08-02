@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { isCategoryIcon } from "@/lib/category-icons";
 import { categoryPastelColors, selectSubcategoryPastelColor, subcategoryPastelColors } from "@/lib/shared-colors";
+import { toast } from "sonner";
 
 export function CategoryColorPicker({
   defaultColor = categoryPastelColors[0],
@@ -78,6 +79,10 @@ export function CategoryCreationPreview({
     if (!categoryId) return { status: "error", formError: "Choose a category.", fieldErrors: {} };
     return createSubcategory(categoryId, formData);
   }, null);
+  useEffect(() => {
+    if (state?.status === "success") toast.success("Saved", { id: `${mode}-save` });
+    if (state?.status === "error") toast.error(state.formError, { id: `${mode}-save` });
+  }, [mode, state]);
 
   return (
     <form action={formAction}>

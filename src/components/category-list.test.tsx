@@ -53,7 +53,8 @@ it("shows category and subcategory names without pills", () => {
   expect(markup).not.toContain("Edit Groceries");
   expect(markup).toMatch(/Food[\s\S]*Groceries[\s\S]*Takeaway[\s\S]*Archived/);
   expect(markup).toMatch(/Food[\s\S]*data-category-icon="shopping-basket"/);
-  expect(markup).toContain("--category-color:#dcece3");
+  expect(markup).toMatch(/style="--category-color:#c5e8f7"><button[^>]*aria-label="Manage Groceries subcategory"/);
+  expect(markup).not.toMatch(/style="--category-color:#dcece3"><button[^>]*aria-label="Manage Groceries subcategory"/);
   expect(markup).not.toContain("--subcategory-color");
   expect(markup).not.toContain("before:w-1");
   expect(markup).toContain("before:w-[3px]");
@@ -66,6 +67,8 @@ it("shows category and subcategory names without pills", () => {
   expect(markup).toContain('class="truncate px-1.5"');
   expect(markup).toContain("font-semibold");
   expect(markup).toContain("transition-transform motion-reduce:transition-none");
+  expect(markup).toContain("group/category-toggle size-11 shrink-0 rounded-full");
+  expect(markup).not.toContain("group/category-toggle size-11 shrink-0 rounded-none");
   expect(markup).toContain("data-[state=open]:animate-[collapsible-down_160ms_ease-out]");
   expect(markup).toContain("motion-reduce:animate-none");
   expect(markup).not.toContain("border-y");
