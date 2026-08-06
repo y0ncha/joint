@@ -460,13 +460,41 @@ it("loads only bounded chart columns and projects current and previous-year Bill
           from === "2025-08-01"
             ? [
                 { amount: 10, occurred_on: "2025-08-01", subcategory_id: "main-run" },
-                { id: "main-1", amount: 12.34, merchant: "Market", note: "Weekly shop", occurred_on: "2026-07-01", subcategory_id: "main-run" },
-                { id: "top-up-1", amount: 2.5, merchant: "Corner shop", note: "Milk", occurred_on: "2026-07-01", subcategory_id: "top-ups" },
+                {
+                  id: "main-1",
+                  amount: 12.34,
+                  merchant: "Market",
+                  note: "Weekly shop",
+                  occurred_on: "2026-07-01",
+                  subcategory_id: "main-run",
+                },
+                {
+                  id: "top-up-1",
+                  amount: 2.5,
+                  merchant: "Corner shop",
+                  note: "Milk",
+                  occurred_on: "2026-07-01",
+                  subcategory_id: "top-ups",
+                },
                 { id: "top-up-2", amount: 5, merchant: "Bakery", note: "Bread", occurred_on: "2026-07-31", subcategory_id: "top-ups" },
               ]
             : [
-                { id: "main-1", amount: 12.34, merchant: "Market", note: "Weekly shop", occurred_on: "2026-07-01", subcategory_id: "main-run" },
-                { id: "top-up-1", amount: 2.5, merchant: "Corner shop", note: "Milk", occurred_on: "2026-07-01", subcategory_id: "top-ups" },
+                {
+                  id: "main-1",
+                  amount: 12.34,
+                  merchant: "Market",
+                  note: "Weekly shop",
+                  occurred_on: "2026-07-01",
+                  subcategory_id: "main-run",
+                },
+                {
+                  id: "top-up-1",
+                  amount: 2.5,
+                  merchant: "Corner shop",
+                  note: "Milk",
+                  occurred_on: "2026-07-01",
+                  subcategory_id: "top-ups",
+                },
                 { id: "top-up-2", amount: 5, merchant: "Bakery", note: "Bread", occurred_on: "2026-07-31", subcategory_id: "top-ups" },
               ],
         error: null,

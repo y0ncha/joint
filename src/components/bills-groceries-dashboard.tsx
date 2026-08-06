@@ -784,7 +784,9 @@ function BillsGroceriesCharts({
                           <li key={transaction.id} className="flex items-start justify-between gap-4">
                             <div className="min-w-0">
                               <p className="truncate font-medium">{transaction.merchant || transaction.note || "Groceries"}</p>
-                              {transaction.merchant && transaction.note ? <p className="truncate text-muted-foreground">{transaction.note}</p> : null}
+                              {transaction.merchant && transaction.note ? (
+                                <p className="truncate text-muted-foreground">{transaction.note}</p>
+                              ) : null}
                             </div>
                             <span className="shrink-0 font-mono tabular-nums">{currency.format(transaction.amount)}</span>
                           </li>
