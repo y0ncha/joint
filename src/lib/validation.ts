@@ -46,6 +46,7 @@ export const transactionSchema = z
     occurredOn: dateSchema,
     servicePeriodStart: optionalDateSchema,
     servicePeriodEnd: optionalDateSchema,
+    categoryId: optionalIdentifierSchema,
     subcategoryId: optionalIdentifierSchema,
     paidBy: optionalIdentifierSchema,
     merchant: z.string().trim().max(200, "Use 200 characters or fewer.").optional(),

@@ -81,6 +81,7 @@ export default async function TransactionsPage({
             </SheetContent>
           </Sheet>
           <TransactionSheet
+            directCategories={data.directCategories}
             subcategories={data.subcategories.filter(
               (subcategory) => subcategory.archivedAt === null && subcategory.categoryArchivedAt === null,
             )}
@@ -110,6 +111,7 @@ export default async function TransactionsPage({
             key={[month, dateRange?.from, dateRange?.to, filterKind, categoryIds.join(","), paidByIds.join(",")].join(":")}
             transactions={dateRange ? data.transactions : data.report.recentTransactions}
             subcategories={data.subcategories}
+            directCategories={data.directCategories}
             categoryIds={categoryIds}
             dateRange={dateRange}
             filterKind={filterKind}

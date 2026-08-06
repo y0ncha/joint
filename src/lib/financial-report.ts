@@ -25,6 +25,7 @@ export type ReportTransaction = {
   occurredOn: string;
   servicePeriodStart?: string | null;
   servicePeriodEnd?: string | null;
+  categoryId?: string | null;
   subcategoryId: string | null;
   note: string;
   merchant?: string;
@@ -118,8 +119,8 @@ export function buildRangeReport({
   const categoryTotals = new Map<string, number>();
 
   for (const transaction of rangeTransactions) {
-    if (transaction.kind !== "expense" || !transaction.subcategoryId) continue;
-    const category = categoriesById.get(subcategoriesById.get(transaction.subcategoryId)?.categoryId ?? "");
+    if (transaction.kind !== "expense") continue;
+    const category = categoriesById.get(transaction.categoryId ?? subcategoriesById.get(transaction.subcategoryId ?? "")?.categoryId ?? "");
     if (!category) continue;
     categoryTotals.set(category.id, (categoryTotals.get(category.id) ?? 0) + transaction.amount);
   }
@@ -190,10 +191,8 @@ export function buildMonthlyReport({
     if (transaction.kind !== "expense") continue;
 
     expenses += transaction.amount;
-    if (transaction.subcategoryId) {
-      const category = categoriesById.get(subcategoriesById.get(transaction.subcategoryId)?.categoryId ?? "");
-      if (category) categoryTotals.set(category.id, (categoryTotals.get(category.id) ?? 0) + transaction.amount);
-    }
+    const category = categoriesById.get(transaction.categoryId ?? subcategoriesById.get(transaction.subcategoryId ?? "")?.categoryId ?? "");
+    if (category) categoryTotals.set(category.id, (categoryTotals.get(category.id) ?? 0) + transaction.amount);
   }
 
   for (const transaction of transactions) {

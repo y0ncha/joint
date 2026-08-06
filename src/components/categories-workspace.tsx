@@ -15,10 +15,7 @@ export function CategoriesWorkspace({
   subcategories: Subcategory[];
   defaultColor: string;
 }) {
-  const categoryIds = categories
-    .filter((category) => subcategories.some((subcategory) => subcategory.category_id === category.id))
-    .map((category) => category.id);
-  const [openCategoryIds, setOpenCategoryIds] = useState(() => new Set(categoryIds));
+  const [openCategoryIds, setOpenCategoryIds] = useState(() => new Set<string>());
   return (
     <WorkspaceShell
       title="Categories"

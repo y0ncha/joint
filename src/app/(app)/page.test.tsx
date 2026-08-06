@@ -29,6 +29,7 @@ describe("Joint dashboard", () => {
         { id: "income-category-id", name: "Salary", kind: "income", archivedAt: null },
         { id: "home-category-id", name: "Home", kind: "expense", archivedAt: null },
       ],
+      directCategories: [],
       subcategories: [
         {
           id: "groceries",
@@ -110,6 +111,7 @@ describe("Joint dashboard", () => {
   it("falls back to Uncategorized when recent activity has no resolvable subcategory", async () => {
     mocks.getDashboardData.mockResolvedValueOnce({
       categories: [],
+      directCategories: [],
       subcategories: [],
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
@@ -175,6 +177,7 @@ describe("Joint dashboard", () => {
   it("shows no available income when there is no recent income average", async () => {
     mocks.getDashboardData.mockResolvedValueOnce({
       categories: [],
+      directCategories: [],
       subcategories: [],
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
@@ -201,6 +204,7 @@ describe("Joint dashboard", () => {
   it("shows the below-average income comparison", async () => {
     mocks.getDashboardData.mockResolvedValueOnce({
       categories: [],
+      directCategories: [],
       subcategories: [],
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],

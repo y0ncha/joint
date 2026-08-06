@@ -34,6 +34,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const maximumCategoryAmount = Math.max(1, ...report.categoryTotals.map((category) => category.amount));
   const expectedMonthlyIncome = report.expectedMonthlyIncome;
   const subcategoryName = new Map(data.subcategories.map((subcategory) => [subcategory.id, subcategory]));
+  const directCategoryName = new Map(data.directCategories.map((category) => [category.id, category]));
 
   return (
     <WorkspaceShell
@@ -57,7 +58,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               </div>
             </SheetContent>
           </Sheet>
-          <TransactionSheet subcategories={transactionSubcategories} currentUserId={data.currentUserId} members={data.members} />
+          <TransactionSheet
+            directCategories={data.directCategories}
+            subcategories={transactionSubcategories}
+            currentUserId={data.currentUserId}
+            members={data.members}
+          />
         </>
       }
     >
@@ -222,7 +228,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                       <p className="text-sm text-muted-foreground">
                         {(() => {
                           const subcategory = subcategoryName.get(transaction.subcategoryId ?? "");
-                          return subcategory ? `${subcategory.categoryName} → ${subcategory.name}` : "Uncategorized";
+                          return subcategory
+                            ? `${subcategory.categoryName} → ${subcategory.name}`
+                            : (directCategoryName.get(transaction.categoryId ?? "")?.name ?? "Uncategorized");
                         })()}{" "}
                         - {transaction.occurredOn}
                         {transaction.source === "statement_import" ? " - Imported" : ""}

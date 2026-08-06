@@ -308,8 +308,18 @@ function BillsGroceriesCharts({
   const chartHeightClass = detail ? "h-[320px]" : "h-[280px]";
   const period = initialPeriod;
   const chartBills = data.bills.subcategories.map((bill) => ({ value: bill.id, label: bill.name, color: bill.color }));
-  const selectedBills = initialBillIds;
-  const yearOverYearBill = initialBillId ?? data.bills.defaultSubcategoryId ?? chartBills[0]?.value ?? "";
+  const urlBillIds = searchParams.get("bills")?.split(",");
+  const selectedBills =
+    urlBillIds?.length && urlBillIds.every((id) => chartBills.some((bill) => bill.value === id))
+      ? [...new Set(urlBillIds)]
+      : initialBillIds;
+  const urlBillId = searchParams.get("bill");
+  const yearOverYearBill =
+    (urlBillId && chartBills.some((bill) => bill.value === urlBillId) ? urlBillId : null) ??
+    initialBillId ??
+    data.bills.defaultSubcategoryId ??
+    chartBills[0]?.value ??
+    "";
   const groceryParam = searchParams.get("grocery");
   const groceryFilter: GroceryFilter = groceryParam === "main-run" || groceryParam === "top-ups" ? groceryParam : "all";
   const billMonthlyData: MonthlyChartDatum[] = data.months.map((month) => ({
@@ -321,11 +331,13 @@ function BillsGroceriesCharts({
       ]),
     ),
   }));
+  const billTableData = billMonthlyData.filter((month) => selectedBills.some((bill) => Number(month[bill] ?? 0) > 0));
   const groceryMonthlyData: GroceryMonthlyDatum[] = data.groceries.monthly.months.map((month) => ({
     month: month.month,
     mainRun: month.mainRunAgorot / 100,
     topUps: month.topUpsAgorot / 100,
   }));
+  const groceryMonthlyTableData = groceryMonthlyData.filter((month) => month.mainRun + month.topUps > 0);
   const mainRun = data.groceries.subcategories.mainRun;
   const topUps = data.groceries.subcategories.topUps;
   const groceryChartConfig = {
@@ -344,6 +356,7 @@ function BillsGroceriesCharts({
     }),
   );
   const hasYearOverYearData = yearOverYearData.some((month) => month.current > 0 || month.previous !== undefined);
+  const yearOverYearTableData = yearOverYearData.filter((month) => month.current > 0 || (month.previous ?? 0) > 0);
   const yearOverYearChartConfig = {
     current: {
       label: `${yearOverYearBillDetails?.label ?? "Bills"} · current year`,
@@ -381,13 +394,18 @@ function BillsGroceriesCharts({
     (rows, day) => [...rows, { ...day, cumulative: (rows.at(-1)?.cumulative ?? 0) + day.total }],
     [],
   );
+  const dailyTableRows = dailyTableData.filter((day) => day.total > 0);
 
-  function updateUrl(updates: Record<string, string | null>) {
+  function navigateWithData(updates: Record<string, string | null>) {
     router.push(dashboardUrl(pathname, new URLSearchParams(searchParams), updates));
   }
 
+  function updatePresentationUrl(updates: Record<string, string | null>) {
+    window.history.pushState(null, "", dashboardUrl(pathname, new URLSearchParams(searchParams), updates));
+  }
+
   function changePeriod(nextPeriod: Period) {
-    updateUrl({ period: nextPeriod });
+    navigateWithData({ period: nextPeriod });
   }
 
   function toggleBill(value: BillKey) {
@@ -396,7 +414,7 @@ function BillsGroceriesCharts({
       : selectedBills.length === 1
         ? selectedBills
         : selectedBills.filter((bill) => bill !== value);
-    updateUrl({ bills: next.join(",") });
+    updatePresentationUrl({ bills: next.join(",") });
   }
 
   const detailQuery = new URLSearchParams(searchParams).toString();
@@ -452,7 +470,7 @@ function BillsGroceriesCharts({
           ) : !billMonthlyData.some((month) => selectedBills.some((bill) => Number(month[bill] ?? 0) > 0)) ? (
             <p className="text-sm text-muted-foreground">No Bills data yet.</p>
           ) : null}
-          {detailChart === "bills" && (
+          {detailChart === "bills" && billTableData.length > 0 && (
             <ChartTable label="Bills by month">
               <TableHeader>
                 <TableRow>
@@ -464,7 +482,7 @@ function BillsGroceriesCharts({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {billMonthlyData.map((month) => (
+                {billTableData.map((month) => (
                   <TableRow key={month.month}>
                     <TableCell>{month.month}</TableCell>
                     {selectedBills.map((bill) => (
@@ -497,7 +515,7 @@ function BillsGroceriesCharts({
                 bills={chartBills}
                 selectedBills={[yearOverYearBill]}
                 toggleBill={(value) => {
-                  updateUrl({ bill: value });
+                  updatePresentationUrl({ bill: value });
                 }}
                 single
               />
@@ -524,7 +542,7 @@ function BillsGroceriesCharts({
           {chartBills.length > 0 && hasYearOverYearData && yearOverYearData.some((month) => month.previous === undefined) ? (
             <p className="text-sm text-muted-foreground">No previous-year data</p>
           ) : null}
-          {detailChart === "year-over-year" && (
+          {detailChart === "year-over-year" && yearOverYearTableData.length > 0 && (
             <ChartTable label="Year-over-year">
               <TableHeader>
                 <TableRow>
@@ -534,7 +552,7 @@ function BillsGroceriesCharts({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {yearOverYearData.map((month) => (
+                {yearOverYearTableData.map((month) => (
                   <TableRow key={month.month}>
                     <TableCell>{month.month}</TableCell>
                     <TableCell className="tabular-nums">{currency.format(month.current)}</TableCell>
@@ -598,7 +616,10 @@ function BillsGroceriesCharts({
                   <Link href="/settings">Set a monthly groceries budget in Settings.</Link>
                 </p>
               ) : null}
-              {detailChart === "groceries" && (
+              {detailChart === "groceries" && groceryMonthlyTableData.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No Groceries data yet.</p>
+              ) : null}
+              {detailChart === "groceries" && groceryMonthlyTableData.length > 0 && (
                 <ChartTable label="Groceries by month">
                   <TableHeader>
                     <TableRow>
@@ -610,7 +631,7 @@ function BillsGroceriesCharts({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {groceryMonthlyData.map((month) => (
+                    {groceryMonthlyTableData.map((month) => (
                       <TableRow
                         key={month.month}
                         className={
@@ -659,7 +680,7 @@ function BillsGroceriesCharts({
                         id="groceries-month"
                         type="month"
                         value={groceryMonth}
-                        onChange={(event) => updateUrl({ groceryMonth: event.target.value || null })}
+                        onChange={(event) => navigateWithData({ groceryMonth: event.target.value || null })}
                         aria-label="Select Groceries month"
                         className="min-h-11 w-36"
                       />
@@ -667,7 +688,7 @@ function BillsGroceriesCharts({
                     <Select
                       value={groceryFilter}
                       onValueChange={(value: GroceryFilter) => {
-                        updateUrl({ grocery: value === "all" ? null : value });
+                        updatePresentationUrl({ grocery: value === "all" ? null : value });
                       }}
                     >
                       <SelectTrigger aria-label="Show spending" className="min-h-11 w-36">
@@ -747,7 +768,10 @@ function BillsGroceriesCharts({
                   <span>Higher</span>
                 </div>
               </div>
-              {detailChart === "daily" && (
+              {detailChart === "daily" && dailyTableRows.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No Groceries data yet.</p>
+              ) : null}
+              {detailChart === "daily" && dailyTableRows.length > 0 && (
                 <ChartTable label="Groceries by day">
                   <TableHeader>
                     <TableRow>
@@ -759,7 +783,7 @@ function BillsGroceriesCharts({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dailyTableData.map((day) => (
+                    {dailyTableRows.map((day) => (
                       <TableRow key={day.date}>
                         <TableCell>{day.date}</TableCell>
                         <TableCell className="tabular-nums">{currency.format(day.mainRun)}</TableCell>

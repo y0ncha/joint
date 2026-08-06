@@ -63,6 +63,19 @@ it("starts the subcategory type selector empty", () => {
   expect(markup).not.toContain("All types");
 });
 
+it("places Category before Type when creating a subcategory", () => {
+  const markup = categoryFormModule
+    ? renderToStaticMarkup(
+        <categoryFormModule.CategoryCreationPreview
+          initialMode="subcategory"
+          categories={[{ id: "food", name: "Food", kind: "expense", color: "#ccebef" }]}
+        />,
+      )
+    : "";
+
+  expect(markup.indexOf(">Category</label>")).toBeLessThan(markup.indexOf(">Type</label>"));
+});
+
 it("preselects a category in the locked subcategory creation form", () => {
   const markup = categoryFormModule
     ? renderToStaticMarkup(
