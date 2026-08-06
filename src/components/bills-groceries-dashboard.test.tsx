@@ -92,6 +92,10 @@ const liveData = {
       const topUpsAgorot = index === 1 ? 4_500 : 0;
       return { date: `2026-07-${day}`, mainRunAgorot, topUpsAgorot, totalAgorot: mainRunAgorot + topUpsAgorot };
     }),
+    transactions: [
+      { id: "grocery-1", amount: 123, merchant: "Market", note: "Weekly shop", occurredOn: "2026-07-02", subcategoryKey: "main_run" },
+      { id: "grocery-2", amount: 45, merchant: "Corner shop", note: "Milk", occurredOn: "2026-07-02", subcategoryKey: "top_ups" },
+    ],
   },
 };
 

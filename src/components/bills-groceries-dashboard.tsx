@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from "recharts";
 import { ArrowLeft, ChevronDown, Maximize2, Settings2 } from "lucide-react";
 
@@ -17,6 +17,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
@@ -301,6 +302,7 @@ function BillsGroceriesCharts({
   initialBillId: string | null;
   initialPeriod: Period;
 }) {
+  const [selectedGroceryDate, setSelectedGroceryDate] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -395,6 +397,7 @@ function BillsGroceriesCharts({
     [],
   );
   const dailyTableRows = dailyTableData.filter((day) => day.total > 0);
+  const selectedGroceryTransactions = data.groceries.transactions.filter((transaction) => transaction.occurredOn === selectedGroceryDate);
 
   function navigateWithData(updates: Record<string, string | null>) {
     router.push(dashboardUrl(pathname, new URLSearchParams(searchParams), updates));
@@ -725,12 +728,14 @@ function BillsGroceriesCharts({
                         if (!day) return <span key={`empty-${dayIndex}`} aria-hidden="true" />;
                         const level = day.total === 0 ? 0 : Math.min(4, Math.ceil((day.total / highestDailyTotal) * 4));
                         return (
-                          <div
+                          <Button
                             key={day.date}
+                            type="button"
                             role="gridcell"
-                            tabIndex={0}
                             title={`${day.date}: ${currency.format(day.total)}`}
                             aria-label={`${day.date}: ${currency.format(day.total)}`}
+                            onClick={() => setSelectedGroceryDate(day.date)}
+                            variant="ghost"
                             className={cn(
                               "relative flex h-11 items-center justify-center rounded-md text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 hover:before:absolute hover:before:inset-0 hover:before:rounded-md hover:before:bg-foreground/5 sm:h-20 xl:h-auto xl:aspect-square",
                               level === 0 && "bg-muted text-muted-foreground",
@@ -746,7 +751,7 @@ function BillsGroceriesCharts({
                             <span className={cn("relative", level > 0 && "rounded-sm bg-background/85 px-1 text-foreground")}>
                               {day.date.slice(8)}
                             </span>
-                          </div>
+                          </Button>
                         );
                       })}
                     </div>
@@ -767,6 +772,29 @@ function BillsGroceriesCharts({
                   ))}
                   <span>Higher</span>
                 </div>
+                <Dialog open={selectedGroceryDate !== null} onOpenChange={(open) => !open && setSelectedGroceryDate(null)}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Groceries on {selectedGroceryDate}</DialogTitle>
+                      <DialogDescription>Only Groceries expenses are shown.</DialogDescription>
+                    </DialogHeader>
+                    {selectedGroceryTransactions.length > 0 ? (
+                      <ul className="flex flex-col gap-3">
+                        {selectedGroceryTransactions.map((transaction) => (
+                          <li key={transaction.id} className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{transaction.merchant || transaction.note || "Groceries"}</p>
+                              {transaction.merchant && transaction.note ? <p className="truncate text-muted-foreground">{transaction.note}</p> : null}
+                            </div>
+                            <span className="shrink-0 font-mono tabular-nums">{currency.format(transaction.amount)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-muted-foreground">No Groceries expenses recorded.</p>
+                    )}
+                  </DialogContent>
+                </Dialog>
               </div>
               {detailChart === "daily" && dailyTableRows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No Groceries data yet.</p>

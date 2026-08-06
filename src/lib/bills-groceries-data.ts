@@ -130,7 +130,7 @@ export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) 
         ? readAllPages((from, to) =>
             household.supabase
               .from("transactions")
-              .select("id, amount, occurred_on, subcategory_id", { count: "exact" })
+              .select("id, amount, merchant, note, occurred_on, subcategory_id", { count: "exact" })
               .eq("household_id", household.householdId)
               .in("subcategory_id", groceryIds)
               .gte("occurred_on", options.groceryRange.from)
@@ -195,6 +195,21 @@ export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) 
         budgetResult.data?.groceries_monthly_budget ?? null,
       ),
       daily: buildGroceriesDaily(options.groceryRange, groceryInputs(groceryDailyTransactions)),
+      transactions: (groceryDailyTransactions ?? []).flatMap((transaction) => {
+        const subcategoryKey = transaction.subcategory_id ? groceryKeyById.get(transaction.subcategory_id) : undefined;
+        return subcategoryKey
+          ? [
+              {
+                id: transaction.id,
+                amount: transaction.amount,
+                merchant: transaction.merchant,
+                note: transaction.note,
+                occurredOn: transaction.occurred_on,
+                subcategoryKey,
+              },
+            ]
+          : [];
+      }),
     },
   };
 }
