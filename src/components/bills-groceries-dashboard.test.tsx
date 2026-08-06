@@ -97,6 +97,10 @@ const liveData = {
 
 const dashboardProps = { data: liveData as never, billIds: ["rent"], billId: "rent", period: "rolling" as const };
 
+function detailTable(markup: string, label: string) {
+  return markup.match(new RegExp(`<table[^>]*aria-label="${label} data table"[^>]*>([\\s\\S]*?)</table>`))?.[1] ?? "";
+}
+
 beforeEach(() => {
   mocks.activeSelectChange = undefined;
   mocks.alignBillYearOverYear.mockClear();
@@ -312,22 +316,19 @@ it("uses a contrast-safe backing behind day labels on stored heatmap colors", ()
 });
 
 it("renders the Bills empty state instead of a missing-prior-year notice when no Bills values exist", () => {
-  const markup = renderToStaticMarkup(
-    <BillsGroceriesDashboard
-      data={
-        {
-          ...liveData,
-          bills: { ...liveData.bills, monthly: [] },
-        } as never
-      }
-      billIds={["rent"]}
-      billId="rent"
-      period="rolling"
-    />,
-  );
+  const data = {
+    ...liveData,
+    bills: { ...liveData.bills, monthly: [] },
+  } as never;
+  const markup = renderToStaticMarkup(<BillsGroceriesDashboard data={data} billIds={["rent"]} billId="rent" period="rolling" />);
 
   expect(markup.match(/No Bills data yet\./g)).toHaveLength(2);
   expect(markup).not.toContain("No previous-year data");
+  const detailMarkup = renderToStaticMarkup(
+    <BillsGroceriesChartDetail chart="bills" data={data} billIds={["rent"]} billId="rent" period="rolling" />,
+  );
+  expect(detailMarkup).toContain("No Bills data yet.");
+  expect(detailMarkup).not.toContain('aria-label="Bills by month data table"');
 });
 
 it("renders the selected Bill's aligned year-over-year agorot values and missing prior year", () => {
@@ -367,20 +368,41 @@ it("renders the selected Bill's aligned year-over-year agorot values and missing
   expect(markup.match(/No previous-year data/g)).toHaveLength(2);
 });
 
-it("renders equivalent live values, including zero-spend days, in detail tables", () => {
+it("omits zero-spend rows from analytics detail tables", () => {
+  const data = {
+    ...liveData,
+    months: ["2026-06", "2026-07"],
+    groceries: {
+      ...liveData.groceries,
+      monthly: {
+        ...liveData.groceries.monthly,
+        months: [{ month: "2026-06", mainRunAgorot: 0, topUpsAgorot: 0 }, ...liveData.groceries.monthly.months],
+      },
+    },
+  };
   const billsMarkup = renderToStaticMarkup(
-    <BillsGroceriesChartDetail chart="bills" data={liveData as never} billIds={["rent"]} billId="rent" period="rolling" />,
+    <BillsGroceriesChartDetail chart="bills" data={data as never} billIds={["rent"]} billId="rent" period="rolling" />,
+  );
+  const yearOverYearMarkup = renderToStaticMarkup(
+    <BillsGroceriesChartDetail chart="year-over-year" data={data as never} billIds={["rent"]} billId="rent" period="rolling" />,
+  );
+  const groceriesMarkup = renderToStaticMarkup(
+    <BillsGroceriesChartDetail chart="groceries" data={data as never} billIds={["rent"]} billId="rent" period="rolling" />,
   );
   const dailyMarkup = renderToStaticMarkup(
-    <BillsGroceriesChartDetail chart="daily" data={liveData as never} billIds={["rent"]} billId="rent" period="rolling" />,
+    <BillsGroceriesChartDetail chart="daily" data={data as never} billIds={["rent"]} billId="rent" period="rolling" />,
   );
 
-  expect(billsMarkup).toContain("Rent");
-  expect(billsMarkup).toContain("₪123.45");
-  expect(dailyMarkup).toContain("2026-07-01");
-  expect(dailyMarkup).toContain("₪0.00");
-  expect(dailyMarkup).toContain("2026-07-02");
-  expect(dailyMarkup).toContain("₪168.00");
+  for (const [markup, label, omitted, retained] of [
+    [billsMarkup, "Bills by month", "2026-06", "2026-07"],
+    [yearOverYearMarkup, "Year-over-year", "2026-06", "2026-07"],
+    [groceriesMarkup, "Groceries by month", "2026-06", "2026-07"],
+    [dailyMarkup, "Groceries by day", "2026-07-01", "2026-07-02"],
+  ]) {
+    expect(detailTable(markup, label)).not.toContain(omitted);
+    expect(detailTable(markup, label)).toContain(retained);
+  }
+  expect(detailTable(dailyMarkup, "Groceries by day")).toContain("₪168.00");
 });
 
 it("includes the configured budget in the equivalent monthly Groceries table", () => {
