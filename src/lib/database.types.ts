@@ -277,6 +277,7 @@ export type Database = {
       transactions: {
         Row: {
           amount: number
+          category_id: string | null
           created_at: string
           created_by: string
           household_id: string
@@ -296,6 +297,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          category_id?: string | null
           created_at?: string
           created_by: string
           household_id: string
@@ -315,6 +317,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          category_id?: string | null
           created_at?: string
           created_by?: string
           household_id?: string
@@ -339,6 +342,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_household_id_category_id_fkey"
+            columns: ["household_id", "category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["household_id", "id"]
           },
           {
             foreignKeyName: "transactions_household_id_fkey"

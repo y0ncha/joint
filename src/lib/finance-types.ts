@@ -33,7 +33,7 @@ export function subcategoryFromRow(row: SubcategoryRow) {
   };
 }
 
-export function transactionFromRow(row: TransactionRow) {
+export function transactionFromRow(row: Omit<TransactionRow, "category_id"> & { category_id?: string | null }) {
   return {
     id: row.id,
     kind: row.kind,
@@ -41,6 +41,7 @@ export function transactionFromRow(row: TransactionRow) {
     occurredOn: row.occurred_on,
     servicePeriodStart: row.service_period_start,
     servicePeriodEnd: row.service_period_end,
+    categoryId: row.category_id,
     subcategoryId: row.subcategory_id,
     note: row.note,
     merchant: row.merchant,

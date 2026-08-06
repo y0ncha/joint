@@ -138,6 +138,19 @@ export function CategoryCreationPreview({
         ) : (
           <FieldGroup>
             <Field>
+              <FieldLabel>Category</FieldLabel>
+              <PillSelect
+                ariaLabel="Category"
+                value={categoryId}
+                onValueChange={(value) => {
+                  setCategoryId(value);
+                  setKind(categories.find((category) => category.id === value)?.kind ?? kind);
+                }}
+                emptyLabel="Choose a category"
+                options={filteredCategories.map((category) => ({ value: category.id, label: category.name, color: category.color }))}
+              />
+            </Field>
+            <Field>
               <FieldLabel>Type</FieldLabel>
               <PillSelect
                 ariaLabel="Type"
@@ -150,19 +163,6 @@ export function CategoryCreationPreview({
                   { value: "income", label: "Income", className: "border-positive/20 bg-positive/10 text-positive" },
                   { value: "expense", label: "Expense", className: "border-negative/20 bg-negative/10 text-negative" },
                 ]}
-              />
-            </Field>
-            <Field>
-              <FieldLabel>Category</FieldLabel>
-              <PillSelect
-                ariaLabel="Category"
-                value={categoryId}
-                onValueChange={(value) => {
-                  setCategoryId(value);
-                  setKind(categories.find((category) => category.id === value)?.kind ?? kind);
-                }}
-                emptyLabel="Choose a category"
-                options={filteredCategories.map((category) => ({ value: category.id, label: category.name, color: category.color }))}
               />
             </Field>
             <Field>

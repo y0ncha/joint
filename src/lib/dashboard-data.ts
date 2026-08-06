@@ -48,6 +48,7 @@ export async function getDashboardData(month: string, range?: DateRange) {
     currentUserId,
     members,
     categories,
+    directCategories: categories.filter((category) => category.systemKey === "other_income" || category.systemKey === "other_expense"),
     subcategories,
     transactions,
     report: range

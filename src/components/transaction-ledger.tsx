@@ -36,6 +36,7 @@ export function getLedgerShortcutAction(key: string, selectedCount: number) {
 export function TransactionLedger({
   transactions,
   subcategories = [],
+  directCategories = [],
   categoryIds = [],
   dateRange,
   filterKind = "all",
@@ -55,6 +56,14 @@ export function TransactionLedger({
     archivedAt: string | null;
     categoryArchivedAt: string | null;
   }>;
+  directCategories?: Array<{
+    id: string;
+    name: string;
+    kind: "income" | "expense";
+    color: string;
+    icon?: string | null;
+    systemKey?: string | null;
+  }>;
   categoryIds?: string[];
   dateRange?: DateRange;
   filterKind?: LedgerFilterKind;
@@ -63,6 +72,7 @@ export function TransactionLedger({
   sort?: LedgerSort;
 }) {
   const subcategoriesById = new Map(subcategories.map((subcategory) => [subcategory.id, subcategory]));
+  const directCategoriesById = new Map(directCategories.map((category) => [category.id, category]));
   const memberNames = new Map(members.map((member) => [member.id, member]));
   const [selectedTransaction, setSelectedTransaction] = useState<ReportTransaction | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -83,7 +93,9 @@ export function TransactionLedger({
     .filter(
       (transaction) =>
         categoryIds.length === 0 ||
-        categoryIds.includes(subcategoriesById.get(transaction.subcategoryId ?? "")?.categoryId ?? "uncategorized"),
+        categoryIds.includes(
+          transaction.categoryId ?? subcategoriesById.get(transaction.subcategoryId ?? "")?.categoryId ?? "uncategorized",
+        ),
     )
     .filter((transaction) => paidByIds.length === 0 || paidByIds.includes(transaction.paidBy ?? "unassigned"))
     .sort((left, right) =>
@@ -206,16 +218,17 @@ export function TransactionLedger({
               <TableCell className="truncate">
                 {(() => {
                   const subcategory = subcategoriesById.get(transaction.subcategoryId ?? "");
+                  const directCategory = directCategoriesById.get(transaction.categoryId ?? "");
                   return (
                     <Badge
-                      color={subcategory?.color}
+                      color={subcategory?.color ?? directCategory?.color}
                       className={
                         subcategory
                           ? "max-w-full truncate"
                           : "max-w-full truncate border-muted-foreground/20 bg-muted text-muted-foreground"
                       }
                     >
-                      {subcategory ? `${subcategory.categoryName} → ${subcategory.name}` : "Uncategorized"}
+                      {subcategory ? `${subcategory.categoryName} → ${subcategory.name}` : (directCategory?.name ?? "Uncategorized")}
                     </Badge>
                   );
                 })()}
@@ -283,6 +296,7 @@ export function TransactionLedger({
         {deleteError ? <p className="w-full text-sm text-destructive">{deleteError}</p> : null}
       </div>
       <TransactionSheet
+        directCategories={directCategories}
         key={selectedTransaction?.id ?? "transaction-edit"}
         subcategories={editableSubcategories}
         members={members}

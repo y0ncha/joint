@@ -1,5 +1,16 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { expect, it } from "vitest";
+import type { ReactNode } from "react";
+import { expect, it, vi } from "vitest";
+
+vi.mock("@/components/ui/sheet", () => ({
+  Sheet: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SheetContent: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SheetDescription: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SheetHeader: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SheetTitle: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SheetTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
 const categoryListModule = await import("./category-list").catch(() => null);
 it("shows a truthful category empty state", () => {
   const markup = categoryListModule ? renderToStaticMarkup(<categoryListModule.CategoryList categories={[]} />) : "";
@@ -44,12 +55,10 @@ it("shows category and subcategory names without pills", () => {
 
   expect(markup).not.toContain("3 transactions");
   expect(markup).not.toContain("1 transaction");
-  expect(markup).not.toContain('data-slot="badge"');
   expect(markup).toContain('aria-label="Manage Food category"');
   expect(markup).toContain('data-category-icon="shopping-basket"');
   expect(markup).toContain('aria-label="Manage Groceries subcategory"');
-  expect(markup).not.toContain("Salary");
-  expect(markup).not.toContain("Add subcategory");
+  expect(markup).toContain("Salary");
   expect(markup).not.toContain("Edit Groceries");
   expect(markup).toMatch(/Food[\s\S]*Groceries[\s\S]*Takeaway[\s\S]*Archived/);
   expect(markup).toMatch(/Food[\s\S]*data-category-icon="shopping-basket"/);
@@ -73,12 +82,28 @@ it("shows category and subcategory names without pills", () => {
   expect(markup).toContain("motion-reduce:animate-none");
   expect(markup).not.toContain("border-y");
   expect(markup).not.toContain("border-e");
-  expect(markup).not.toContain("border-l");
-  expect(markup).not.toContain("background-color:#dcece3");
-  expect(markup).not.toContain("background-color:#c5e8f7");
 });
 
-it("limits protected BillsGroceries rows to appearance controls", () => {
+it("shows empty categories after categories with subcategories", () => {
+  const markup = categoryListModule
+    ? renderToStaticMarkup(
+        <categoryListModule.CategoryList
+          categories={[
+            { id: "empty-first", name: "Empty first", kind: "expense", color: "#dcece3", transactionCount: 0, archived_at: null },
+            { id: "food", name: "Food", kind: "expense", color: "#ccebef", transactionCount: 0, archived_at: null },
+            { id: "empty-last", name: "Empty last", kind: "expense", color: "#ffcff0", transactionCount: 0, archived_at: null },
+          ]}
+          subcategories={[
+            { id: "groceries", category_id: "food", name: "Groceries", color: "#c5e8f7", transactionCount: 0, archived_at: null },
+          ]}
+        />,
+      )
+    : "";
+
+  expect(markup).toMatch(/Food[\s\S]*Empty first[\s\S]*Empty last/);
+});
+
+it("shows protected category controls as disabled with explanations", () => {
   const markup = categoryListModule
     ? renderToStaticMarkup(
         <categoryListModule.CategoryList
@@ -108,10 +133,17 @@ it("limits protected BillsGroceries rows to appearance controls", () => {
       )
     : "";
 
-  expect(markup).not.toContain("Add subcategory");
-  expect(markup).not.toContain("Delete category");
+  expect(markup).toContain('id="category-name-groceries"');
+  expect(markup).toContain('aria-label="Category type"');
+  expect(markup).toContain('aria-label="Delete category"');
+  expect(markup).toMatch(/id="category-name-groceries"[^>]*disabled=""/);
+  expect(markup).toMatch(/<input[^>]*class="[^"]*h-11[^"]*"[^>]*id="category-name-groceries"[^>]*disabled=""/);
+  expect(markup).toMatch(/<button(?=[^>]*aria-label="Category type")(?=[^>]*disabled="")[^>]*>/);
+  expect(markup).toMatch(/<button(?=[^>]*aria-label="Delete category")(?=[^>]*disabled="")[^>]*>/);
+  expect(markup).toMatch(/<span class="inline-flex" tabindex="0"[^>]*><button[^>]*aria-label="Delete category"/);
+  expect(markup).toMatch(/<button[^>]*class="[^"]*w-full[^"]*"[^>]*disabled=""[^>]*>[\s\S]*?<\/svg>\s*Add subcategory<\/button>/);
+  expect(markup).toContain("Add subcategory");
   expect(markup).not.toContain("Delete subcategory");
-  expect(markup).not.toContain("Category type");
   expect(markup).not.toContain("Parent category");
 });
 

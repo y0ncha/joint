@@ -51,7 +51,7 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
   if (!parsed.success) {
     return validationError(parsed.error.issues);
   }
-  if (!parsed.data.subcategoryId) {
+  if (!parsed.data.subcategoryId && !parsed.data.categoryId) {
     return { status: "error", formError: "Check the form details.", fieldErrors: { subcategoryId: "Select a value." } };
   }
 
@@ -78,6 +78,7 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
     kind: parsed.data.kind,
     amount: parsed.data.amount,
     occurred_on: parsed.data.occurredOn,
+    ...(parsed.data.categoryId ? { category_id: parsed.data.categoryId } : {}),
     subcategory_id: parsed.data.subcategoryId,
     note: parsed.data.note,
     ...(parsed.data.merchant === undefined ? {} : { merchant: parsed.data.merchant }),
@@ -107,7 +108,7 @@ export async function updateTransaction(transactionId: string, input: FormData):
 
   const parsed = transactionSchema.safeParse(Object.fromEntries(input));
   if (!parsed.success) return validationError(parsed.error.issues);
-  if (existingTransaction.source === "manual" && !parsed.data.subcategoryId) {
+  if (existingTransaction.source === "manual" && !parsed.data.subcategoryId && !parsed.data.categoryId) {
     return { status: "error", formError: "Check the form details.", fieldErrors: { subcategoryId: "Select a value." } };
   }
   const servicePeriods = await servicePeriodsFor(
@@ -132,6 +133,7 @@ export async function updateTransaction(transactionId: string, input: FormData):
       amount: parsed.data.amount,
       occurred_on: parsed.data.occurredOn,
       paid_by: parsed.data.paidBy,
+      ...(input.has("categoryId") ? { category_id: parsed.data.categoryId || null } : {}),
       subcategory_id: parsed.data.subcategoryId,
       note: parsed.data.note,
       ...(parsed.data.merchant === undefined ? {} : { merchant: parsed.data.merchant }),

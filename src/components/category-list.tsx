@@ -1,8 +1,8 @@
 "use client";
 
 import { deleteCategory, deleteSubcategory, updateCategory } from "@/app/actions/categories";
-import { ChevronRight, FoldVertical, Trash2, UnfoldVertical } from "lucide-react";
-import { useActionState, useEffect, type CSSProperties } from "react";
+import { ChevronRight, FoldVertical, Plus, Trash2, UnfoldVertical } from "lucide-react";
+import { useActionState, useEffect, type CSSProperties, type ReactNode } from "react";
 import { toast } from "sonner";
 import type { ActionResult } from "@/app/actions/result";
 import {
@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { PillSelect } from "@/components/pill-select";
 import { SubcategoryEditForm } from "@/components/subcategory-edit-form";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { isCategoryIcon } from "@/lib/category-icons";
 
 export type Category = {
@@ -52,6 +53,21 @@ export type Subcategory = {
 
 const sheetContentClassName =
   "inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg";
+
+function DisabledControl({ children, fullWidth = true, message }: { children: ReactNode; fullWidth?: boolean; message: string }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={fullWidth ? "inline-flex w-full" : "inline-flex"} tabIndex={0}>
+            {children}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>{message}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 function SubcategoryEditor({
   categories,
@@ -174,6 +190,7 @@ function CategoryEditor({
 }) {
   const isProtected = category.system_key !== null && category.system_key !== undefined;
   const isGroceries = category.system_key === "groceries";
+  const isOther = category.system_key === "other_income" || category.system_key === "other_expense";
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
     async (_state, input) => updateCategory(category.id, input),
     null,
@@ -209,8 +226,32 @@ function CategoryEditor({
                   <input name="name" type="hidden" value={category.name} />
                   <input name="kind" type="hidden" value={category.kind} />
                   <Field>
-                    <FieldLabel>Icon</FieldLabel>
-                    <CategoryIconPicker defaultIcon={isCategoryIcon(category.icon ?? null) ? category.icon : "tag"} />
+                    <FieldLabel htmlFor={`category-name-${category.id}`}>Name</FieldLabel>
+                    <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+                      <DisabledControl message="Built-in categories cannot be renamed, have their type changed, or be deleted.">
+                        <Input
+                          id={`category-name-${category.id}`}
+                          value={category.name}
+                          disabled
+                          className="h-11 rounded-none border-0 bg-transparent focus-visible:border-transparent focus-visible:ring-0"
+                        />
+                      </DisabledControl>
+                      <CategoryIconPicker defaultIcon={isCategoryIcon(category.icon ?? null) ? category.icon : "tag"} />
+                    </div>
+                  </Field>
+                  <Field>
+                    <FieldLabel>Type</FieldLabel>
+                    <DisabledControl message="Built-in categories cannot be renamed, have their type changed, or be deleted.">
+                      <PillSelect
+                        ariaLabel="Category type"
+                        value={category.kind}
+                        disabled
+                        options={[
+                          { value: "income", label: "Income", className: "border-positive/20 bg-positive/10 text-positive" },
+                          { value: "expense", label: "Expense", className: "border-negative/20 bg-negative/10 text-negative" },
+                        ]}
+                      />
+                    </DisabledControl>
                   </Field>
                 </>
               ) : (
@@ -248,8 +289,32 @@ function CategoryEditor({
               </Button>
             </FieldGroup>
           </form>
-          {!isGroceries ? <SubcategoryCreationSheet categories={categories} categoryId={category.id} /> : null}
-          {!isProtected ? (
+          {isOther ? null : isGroceries ? (
+            <DisabledControl message="Groceries subcategories are fixed.">
+              <Button type="button" variant="outline" className="w-full" disabled>
+                <Plus data-icon="inline-start" aria-hidden="true" />
+                Add subcategory
+              </Button>
+            </DisabledControl>
+          ) : (
+            <SubcategoryCreationSheet categories={categories} categoryId={category.id} />
+          )}
+          {isProtected ? (
+            <div className="flex justify-end">
+              <DisabledControl fullWidth={false} message="Built-in categories cannot be renamed, have their type changed, or be deleted.">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-11 text-destructive"
+                  disabled
+                  aria-label="Delete category"
+                >
+                  <Trash2 aria-hidden="true" />
+                </Button>
+              </DisabledControl>
+            </div>
+          ) : (
             <div className="flex justify-end">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -279,7 +344,7 @@ function CategoryEditor({
                 </AlertDialogContent>
               </AlertDialog>
             </div>
-          ) : null}
+          )}
         </div>
       </SheetContent>
     </Sheet>
@@ -336,6 +401,7 @@ function CategorySection({
           <ul aria-label={title} className="flex flex-col gap-1">
             {categories.map((category) => {
               const children = subcategories.filter((subcategory) => subcategory.category_id === category.id);
+              const isOther = category.system_key === "other_income" || category.system_key === "other_expense";
               return (
                 <li key={category.id}>
                   <Collapsible
@@ -371,25 +437,29 @@ function CategorySection({
                           />
                         </div>
                       )}
-                      <CollapsibleTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="group/category-toggle size-11 shrink-0 rounded-full"
-                          aria-label={`Toggle ${category.name} subcategories`}
-                        >
-                          <ChevronRight
-                            data-icon="inline-end"
-                            aria-hidden="true"
-                            className="transition-transform motion-reduce:transition-none group-data-[state=open]/category-toggle:rotate-90"
-                          />
-                        </Button>
-                      </CollapsibleTrigger>
+                      {!isOther ? (
+                        <CollapsibleTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="group/category-toggle size-11 shrink-0 rounded-full"
+                            aria-label={`Toggle ${category.name} subcategories`}
+                          >
+                            <ChevronRight
+                              data-icon="inline-end"
+                              aria-hidden="true"
+                              className="transition-transform motion-reduce:transition-none group-data-[state=open]/category-toggle:rotate-90"
+                            />
+                          </Button>
+                        </CollapsibleTrigger>
+                      ) : null}
                     </div>
-                    <CollapsibleContent>
-                      <SubcategoryList categories={categories} subcategories={children} allSubcategories={subcategories} />
-                    </CollapsibleContent>
+                    {!isOther ? (
+                      <CollapsibleContent>
+                        <SubcategoryList categories={categories} subcategories={children} allSubcategories={subcategories} />
+                      </CollapsibleContent>
+                    ) : null}
                   </Collapsible>
                 </li>
               );
@@ -414,12 +484,19 @@ export function CategoryList({
   onSectionOpenChange?: (categoryIds: string[], open: boolean) => void;
   openCategoryIds?: ReadonlySet<string>;
 }) {
+  const categoryIdsWithSubcategories = new Set(subcategories.map((subcategory) => subcategory.category_id));
+  const categoriesFor = (kind: Category["kind"]) => {
+    const matchingCategories = categories.filter((category) => category.kind === kind);
+    return [
+      ...matchingCategories.filter((category) => categoryIdsWithSubcategories.has(category.id)),
+      ...matchingCategories.filter((category) => !categoryIdsWithSubcategories.has(category.id)),
+    ];
+  };
+
   return (
     <>
       <CategorySection
-        categories={categories.filter(
-          (category) => category.kind === "expense" && subcategories.some((subcategory) => subcategory.category_id === category.id),
-        )}
+        categories={categoriesFor("expense")}
         subcategories={subcategories}
         onCategoryOpenChange={onCategoryOpenChange}
         onSectionOpenChange={onSectionOpenChange}
@@ -428,9 +505,7 @@ export function CategoryList({
         title="Expense categories"
       />
       <CategorySection
-        categories={categories.filter(
-          (category) => category.kind === "income" && subcategories.some((subcategory) => subcategory.category_id === category.id),
-        )}
+        categories={categoriesFor("income")}
         subcategories={subcategories}
         onCategoryOpenChange={onCategoryOpenChange}
         onSectionOpenChange={onSectionOpenChange}

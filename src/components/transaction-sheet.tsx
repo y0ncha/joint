@@ -41,6 +41,14 @@ type Subcategory = {
   systemKey?: string | null;
 };
 type Member = { id: string; label: string; color?: string };
+type DirectCategory = {
+  id: string;
+  name: string;
+  kind: "income" | "expense";
+  color: string;
+  icon?: string | null;
+  systemKey?: string | null;
+};
 
 const displayDate = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
 function todayIso() {
@@ -69,6 +77,7 @@ function billingPeriodFor(occurredOn: string): DateRange {
 
 export function TransactionSheet({
   subcategories = [],
+  directCategories = [],
   currentUserId = "",
   members = [],
   onOpenChange,
@@ -77,6 +86,7 @@ export function TransactionSheet({
   trigger,
 }: {
   subcategories?: Subcategory[];
+  directCategories?: DirectCategory[];
   currentUserId?: string;
   members?: Member[];
   onOpenChange?: (open: boolean) => void;
@@ -103,8 +113,11 @@ export function TransactionSheet({
   const [occurredOn, setOccurredOn] = useState(initialOccurredOn);
   const [paidBy, setPaidBy] = useState(() => transaction?.paidBy ?? currentUserId ?? members[0]?.id ?? "");
   const [subcategoryId, setSubcategoryId] = useState(initialSubcategoryId);
+  const [categoryId, setCategoryId] = useState(() => transaction?.categoryId ?? "");
   const selectedSubcategoryId = selectableSubcategories.some((subcategory) => subcategory.id === subcategoryId) ? subcategoryId : "";
   const selectedSubcategory = selectableSubcategories.find((subcategory) => subcategory.id === selectedSubcategoryId);
+  const selectableCategories = useMemo(() => directCategories.filter((category) => category.kind === kind), [directCategories, kind]);
+  const selectedCategoryId = selectableCategories.some((category) => category.id === categoryId) ? categoryId : "";
   const isBillsSubcategory = selectedSubcategory?.categorySystemKey === "bills";
   const [billingPeriod, setBillingPeriod] = useState<DateRange | undefined>(() => {
     const initialSubcategory = subcategories.find((subcategory) => subcategory.id === initialSubcategoryId);
@@ -146,6 +159,7 @@ export function TransactionSheet({
             <input name="kind" type="hidden" value={kind} />
             <input name="occurredOn" type="hidden" value={occurredOn} />
             <input name="subcategoryId" type="hidden" value={selectedSubcategoryId} />
+            <input name="categoryId" type="hidden" value={selectedCategoryId} />
             <input name="paidBy" type="hidden" value={selectedPaidBy} />
             <input name="servicePeriodStart" type="hidden" value={billingPeriod?.from ? isoFromDate(billingPeriod.from) : ""} />
             <input name="servicePeriodEnd" type="hidden" value={billingPeriod?.to ? isoFromDate(billingPeriod.to) : ""} />
@@ -223,23 +237,33 @@ export function TransactionSheet({
               <FieldLabel>Category</FieldLabel>
               <PillSelect
                 ariaLabel="Categories"
-                value={selectedSubcategoryId}
+                value={selectedCategoryId ? `category:${selectedCategoryId}` : selectedSubcategoryId}
                 onValueChange={(value) => {
-                  setSubcategoryId(value);
+                  const directCategoryId = value.startsWith("category:") ? value.slice("category:".length) : "";
+                  setCategoryId(directCategoryId);
+                  setSubcategoryId(directCategoryId ? "" : value);
                   setBillingPeriod((current) =>
                     selectableSubcategories.find((subcategory) => subcategory.id === value)?.categorySystemKey === "bills"
                       ? (current ?? billingPeriodFor(occurredOn))
                       : undefined,
                   );
                 }}
-                disabled={selectableSubcategories.length === 0}
+                disabled={selectableSubcategories.length + selectableCategories.length === 0}
                 emptyLabel="Uncategorized"
-                options={selectableSubcategories.map((subcategory) => ({
-                  value: subcategory.id,
-                  label: `${subcategory.categoryName} → ${subcategory.name}`,
-                  color: subcategory.color,
-                  icon: categoryIcon(subcategory.icon),
-                }))}
+                options={[
+                  ...selectableSubcategories.map((subcategory) => ({
+                    value: subcategory.id,
+                    label: `${subcategory.categoryName} → ${subcategory.name}`,
+                    color: subcategory.color,
+                    icon: categoryIcon(subcategory.icon),
+                  })),
+                  ...selectableCategories.map((category) => ({
+                    value: `category:${category.id}`,
+                    label: "Other",
+                    color: category.color,
+                    icon: categoryIcon(category.icon ?? "tag"),
+                  })),
+                ]}
               />
               {state?.status === "error" ? <FieldError>{state.fieldErrors.subcategoryId}</FieldError> : null}
             </Field>
