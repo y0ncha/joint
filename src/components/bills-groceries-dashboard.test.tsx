@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   activeSelectChange: undefined as undefined | ((value: string) => void),
   alignBillYearOverYear: vi.fn(),
   billChanges: new Map<string, (checked: boolean) => void>(),
+  historyPushState: vi.fn(),
   monthChange: undefined as undefined | ((event: { target: { value: string } }) => void),
   push: vi.fn(),
   searchParams: new URLSearchParams(),
@@ -100,11 +101,13 @@ beforeEach(() => {
   mocks.activeSelectChange = undefined;
   mocks.alignBillYearOverYear.mockClear();
   mocks.billChanges.clear();
+  mocks.historyPushState.mockReset();
   mocks.monthChange = undefined;
   mocks.push.mockReset();
   mocks.searchParams = new URLSearchParams();
   mocks.selectChanges.clear();
   mocks.showPopoverContent = false;
+  vi.stubGlobal("window", { history: { pushState: mocks.historyPushState } });
 });
 
 it("rounds only the visible top segment of a stack", () => {
@@ -136,7 +139,7 @@ it("writes the selected daily month without losing dashboard filters", () => {
   expect(mocks.push).toHaveBeenCalledWith("/bills-groceries?period=calendar&bills=rent&bill=rent&groceryMonth=2026-06&grocery=top-ups");
 });
 
-it("writes each configured dashboard filter through its URL handler", () => {
+it("uses router navigation only for data-bearing dashboard filters", () => {
   mocks.searchParams = new URLSearchParams("period=rolling&bills=rent&bill=rent&groceryMonth=2026-07&grocery=main-run");
   mocks.showPopoverContent = true;
   const data = {
@@ -168,18 +171,50 @@ it("writes each configured dashboard filter through its URL handler", () => {
     3,
     "/bills-groceries?period=calendar&bills=rent&bill=rent&groceryMonth=2026-07&grocery=main-run",
   );
-  expect(mocks.push).toHaveBeenNthCalledWith(
-    4,
+  expect(mocks.push).toHaveBeenCalledTimes(3);
+  expect(mocks.historyPushState).toHaveBeenNthCalledWith(
+    1,
+    null,
+    "",
     "/bills-groceries?period=rolling&bills=rent%2Cwater&bill=rent&groceryMonth=2026-07&grocery=main-run",
   );
-  expect(mocks.push).toHaveBeenNthCalledWith(
-    5,
+  expect(mocks.historyPushState).toHaveBeenNthCalledWith(
+    2,
+    null,
+    "",
     "/bills-groceries?period=rolling&bills=rent&bill=water&groceryMonth=2026-07&grocery=main-run",
   );
-  expect(mocks.push).toHaveBeenNthCalledWith(
-    6,
+  expect(mocks.historyPushState).toHaveBeenNthCalledWith(
+    3,
+    null,
+    "",
     "/bills-groceries?period=rolling&bills=rent&bill=rent&groceryMonth=2026-07&grocery=top-ups",
   );
+  expect(mocks.historyPushState).toHaveBeenCalledTimes(3);
+});
+
+it("renders valid Bills selections and the year-over-year Bill from synchronized URL state", () => {
+  mocks.searchParams = new URLSearchParams("period=rolling&bills=water&bill=water&groceryMonth=2026-07");
+  const data = {
+    ...liveData,
+    bills: {
+      ...liveData.bills,
+      subcategories: [...liveData.bills.subcategories, { id: "water", name: "Water", color: "#234567" }],
+      monthly: [...liveData.bills.monthly, { month: "2026-07", subcategoryId: "water", agorot: 6_789 }],
+    },
+  };
+
+  const billsMarkup = renderToStaticMarkup(
+    <BillsGroceriesChartDetail chart="bills" data={data as never} billIds={["rent"]} billId="rent" period="rolling" />,
+  );
+  const yearOverYearMarkup = renderToStaticMarkup(
+    <BillsGroceriesChartDetail chart="year-over-year" data={data as never} billIds={["rent"]} billId="rent" period="rolling" />,
+  );
+
+  expect(billsMarkup).toContain(">Water</th>");
+  expect(billsMarkup).not.toContain(">Rent</th>");
+  expect(mocks.alignBillYearOverYear).toHaveBeenLastCalledWith(data.months, data.bills.monthly, "water");
+  expect(yearOverYearMarkup).toContain('aria-label="Water year-over-year chart');
 });
 
 it("links every dashboard chart to the detail route for its exported ID", () => {
