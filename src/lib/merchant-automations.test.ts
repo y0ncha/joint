@@ -327,8 +327,20 @@ it("reads the authenticated rules workspace with eligible destinations and a com
         },
       ],
       conflicts: [],
+      ruleSet: [
+        {
+          id: "rule-id",
+          action: "normalize_merchant",
+          pattern: "shop",
+          replacement: "Shop",
+          category_id: null,
+          subcategory_id: null,
+          enabled: true,
+          position: 0,
+        },
+      ],
       fingerprint:
-        '[{"id":"11111111-1111-4111-8111-111111111111","merchant":"Shop","category_id":null,"subcategory_id":null,"expected_updated_at":"2026-08-07T10:00:00Z","expected_merchant":"shop","expected_category_id":null,"expected_subcategory_id":null}]',
+        '{"changes":[{"id":"11111111-1111-4111-8111-111111111111","merchant":"Shop","category_id":null,"subcategory_id":null,"expected_updated_at":"2026-08-07T10:00:00Z","expected_merchant":"shop","expected_category_id":null,"expected_subcategory_id":null}],"ruleSet":[{"id":"rule-id","action":"normalize_merchant","pattern":"shop","replacement":"Shop","category_id":null,"subcategory_id":null,"enabled":true,"position":0}]}',
     },
   });
   expect(rulesQuery.select).toHaveBeenCalledWith(
@@ -395,22 +407,36 @@ it("loads destination kinds once for transaction intake", async () => {
   expect(categoryIn).toHaveBeenCalledWith("id", ["income-other", "expense-category"]);
 });
 
-it("fingerprints only the target transaction fields accepted by the apply RPC", () => {
-  const fingerprint = merchantAutomations.fingerprintAutomationPreview([
-    {
-      id: "transaction-id",
-      merchant: "Shop",
-      category_id: "category-id",
-      subcategory_id: null,
-      expected_updated_at: "2026-08-07T10:00:00Z",
-      expected_merchant: "Old Shop",
-      expected_category_id: null,
-      expected_subcategory_id: "old-subcategory-id",
-    },
-  ]);
+it("fingerprints the target transaction fields and deterministic rule-set snapshot", () => {
+  const fingerprint = merchantAutomations.fingerprintAutomationPreview(
+    [
+      {
+        id: "transaction-id",
+        merchant: "Shop",
+        category_id: "category-id",
+        subcategory_id: null,
+        expected_updated_at: "2026-08-07T10:00:00Z",
+        expected_merchant: "Old Shop",
+        expected_category_id: null,
+        expected_subcategory_id: "old-subcategory-id",
+      },
+    ],
+    [
+      {
+        id: "rule-id",
+        action: "normalize_merchant",
+        pattern: "shop",
+        replacement: "Shop",
+        category_id: null,
+        subcategory_id: null,
+        enabled: true,
+        position: 0,
+      },
+    ],
+  );
 
   expect(fingerprint).toBe(
-    '[{"id":"transaction-id","merchant":"Shop","category_id":"category-id","subcategory_id":null,"expected_updated_at":"2026-08-07T10:00:00Z","expected_merchant":"Old Shop","expected_category_id":null,"expected_subcategory_id":"old-subcategory-id"}]',
+    '{"changes":[{"id":"transaction-id","merchant":"Shop","category_id":"category-id","subcategory_id":null,"expected_updated_at":"2026-08-07T10:00:00Z","expected_merchant":"Old Shop","expected_category_id":null,"expected_subcategory_id":"old-subcategory-id"}],"ruleSet":[{"id":"rule-id","action":"normalize_merchant","pattern":"shop","replacement":"Shop","category_id":null,"subcategory_id":null,"enabled":true,"position":0}]}',
   );
 });
 
@@ -486,5 +512,37 @@ it("previews only changed transactions and groups same-action conflicts", () => 
       transactionCount: 1,
     },
   ]);
-  expect(preview.fingerprint).toBe(merchantAutomations.fingerprintAutomationPreview(preview.changes));
+  expect(preview.ruleSet).toEqual([
+    {
+      id: "normalize-first",
+      action: "normalize_merchant",
+      pattern: "shop",
+      replacement: "Shop",
+      category_id: null,
+      subcategory_id: null,
+      enabled: true,
+      position: 0,
+    },
+    {
+      id: "normalize-shadowed",
+      action: "normalize_merchant",
+      pattern: "market",
+      replacement: "Market",
+      category_id: null,
+      subcategory_id: null,
+      enabled: true,
+      position: 1,
+    },
+    {
+      id: "category",
+      action: "assign_category",
+      pattern: "shop",
+      replacement: null,
+      category_id: null,
+      subcategory_id: "groceries-id",
+      enabled: true,
+      position: 2,
+    },
+  ]);
+  expect(preview.fingerprint).toBe(merchantAutomations.fingerprintAutomationPreview(preview.changes, preview.ruleSet));
 });

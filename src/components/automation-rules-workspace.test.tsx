@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   actionReducers: [] as Array<(state: unknown, formData: FormData) => unknown>,
   applyAutomationResults: vi.fn(),
   createAutomationRule: vi.fn(),
+  setAutomationRuleEnabled: vi.fn(),
   sheetSides: [] as Array<string | undefined>,
   updateAutomationRule: vi.fn(),
 }));
@@ -25,6 +26,7 @@ vi.mock("@/app/actions/merchant-automations", () => ({
   createAutomationRule: mocks.createAutomationRule,
   deleteAutomationRule: vi.fn(),
   reorderAutomationRules: vi.fn(),
+  setAutomationRuleEnabled: mocks.setAutomationRuleEnabled,
   updateAutomationRule: mocks.updateAutomationRule,
 }));
 vi.mock("@/components/ui/sheet", () => ({
@@ -47,6 +49,7 @@ beforeEach(() => {
   mocks.sheetSides.length = 0;
   mocks.applyAutomationResults.mockResolvedValue({ status: "success" });
   mocks.createAutomationRule.mockResolvedValue({ status: "success" });
+  mocks.setAutomationRuleEnabled.mockResolvedValue({ status: "success", data: { enabled: "false" } });
   mocks.updateAutomationRule.mockResolvedValue({ status: "success" });
 });
 
@@ -87,6 +90,7 @@ it("renders ordered atomic automation rules with conflict guidance", () => {
               },
             ],
             fingerprint: "preview-fingerprint",
+            ruleSet: [],
           }}
           rules={[
             { id: "normalize", action: "normalize_merchant", pattern: "ארומה", replacement: "Aroma", enabled: true, position: 0 },
@@ -136,7 +140,7 @@ it("renders add and edit rule forms in right-side sheets", () => {
     <workspaceModule.AutomationRulesWorkspace
       count={1}
       destinations={[]}
-      preview={{ changes: [], conflicts: [], fingerprint: "preview-fingerprint" }}
+      preview={{ changes: [], conflicts: [], fingerprint: "preview-fingerprint", ruleSet: [] }}
       rules={[
         {
           id: "rule-id",
@@ -215,7 +219,7 @@ it("preserves the submitted toggle target for success feedback after revalidatio
     <workspaceModule.AutomationRulesWorkspace
       count={1}
       destinations={[]}
-      preview={{ changes: [], conflicts: [], fingerprint: "preview-fingerprint" }}
+      preview={{ changes: [], conflicts: [], fingerprint: "preview-fingerprint", ruleSet: [] }}
       rules={[
         {
           id: "rule-id",
@@ -230,11 +234,12 @@ it("preserves the submitted toggle target for success feedback after revalidatio
   );
 
   const toggleData = new FormData();
-  toggleData.set("enabled", "false");
   await expect(mocks.actionReducers[0](null, toggleData)).resolves.toEqual({
     status: "success",
     data: { enabled: "false" },
   });
+  expect(mocks.setAutomationRuleEnabled).toHaveBeenCalledWith("rule-id", false);
+  expect(mocks.updateAutomationRule).not.toHaveBeenCalled();
 });
 
 it("submits the reviewed preview fingerprint through the atomic apply action", async () => {
@@ -251,17 +256,29 @@ it("submits the reviewed preview fingerprint through the atomic apply action", a
       expected_subcategory_id: null,
     },
   ];
+  const ruleSet = [
+    {
+      id: "22222222-2222-4222-8222-222222222222",
+      action: "normalize_merchant" as const,
+      pattern: "shop",
+      replacement: "Shop",
+      category_id: null,
+      subcategory_id: null,
+      enabled: true,
+      position: 0,
+    },
+  ];
 
   const markup = renderToStaticMarkup(
     <workspaceModule.ApplyPreviewControl
       destinations={[]}
       disabled
-      preview={{ changes, conflicts: [], fingerprint: "preview-fingerprint" }}
+      preview={{ changes, conflicts: [], fingerprint: "preview-fingerprint", ruleSet }}
     />,
   );
   expect(markup).toContain("Review and apply");
   expect(markup).toContain('disabled=""');
 
   await mocks.actionReducers[0](null, new FormData());
-  expect(mocks.applyAutomationResults).toHaveBeenCalledWith(changes, "preview-fingerprint");
+  expect(mocks.applyAutomationResults).toHaveBeenCalledWith(changes, ruleSet, "preview-fingerprint");
 });

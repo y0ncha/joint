@@ -12,6 +12,7 @@ import {
   createAutomationRule,
   deleteAutomationRule,
   reorderAutomationRules,
+  setAutomationRuleEnabled,
   updateAutomationRule,
 } from "@/app/actions/merchant-automations";
 import type { ActionResult } from "@/app/actions/result";
@@ -200,19 +201,6 @@ export function AutomationRuleForm({
   );
 }
 
-function RuleFields({ enabled, rule }: { enabled: boolean; rule: MerchantAutomationRule }) {
-  return (
-    <>
-      <input name="action" type="hidden" value={rule.action} />
-      <input name="pattern" type="hidden" value={rule.pattern} />
-      <input name="replacement" type="hidden" value={rule.replacement ?? ""} />
-      <input name="categoryId" type="hidden" value={rule.categoryId ?? ""} />
-      <input name="subcategoryId" type="hidden" value={rule.subcategoryId ?? ""} />
-      <input name="enabled" type="hidden" value={String(enabled)} />
-    </>
-  );
-}
-
 function SortableRule({
   canReorder,
   destinations,
@@ -230,12 +218,10 @@ function SortableRule({
   );
   const { ref, handleRef, isDragging } = useSortable({ id: rule.id, index, disabled: !canReorder });
   const [editOpen, setEditOpen] = useState(false);
-  const [toggleState, toggleAction, togglePending] = useActionState<ActionResult | null, FormData>(async (_state, formData) => {
-    const result = await updateAutomationRule(rule.id, formData);
-    return result.status === "success"
-      ? { ...result, data: { ...result.data, enabled: formData.get("enabled") === "true" ? "true" : "false" } }
-      : result;
-  }, null);
+  const [toggleState, toggleAction, togglePending] = useActionState<ActionResult | null, FormData>(
+    async () => setAutomationRuleEnabled(rule.id, !rule.enabled),
+    null,
+  );
   const [deleteState, deleteAction, deletePending] = useActionState<ActionResult | null, FormData>(
     async () => deleteAutomationRule(rule.id),
     null,
@@ -282,7 +268,6 @@ function SortableRule({
       <Badge variant={rule.enabled ? "outline" : "secondary"}>{rule.enabled ? "Enabled" : "Disabled"}</Badge>
       <div className="ml-auto flex items-center gap-1">
         <form action={toggleAction}>
-          <RuleFields enabled={!rule.enabled} rule={rule} />
           <Button
             type="submit"
             variant="ghost"
@@ -353,7 +338,7 @@ export function ApplyPreviewControl({
   preview: MerchantAutomationPreview;
 }) {
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
-    async () => applyAutomationResults(preview.changes, preview.fingerprint),
+    async () => applyAutomationResults(preview.changes, preview.ruleSet, preview.fingerprint),
     null,
   );
 

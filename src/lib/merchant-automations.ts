@@ -50,10 +50,22 @@ export type AutomationPreviewChange = {
 
 export type AutomationPreviewConflict = AutomationConflict & { transactionCount: number };
 
+export type AutomationRuleSnapshot = {
+  id: string;
+  action: AutomationAction;
+  pattern: string;
+  replacement: string | null;
+  category_id: string | null;
+  subcategory_id: string | null;
+  enabled: boolean;
+  position: number;
+};
+
 export type MerchantAutomationPreview = {
   changes: AutomationPreviewChange[];
   conflicts: AutomationPreviewConflict[];
   fingerprint: string;
+  ruleSet: AutomationRuleSnapshot[];
 };
 
 export type AutomationDestination = {
@@ -117,9 +129,25 @@ export function evaluateMerchantAutomations(input: AutomationInput, rules: Merch
   };
 }
 
-export function fingerprintAutomationPreview(changes: readonly AutomationPreviewChange[]) {
-  return JSON.stringify(
-    changes
+function snapshotAutomationRules(rules: readonly MerchantAutomationRule[]): AutomationRuleSnapshot[] {
+  return rules
+    .slice()
+    .sort(comparePersistedOrder)
+    .map((rule) => ({
+      id: rule.id,
+      action: rule.action,
+      pattern: rule.pattern,
+      replacement: rule.replacement ?? null,
+      category_id: rule.categoryId ?? null,
+      subcategory_id: rule.subcategoryId ?? null,
+      enabled: rule.enabled,
+      position: rule.position,
+    }));
+}
+
+export function fingerprintAutomationPreview(changes: readonly AutomationPreviewChange[], ruleSet: readonly AutomationRuleSnapshot[]) {
+  return JSON.stringify({
+    changes: changes
       .map((change) => ({
         id: change.id,
         merchant: change.merchant,
@@ -131,13 +159,15 @@ export function fingerprintAutomationPreview(changes: readonly AutomationPreview
         expected_subcategory_id: change.expected_subcategory_id,
       }))
       .sort((left, right) => left.id.localeCompare(right.id)),
-  );
+    ruleSet: ruleSet.slice().sort((left, right) => left.position - right.position || left.id.localeCompare(right.id)),
+  });
 }
 
 export function previewMerchantAutomations(
   transactions: readonly PreviewTransaction[],
   rules: MerchantAutomationRule[],
 ): MerchantAutomationPreview {
+  const ruleSet = snapshotAutomationRules(rules);
   const conflicts = new Map<string, AutomationPreviewConflict>();
   const changes = transactions.flatMap((transaction) => {
     const result = evaluateMerchantAutomations(transaction, rules);
@@ -167,7 +197,7 @@ export function previewMerchantAutomations(
     ];
   });
 
-  return { changes, conflicts: [...conflicts.values()], fingerprint: fingerprintAutomationPreview(changes) };
+  return { changes, conflicts: [...conflicts.values()], fingerprint: fingerprintAutomationPreview(changes, ruleSet), ruleSet };
 }
 
 function pageBounds({ from = 0, to = 999 }: AutomationPage) {
@@ -369,7 +399,7 @@ export async function getMerchantAutomationRulesPage(options: AutomationPage = {
           })),
           previewRules,
         )
-      : { changes: [], conflicts: [], fingerprint: fingerprintAutomationPreview([]) };
+      : { changes: [], conflicts: [], fingerprint: fingerprintAutomationPreview([], []), ruleSet: [] };
 
   return { count: rulesResult.count, rules, destinations, preview };
 }

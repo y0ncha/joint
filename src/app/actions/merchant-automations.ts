@@ -5,7 +5,12 @@ import { z } from "zod";
 
 import { validationError, type ActionResult } from "@/app/actions/result";
 import { requireCurrentHousehold } from "@/lib/household";
-import { compileMerchantPattern, fingerprintAutomationPreview, type AutomationPreviewChange } from "@/lib/merchant-automations";
+import {
+  compileMerchantPattern,
+  fingerprintAutomationPreview,
+  type AutomationPreviewChange,
+  type AutomationRuleSnapshot,
+} from "@/lib/merchant-automations";
 
 const nullableId = z.preprocess(
   (value) => (value === "" || value === undefined || value === null ? null : value),
@@ -54,6 +59,19 @@ const previewChangeSchema: z.ZodType<AutomationPreviewChange> = z.object({
   expected_subcategory_id: z.string().uuid().nullable(),
 });
 const previewChangesSchema = z.array(previewChangeSchema);
+const ruleSetSchema: z.ZodType<AutomationRuleSnapshot[]> = z.array(
+  z.object({
+    id: z.string().uuid(),
+    action: z.enum(["normalize_merchant", "assign_category"]),
+    pattern: z.string().min(1).max(200),
+    replacement: z.string().max(200).nullable(),
+    category_id: z.string().uuid().nullable(),
+    subcategory_id: z.string().uuid().nullable(),
+    enabled: z.boolean(),
+    position: z.number().int().nonnegative(),
+  }),
+);
+const enabledRuleSchema = z.object({ ruleId: z.string().uuid(), enabled: z.boolean() });
 
 const GENERIC_ERROR = "Unable to save the automation rule. Please try again.";
 
@@ -131,6 +149,20 @@ export async function updateAutomationRule(ruleId: string, input: FormData): Pro
   return { status: "success" };
 }
 
+export async function setAutomationRuleEnabled(ruleId: string, value: boolean): Promise<ActionResult> {
+  const parsed = enabledRuleSchema.safeParse({ ruleId, enabled: value });
+  if (!parsed.success) return validationError(parsed.error.issues);
+  const household = await requireCurrentHousehold();
+  const { error } = await household.supabase
+    .from("automation_rules")
+    .update({ enabled: parsed.data.enabled })
+    .eq("id", parsed.data.ruleId)
+    .eq("household_id", household.householdId);
+  if (error) return { status: "error", formError: GENERIC_ERROR, fieldErrors: {} };
+  revalidateAutomations();
+  return { status: "success", data: { enabled: String(parsed.data.enabled) } };
+}
+
 export async function deleteAutomationRule(ruleId: string): Promise<ActionResult> {
   const household = await requireCurrentHousehold();
   const { error } = await household.supabase.from("automation_rules").delete().eq("id", ruleId).eq("household_id", household.householdId);
@@ -152,10 +184,16 @@ export async function reorderAutomationRules(orderedRuleIds: string[]): Promise<
   return { status: "success" };
 }
 
-export async function applyAutomationResults(changes: AutomationPreviewChange[], fingerprint: string): Promise<ActionResult> {
+export async function applyAutomationResults(
+  changes: AutomationPreviewChange[],
+  ruleSet: AutomationRuleSnapshot[],
+  fingerprint: string,
+): Promise<ActionResult> {
   const parsedChanges = previewChangesSchema.safeParse(changes);
   if (!parsedChanges.success) return validationError(parsedChanges.error.issues);
-  if (fingerprintAutomationPreview(parsedChanges.data) !== fingerprint) {
+  const parsedRuleSet = ruleSetSchema.safeParse(ruleSet);
+  if (!parsedRuleSet.success) return validationError(parsedRuleSet.error.issues);
+  if (fingerprintAutomationPreview(parsedChanges.data, parsedRuleSet.data) !== fingerprint) {
     return {
       status: "error",
       formError: "This automation preview is stale. Refresh it before applying changes.",
@@ -167,6 +205,7 @@ export async function applyAutomationResults(changes: AutomationPreviewChange[],
   const { error } = await household.supabase.rpc("apply_automation_results", {
     target_household_id: household.householdId,
     changes: parsedChanges.data,
+    expected_rule_set: parsedRuleSet.data,
   });
   if (error?.message?.includes("Automation preview is stale")) {
     return {

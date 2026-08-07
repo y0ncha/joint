@@ -443,7 +443,11 @@ export type Database = {
     }
     Functions: {
       apply_automation_results: {
-        Args: { changes: Json; target_household_id: string }
+        Args: {
+          changes: Json
+          expected_rule_set: Json
+          target_household_id: string
+        }
         Returns: number
       }
       create_category: {

@@ -4,13 +4,13 @@ version: 1.0
 date_created: 2026-08-07
 last_updated: 2026-08-07
 owner: Joint
-status: "Complete"
+status: "In Progress"
 tags: [feature, automation, transactions, imports, supabase]
 ---
 
 # Introduction
 
-![Status: Complete](https://img.shields.io/badge/status-Complete-green)
+![Status: In Progress](https://img.shields.io/badge/status-In_Progress-yellow)
 
 Implement household-owned, ordered merchant rules. Each atomic rule either normalizes a merchant or assigns a transaction destination. Rules affect new manual and statement-import transactions; existing transactions require preview and explicit confirmation.
 
@@ -62,6 +62,15 @@ Implement household-owned, ordered merchant rules. Each atomic rule either norma
 | TASK-007 | Connect `/automations`, Settings navigation, accessible sorting, rule forms, conflict preview, and explicit bulk-apply confirmation. | Complete | 2026-08-07 |
 | TASK-008 | Run focused/full tests, lint, format check, pgTAP, browser workflows, update architecture documentation, and commit intended files.  | Complete | 2026-08-07 |
 
+### Implementation Phase 5
+
+- **GOAL-005**: Close the final-review concurrency and historical-data gaps without changing the approved product surface.
+
+| Task     | Description                                                                                                                                                            | Status   | Date       |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| TASK-009 | Add focused regressions and a generated forward migration for locked rule-set validation, orphaned-manual normalization, and enabled-only toggles.                     | Complete | 2026-08-07 |
+| TASK-010 | Apply and verify the forward migration on `joint-dev`, regenerate hosted database types, run advisors, and repeat the affected browser workflows after local delivery. | Pending  |            |
+
 ## 3. Alternatives
 
 - **ALT-001**: A sequential pipeline was rejected because normalization would silently change later rule matches.
@@ -87,11 +96,13 @@ Implement household-owned, ordered merchant rules. Each atomic rule either norma
 - **TEST-002**: Action and database tests cover RLS, payload/destination validation, reordering, stale preview rejection, and atomic bulk application.
 - **TEST-003**: Transaction/import tests cover explicit destination precedence, automatic blank resolution, normalization, and import idempotency.
 - **TEST-004**: Browser checks cover rule management, pointer and keyboard sorting, real forms, preview/confirmation, manual entry, and import.
+- **TEST-005**: The final-review wave has local evidence from 381 passing Vitest tests, 165 passing pgTAP assertions in a disposable unlinked Postgres instance, clean ESLint, Prettier, TypeScript, and public/private schema lint. Linked history, dry-run, application, type generation, advisors, and hosted browser proof remain blocked because this isolated worktree has no `supabase/.temp/project-ref`; no linked command was run.
 
 ## 7. Risks & Assumptions
 
 - **RISK-001**: Future regex overlap cannot be proven generally; current-data previews and visible ordered precedence mitigate it.
 - **RISK-002**: Rules must never auto-assign Bills because their service periods cannot be inferred.
+- **RISK-003**: Confirming a historical preview takes a short table-wide shared lock on automation rules. This is appropriate for rare applies, but a per-household version row is the next step if cross-household rule-write contention appears.
 - **ASSUMPTION-001**: Existing category rules affect only uncategorized rows; normalization may affect any matching merchant after confirmation.
 - **ASSUMPTION-002**: Both household members manage the shared ordered rule list.
 

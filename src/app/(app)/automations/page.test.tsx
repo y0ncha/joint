@@ -19,7 +19,7 @@ it("loads the authenticated rules workspace data through the Phase 3 page reader
     count: 1,
     rules: [{ id: "rule-id", action: "normalize_merchant", pattern: "shop", replacement: "Shop", enabled: true, position: 0 }],
     destinations: [],
-    preview: { changes: [], conflicts: [], fingerprint: "[]" },
+    preview: { changes: [], conflicts: [], fingerprint: '{"changes":[],"ruleSet":[]}', ruleSet: [] },
   });
 
   const markup = renderToStaticMarkup(await automationsPage.default());
@@ -27,5 +27,5 @@ it("loads the authenticated rules workspace data through the Phase 3 page reader
   expect(mocks.getMerchantAutomationRulesPage).toHaveBeenCalledWith();
   expect(markup).toContain("&quot;count&quot;:1");
   expect(markup).toContain("&quot;id&quot;:&quot;rule-id&quot;");
-  expect(markup).toContain("&quot;fingerprint&quot;:&quot;[]&quot;");
+  expect(markup).toContain("&quot;ruleSet&quot;:[]");
 });
