@@ -32,7 +32,6 @@ export default async function RootLayout({
     "--primary-foreground": accentForeground(accent),
     "--ring": accent,
     "--chart-1": accent,
-    "--accent": `color-mix(in srgb, ${accent} 12%, white)`,
     "--sidebar-primary": accent,
     "--sidebar-primary-foreground": accentForeground(accent),
     "--sidebar-ring": accent,
