@@ -706,7 +706,7 @@ function BillsGroceriesCharts({
                         value={groceryMonth}
                         onChange={(event) => navigateWithData({ groceryMonth: event.target.value || null })}
                         aria-label="Select Groceries month"
-                        className="min-h-11 w-36"
+                        className="min-h-11 w-44"
                       />
                     </Field>
                     <Select
@@ -715,7 +715,7 @@ function BillsGroceriesCharts({
                         updatePresentationUrl({ grocery: value === "all" ? null : value });
                       }}
                     >
-                      <SelectTrigger aria-label="Show spending" className="min-h-11 w-36">
+                      <SelectTrigger aria-label="Show spending" className="min-h-11 w-44">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

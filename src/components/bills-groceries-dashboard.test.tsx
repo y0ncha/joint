@@ -25,9 +25,17 @@ vi.mock("@/lib/bills-groceries", async (importOriginal) => {
   return { ...actual, alignBillYearOverYear: mocks.alignBillYearOverYear };
 });
 vi.mock("@/components/ui/input", () => ({
-  Input: ({ "aria-label": ariaLabel, onChange }: { "aria-label"?: string; onChange?: (event: { target: { value: string } }) => void }) => {
+  Input: ({
+    "aria-label": ariaLabel,
+    className,
+    onChange,
+  }: {
+    "aria-label"?: string;
+    className?: string;
+    onChange?: (event: { target: { value: string } }) => void;
+  }) => {
     if (ariaLabel === "Select Groceries month") mocks.monthChange = onChange;
-    return <input aria-label={ariaLabel} />;
+    return <input aria-label={ariaLabel} className={className} />;
   },
 }));
 vi.mock("@/components/ui/checkbox", () => ({
@@ -52,10 +60,20 @@ vi.mock("@/components/ui/select", () => ({
   SelectContent: ({ children }: { children: ReactNode }) => <>{children}</>,
   SelectGroup: ({ children }: { children: ReactNode }) => <>{children}</>,
   SelectItem: ({ children }: { children: ReactNode }) => <>{children}</>,
-  SelectTrigger: ({ "aria-label": ariaLabel, children, id }: { "aria-label"?: string; children: ReactNode; id?: string }) => {
+  SelectTrigger: ({
+    "aria-label": ariaLabel,
+    children,
+    className,
+    id,
+  }: {
+    "aria-label"?: string;
+    children: ReactNode;
+    className?: string;
+    id?: string;
+  }) => {
     const control = id ?? ariaLabel;
     if (control && mocks.activeSelectChange) mocks.selectChanges.set(control, mocks.activeSelectChange);
-    return <>{children}</>;
+    return <button aria-label={ariaLabel} className={className}>{children}</button>;
   },
   SelectValue: () => null,
 }));
@@ -164,6 +182,17 @@ it("writes the selected daily month without losing dashboard filters", () => {
   mocks.monthChange?.({ target: { value: "2026-06" } });
 
   expect(mocks.push).toHaveBeenCalledWith("/bills-groceries?period=calendar&bills=rent&bill=rent&groceryMonth=2026-06&grocery=top-ups");
+});
+
+it("gives the Groceries day controls the same width", () => {
+  mocks.showPopoverContent = true;
+
+  const markup = renderToStaticMarkup(<BillsGroceriesDashboard {...dashboardProps} />);
+  const monthControl = markup.match(/<input[^>]*aria-label="Select Groceries month"[^>]*>/)?.[0] ?? "";
+  const spendingControl = markup.match(/<button[^>]*aria-label="Show spending"[^>]*>/)?.[0] ?? "";
+
+  expect(monthControl).toContain('class="min-h-11 w-44"');
+  expect(spendingControl).toContain('class="min-h-11 w-44"');
 });
 
 it("uses router navigation only for data-bearing dashboard filters", () => {

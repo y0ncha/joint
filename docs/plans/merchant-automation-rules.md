@@ -85,7 +85,7 @@ Implement household-owned, ordered merchant rules. Each atomic rule either norma
 
 | Task     | Description                                                                                                                                                                                                                                                                                              | Status  | Date |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
-| TASK-011 | Update `docs/design.md`, temporarily render the four-mode match builder in `AutomationRuleForm` within `src/components/automation-rules-workspace.tsx`, obtain browser confirmation of the add and edit Sheets at mobile and desktop widths, and restore the temporary component edit before continuing. | Planned |      |
+| TASK-011 | Update `docs/design.md`, temporarily render the four-mode match builder in `AutomationRuleForm` within `src/components/automation-rules-workspace.tsx`, obtain browser confirmation of the add and edit Sheets at mobile and desktop widths, and restore the temporary component edit before continuing. | Blocked — no edit fixture | 2026-08-08 |
 
 ### Implementation Phase 7
 
