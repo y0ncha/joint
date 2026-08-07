@@ -39,6 +39,13 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { categoryIcon } from "@/lib/category-icons";
 import type { AutomationDestination, MerchantAutomationPreview, MerchantAutomationRule } from "@/lib/merchant-automations";
+import {
+  decodeMerchantPattern,
+  describeMerchantPattern,
+  encodeMerchantPattern,
+  merchantMatchModeOptions,
+  type MerchantMatchMode,
+} from "@/lib/merchant-pattern";
 import { cn } from "@/lib/utils";
 
 function ruleLabel(rule: MerchantAutomationRule) {
@@ -55,6 +62,12 @@ function selectedDestination(rule: MerchantAutomationRule | undefined) {
   return "";
 }
 
+function ruleOutcome(rule: MerchantAutomationRule, destination: AutomationDestination | undefined) {
+  return rule.action === "normalize_merchant"
+    ? `Rename merchant to “${rule.replacement ?? "Missing replacement"}”`
+    : `Assign category “${destination?.label ?? "Missing destination"}”`;
+}
+
 export function AutomationRuleForm({
   destinations,
   onSaved,
@@ -68,7 +81,10 @@ export function AutomationRuleForm({
   const [action, setAction] = useState(rule?.action ?? "normalize_merchant");
   const [destination, setDestination] = useState(() => selectedDestination(rule));
   const [enabled, setEnabled] = useState(rule?.enabled ?? true);
-  const patternRef = useRef<HTMLInputElement>(null);
+  const decodedPattern = decodeMerchantPattern(rule?.pattern ?? "");
+  const [matchMode, setMatchMode] = useState<MerchantMatchMode>(decodedPattern.mode);
+  const [matchValue, setMatchValue] = useState(decodedPattern.value);
+  const merchantTextRef = useRef<HTMLInputElement>(null);
   const replacementRef = useRef<HTMLInputElement>(null);
   const destinationRef = useRef<HTMLButtonElement>(null);
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
@@ -84,7 +100,7 @@ export function AutomationRuleForm({
       onSaved?.();
     } else if (state?.status === "error") {
       toast.error(state.formError, { id: `automation-rule-${rule?.id ?? "new"}` });
-      if (state.fieldErrors.pattern) patternRef.current?.focus();
+      if (state.fieldErrors.pattern) merchantTextRef.current?.focus();
       else if (state.fieldErrors.replacement) replacementRef.current?.focus();
       else if (state.fieldErrors.categoryId || state.fieldErrors.subcategoryId) destinationRef.current?.focus();
     }
@@ -97,6 +113,8 @@ export function AutomationRuleForm({
         <input name="categoryId" type="hidden" value={destinationOption?.categoryId ?? ""} />
         <input name="subcategoryId" type="hidden" value={destinationOption?.subcategoryId ?? ""} />
         <input name="enabled" type="hidden" value={String(enabled)} />
+        <input name="matchMode" type="hidden" value={matchMode} />
+        <input name="pattern" type="hidden" value={encodeMerchantPattern(matchMode, matchValue)} />
         <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.action)}>
           <FieldLabel htmlFor={`${formId}-action`}>Action</FieldLabel>
           <Select
@@ -126,13 +144,36 @@ export function AutomationRuleForm({
           </Select>
           {state?.status === "error" ? <FieldError>{state.fieldErrors.action}</FieldError> : null}
         </Field>
+        <Field>
+          <FieldLabel htmlFor={`${formId}-match-mode`}>Merchant match</FieldLabel>
+          <Select value={matchMode} onValueChange={(value) => setMatchMode(value as MerchantMatchMode)}>
+            <SelectTrigger id={`${formId}-match-mode`} className="h-11 w-full rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {merchantMatchModeOptions.map((option) => (
+                  <SelectItem key={option.value} className="min-h-11" value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+                {rule && decodedPattern.mode === "advanced" ? (
+                  <SelectItem className="min-h-11" value="advanced">
+                    Advanced pattern
+                  </SelectItem>
+                ) : null}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
         <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.pattern)}>
-          <FieldLabel htmlFor={`${formId}-pattern`}>Merchant pattern</FieldLabel>
+          <FieldLabel htmlFor={`${formId}-match-value`}>Merchant text</FieldLabel>
           <Input
-            ref={patternRef}
-            id={`${formId}-pattern`}
-            name="pattern"
-            defaultValue={rule?.pattern}
+            ref={merchantTextRef}
+            id={`${formId}-match-value`}
+            name="matchValue"
+            value={matchValue}
+            onChange={(event) => setMatchValue(event.target.value)}
             required
             maxLength={200}
             autoComplete="off"
@@ -216,6 +257,7 @@ function SortableRule({
   const destination = destinations.find(
     (option) => option.categoryId === (rule.categoryId ?? null) && option.subcategoryId === (rule.subcategoryId ?? null),
   );
+  const outcome = ruleOutcome(rule, destination);
   const { ref, handleRef, isDragging } = useSortable({ id: rule.id, index, disabled: !canReorder });
   const [editOpen, setEditOpen] = useState(false);
   const [toggleState, toggleAction, togglePending] = useActionState<ActionResult | null, FormData>(
@@ -262,7 +304,9 @@ function SortableRule({
       <span className="w-5 text-sm text-muted-foreground">{index + 1}</span>
       <div className="min-w-40 flex-1">
         <p className="font-medium">{label}</p>
-        <p className="truncate text-sm text-muted-foreground">{rule.pattern}</p>
+        <p className="truncate text-sm text-muted-foreground">
+          {describeMerchantPattern(rule.pattern)} → {outcome}
+        </p>
       </div>
       <Badge variant="secondary">{rule.replacement ?? destination?.label ?? "Missing destination"}</Badge>
       <Badge variant={rule.enabled ? "outline" : "secondary"}>{rule.enabled ? "Enabled" : "Disabled"}</Badge>
@@ -514,8 +558,9 @@ export function AutomationRulesWorkspace({
                     key={`${conflict.action}:${conflict.winnerId}:${conflict.shadowedRuleIds.join(",")}`}
                     className="text-sm text-muted-foreground"
                   >
-                    {winner?.pattern ?? "Higher-priority rule"} wins over {shadowed.join(", ") || "lower-priority rules"} for{" "}
-                    {conflict.transactionCount} {conflict.transactionCount === 1 ? "transaction" : "transactions"}.
+                    {winner ? describeMerchantPattern(winner.pattern) : "Higher-priority rule"} wins over{" "}
+                    {shadowed.map(describeMerchantPattern).join(", ") || "lower-priority rules"} for {conflict.transactionCount}{" "}
+                    {conflict.transactionCount === 1 ? "transaction" : "transactions"}.
                   </li>
                 );
               })}
