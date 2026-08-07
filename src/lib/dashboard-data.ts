@@ -12,7 +12,11 @@ export async function getDashboardData(month: string, range?: DateRange) {
     supabase.from("categories").select("*").eq("household_id", household.householdId).order("name"),
     supabase.from("subcategories").select("*").eq("household_id", household.householdId).order("name"),
     supabase.from("transactions").select("*").eq("household_id", household.householdId).order("occurred_on", { ascending: false }),
-    supabase.from("household_members").select("user_id, role, color").eq("household_id", household.householdId).order("joined_at"),
+    supabase
+      .from("household_members")
+      .select("user_id, color, profiles(full_name)")
+      .eq("household_id", household.householdId)
+      .order("joined_at"),
   ]);
   if (householdResult.error || categoriesResult.error || subcategoriesResult.error || transactionsResult.error || membersResult.error)
     throw new Error("Unable to load household data.");
@@ -40,7 +44,7 @@ export async function getDashboardData(month: string, range?: DateRange) {
   const members = (membersResult.data ?? []).map((member) => ({
     id: member.user_id,
     color: member.color,
-    label: member.user_id === currentUserId ? "You" : member.role === "owner" ? "Owner" : "Partner",
+    label: member.profiles?.full_name?.trim() || "Unnamed member",
   }));
   const openingBalance = Number(householdResult.data.opening_balance);
   return {

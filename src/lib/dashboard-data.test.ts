@@ -101,7 +101,13 @@ beforeEach(() => {
                   ],
                   error: null,
                 }
-              : { data: [{ user_id: "member-id", role: "owner" }], error: null };
+              : {
+                  data: [
+                    { user_id: "member-id", role: "owner", color: "#dcece3", profiles: { full_name: "Ada Lovelace" } },
+                    { user_id: "partner-id", role: "member", color: "#d8e0f0", profiles: { full_name: "Grace Hopper" } },
+                  ],
+                  error: null,
+                };
     const query = { order: vi.fn().mockResolvedValue(result) };
     const eq =
       table === "households"
@@ -122,6 +128,10 @@ it("loads the household opening balance through the member request context", asy
   const data = await dashboardDataModule.getDashboardData("2026-07");
 
   expect(data).toMatchObject({ report: { sharedBalance: 9275.5 }, currentUserId: "member-id" });
+  expect(data.members).toEqual([
+    { id: "member-id", color: "#dcece3", label: "Ada Lovelace" },
+    { id: "partner-id", color: "#d8e0f0", label: "Grace Hopper" },
+  ]);
   expect(data).not.toHaveProperty("accounts");
   expect(data).not.toHaveProperty("setupRequired");
   expect(mocks.buildMonthlyReport).toHaveBeenCalledWith(expect.objectContaining({ openingBalance: 9000.5, month: "2026-07" }));
