@@ -21,4 +21,6 @@ it("renders ordered atomic automation rules with conflict guidance", () => {
   expect(markup).toContain("Assign category");
   expect(markup).toContain("Aroma");
   expect(markup).toContain("Food → Cafe");
+  expect(markup).toContain('aria-label="Add rule"');
+  expect(markup).not.toContain(">Add rule<");
 });

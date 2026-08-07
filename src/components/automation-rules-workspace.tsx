@@ -21,9 +21,8 @@ export function AutomationRulesWorkspace({ rules }: { rules: AutomationRulePrevi
       title="Automations"
       description="Make familiar merchants consistent and categorized."
       actions={
-        <Button className="h-11 rounded-full px-4" disabled>
-          <Plus data-icon="inline-start" />
-          Add rule
+        <Button aria-label="Add rule" size="icon" className="size-11 rounded-full" disabled>
+          <Plus aria-hidden="true" />
         </Button>
       }
     >
