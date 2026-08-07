@@ -5,12 +5,7 @@ import { z } from "zod";
 
 import { validationError, type ActionResult } from "@/app/actions/result";
 import { requireCurrentHousehold } from "@/lib/household";
-import {
-  compileMerchantPattern,
-  fingerprintAutomationPreview,
-  type AutomationPreviewChange,
-  type AutomationRuleSnapshot,
-} from "@/lib/merchant-automations";
+import { compileMerchantPattern, getMerchantAutomationRulesPage } from "@/lib/merchant-automations";
 
 const nullableId = z.preprocess(
   (value) => (value === "" || value === undefined || value === null ? null : value),
@@ -48,29 +43,6 @@ const automationRuleSchema = z
     }
   });
 
-const previewChangeSchema: z.ZodType<AutomationPreviewChange> = z.object({
-  id: z.string().uuid(),
-  merchant: z.string().max(200),
-  category_id: z.string().uuid().nullable(),
-  subcategory_id: z.string().uuid().nullable(),
-  expected_updated_at: z.string().min(1),
-  expected_merchant: z.string().max(200),
-  expected_category_id: z.string().uuid().nullable(),
-  expected_subcategory_id: z.string().uuid().nullable(),
-});
-const previewChangesSchema = z.array(previewChangeSchema);
-const ruleSetSchema: z.ZodType<AutomationRuleSnapshot[]> = z.array(
-  z.object({
-    id: z.string().uuid(),
-    action: z.enum(["normalize_merchant", "assign_category"]),
-    pattern: z.string().min(1).max(200),
-    replacement: z.string().max(200).nullable(),
-    category_id: z.string().uuid().nullable(),
-    subcategory_id: z.string().uuid().nullable(),
-    enabled: z.boolean(),
-    position: z.number().int().nonnegative(),
-  }),
-);
 const enabledRuleSchema = z.object({ ruleId: z.string().uuid(), enabled: z.boolean() });
 
 const GENERIC_ERROR = "Unable to save the automation rule. Please try again.";
@@ -184,16 +156,14 @@ export async function reorderAutomationRules(orderedRuleIds: string[]): Promise<
   return { status: "success" };
 }
 
-export async function applyAutomationResults(
-  changes: AutomationPreviewChange[],
-  ruleSet: AutomationRuleSnapshot[],
-  fingerprint: string,
-): Promise<ActionResult> {
-  const parsedChanges = previewChangesSchema.safeParse(changes);
-  if (!parsedChanges.success) return validationError(parsedChanges.error.issues);
-  const parsedRuleSet = ruleSetSchema.safeParse(ruleSet);
-  if (!parsedRuleSet.success) return validationError(parsedRuleSet.error.issues);
-  if (fingerprintAutomationPreview(parsedChanges.data, parsedRuleSet.data) !== fingerprint) {
+export async function applyAutomationResults(fingerprint: string): Promise<ActionResult> {
+  let preview;
+  try {
+    ({ preview } = await getMerchantAutomationRulesPage());
+  } catch {
+    return { status: "error", formError: "Unable to apply automation changes. Please try again.", fieldErrors: {} };
+  }
+  if (!preview.changes.length || preview.fingerprint !== fingerprint) {
     return {
       status: "error",
       formError: "This automation preview is stale. Refresh it before applying changes.",
@@ -204,8 +174,8 @@ export async function applyAutomationResults(
   const household = await requireCurrentHousehold();
   const { error } = await household.supabase.rpc("apply_automation_results", {
     target_household_id: household.householdId,
-    changes: parsedChanges.data,
-    expected_rule_set: parsedRuleSet.data,
+    changes: preview.changes,
+    expected_rule_set: preview.ruleSet,
   });
   if (error?.message?.includes("Automation preview is stale")) {
     return {

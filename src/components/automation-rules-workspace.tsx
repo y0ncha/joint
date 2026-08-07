@@ -338,7 +338,7 @@ export function ApplyPreviewControl({
   preview: MerchantAutomationPreview;
 }) {
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
-    async () => applyAutomationResults(preview.changes, preview.ruleSet, preview.fingerprint),
+    async () => applyAutomationResults(preview.fingerprint),
     null,
   );
 

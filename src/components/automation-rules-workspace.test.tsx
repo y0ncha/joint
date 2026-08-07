@@ -280,5 +280,5 @@ it("submits the reviewed preview fingerprint through the atomic apply action", a
   expect(markup).toContain('disabled=""');
 
   await mocks.actionReducers[0](null, new FormData());
-  expect(mocks.applyAutomationResults).toHaveBeenCalledWith(changes, ruleSet, "preview-fingerprint");
+  expect(mocks.applyAutomationResults).toHaveBeenCalledWith("preview-fingerprint");
 });
