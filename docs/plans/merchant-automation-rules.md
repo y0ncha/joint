@@ -21,7 +21,7 @@ Implement household-owned, ordered merchant rules. Each atomic rule either norma
 - **REQ-003**: Evaluate RE2-compatible patterns case-insensitively against the original trimmed merchant; first enabled match per action wins by persisted order.
 - **REQ-004**: Preserve an explicit manual destination; a blank manual destination resolves through the category rule or retains the current validation error.
 - **REQ-005**: Apply rules while creating manual and statement-import transactions, never implicitly on edit, and bulk-apply existing rows only after preview and confirmation.
-- **REQ-006**: Replace the raw merchant-pattern input with a match control containing exactly `Contains`, `Is exactly`, `Starts with`, and `Ends with` for new rules.
+- **REQ-006**: Replace the raw merchant-pattern input with an owned `Select` matching the current Action dropdown style and containing exactly `Contains`, `Is exactly`, `Starts with`, and `Ends with` for new rules.
 - **REQ-007**: Convert trimmed literal merchant text with `RE2JS.quote` on the server to `quoted`, `^quoted$`, `^quoted`, or `quoted$` for `contains`, `equals`, `starts_with`, or `ends_with`, respectively.
 - **REQ-008**: Decode existing patterns that are losslessly equivalent to the four builder modes and expose `Advanced pattern` only while editing an existing pattern that cannot be decoded without changing its behavior.
 - **REQ-009**: Render builder rules as a localized operator label plus literal value in the ordered list and conflict guidance; render an undecodable existing pattern as `Advanced pattern` plus its raw value.
@@ -83,9 +83,9 @@ Implement household-owned, ordered merchant rules. Each atomic rule either norma
 
 - **GOAL-006**: Approve the literal match-builder contract and its visual arrangement before changing form submission behavior.
 
-| Task     | Description                                                                                                                                                                                                                                                                                              | Status  | Date |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
-| TASK-011 | Update `docs/design.md`, temporarily render the four-mode match builder in `AutomationRuleForm` within `src/components/automation-rules-workspace.tsx`, obtain browser confirmation of the add and edit Sheets at mobile and desktop widths, and restore the temporary component edit before continuing. | Blocked — no edit fixture | 2026-08-08 |
+| Task     | Description                                                                                                                                                                                                                                                                                              | Status                    | Date       |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ---------- |
+| TASK-011 | Update `docs/design.md`, temporarily render the four-mode Select match builder in `AutomationRuleForm` within `src/components/automation-rules-workspace.tsx`, obtain browser confirmation of the add and edit Sheets at mobile and desktop widths, and restore the temporary component edit before continuing. | Complete | 2026-08-08 |
 
 ### Implementation Phase 7
 
