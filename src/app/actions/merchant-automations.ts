@@ -6,6 +6,7 @@ import { z } from "zod";
 import { validationError, type ActionResult } from "@/app/actions/result";
 import { requireCurrentHousehold } from "@/lib/household";
 import { compileMerchantPattern, getMerchantAutomationRulesPage } from "@/lib/merchant-automations";
+import { encodeMerchantPattern, type MerchantMatchMode } from "@/lib/merchant-pattern";
 
 const nullableId = z.preprocess(
   (value) => (value === "" || value === undefined || value === null ? null : value),
@@ -19,11 +20,13 @@ const enabled = z.preprocess(
   (value) => (value === "true" || value === "on" ? true : value === "false" || value === "off" ? false : value),
   z.boolean().default(true),
 );
+const merchantMatchModes = ["contains", "equals", "starts_with", "ends_with", "advanced"] as const satisfies readonly MerchantMatchMode[];
 
 const automationRuleSchema = z
   .object({
     action: z.enum(["normalize_merchant", "assign_category"]),
-    pattern: z.string().trim().min(1, "Enter a merchant pattern.").max(200, "Use 200 characters or fewer."),
+    matchMode: z.enum(merchantMatchModes, { error: "Choose a valid merchant match mode." }),
+    matchValue: z.string().trim().min(1, "Enter a merchant pattern."),
     replacement: nullableText,
     categoryId: nullableId,
     subcategoryId: nullableId,
@@ -49,9 +52,25 @@ const GENERIC_ERROR = "Unable to save the automation rule. Please try again.";
 
 function parseRule(input: FormData) {
   const parsed = automationRuleSchema.safeParse(Object.fromEntries(input));
-  if (!parsed.success) return { error: validationError(parsed.error.issues) as ActionResult };
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((issue) => ({
+      path: issue.path[0] === "matchValue" ? ["pattern"] : issue.path,
+      message: issue.message,
+    }));
+    return { error: validationError(issues) as ActionResult };
+  }
+  const pattern = encodeMerchantPattern(parsed.data.matchMode, parsed.data.matchValue);
+  if (pattern.length > 200) {
+    return {
+      error: {
+        status: "error",
+        formError: "Check the form details.",
+        fieldErrors: { pattern: "Use 200 characters or fewer." },
+      } as ActionResult,
+    };
+  }
   try {
-    compileMerchantPattern(parsed.data.pattern);
+    compileMerchantPattern(pattern);
   } catch {
     return {
       error: {
@@ -61,7 +80,7 @@ function parseRule(input: FormData) {
       } as ActionResult,
     };
   }
-  return { data: parsed.data };
+  return { data: { ...parsed.data, pattern } };
 }
 
 function revalidateAutomations() {
