@@ -175,7 +175,7 @@ export function TransactionLedger({
         </TableHeader>
         <TableBody>
           {visibleTransactions.map((transaction) => (
-            <TableRow key={transaction.id}>
+            <TableRow key={transaction.id} data-state={selectedIds.includes(transaction.id) ? "selected" : undefined}>
               <TableCell>
                 <div className="flex min-h-11 min-w-11 items-center justify-center">
                   <Checkbox

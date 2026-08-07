@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from "recharts";
 import { ArrowLeft, ChevronDown, Maximize2, Settings2 } from "lucide-react";
 
@@ -36,6 +36,17 @@ type Period = "rolling" | "calendar";
 type GroceryFilter = "all" | "main-run" | "top-ups";
 type MonthlyChartDatum = { month: string } & Record<string, string | number>;
 type GroceryMonthlyDatum = { month: string; mainRun: number; topUps: number };
+
+export function groceryTransactionsForDate<Transaction extends { occurredOn: string; subcategoryKey: "main_run" | "top_ups" }>(
+  transactions: Transaction[],
+  date: string | null,
+  filter: GroceryFilter,
+) {
+  const subcategoryKey = filter === "main-run" ? "main_run" : filter === "top-ups" ? "top_ups" : null;
+  return transactions.filter(
+    (transaction) => transaction.occurredOn === date && (!subcategoryKey || transaction.subcategoryKey === subcategoryKey),
+  );
+}
 
 const currency = new Intl.NumberFormat("en-IL", {
   style: "currency",
@@ -303,6 +314,7 @@ function BillsGroceriesCharts({
   initialPeriod: Period;
 }) {
   const [selectedGroceryDate, setSelectedGroceryDate] = useState<string | null>(null);
+  const selectedGroceryDateButton = useRef<HTMLButtonElement | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -397,7 +409,7 @@ function BillsGroceriesCharts({
     [],
   );
   const dailyTableRows = dailyTableData.filter((day) => day.total > 0);
-  const selectedGroceryTransactions = data.groceries.transactions.filter((transaction) => transaction.occurredOn === selectedGroceryDate);
+  const selectedGroceryTransactions = groceryTransactionsForDate(data.groceries.transactions, selectedGroceryDate, groceryFilter);
 
   function navigateWithData(updates: Record<string, string | null>) {
     router.push(dashboardUrl(pathname, new URLSearchParams(searchParams), updates));
@@ -709,95 +721,105 @@ function BillsGroceriesCharts({
                 </Popover>
               }
             >
-              <div
-                className="mx-2 mt-1.5 flex w-auto flex-1 flex-col gap-8 pt-1 pr-3.5 pb-0.5 pl-3.5"
-                role="grid"
-                aria-label="Groceries by day heatmap"
-              >
-                <div className="grid grid-cols-7 gap-1.5 text-center text-xs text-muted-foreground" role="row">
-                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                    <span key={day} role="columnheader">
-                      {day}
-                    </span>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-1.5" role="rowgroup">
-                  {dailyHeatmapWeeks.map((week, weekIndex) => (
-                    <div key={weekIndex} className="contents" role="row">
-                      {week.map((day, dayIndex) => {
-                        if (!day) return <span key={`empty-${dayIndex}`} aria-hidden="true" />;
-                        const level = day.total === 0 ? 0 : Math.min(4, Math.ceil((day.total / highestDailyTotal) * 4));
-                        return (
-                          <Button
-                            key={day.date}
-                            type="button"
-                            role="gridcell"
-                            title={`${day.date}: ${currency.format(day.total)}`}
-                            aria-label={`${day.date}: ${currency.format(day.total)}`}
-                            onClick={() => setSelectedGroceryDate(day.date)}
-                            variant="ghost"
-                            className={cn(
-                              "relative flex h-11 items-center justify-center rounded-md text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 hover:before:absolute hover:before:inset-0 hover:before:rounded-md hover:before:bg-foreground/5 sm:h-20 xl:h-auto xl:aspect-square",
-                              level === 0 && "bg-muted text-muted-foreground",
-                            )}
-                            style={
-                              level > 0
-                                ? {
-                                    backgroundColor: `color-mix(in oklab, ${groceryColor} ${heatmapStrengths[level]}%, transparent)`,
-                                  }
-                                : undefined
-                            }
-                          >
-                            <span className={cn("relative", level > 0 && "rounded-sm bg-background/85 px-1 text-foreground")}>
-                              {day.date.slice(8)}
-                            </span>
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
+              <Dialog open={selectedGroceryDate !== null} onOpenChange={(open) => !open && setSelectedGroceryDate(null)}>
                 <div
-                  className="mt-auto flex items-center justify-center gap-2 text-xs text-muted-foreground"
-                  aria-label="Total daily spending heatmap legend"
+                  className="mx-2 mt-1.5 flex w-auto flex-1 flex-col gap-8 pt-1 pr-3.5 pb-0.5 pl-3.5"
+                  role="grid"
+                  aria-label="Groceries by day heatmap"
                 >
-                  <span>Lower</span>
-                  {heatmapStrengths.map((strength, index) => (
-                    <span
-                      key={index}
-                      aria-hidden="true"
-                      className={cn("size-3 rounded-sm", index === 0 && "bg-muted text-muted-foreground")}
-                      style={index > 0 ? { backgroundColor: `color-mix(in oklab, ${groceryColor} ${strength}%, transparent)` } : undefined}
-                    />
-                  ))}
-                  <span>Higher</span>
+                  <div className="grid grid-cols-7 gap-1.5 text-center text-xs text-muted-foreground" role="row">
+                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                      <span key={day} role="columnheader">
+                        {day}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1.5" role="rowgroup">
+                    {dailyHeatmapWeeks.map((week, weekIndex) => (
+                      <div key={weekIndex} className="contents" role="row">
+                        {week.map((day, dayIndex) => {
+                          if (!day) return <span key={`empty-${dayIndex}`} aria-hidden="true" />;
+                          const level = day.total === 0 ? 0 : Math.min(4, Math.ceil((day.total / highestDailyTotal) * 4));
+                          return (
+                            <Button
+                              key={day.date}
+                              type="button"
+                              role="gridcell"
+                              title={`${day.date}: ${currency.format(day.total)}`}
+                              aria-label={`${day.date}: ${currency.format(day.total)}`}
+                              onClick={(event) => {
+                                selectedGroceryDateButton.current = event.currentTarget;
+                                setSelectedGroceryDate(day.date);
+                              }}
+                              variant="ghost"
+                              className={cn(
+                                "relative flex h-11 items-center justify-center rounded-md text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 hover:before:absolute hover:before:inset-0 hover:before:rounded-md hover:before:bg-foreground/5 sm:h-20 xl:h-auto xl:aspect-square",
+                                level === 0 && "bg-muted text-muted-foreground",
+                              )}
+                              style={
+                                level > 0
+                                  ? {
+                                      backgroundColor: `color-mix(in oklab, ${groceryColor} ${heatmapStrengths[level]}%, transparent)`,
+                                    }
+                                  : undefined
+                              }
+                            >
+                              <span className={cn("relative", level > 0 && "rounded-sm bg-background/85 px-1 text-foreground")}>
+                                {day.date.slice(8)}
+                              </span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                  <div
+                    className="mt-auto flex items-center justify-center gap-2 text-xs text-muted-foreground"
+                    aria-label="Total daily spending heatmap legend"
+                  >
+                    <span>Lower</span>
+                    {heatmapStrengths.map((strength, index) => (
+                      <span
+                        key={index}
+                        aria-hidden="true"
+                        className={cn("size-3 rounded-sm", index === 0 && "bg-muted text-muted-foreground")}
+                        style={
+                          index > 0 ? { backgroundColor: `color-mix(in oklab, ${groceryColor} ${strength}%, transparent)` } : undefined
+                        }
+                      />
+                    ))}
+                    <span>Higher</span>
+                  </div>
                 </div>
-                <Dialog open={selectedGroceryDate !== null} onOpenChange={(open) => !open && setSelectedGroceryDate(null)}>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Groceries on {selectedGroceryDate}</DialogTitle>
-                      <DialogDescription>Only Groceries expenses are shown.</DialogDescription>
-                    </DialogHeader>
-                    {selectedGroceryTransactions.length > 0 ? (
-                      <ul className="flex flex-col gap-3">
-                        {selectedGroceryTransactions.map((transaction) => (
-                          <li key={transaction.id} className="flex items-start justify-between gap-4">
-                            <div className="min-w-0">
-                              <p className="truncate font-medium">{transaction.merchant || transaction.note || "Groceries"}</p>
-                              {transaction.merchant && transaction.note ? (
-                                <p className="truncate text-muted-foreground">{transaction.note}</p>
-                              ) : null}
-                            </div>
-                            <span className="shrink-0 font-mono tabular-nums">{currency.format(transaction.amount)}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-muted-foreground">No Groceries expenses recorded.</p>
-                    )}
-                  </DialogContent>
-                </Dialog>
-              </div>
+                <DialogContent
+                  onCloseAutoFocus={(event) => {
+                    event.preventDefault();
+                    selectedGroceryDateButton.current?.focus();
+                  }}
+                >
+                  <DialogHeader>
+                    <DialogTitle>Groceries on {selectedGroceryDate}</DialogTitle>
+                    <DialogDescription>Only Groceries expenses are shown.</DialogDescription>
+                  </DialogHeader>
+                  {selectedGroceryTransactions.length > 0 ? (
+                    <ul className="flex flex-col gap-3">
+                      {selectedGroceryTransactions.map((transaction) => (
+                        <li key={transaction.id} className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{transaction.merchant || transaction.note || "Groceries"}</p>
+                            {transaction.merchant && transaction.note ? (
+                              <p className="truncate text-muted-foreground">{transaction.note}</p>
+                            ) : null}
+                          </div>
+                          <span className="shrink-0 font-mono tabular-nums">{currency.format(transaction.amount)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-muted-foreground">No Groceries expenses recorded.</p>
+                  )}
+                </DialogContent>
+              </Dialog>
               {detailChart === "daily" && dailyTableRows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No Groceries data yet.</p>
               ) : null}
