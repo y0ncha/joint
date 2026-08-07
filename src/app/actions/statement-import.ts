@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import type { ActionResult } from "@/app/actions/result";
 import { requireCurrentHousehold } from "@/lib/household";
+import { evaluateMerchantAutomations, getMerchantAutomationRules } from "@/lib/merchant-automations";
 import { parseStatementFile } from "@/lib/statement-import";
 
 const MAX_FILE_BYTES = 1_048_576;
@@ -66,20 +67,30 @@ export async function importStatement(_previousState: ActionResult | null, formD
   if (cardMappingsError) return { status: "error", formError: IMPORT_ERROR, fieldErrors: {} };
 
   const payerByCard = new Map(cardMappings.map(({ last_four, user_id }) => [last_four, user_id]));
-  const rows = parsedStatement.rows.map((row) => ({
-    household_id: household.householdId,
-    created_by: household.userId,
-    paid_by: payerByCard.get(row.cardLastFour) ?? null,
-    source: "statement_import" as const,
-    subcategory_id: null,
-    merchant: row.merchant,
-    note: row.note,
-    occurred_on: row.occurredOn,
-    kind: row.kind,
-    amount: row.amount,
-    import_file_hash: importFileHash,
-    import_row_number: row.importRowNumber,
-  }));
+  let rules;
+  try {
+    rules = await getMerchantAutomationRules(household.supabase, household.householdId);
+  } catch {
+    return { status: "error", formError: IMPORT_ERROR, fieldErrors: {} };
+  }
+  const rows = parsedStatement.rows.map((row) => {
+    const automated = evaluateMerchantAutomations({ merchant: row.merchant, kind: row.kind, categoryId: null, subcategoryId: null }, rules);
+    return {
+      household_id: household.householdId,
+      created_by: household.userId,
+      paid_by: payerByCard.get(row.cardLastFour) ?? null,
+      source: "statement_import" as const,
+      ...(automated.categoryId ? { category_id: automated.categoryId } : {}),
+      subcategory_id: automated.subcategoryId,
+      merchant: automated.merchant,
+      note: row.note,
+      occurred_on: row.occurredOn,
+      kind: row.kind,
+      amount: row.amount,
+      import_file_hash: importFileHash,
+      import_row_number: row.importRowNumber,
+    };
+  });
   const { error: insertError } = await household.supabase.from("transactions").insert(rows);
 
   if (insertError) return { status: "error", formError: IMPORT_ERROR, fieldErrors: {} };

@@ -213,6 +213,61 @@ it("reads an exact-count rules page in persisted order", async () => {
   expect(query.range).toHaveBeenCalledWith(0, 99);
 });
 
+it("loads destination kinds once for transaction intake", async () => {
+  const finalRuleOrder = vi.fn().mockResolvedValue({
+    data: [
+      {
+        id: "subcategory-rule",
+        action: "assign_category",
+        pattern: "shop",
+        replacement: null,
+        category_id: null,
+        subcategory_id: "subcategory-id",
+        enabled: true,
+        position: 0,
+        created_at: "2026-08-01T00:00:00Z",
+      },
+      {
+        id: "category-rule",
+        action: "assign_category",
+        pattern: "refund",
+        replacement: null,
+        category_id: "income-other",
+        subcategory_id: null,
+        enabled: true,
+        position: 1,
+        created_at: "2026-08-01T00:00:00Z",
+      },
+    ],
+    error: null,
+  });
+  const ruleOrder = vi.fn().mockReturnValue({ order: vi.fn().mockReturnValue({ order: finalRuleOrder }) });
+  const ruleEq = vi.fn().mockReturnValue({ order: ruleOrder });
+  const subcategoryIn = vi.fn().mockResolvedValue({ data: [{ id: "subcategory-id", category_id: "expense-category" }], error: null });
+  const subcategoryEq = vi.fn().mockReturnValue({ in: subcategoryIn });
+  const categoryIn = vi.fn().mockResolvedValue({
+    data: [
+      { id: "expense-category", kind: "expense" },
+      { id: "income-other", kind: "income" },
+    ],
+    error: null,
+  });
+  const categoryEq = vi.fn().mockReturnValue({ in: categoryIn });
+  const from = vi.fn((table: string) => {
+    if (table === "automation_rules") return { select: vi.fn().mockReturnValue({ eq: ruleEq }) };
+    if (table === "subcategories") return { select: vi.fn().mockReturnValue({ eq: subcategoryEq }) };
+    if (table === "categories") return { select: vi.fn().mockReturnValue({ eq: categoryEq }) };
+    throw new Error(`Unexpected table: ${table}`);
+  });
+
+  await expect(merchantAutomations.getMerchantAutomationRules({ from } as never, "household-id")).resolves.toEqual([
+    expect.objectContaining({ id: "subcategory-rule", destinationKind: "expense" }),
+    expect.objectContaining({ id: "category-rule", destinationKind: "income" }),
+  ]);
+  expect(subcategoryIn).toHaveBeenCalledWith("id", ["subcategory-id"]);
+  expect(categoryIn).toHaveBeenCalledWith("id", ["income-other", "expense-category"]);
+});
+
 it("fingerprints only the target transaction fields accepted by the apply RPC", () => {
   const fingerprint = merchantAutomations.fingerprintAutomationPreview([
     {

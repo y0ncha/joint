@@ -1,5 +1,7 @@
 import { RE2JS } from "re2js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { Database } from "@/lib/database.types";
 import { getCurrentHouseholdContext } from "@/lib/household";
 
 export type AutomationAction = "normalize_merchant" | "assign_category";
@@ -136,6 +138,41 @@ function automationRuleFromRow(row: {
     position: row.position,
     createdAt: row.created_at,
   };
+}
+
+export async function getMerchantAutomationRules(supabase: SupabaseClient<Database>, householdId: string) {
+  const { data, error } = await supabase
+    .from("automation_rules")
+    .select("id, action, pattern, replacement, category_id, subcategory_id, enabled, position, created_at")
+    .eq("household_id", householdId)
+    .order("position")
+    .order("created_at")
+    .order("id");
+  if (error) throw new Error("Unable to load automation rules.");
+
+  const rules = (data ?? []).map(automationRuleFromRow);
+  const subcategoryIds = rules.flatMap((rule) => (rule.subcategoryId ? [rule.subcategoryId] : []));
+  const { data: subcategories, error: subcategoriesError } = subcategoryIds.length
+    ? await supabase.from("subcategories").select("id, category_id").eq("household_id", householdId).in("id", subcategoryIds)
+    : { data: [], error: null };
+  if (subcategoriesError) throw new Error("Unable to load automation rules.");
+
+  const subcategoryCategoryIds = new Map((subcategories ?? []).map((subcategory) => [subcategory.id, subcategory.category_id]));
+  const categoryIds = [
+    ...new Set([...rules.flatMap((rule) => (rule.categoryId ? [rule.categoryId] : [])), ...subcategoryCategoryIds.values()]),
+  ];
+  const { data: categories, error: categoriesError } = categoryIds.length
+    ? await supabase.from("categories").select("id, kind").eq("household_id", householdId).in("id", categoryIds)
+    : { data: [], error: null };
+  if (categoriesError) throw new Error("Unable to load automation rules.");
+
+  const categoryKinds = new Map((categories ?? []).map((category) => [category.id, category.kind]));
+  return rules.map((rule) => ({
+    ...rule,
+    destinationKind: rule.categoryId
+      ? categoryKinds.get(rule.categoryId)
+      : categoryKinds.get(subcategoryCategoryIds.get(rule.subcategoryId ?? "")),
+  }));
 }
 
 export async function getMerchantAutomationRulesPage(options: AutomationPage = {}) {
