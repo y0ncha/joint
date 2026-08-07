@@ -69,7 +69,7 @@ Implement household-owned, ordered merchant rules. Each atomic rule either norma
 | Task     | Description                                                                                                                                                            | Status   | Date       |
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
 | TASK-009 | Add focused regressions and a generated forward migration for locked rule-set validation, orphaned-manual normalization, and enabled-only toggles.                     | Complete | 2026-08-07 |
-| TASK-010 | Apply and verify the forward migration on `joint-dev`, regenerate hosted database types, run advisors, and repeat the affected browser workflows after local delivery. | Pending  |            |
+| TASK-010 | Apply and verify the forward migration on `joint-dev`, regenerate hosted database types, run advisors, and repeat the affected browser workflows after local delivery. | Complete | 2026-08-07 |
 
 ## 3. Alternatives
 
