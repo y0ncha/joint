@@ -460,14 +460,42 @@ it("loads only bounded chart columns and projects current and previous-year Bill
           from === "2025-08-01"
             ? [
                 { amount: 10, occurred_on: "2025-08-01", subcategory_id: "main-run" },
-                { amount: 12.34, occurred_on: "2026-07-01", subcategory_id: "main-run" },
-                { amount: 2.5, occurred_on: "2026-07-01", subcategory_id: "top-ups" },
-                { amount: 5, occurred_on: "2026-07-31", subcategory_id: "top-ups" },
+                {
+                  id: "main-1",
+                  amount: 12.34,
+                  merchant: "Market",
+                  note: "Weekly shop",
+                  occurred_on: "2026-07-01",
+                  subcategory_id: "main-run",
+                },
+                {
+                  id: "top-up-1",
+                  amount: 2.5,
+                  merchant: "Corner shop",
+                  note: "Milk",
+                  occurred_on: "2026-07-01",
+                  subcategory_id: "top-ups",
+                },
+                { id: "top-up-2", amount: 5, merchant: "Bakery", note: "Bread", occurred_on: "2026-07-31", subcategory_id: "top-ups" },
               ]
             : [
-                { amount: 12.34, occurred_on: "2026-07-01", subcategory_id: "main-run" },
-                { amount: 2.5, occurred_on: "2026-07-01", subcategory_id: "top-ups" },
-                { amount: 5, occurred_on: "2026-07-31", subcategory_id: "top-ups" },
+                {
+                  id: "main-1",
+                  amount: 12.34,
+                  merchant: "Market",
+                  note: "Weekly shop",
+                  occurred_on: "2026-07-01",
+                  subcategory_id: "main-run",
+                },
+                {
+                  id: "top-up-1",
+                  amount: 2.5,
+                  merchant: "Corner shop",
+                  note: "Milk",
+                  occurred_on: "2026-07-01",
+                  subcategory_id: "top-ups",
+                },
+                { id: "top-up-2", amount: 5, merchant: "Bakery", note: "Bread", occurred_on: "2026-07-31", subcategory_id: "top-ups" },
               ],
         error: null,
       };
@@ -527,7 +555,7 @@ it("loads only bounded chart columns and projects current and previous-year Bill
     },
     {
       table: "transactions",
-      select: "id, amount, occurred_on, subcategory_id",
+      select: "id, amount, merchant, note, occurred_on, subcategory_id",
       filters: [
         { method: "eq", column: "household_id", value: "household-id" },
         { method: "in", column: "subcategory_id", value: ["main-run", "top-ups"] },
@@ -567,6 +595,11 @@ it("loads only bounded chart columns and projects current and previous-year Bill
   expect([data.groceries.daily[0], data.groceries.daily[30]]).toEqual([
     { date: "2026-07-01", mainRunAgorot: 1234, topUpsAgorot: 250, totalAgorot: 1484 },
     { date: "2026-07-31", mainRunAgorot: 0, topUpsAgorot: 500, totalAgorot: 500 },
+  ]);
+  expect(data.groceries.transactions).toEqual([
+    { id: "main-1", amount: 12.34, merchant: "Market", note: "Weekly shop", occurredOn: "2026-07-01", subcategoryKey: "main_run" },
+    { id: "top-up-1", amount: 2.5, merchant: "Corner shop", note: "Milk", occurredOn: "2026-07-01", subcategoryKey: "top_ups" },
+    { id: "top-up-2", amount: 5, merchant: "Bakery", note: "Bread", occurredOn: "2026-07-31", subcategoryKey: "top_ups" },
   ]);
   expect(mocks.getDashboardData).not.toHaveBeenCalled();
   expect(data).not.toHaveProperty("transactions");

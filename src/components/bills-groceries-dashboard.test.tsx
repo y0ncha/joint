@@ -65,6 +65,7 @@ import {
   BillsGroceriesDashboard,
   billsGroceriesChartIds,
   dashboardUrl,
+  groceryTransactionsForDate,
   stackedBarRadius,
 } from "./bills-groceries-dashboard";
 
@@ -92,6 +93,17 @@ const liveData = {
       const topUpsAgorot = index === 1 ? 4_500 : 0;
       return { date: `2026-07-${day}`, mainRunAgorot, topUpsAgorot, totalAgorot: mainRunAgorot + topUpsAgorot };
     }),
+    transactions: [
+      {
+        id: "grocery-1",
+        amount: 123,
+        merchant: "Market",
+        note: "Weekly shop",
+        occurredOn: "2026-07-02",
+        subcategoryKey: "main_run" as const,
+      },
+      { id: "grocery-2", amount: 45, merchant: "Corner shop", note: "Milk", occurredOn: "2026-07-02", subcategoryKey: "top_ups" as const },
+    ],
   },
 };
 
@@ -112,6 +124,17 @@ beforeEach(() => {
   mocks.selectChanges.clear();
   mocks.showPopoverContent = false;
   vi.stubGlobal("window", { history: { pushState: mocks.historyPushState } });
+});
+
+it("keeps the day dialog aligned with the active groceries filter", () => {
+  const transactions = liveData.groceries.transactions;
+
+  expect(groceryTransactionsForDate(transactions, "2026-07-02", "main-run").map((transaction) => transaction.id)).toEqual(["grocery-1"]);
+  expect(groceryTransactionsForDate(transactions, "2026-07-02", "top-ups").map((transaction) => transaction.id)).toEqual(["grocery-2"]);
+  expect(groceryTransactionsForDate(transactions, "2026-07-02", "all").map((transaction) => transaction.id)).toEqual([
+    "grocery-1",
+    "grocery-2",
+  ]);
 });
 
 it("rounds only the visible top segment of a stack", () => {

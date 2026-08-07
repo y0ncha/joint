@@ -76,7 +76,8 @@ it("shows category and subcategory names without pills", () => {
   expect(markup).toContain('class="truncate px-1.5"');
   expect(markup).toContain("font-semibold");
   expect(markup).toContain("transition-transform motion-reduce:transition-none");
-  expect(markup).toContain("group/category-toggle size-11 shrink-0 rounded-full");
+  expect(markup).toContain("group/category-toggle size-11 shrink-0");
+  expect(markup).not.toContain("group/category-toggle size-11 shrink-0 rounded-full");
   expect(markup).not.toContain("group/category-toggle size-11 shrink-0 rounded-none");
   expect(markup).toContain("data-[state=open]:animate-[collapsible-down_160ms_ease-out]");
   expect(markup).toContain("motion-reduce:animate-none");

@@ -443,7 +443,7 @@ function CategorySection({
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="group/category-toggle size-11 shrink-0 rounded-full"
+                            className="group/category-toggle size-11 shrink-0"
                             aria-label={`Toggle ${category.name} subcategories`}
                           >
                             <ChevronRight
