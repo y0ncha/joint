@@ -14,6 +14,70 @@ export type Database = {
   }
   public: {
     Tables: {
+      automation_rules: {
+        Row: {
+          action: string
+          category_id: string | null
+          created_at: string
+          enabled: boolean
+          household_id: string
+          id: string
+          pattern: string
+          position: number
+          replacement: string | null
+          subcategory_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          category_id?: string | null
+          created_at?: string
+          enabled?: boolean
+          household_id: string
+          id?: string
+          pattern: string
+          position: number
+          replacement?: string | null
+          subcategory_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          category_id?: string | null
+          created_at?: string
+          enabled?: boolean
+          household_id?: string
+          id?: string
+          pattern?: string
+          position?: number
+          replacement?: string | null
+          subcategory_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_rules_household_id_category_id_fkey"
+            columns: ["household_id", "category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["household_id", "id"]
+          },
+          {
+            foreignKeyName: "automation_rules_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_rules_household_id_subcategory_id_fkey"
+            columns: ["household_id", "subcategory_id"]
+            isOneToOne: false
+            referencedRelation: "subcategories"
+            referencedColumns: ["household_id", "id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           archived_at: string | null
@@ -378,6 +442,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_automation_results: {
+        Args: { changes: Json; target_household_id: string }
+        Returns: number
+      }
       create_category: {
         Args: {
           category_color?: string
@@ -394,6 +462,10 @@ export type Database = {
       is_household_owner: {
         Args: { target_household_id: string }
         Returns: boolean
+      }
+      reorder_automation_rules: {
+        Args: { ordered_rule_ids: string[]; target_household_id: string }
+        Returns: undefined
       }
       save_current_settings:
         | {

@@ -17,7 +17,9 @@ create table public.automation_rules (
   check (
     (action = 'normalize_merchant' and replacement is not null and category_id is null and subcategory_id is null)
     or (action = 'assign_category' and replacement is null and num_nonnulls(category_id, subcategory_id) = 1)
-  )
+  ),
+  constraint automation_rules_household_position_key
+    unique (household_id, position) deferrable initially deferred
 );
 
 create index automation_rules_household_position_idx
@@ -59,7 +61,7 @@ begin
     for share;
 
     if target_archived_at is not null
-      or target_system_key is distinct from case target_kind when 'income' then 'other_income' else 'other_expense' end
+      or target_system_key is distinct from (case target_kind when 'income' then 'other_income' else 'other_expense' end)
     then
       raise exception 'Automation category must be an active Other category';
     end if;
@@ -85,6 +87,58 @@ before insert or update of household_id, action, category_id, subcategory_id
 on public.automation_rules
 for each row execute function private.validate_automation_rule();
 
+create function private.protect_automation_rule_destinations()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  destination_system_key text;
+begin
+  if tg_table_name = 'categories' then
+    if new.archived_at is not null
+      and new.archived_at is distinct from old.archived_at
+      and exists (
+        select 1
+        from public.automation_rules as rule
+        left join public.subcategories as subcategory on subcategory.id = rule.subcategory_id
+        where rule.category_id = new.id or subcategory.category_id = new.id
+      )
+    then
+      raise exception 'Archive automation destinations only after removing their rules';
+    end if;
+    return new;
+  end if;
+
+  if new.archived_at is not null and new.archived_at is distinct from old.archived_at and exists (
+    select 1 from public.automation_rules where subcategory_id = new.id
+  ) then
+    raise exception 'Archive automation destinations only after removing their rules';
+  end if;
+
+  if new.category_id is distinct from old.category_id and exists (
+    select 1 from public.automation_rules where subcategory_id = new.id
+  ) then
+    select system_key into destination_system_key
+    from public.categories
+    where id = new.category_id and household_id = new.household_id;
+    if destination_system_key = 'bills' then
+      raise exception 'Automation destinations cannot belong to Bills';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger categories_protect_automation_destinations
+before update of archived_at on public.categories
+for each row execute function private.protect_automation_rule_destinations();
+
+create trigger subcategories_protect_automation_destinations
+before update of category_id, archived_at on public.subcategories
+for each row execute function private.protect_automation_rule_destinations();
+
 create function public.reorder_automation_rules(target_household_id uuid, ordered_rule_ids uuid[])
 returns void
 language plpgsql
@@ -97,6 +151,9 @@ begin
   if not private.is_household_member(target_household_id) then
     raise exception 'Not a household member';
   end if;
+
+  perform pg_advisory_xact_lock(hashtext(target_household_id::text));
+  perform 1 from public.automation_rules where household_id = target_household_id for update;
 
   select count(*) into expected_count
   from public.automation_rules
@@ -114,7 +171,6 @@ begin
     raise exception 'Rule order must contain every household rule exactly once';
   end if;
 
-  perform 1 from public.automation_rules where household_id = target_household_id for update;
   update public.automation_rules as rule
   set position = ordering.position - 1
   from unnest(ordered_rule_ids) with ordinality as ordering(rule_id, position)
@@ -153,6 +209,12 @@ begin
 
   if change_count = 0 then return 0; end if;
 
+  perform 1
+  from public.transactions
+  where household_id = target_household_id
+    and id in (select (value ->> 'id')::uuid from jsonb_array_elements(changes))
+  for update;
+
   if exists (
     with requested as (
       select *
@@ -172,10 +234,6 @@ begin
   ) then
     raise exception 'Automation preview is stale';
   end if;
-
-  perform 1 from public.transactions where household_id = target_household_id and id in (
-    select (value ->> 'id')::uuid from jsonb_array_elements(changes)
-  ) for update;
 
   with requested as (
     select *

@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(143);
+select extensions.plan(151);
 
 select extensions.is(
   (select count(*) from public.transactions),
@@ -19,11 +19,6 @@ select extensions.ok(
 
 select extensions.ok(
   not exists (
-    select 1
-    from public.categories
-    where system_key is null
-  )
-    and not exists (
       select 1
       from public.households as household
       where (
@@ -50,11 +45,6 @@ select extensions.ok(
 
 select extensions.ok(
   not exists (
-    select 1
-    from public.subcategories
-    where system_key is null
-  )
-    and not exists (
       select 1
       from public.households as household
       where (
@@ -193,7 +183,12 @@ select extensions.ok(
         ('00000000-0000-0000-0000-000000000410'::uuid),
         ('00000000-0000-0000-0000-000000000411'::uuid)
     ) as expected(household_id)
-    where (select count(*) from public.categories where household_id = expected.household_id) <> 2
+    where (
+      select count(*)
+      from public.categories
+      where household_id = expected.household_id
+        and system_key in ('bills', 'groceries', 'other_income', 'other_expense')
+    ) <> 4
       or (
         select count(*)
         from public.categories as category
@@ -927,7 +922,7 @@ select extensions.throws_like(
       '00000000-0000-0000-0000-000000000401'
     )
   $$,
-  '%Transaction subcategory cannot be archived%',
+  '%Transaction category cannot be archived%',
   'an archived subcategory cannot be assigned to a transaction'
 );
 
@@ -1944,6 +1939,89 @@ select extensions.ok(
         'CREATE INDEX transactions_household_subcategory_idx ON public.transactions USING btree (household_id, subcategory_id) WHERE (subcategory_id IS NOT NULL)'
   ),
   'transactions have a valid partial household-subcategory index'
+);
+
+select extensions.has_table('public', 'automation_rules', 'has household-owned automation rules');
+
+select extensions.ok(
+  (
+    select schema_table.relrowsecurity
+    from pg_catalog.pg_class as schema_table
+    join pg_catalog.pg_namespace as table_schema on table_schema.oid = schema_table.relnamespace
+    where table_schema.nspname = 'public' and schema_table.relname = 'automation_rules'
+  ),
+  'automation rules enforce RLS'
+);
+
+select extensions.ok(
+  has_table_privilege('authenticated', 'public.automation_rules', 'SELECT')
+    and has_table_privilege('authenticated', 'public.automation_rules', 'INSERT')
+    and has_table_privilege('authenticated', 'public.automation_rules', 'UPDATE')
+    and has_table_privilege('authenticated', 'public.automation_rules', 'DELETE')
+    and not has_table_privilege('anon', 'public.automation_rules', 'SELECT'),
+  'only authenticated callers receive automation-rule table access'
+);
+
+select extensions.ok(
+  exists (
+    select 1
+    from pg_catalog.pg_constraint as constraint_meta
+    where constraint_meta.conrelid = 'public.automation_rules'::regclass
+      and constraint_meta.conname = 'automation_rules_household_position_key'
+      and constraint_meta.contype = 'u'
+      and constraint_meta.condeferrable
+  ),
+  'automation rule priority is unique per household'
+);
+
+select extensions.ok(
+  exists (
+    select 1 from pg_catalog.pg_trigger as trigger_meta
+    where trigger_meta.tgrelid = 'public.automation_rules'::regclass
+      and trigger_meta.tgname = 'automation_rules_validate_destination'
+      and trigger_meta.tgfoid = 'private.validate_automation_rule()'::regprocedure
+  )
+  and exists (
+    select 1 from pg_catalog.pg_trigger as trigger_meta
+    where trigger_meta.tgrelid = 'public.subcategories'::regclass
+      and trigger_meta.tgname = 'subcategories_protect_automation_destinations'
+      and trigger_meta.tgfoid = 'private.protect_automation_rule_destinations()'::regprocedure
+  ),
+  'automation destinations are validated and cannot become Bills'
+);
+
+select extensions.ok(
+  exists (
+    select 1 from pg_catalog.pg_proc as function_meta
+    where function_meta.oid = 'public.reorder_automation_rules(uuid,uuid[])'::regprocedure
+      and coalesce(function_meta.proconfig, array[]::text[]) @> array['search_path=""']
+      and not function_meta.prosecdef
+  )
+  and exists (
+    select 1 from pg_catalog.pg_proc as function_meta
+    where function_meta.oid = 'public.apply_automation_results(uuid,jsonb)'::regprocedure
+      and coalesce(function_meta.proconfig, array[]::text[]) @> array['search_path=""']
+      and not function_meta.prosecdef
+  ),
+  'automation RPCs use invoker rights and pin an empty search path'
+);
+
+select extensions.ok(
+  has_function_privilege('authenticated', 'public.reorder_automation_rules(uuid,uuid[])', 'EXECUTE')
+    and has_function_privilege('authenticated', 'public.apply_automation_results(uuid,jsonb)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.reorder_automation_rules(uuid,uuid[])', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.apply_automation_results(uuid,jsonb)', 'EXECUTE'),
+  'only authenticated callers can invoke automation RPCs'
+);
+
+select extensions.ok(
+  exists (
+    select 1 from pg_catalog.pg_trigger as trigger_meta
+    where trigger_meta.tgrelid = 'public.categories'::regclass
+      and trigger_meta.tgname = 'categories_protect_automation_destinations'
+      and trigger_meta.tgfoid = 'private.protect_automation_rule_destinations()'::regprocedure
+  ),
+  'archiving a referenced automation destination is blocked'
 );
 
 set local role anon;
