@@ -57,15 +57,7 @@ const currency = new Intl.NumberFormat("en-IL", {
 
 const heatmapStrengths = [0, 25, 45, 70, 100] as const;
 const chartMargin = { top: 24, right: 8, bottom: 32, left: 8 };
-const billsChartColors = [
-  "#6fafa8",
-  "#829cd0",
-  "#ae8fc2",
-  "#d2a271",
-  "#c98eaa",
-  "#91a9b6",
-  "#b4b975",
-] as const;
+const billsChartColors = ["#6fafa8", "#829cd0", "#ae8fc2", "#d2a271", "#c98eaa", "#91a9b6", "#b4b975"] as const;
 
 export function stackedBarRadius(stack: number[], segmentIndex: number) {
   return stack[segmentIndex] > 0 && stack.slice(segmentIndex + 1).every((value) => value === 0) ? ([3, 3, 0, 0] as const) : 0;
@@ -375,7 +367,10 @@ function BillsGroceriesCharts({
   const groceryColor = data.groceries.category?.color ?? "var(--chart-4)";
   const groceryBudgetAgorot = data.groceries.monthly.budgetAgorot;
   const yearOverYearBillDetails = chartBills.find((bill) => bill.value === yearOverYearBill) ?? chartBills[0];
-  const yearOverYearBillIndex = Math.max(0, chartBills.findIndex((bill) => bill.value === yearOverYearBill));
+  const yearOverYearBillIndex = Math.max(
+    0,
+    chartBills.findIndex((bill) => bill.value === yearOverYearBill),
+  );
   const yearOverYearData = alignBillYearOverYear(data.months, data.bills.monthly, yearOverYearBill).map(
     ({ month, currentAgorot, previousAgorot }) => ({
       month,
