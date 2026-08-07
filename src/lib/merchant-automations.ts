@@ -48,6 +48,32 @@ export type AutomationPreviewChange = {
   expected_subcategory_id: string | null;
 };
 
+export type AutomationPreviewConflict = AutomationConflict & { transactionCount: number };
+
+export type MerchantAutomationPreview = {
+  changes: AutomationPreviewChange[];
+  conflicts: AutomationPreviewConflict[];
+  fingerprint: string;
+};
+
+export type AutomationDestination = {
+  categoryId: string | null;
+  subcategoryId: string | null;
+  label: string;
+  kind: TransactionKind;
+  color: string;
+  icon: string | null;
+};
+
+type PreviewTransaction = {
+  id: string;
+  merchant: string;
+  kind: TransactionKind;
+  categoryId: string | null;
+  subcategoryId: string | null;
+  updatedAt: string;
+};
+
 type AutomationPage = { from?: number; to?: number };
 
 function comparePersistedOrder(left: MerchantAutomationRule, right: MerchantAutomationRule) {
@@ -108,11 +134,77 @@ export function fingerprintAutomationPreview(changes: readonly AutomationPreview
   );
 }
 
+export function previewMerchantAutomations(
+  transactions: readonly PreviewTransaction[],
+  rules: MerchantAutomationRule[],
+): MerchantAutomationPreview {
+  const conflicts = new Map<string, AutomationPreviewConflict>();
+  const changes = transactions.flatMap((transaction) => {
+    const result = evaluateMerchantAutomations(transaction, rules);
+    for (const conflict of result.conflicts) {
+      const key = `${conflict.action}:${conflict.winnerId}:${conflict.shadowedRuleIds.join(",")}`;
+      const current = conflicts.get(key);
+      conflicts.set(key, { ...conflict, transactionCount: (current?.transactionCount ?? 0) + 1 });
+    }
+    if (
+      result.merchant === transaction.merchant &&
+      result.categoryId === transaction.categoryId &&
+      result.subcategoryId === transaction.subcategoryId
+    ) {
+      return [];
+    }
+    return [
+      {
+        id: transaction.id,
+        merchant: result.merchant,
+        category_id: result.categoryId,
+        subcategory_id: result.subcategoryId,
+        expected_updated_at: transaction.updatedAt,
+        expected_merchant: transaction.merchant,
+        expected_category_id: transaction.categoryId,
+        expected_subcategory_id: transaction.subcategoryId,
+      },
+    ];
+  });
+
+  return { changes, conflicts: [...conflicts.values()], fingerprint: fingerprintAutomationPreview(changes) };
+}
+
 function pageBounds({ from = 0, to = 999 }: AutomationPage) {
   if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < from || to - from > 999) {
     throw new Error("Invalid automation page range.");
   }
   return { from, to };
+}
+
+async function readAllPreviewTransactions(
+  loadPage: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{
+    count: number | null;
+    data: Array<{
+      id: string;
+      merchant: string;
+      kind: TransactionKind;
+      category_id: string | null;
+      subcategory_id: string | null;
+      updated_at: string;
+    }> | null;
+    error: unknown;
+  }>,
+) {
+  const firstPage = await loadPage(0, 999);
+  if (firstPage.error || firstPage.count === null || (firstPage.count > 0 && !firstPage.data?.length)) {
+    throw new Error("Unable to load automation preview.");
+  }
+  const rows = [...(firstPage.data ?? [])];
+  while (rows.length < firstPage.count) {
+    const page = await loadPage(rows.length, rows.length + 999);
+    if (page.error || !page.data?.length) throw new Error("Unable to load automation preview.");
+    rows.push(...page.data);
+  }
+  return rows.slice(0, firstPage.count);
 }
 
 function automationRuleFromRow(row: {
@@ -171,7 +263,7 @@ export async function getMerchantAutomationRules(supabase: SupabaseClient<Databa
     ...rule,
     destinationKind: rule.categoryId
       ? categoryKinds.get(rule.categoryId)
-      : categoryKinds.get(subcategoryCategoryIds.get(rule.subcategoryId ?? "")),
+      : categoryKinds.get(subcategoryCategoryIds.get(rule.subcategoryId ?? "") ?? ""),
   }));
 }
 
@@ -180,15 +272,104 @@ export async function getMerchantAutomationRulesPage(options: AutomationPage = {
   const household = await getCurrentHouseholdContext();
   if (household.status !== "member") throw new Error("Create or join a household before viewing automations.");
 
-  const { data, count, error } = await household.supabase
-    .from("automation_rules")
-    .select("id, action, pattern, replacement, category_id, subcategory_id, enabled, position, created_at", { count: "exact" })
-    .eq("household_id", household.householdId)
-    .order("position")
-    .order("created_at")
-    .order("id")
-    .range(from, to);
+  const [rulesResult, categoriesResult, subcategoriesResult, transactions] = await Promise.all([
+    household.supabase
+      .from("automation_rules")
+      .select("id, action, pattern, replacement, category_id, subcategory_id, enabled, position, created_at", { count: "exact" })
+      .eq("household_id", household.householdId)
+      .order("position")
+      .order("created_at")
+      .order("id")
+      .range(from, to),
+    household.supabase
+      .from("categories")
+      .select("id, name, kind, color, icon, archived_at, system_key")
+      .eq("household_id", household.householdId)
+      .is("archived_at", null)
+      .order("kind")
+      .order("name"),
+    household.supabase
+      .from("subcategories")
+      .select("id, category_id, name, color, icon, archived_at")
+      .eq("household_id", household.householdId)
+      .is("archived_at", null)
+      .order("name"),
+    readAllPreviewTransactions((pageFrom, pageTo) =>
+      household.supabase
+        .from("transactions")
+        .select("id, merchant, kind, category_id, subcategory_id, updated_at", { count: "exact" })
+        .eq("household_id", household.householdId)
+        .order("id")
+        .range(pageFrom, pageTo),
+    ),
+  ]);
 
-  if (error || count === null) throw new Error("Unable to load automation rules.");
-  return { count, rules: (data ?? []).map(automationRuleFromRow) };
+  if (rulesResult.error || rulesResult.count === null || categoriesResult.error || subcategoriesResult.error) {
+    throw new Error("Unable to load automation rules.");
+  }
+
+  const rules = (rulesResult.data ?? []).map(automationRuleFromRow);
+  const categories = categoriesResult.data ?? [];
+  const categoriesById = new Map(categories.map((category) => [category.id, category]));
+  const subcategoryDestinations: AutomationDestination[] = (subcategoriesResult.data ?? []).flatMap((subcategory) => {
+    const category = categoriesById.get(subcategory.category_id);
+    return category && category.system_key !== "bills"
+      ? [
+          {
+            categoryId: null,
+            subcategoryId: subcategory.id,
+            label: `${category.kind === "income" ? "Income" : "Expense"} → ${category.name} → ${subcategory.name}`,
+            kind: category.kind,
+            color: subcategory.color,
+            icon: subcategory.icon ?? category.icon,
+          },
+        ]
+      : [];
+  });
+  const directDestinations: AutomationDestination[] = categories.flatMap((category) =>
+    category.system_key === "other_income" || category.system_key === "other_expense"
+      ? [
+          {
+            categoryId: category.id,
+            subcategoryId: null,
+            label: `${category.kind === "income" ? "Income" : "Expense"} → Other`,
+            kind: category.kind,
+            color: category.color,
+            icon: category.icon,
+          },
+        ]
+      : [],
+  );
+  const destinations = [...subcategoryDestinations, ...directDestinations];
+  const destinationKinds = new Map(
+    destinations.map((destination) => [
+      destination.categoryId ? `category:${destination.categoryId}` : `subcategory:${destination.subcategoryId}`,
+      destination.kind,
+    ]),
+  );
+  const previewRules = rules.map((rule) => ({
+    ...rule,
+    destinationKind: rule.categoryId
+      ? destinationKinds.get(`category:${rule.categoryId}`)
+      : rule.subcategoryId
+        ? destinationKinds.get(`subcategory:${rule.subcategoryId}`)
+        : undefined,
+  }));
+  // ponytail: the management page handles one 1,000-rule slice; with more rules, suppress incomplete reorder/apply UI until pagination is approved.
+  const preview =
+    rulesResult.count === rules.length
+      ? previewMerchantAutomations(
+          transactions.map((transaction) => ({
+            id: transaction.id,
+            merchant: transaction.merchant,
+            kind: transaction.kind,
+            categoryId: transaction.category_id,
+            subcategoryId: transaction.subcategory_id,
+            updatedAt: transaction.updated_at,
+          })),
+          previewRules,
+        )
+      : { changes: [], conflicts: [], fingerprint: fingerprintAutomationPreview([]) };
+
+  return { count: rulesResult.count, rules, destinations, preview };
 }

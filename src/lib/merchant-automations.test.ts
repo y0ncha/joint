@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
+import type { MerchantAutomationRule } from "./merchant-automations";
 
 const mocks = vi.hoisted(() => ({ getCurrentHouseholdContext: vi.fn() }));
 
@@ -155,17 +156,17 @@ it("matches category rules against the original merchant before normalization", 
   expect(result.appliedRuleIds).toEqual(["normalize"]);
 });
 
-it("reads an exact-count rules page in persisted order", async () => {
-  const query = {
+it("reads the authenticated rules workspace with eligible destinations and a complete preview", async () => {
+  const rulesQuery = {
     select: vi.fn(),
     eq: vi.fn(),
     order: vi.fn(),
     range: vi.fn(),
   };
-  query.select.mockReturnValue(query);
-  query.eq.mockReturnValue(query);
-  query.order.mockReturnValue(query);
-  query.range.mockResolvedValue({
+  rulesQuery.select.mockReturnValue(rulesQuery);
+  rulesQuery.eq.mockReturnValue(rulesQuery);
+  rulesQuery.order.mockReturnValue(rulesQuery);
+  rulesQuery.range.mockResolvedValue({
     data: [
       {
         id: "rule-id",
@@ -179,19 +180,100 @@ it("reads an exact-count rules page in persisted order", async () => {
         created_at: "2026-08-01T00:00:00Z",
       },
     ],
-    count: 7,
+    count: 1,
     error: null,
+  });
+  const categoryNameOrder = vi.fn().mockResolvedValue({
+    data: [
+      { id: "food-id", name: "Food", kind: "expense", color: "#111111", icon: "utensils", archived_at: null, system_key: null },
+      { id: "bills-id", name: "Bills", kind: "expense", color: "#222222", icon: "receipt", archived_at: null, system_key: "bills" },
+      {
+        id: "other-id",
+        name: "Renamed Other",
+        kind: "expense",
+        color: "#333333",
+        icon: "tag",
+        archived_at: null,
+        system_key: "other_expense",
+      },
+      {
+        id: "other-income-id",
+        name: "Other",
+        kind: "income",
+        color: "#666666",
+        icon: "tag",
+        archived_at: null,
+        system_key: "other_income",
+      },
+    ],
+    error: null,
+  });
+  const categoryKindOrder = vi.fn().mockReturnValue({ order: categoryNameOrder });
+  const categoryIs = vi.fn().mockReturnValue({ order: categoryKindOrder });
+  const categoryEq = vi.fn().mockReturnValue({ is: categoryIs });
+  const subcategoryOrder = vi.fn().mockResolvedValue({
+    data: [
+      {
+        id: "cafe-id",
+        category_id: "food-id",
+        name: "Cafe",
+        color: "#444444",
+        icon: "coffee",
+        archived_at: null,
+      },
+      {
+        id: "electricity-id",
+        category_id: "bills-id",
+        name: "Electricity",
+        color: "#555555",
+        icon: "zap",
+        archived_at: null,
+      },
+    ],
+    error: null,
+  });
+  const subcategoryIs = vi.fn().mockReturnValue({ order: subcategoryOrder });
+  const subcategoryEq = vi.fn().mockReturnValue({ is: subcategoryIs });
+  const transactionsQuery = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    order: vi.fn(),
+    range: vi.fn(),
+  };
+  transactionsQuery.select.mockReturnValue(transactionsQuery);
+  transactionsQuery.eq.mockReturnValue(transactionsQuery);
+  transactionsQuery.order.mockReturnValue(transactionsQuery);
+  transactionsQuery.range.mockResolvedValue({
+    data: [
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        merchant: "shop",
+        kind: "expense",
+        category_id: null,
+        subcategory_id: null,
+        updated_at: "2026-08-07T10:00:00Z",
+      },
+    ],
+    count: 1,
+    error: null,
+  });
+  const from = vi.fn((table: string) => {
+    if (table === "automation_rules") return rulesQuery;
+    if (table === "categories") return { select: vi.fn().mockReturnValue({ eq: categoryEq }) };
+    if (table === "subcategories") return { select: vi.fn().mockReturnValue({ eq: subcategoryEq }) };
+    if (table === "transactions") return transactionsQuery;
+    throw new Error(`Unexpected table: ${table}`);
   });
   mocks.getCurrentHouseholdContext.mockResolvedValue({
     status: "member",
     householdId: "household-id",
     userId: "member-id",
     role: "member",
-    supabase: { from: vi.fn().mockReturnValue(query) },
+    supabase: { from },
   });
 
   await expect(merchantAutomations.getMerchantAutomationRulesPage({ from: 0, to: 99 })).resolves.toEqual({
-    count: 7,
+    count: 1,
     rules: [
       {
         id: "rule-id",
@@ -205,12 +287,57 @@ it("reads an exact-count rules page in persisted order", async () => {
         createdAt: "2026-08-01T00:00:00Z",
       },
     ],
+    destinations: [
+      {
+        categoryId: null,
+        subcategoryId: "cafe-id",
+        label: "Expense → Food → Cafe",
+        kind: "expense",
+        color: "#444444",
+        icon: "coffee",
+      },
+      {
+        categoryId: "other-id",
+        subcategoryId: null,
+        label: "Expense → Other",
+        kind: "expense",
+        color: "#333333",
+        icon: "tag",
+      },
+      {
+        categoryId: "other-income-id",
+        subcategoryId: null,
+        label: "Income → Other",
+        kind: "income",
+        color: "#666666",
+        icon: "tag",
+      },
+    ],
+    preview: {
+      changes: [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          merchant: "Shop",
+          category_id: null,
+          subcategory_id: null,
+          expected_updated_at: "2026-08-07T10:00:00Z",
+          expected_merchant: "shop",
+          expected_category_id: null,
+          expected_subcategory_id: null,
+        },
+      ],
+      conflicts: [],
+      fingerprint:
+        '[{"id":"11111111-1111-4111-8111-111111111111","merchant":"Shop","category_id":null,"subcategory_id":null,"expected_updated_at":"2026-08-07T10:00:00Z","expected_merchant":"shop","expected_category_id":null,"expected_subcategory_id":null}]',
+    },
   });
-  expect(query.select).toHaveBeenCalledWith(
+  expect(rulesQuery.select).toHaveBeenCalledWith(
     "id, action, pattern, replacement, category_id, subcategory_id, enabled, position, created_at",
     { count: "exact" },
   );
-  expect(query.range).toHaveBeenCalledWith(0, 99);
+  expect(rulesQuery.range).toHaveBeenCalledWith(0, 99);
+  expect(transactionsQuery.select).toHaveBeenCalledWith("id, merchant, kind, category_id, subcategory_id, updated_at", { count: "exact" });
+  expect(transactionsQuery.range).toHaveBeenCalledWith(0, 999);
 });
 
 it("loads destination kinds once for transaction intake", async () => {
@@ -285,4 +412,79 @@ it("fingerprints only the target transaction fields accepted by the apply RPC", 
   expect(fingerprint).toBe(
     '[{"id":"transaction-id","merchant":"Shop","category_id":"category-id","subcategory_id":null,"expected_updated_at":"2026-08-07T10:00:00Z","expected_merchant":"Old Shop","expected_category_id":null,"expected_subcategory_id":"old-subcategory-id"}]',
   );
+});
+
+it("previews only changed transactions and groups same-action conflicts", () => {
+  const rules: MerchantAutomationRule[] = [
+    {
+      id: "normalize-first",
+      action: "normalize_merchant",
+      pattern: "shop",
+      replacement: "Shop",
+      enabled: true,
+      position: 0,
+    },
+    {
+      id: "normalize-shadowed",
+      action: "normalize_merchant",
+      pattern: "market",
+      replacement: "Market",
+      enabled: true,
+      position: 1,
+    },
+    {
+      id: "category",
+      action: "assign_category",
+      pattern: "shop",
+      categoryId: null,
+      subcategoryId: "groceries-id",
+      destinationKind: "expense",
+      enabled: true,
+      position: 2,
+    },
+  ];
+
+  const preview = merchantAutomations.previewMerchantAutomations(
+    [
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        merchant: "shop market",
+        kind: "expense",
+        categoryId: null,
+        subcategoryId: null,
+        updatedAt: "2026-08-07T10:00:00Z",
+      },
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        merchant: "unmatched",
+        kind: "expense",
+        categoryId: null,
+        subcategoryId: null,
+        updatedAt: "2026-08-07T11:00:00Z",
+      },
+    ],
+    rules,
+  );
+
+  expect(preview.changes).toEqual([
+    {
+      id: "11111111-1111-4111-8111-111111111111",
+      merchant: "Shop",
+      category_id: null,
+      subcategory_id: "groceries-id",
+      expected_updated_at: "2026-08-07T10:00:00Z",
+      expected_merchant: "shop market",
+      expected_category_id: null,
+      expected_subcategory_id: null,
+    },
+  ]);
+  expect(preview.conflicts).toEqual([
+    {
+      action: "normalize_merchant",
+      winnerId: "normalize-first",
+      shadowedRuleIds: ["normalize-shadowed"],
+      transactionCount: 1,
+    },
+  ]);
+  expect(preview.fingerprint).toBe(merchantAutomations.fingerprintAutomationPreview(preview.changes));
 });

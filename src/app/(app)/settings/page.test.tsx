@@ -108,6 +108,9 @@ it("keeps the Household groceries budget inside the Settings form-owned workspac
   expect(markup).toContain("The Lovelaces");
   expect(markup).toContain('href="/categories"');
   expect(markup).toContain('aria-label="Edit categories"');
+  expect(markup).toContain('href="/automations"');
+  expect(markup).toContain('aria-label="Edit automations"');
+  expect(markup).toContain("Manage merchant rules.");
   expect(markup).toContain("active:bg-foreground/10");
   expect(markup).toContain("Manage categories &amp; subcategories.");
   expect(markup).toContain("hover:bg-foreground/5");

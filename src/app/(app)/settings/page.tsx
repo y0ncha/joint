@@ -11,7 +11,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { getCurrentHouseholdContext } from "@/lib/household";
-import { CreditCard, House, Palette, Pencil, ShoppingBasket, SwatchBook, Tags, UserRound, UsersRound, type LucideIcon } from "lucide-react";
+import {
+  CreditCard,
+  House,
+  Palette,
+  Pencil,
+  ShoppingBasket,
+  SwatchBook,
+  Tags,
+  UserRound,
+  UsersRound,
+  WandSparkles,
+  type LucideIcon,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 function SettingsRow({
@@ -171,6 +183,13 @@ export default async function SettingsPage() {
               <SettingsRow icon={Tags} label="Categories" description="Manage categories & subcategories.">
                 <Button asChild variant="ghost" size="icon" className="size-11">
                   <Link href="/categories" aria-label="Edit categories">
+                    <Pencil data-icon="inline-start" aria-hidden="true" />
+                  </Link>
+                </Button>
+              </SettingsRow>
+              <SettingsRow icon={WandSparkles} label="Automations" description="Manage merchant rules.">
+                <Button asChild variant="ghost" size="icon" className="size-11">
+                  <Link href="/automations" aria-label="Edit automations">
                     <Pencil data-icon="inline-start" aria-hidden="true" />
                   </Link>
                 </Button>

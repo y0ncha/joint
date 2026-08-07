@@ -57,6 +57,15 @@ const currency = new Intl.NumberFormat("en-IL", {
 
 const heatmapStrengths = [0, 25, 45, 70, 100] as const;
 const chartMargin = { top: 24, right: 8, bottom: 32, left: 8 };
+const billsChartColors = [
+  "#6fafa8",
+  "#829cd0",
+  "#ae8fc2",
+  "#d2a271",
+  "#c98eaa",
+  "#91a9b6",
+  "#b4b975",
+] as const;
 
 export function stackedBarRadius(stack: number[], segmentIndex: number) {
   return stack[segmentIndex] > 0 && stack.slice(segmentIndex + 1).every((value) => value === 0) ? ([3, 3, 0, 0] as const) : 0;
@@ -321,7 +330,11 @@ function BillsGroceriesCharts({
   const detail = detailChart !== undefined;
   const chartHeightClass = detail ? "h-[320px]" : "h-[280px]";
   const period = initialPeriod;
-  const chartBills = data.bills.subcategories.map((bill) => ({ value: bill.id, label: bill.name, color: bill.color }));
+  const chartBills = data.bills.subcategories.map((bill, index) => ({
+    value: bill.id,
+    label: bill.name,
+    color: billsChartColors[index % billsChartColors.length],
+  }));
   const urlBillIds = searchParams.get("bills")?.split(",");
   const selectedBills =
     urlBillIds?.length && urlBillIds.every((id) => chartBills.some((bill) => bill.value === id))

@@ -48,8 +48,8 @@ Implement household-owned, ordered merchant rules. Each atomic rule either norma
 
 - **GOAL-003**: Implement deterministic evaluation and authenticated management actions.
 
-| Task     | Description                                                                                                                                          | Status  | Date |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
+| Task     | Description                                                                                                                                          | Status   | Date       |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
 | TASK-005 | Add the tested merchant automation engine, exact-count page reader, CRUD/reorder actions, preview fingerprint, and confirmed atomic application.     | Complete | 2026-08-07 |
 | TASK-006 | Update transaction creation and statement import so rules run once before their existing inserts without changing edit behavior or import atomicity. | Complete | 2026-08-07 |
 

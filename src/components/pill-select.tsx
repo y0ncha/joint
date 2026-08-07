@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ComponentType, type SVGProps } from "react";
+import { useMemo, useState, type ComponentType, type Ref, type SVGProps } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ export type PillOption = {
 };
 
 export function PillSelect({
+  ariaDescribedBy,
+  ariaInvalid,
   ariaLabel,
   defaultValue,
   disabled,
@@ -25,8 +27,11 @@ export function PillSelect({
   onValueChange,
   options,
   preserveOrder = false,
+  triggerRef,
   value,
 }: {
+  ariaDescribedBy?: string;
+  ariaInvalid?: boolean;
   ariaLabel: string;
   defaultValue?: string;
   disabled?: boolean;
@@ -35,6 +40,7 @@ export function PillSelect({
   onValueChange?: (value: string) => void;
   options: PillOption[];
   preserveOrder?: boolean;
+  triggerRef?: Ref<HTMLButtonElement>;
   value?: string;
 }) {
   const [internalValue, setInternalValue] = useState(defaultValue ?? "");
@@ -63,11 +69,14 @@ export function PillSelect({
       {name ? <input name={name} type="hidden" value={selectedValue} /> : null}
       <PopoverTrigger asChild>
         <Button
+          ref={triggerRef}
           type="button"
           variant="outline"
           disabled={disabled}
           className="h-11 w-full justify-start rounded-xl"
           aria-label={ariaLabel}
+          aria-describedby={ariaDescribedBy}
+          aria-invalid={ariaInvalid}
           onKeyDown={(event) => {
             if (event.key.length === 1) {
               setQuery(event.key);

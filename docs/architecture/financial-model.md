@@ -11,6 +11,7 @@ household
   ├─ household_members
   ├─ categories
   │   └─ subcategories
+  ├─ automation_rules
   └─ transactions
 ```
 
@@ -25,6 +26,7 @@ household
 | `categories`        | Household-owned `income` or `expense` parent categories with a registered family color and icon.                                                                              |
 | `subcategories`     | Household-owned children with a persisted color from the parent category's database family palette and an optional icon override.                                             |
 | `member_cards`      | Optional household-scoped mapping of a member to one card's last four digits.                                                                                                 |
+| `automation_rules`  | Household-owned, enabled or disabled merchant normalization and category-assignment rules with one persisted order.                                                           |
 | `transactions`      | Positive ILS amount, date, `income` or `expense` direction, creator, optional payer and `subcategory_id`, source, merchant, optional note, and optional Bills service period. |
 
 - The opening balance may be positive, zero, or negative.
@@ -48,6 +50,18 @@ For a selected `YYYY-MM` month, the shared balance includes transactions before 
 
 Uncategorized statement imports and historical transactions orphaned by category or subcategory deletion remain valid and are included in shared-balance, income, expense, comparison, and recent-activity calculations, but omitted from parent-category totals. They render as `Uncategorized`. `src/app/actions/transactions.ts` persists manual edits after server-side membership, payer, and active matching-kind subcategory checks; `src/app/actions/statement-import.ts` performs authenticated, atomic statement imports.
 
+## Merchant automation
+
+Merchant automation has two atomic actions: `normalize_merchant` stores one literal replacement, and `assign_category` stores exactly one destination. A destination is either an active non-Bills subcategory or the active direct `Other` category for its transaction kind. Database constraints, validation triggers, and destination-protection triggers reject malformed rules, cross-household destinations, Bills destinations, and archiving or invalid reparenting of destinations while a rule references them.
+
+`src/lib/merchant-automations.ts` compiles user patterns with RE2, case-insensitively, and evaluates every enabled rule against the original trimmed merchant. Persisted `position`, then creation time and ID, determine order; the first match for each action wins. Normalization and assignment are independent rather than a sequential pipeline. Normalization writes the trimmed literal replacement. Assignment runs only when the input has no explicit category or subcategory and only when the destination kind matches the transaction kind. Later matches are reported as conflicts but do not alter the result.
+
+New manual transactions and statement-import rows load the household's rules server-side and evaluate them once before the existing insert. An explicit manual destination remains authoritative; an unmatched blank manual destination retains the existing validation error. Statement imports preserve their atomic batch and duplicate-import metadata. Rule loading or evaluation failure stops the new mutation. Transaction edits never run automations.
+
+Existing transactions change only through the `/automations` preview and explicit confirmation flow. The preview exact-count reads all transaction pages, reports only changed rows and conflicts, and fingerprints the expected before-and-after payload. The authenticated Server Action validates that payload and fingerprint before calling `apply_automation_results`; the security-invoker RPC locks the requested household rows, compares each expected timestamp, merchant, and destination, and applies all changes or none. A stale or incomplete preview is rejected. The management page currently loads at most 1,000 rules and suppresses reorder and bulk apply when the exact count exceeds the loaded slice.
+
+Household identity is derived from the authenticated server session, never browser input. RLS limits rule CRUD to household members; `anon` and `public` privileges are revoked. The reorder and bulk-apply RPCs use pinned search paths, explicit membership checks, and invoker security. Reordering also takes a household transaction advisory lock and requires every household rule ID exactly once. RE2 provides linear-time matching for user-authored patterns.
+
 ## Bills & Groceries subset
 
 Bills & Groceries is an implemented, narrow analytics subset, not a generalized budget or obligations model. Each household has protected `Bills` and `Groceries` expense categories identified by stable system keys. Groceries has exactly the protected `Main run` and `Top-ups` children; Bills may have household-managed children.
@@ -64,11 +78,17 @@ Only Bills transactions may have an optional inclusive `service_period_start` an
 
 `20260730125519_essentials_dashboard.sql` added the protected Bills/Groceries taxonomy, optional Bills service-period columns, and the optional shared Groceries monthly threshold. Its constraints keep periods paired, inclusive, ordered, and limited to Bills transactions while preserving stored ledger values and posting dates.
 
+`20260807073928_add_merchant_automation_rules.sql` added household-owned ordered rules, RLS and grants, action and destination validation, destination lifecycle protection, atomic reordering, and stale-safe atomic application of confirmed preview results.
+
 ## Primary verification
 
 - `src/lib/financial-report.test.ts`
 - `src/lib/dashboard-data.test.ts`
 - `src/app/actions/transactions.test.ts`
+- `src/lib/merchant-automations.test.ts`
+- `src/app/actions/merchant-automations.test.ts`
+- `src/app/actions/statement-import.test.ts`
+- `src/components/automation-rules-workspace.test.tsx`
 - `src/components/transaction-ledger.test.tsx`
 - `src/app/(app)/page.test.tsx`
 - `supabase/tests/shared_balance.sql`
@@ -76,5 +96,6 @@ Only Bills transactions may have an optional inclusive `service_period_start` an
 
 ## Non-goals
 
-- No double-entry ledger, bank connection, financial credential, attachment, generalized budget, recurring transaction, manually maintained obligation, upcoming/overdue state, expected-versus-recorded analysis, automatic categorization, or audit-history model is implemented. CSV/XLSX statement import is supported, but source files and full card details are never stored.
+- Merchant rules are the only implemented automatic categorization. There is no general event/action engine, arbitrary action payload, sequential rule pipeline, database-trigger matching, edit-time automation, scheduled or implicit historical recategorization, Bills assignment, or service-period inference.
+- No double-entry ledger, bank connection, financial credential, attachment, generalized budget, recurring transaction, manually maintained obligation, upcoming/overdue state, expected-versus-recorded analysis, or audit-history model is implemented. CSV/XLSX statement import is supported, but source files and full card details are never stored.
 - The directional roadmap does not change these invariants.

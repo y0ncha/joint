@@ -317,6 +317,22 @@ it("renders live colors, missing-data guidance, and exact daily values", () => {
   expect(markup).toContain("2026-07-02: ₪168.00");
 });
 
+it("uses distinct presentation colors for Bills series", () => {
+  const data = {
+    ...liveData,
+    bills: {
+      ...liveData.bills,
+      subcategories: Array.from({ length: 7 }, (_, index) => ({ id: `bill-${index}`, name: `Bill ${index}`, color: "#d9f0fa" })),
+    },
+  } as never;
+
+  const markup = renderToStaticMarkup(<BillsGroceriesDashboard data={data} billIds={["bill-0"]} billId="bill-0" period="rolling" />);
+
+  for (const color of ["#6fafa8", "#829cd0", "#ae8fc2", "#d2a271", "#c98eaa", "#91a9b6", "#b4b975"]) {
+    expect(markup).toContain(color);
+  }
+});
+
 it("uses a contrast-safe backing behind day labels on stored heatmap colors", () => {
   const markup = renderToStaticMarkup(
     <BillsGroceriesDashboard
