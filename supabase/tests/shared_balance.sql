@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(151);
+select extensions.plan(161);
 
 select extensions.is(
   (select count(*) from public.transactions),
@@ -2022,6 +2022,154 @@ select extensions.ok(
       and trigger_meta.tgfoid = 'private.protect_automation_rule_destinations()'::regprocedure
   ),
   'archiving a referenced automation destination is blocked'
+);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000401';
+set local request.jwt.claim.email = 'first-owner@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
+
+select extensions.lives_ok(
+  $$
+    insert into public.automation_rules (household_id, action, pattern, subcategory_id, position)
+    select '00000000-0000-0000-0000-000000000410', 'assign_category', '^corner market$', subcategory.id, 0
+    from public.subcategories as subcategory
+    join public.categories as category on category.id = subcategory.category_id
+    where subcategory.household_id = '00000000-0000-0000-0000-000000000410'
+      and category.system_key = 'groceries'
+      and subcategory.archived_at is null
+      and category.archived_at is null
+    limit 1
+  $$,
+  'a household member can assign an active non-Bills subcategory'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.automation_rules (household_id, action, pattern, replacement, position)
+    values
+      ('00000000-0000-0000-0000-000000000410', 'normalize_merchant', '^first$', 'First', 1),
+      ('00000000-0000-0000-0000-000000000410', 'normalize_merchant', '^second$', 'Second', 2)
+  $$,
+  'a household member can create ordered normalization rules'
+);
+
+select extensions.lives_ok(
+  $$
+    select public.reorder_automation_rules(
+      '00000000-0000-0000-0000-000000000410',
+      array(
+        select id
+        from public.automation_rules
+        where household_id = '00000000-0000-0000-0000-000000000410'
+        order by pattern desc
+      )
+    )
+  $$,
+  'a household member can reorder every household rule atomically'
+);
+
+select extensions.is(
+  (
+    select array_agg(pattern order by position)
+    from public.automation_rules
+    where household_id = '00000000-0000-0000-0000-000000000410'
+  ),
+  array['^second$', '^first$', '^corner market$']::text[],
+  'reordering persists the requested priority order'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.automation_rules (household_id, action, pattern, replacement, subcategory_id, position)
+    select '00000000-0000-0000-0000-000000000410', 'normalize_merchant', '^invalid$', 'Invalid', subcategory.id, 3
+    from public.subcategories as subcategory
+    where subcategory.household_id = '00000000-0000-0000-0000-000000000410'
+    limit 1
+  $$,
+  '%automation_rules_check%',
+  'a normalization rule cannot include a destination payload'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000405';
+set local request.jwt.claim.email = 'outsider@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000405","email":"outsider@example.test"}';
+
+select extensions.is(
+  (
+    select count(*)
+    from public.automation_rules
+    where household_id = '00000000-0000-0000-0000-000000000410'
+  ),
+  0::bigint,
+  'a non-member cannot read another household’s rules'
+);
+
+select extensions.throws_like(
+  $$ select public.reorder_automation_rules('00000000-0000-0000-0000-000000000410', array[]::uuid[]) $$,
+  '%Not a household member%',
+  'a non-member cannot reorder another household’s rules'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000401';
+set local request.jwt.claim.email = 'first-owner@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
+
+select extensions.lives_ok(
+  $$
+    insert into public.transactions (id, household_id, created_by, source, kind, amount, occurred_on, merchant, note, subcategory_id)
+    select
+      '00000000-0000-0000-0000-000000000499',
+      '00000000-0000-0000-0000-000000000410',
+      '00000000-0000-0000-0000-000000000401',
+      'manual',
+      'expense',
+      1.00,
+      '2026-08-07',
+      'Corner Market',
+      '',
+      subcategory.id
+    from public.subcategories as subcategory
+    join public.categories as category on category.id = subcategory.category_id
+    where subcategory.household_id = '00000000-0000-0000-0000-000000000410'
+      and category.system_key = 'groceries'
+      and subcategory.archived_at is null
+      and category.archived_at is null
+    limit 1
+  $$,
+  'a member can create a transaction for stale-preview protection'
+);
+
+select extensions.throws_like(
+  $$
+    select public.apply_automation_results(
+      '00000000-0000-0000-0000-000000000410',
+      (
+        select jsonb_agg(
+          jsonb_build_object(
+            'id', transaction.id,
+            'merchant', 'Renamed Market',
+            'category_id', transaction.category_id,
+            'subcategory_id', transaction.subcategory_id,
+            'expected_updated_at', transaction.updated_at,
+            'expected_merchant', 'Stale merchant',
+            'expected_category_id', transaction.category_id,
+            'expected_subcategory_id', transaction.subcategory_id
+          )
+        )
+        from public.transactions as transaction
+        where transaction.id = '00000000-0000-0000-0000-000000000499'
+      )
+    )
+  $$,
+  '%Automation preview is stale%',
+  'a stale automation preview rejects the entire bulk application'
+);
+
+select extensions.is(
+  (select merchant from public.transactions where id = '00000000-0000-0000-0000-000000000499'),
+  'Corner Market',
+  'a stale automation preview leaves existing transactions unchanged'
 );
 
 set local role anon;
