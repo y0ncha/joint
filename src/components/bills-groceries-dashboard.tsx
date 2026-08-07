@@ -375,6 +375,7 @@ function BillsGroceriesCharts({
   const groceryColor = data.groceries.category?.color ?? "var(--chart-4)";
   const groceryBudgetAgorot = data.groceries.monthly.budgetAgorot;
   const yearOverYearBillDetails = chartBills.find((bill) => bill.value === yearOverYearBill) ?? chartBills[0];
+  const yearOverYearBillIndex = Math.max(0, chartBills.findIndex((bill) => bill.value === yearOverYearBill));
   const yearOverYearData = alignBillYearOverYear(data.months, data.bills.monthly, yearOverYearBill).map(
     ({ month, currentAgorot, previousAgorot }) => ({
       month,
@@ -391,7 +392,7 @@ function BillsGroceriesCharts({
     },
     previous: {
       label: `${yearOverYearBillDetails?.label ?? "Bills"} · previous year`,
-      color: yearOverYearBillDetails?.color ?? "var(--chart-1)",
+      color: billsChartColors[(yearOverYearBillIndex + 1) % billsChartColors.length],
     },
   } satisfies ChartConfig;
   const dailyData = data.groceries.daily

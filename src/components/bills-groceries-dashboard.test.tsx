@@ -311,6 +311,8 @@ it("renders live colors, missing-data guidance, and exact daily values", () => {
   expect(markup).toContain("#234567");
   expect(markup).toContain("#345678");
   expect(markup).toContain("#654321");
+  expect(markup).toContain("#6fafa8");
+  expect(markup).toContain("#829cd0");
   expect(markup).toContain("No previous-year data");
   expect(markup).toContain("Set a monthly groceries budget in Settings.");
   expect(markup).toContain("2026-07-01: ₪0.00");
