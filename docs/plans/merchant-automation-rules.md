@@ -4,13 +4,13 @@ version: 1.0
 date_created: 2026-08-07
 last_updated: 2026-08-07
 owner: Joint
-status: "In progress"
+status: "Complete"
 tags: [feature, automation, transactions, imports, supabase]
 ---
 
 # Introduction
 
-![Status: In progress](https://img.shields.io/badge/status-In%20progress-yellow)
+![Status: Complete](https://img.shields.io/badge/status-Complete-green)
 
 Implement household-owned, ordered merchant rules. Each atomic rule either normalizes a merchant or assigns a transaction destination. Rules affect new manual and statement-import transactions; existing transactions require preview and explicit confirmation.
 
@@ -60,7 +60,7 @@ Implement household-owned, ordered merchant rules. Each atomic rule either norma
 | Task     | Description                                                                                                                          | Status   | Date       |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------- | ---------- |
 | TASK-007 | Connect `/automations`, Settings navigation, accessible sorting, rule forms, conflict preview, and explicit bulk-apply confirmation. | Complete | 2026-08-07 |
-| TASK-008 | Run focused/full tests, lint, format check, pgTAP, browser workflows, update architecture documentation, and commit intended files.  | Blocked  | 2026-08-07 |
+| TASK-008 | Run focused/full tests, lint, format check, pgTAP, browser workflows, update architecture documentation, and commit intended files.  | Complete | 2026-08-07 |
 
 ## 3. Alternatives
 

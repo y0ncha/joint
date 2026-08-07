@@ -254,7 +254,7 @@ it("renders edit mode with saved transaction values and deletion inside the shee
         subcategoryId: "groceries",
         note: "Saved note",
         merchant: "Saved merchant",
-        source: "statement_import",
+        source: "manual",
         createdAt: "2026-07-14T08:00:00Z",
         paidBy: "member-id",
       }}
@@ -274,6 +274,7 @@ it("renders edit mode with saved transaction values and deletion inside the shee
   expect(markup).toContain("Delete transaction");
   expect(markup).toContain("Delete this transaction?");
   expect(markup).toContain("This removes the entry from the shared household ledger.");
+  expect(mocks.categoryOptions).not.toContainEqual({ value: "", label: "Uncategorized" });
 });
 
 it("keeps an imported transaction unassigned while allowing its category to be edited", () => {
@@ -312,6 +313,7 @@ it("keeps an imported transaction unassigned while allowing its category to be e
   expect(markup).toContain("Unassigned");
   expect(markup).toContain('type="hidden" name="subcategoryId" value=""');
   expect(markup).toContain('type="hidden" name="paidBy" value=""');
+  expect(mocks.categoryOptions).toContainEqual({ value: "", label: "Uncategorized" });
 });
 
 it("exposes only matching subcategories and clears the selection when the type changes", () => {

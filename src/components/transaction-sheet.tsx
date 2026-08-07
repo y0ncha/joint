@@ -249,7 +249,9 @@ export function TransactionSheet({
                 disabled={selectableSubcategories.length + selectableCategories.length === 0}
                 emptyLabel={isEditing ? "Uncategorized" : "Automatic"}
                 options={[
-                  { value: "", label: isEditing ? "Uncategorized" : "Automatic" },
+                  ...(!isEditing || transaction?.source === "statement_import"
+                    ? [{ value: "", label: isEditing ? "Uncategorized" : "Automatic" }]
+                    : []),
                   ...selectableSubcategories.map((subcategory) => ({
                     value: subcategory.id,
                     label: `${subcategory.categoryName} → ${subcategory.name}`,
