@@ -13,6 +13,8 @@
     "test:db": "test -n \"$JOINT_DEV_TEST_DB_URL\" || { echo 'Set JOINT_DEV_TEST_DB_URL to the percent-encoded joint-dev postgres connection URL.' >&2; exit 1; }; SUPABASE_TELEMETRY_DISABLED=1 supabase test db --db-url \"$JOINT_DEV_TEST_DB_URL\" supabase/tests/shared_balance.sql"
   },
   "dependencies": {
+    "@dnd-kit/helpers": "0.5.0",
+    "@dnd-kit/react": "0.5.0",
     "@sentry/nextjs": "^10",
     "@supabase/ssr": "^0.12.1",
     "@supabase/supabase-js": "^2.110.3",
@@ -24,6 +26,7 @@
     "lucide-react": "^1.24.0",
     "next": "16.2.10",
     "radix-ui": "^1.6.2",
+    "re2js": "2.8.5",
     "react": "19.2.4",
     "react-color": "^2.19.3",
     "react-day-picker": "^10.0.1",
