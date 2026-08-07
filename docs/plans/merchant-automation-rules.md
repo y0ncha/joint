@@ -39,10 +39,10 @@ Implement household-owned, ordered merchant rules. Each atomic rule either norma
 
 - **GOAL-002**: Add protected persistence and atomic database operations.
 
-| Task     | Description                                                                                                                                 | Status  | Date |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
-| TASK-003 | Create the generated `add_merchant_automation_rules` migration with RLS, validated payloads, order and bulk-apply RPCs, and pgTAP coverage. | Planned |      |
-| TASK-004 | Apply and verify the migration only after the required `joint-dev` preflight, dry-run, writer check, type generation, and advisor checks.   | Planned |      |
+| Task     | Description                                                                                                                                 | Status   | Date       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| TASK-003 | Create the generated `add_merchant_automation_rules` migration with RLS, validated payloads, order and bulk-apply RPCs, and pgTAP coverage. | Complete | 2026-08-07 |
+| TASK-004 | Apply and verify the migration only after the required `joint-dev` preflight, dry-run, writer check, type generation, and advisor checks.   | Complete | 2026-08-07 |
 
 ### Implementation Phase 3
 
