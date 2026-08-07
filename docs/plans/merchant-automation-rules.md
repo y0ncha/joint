@@ -57,10 +57,10 @@ Implement household-owned, ordered merchant rules. Each atomic rule either norma
 
 - **GOAL-004**: Connect the approved UI and prove the complete behavior.
 
-| Task     | Description                                                                                                                          | Status  | Date |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------- | ---- |
-| TASK-007 | Connect `/automations`, Settings navigation, accessible sorting, rule forms, conflict preview, and explicit bulk-apply confirmation. | Planned |      |
-| TASK-008 | Run focused/full tests, lint, format check, pgTAP, browser workflows, update architecture documentation, and commit intended files.  | Planned |      |
+| Task     | Description                                                                                                                          | Status   | Date       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------- | ---------- |
+| TASK-007 | Connect `/automations`, Settings navigation, accessible sorting, rule forms, conflict preview, and explicit bulk-apply confirmation. | Complete | 2026-08-07 |
+| TASK-008 | Run focused/full tests, lint, format check, pgTAP, browser workflows, update architecture documentation, and commit intended files.  | Blocked  | 2026-08-07 |
 
 ## 3. Alternatives
 

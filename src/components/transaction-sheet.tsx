@@ -97,9 +97,7 @@ export function TransactionSheet({
   const initialKind = transaction?.kind === "income" ? "income" : "expense";
   const isEditing = Boolean(transaction);
   const initialOccurredOn = transaction?.occurredOn ?? todayIso();
-  const initialSubcategoryId = transaction
-    ? (transaction.subcategoryId ?? "")
-    : (subcategories.find((subcategory) => subcategory.kind === initialKind)?.id ?? "");
+  const initialSubcategoryId = transaction?.subcategoryId ?? "";
   const [kind, setKind] = useState<"income" | "expense">(initialKind);
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
     async (_state, formData) => (transaction ? updateTransaction(transaction.id, formData) : createTransaction(formData)),
@@ -249,8 +247,9 @@ export function TransactionSheet({
                   );
                 }}
                 disabled={selectableSubcategories.length + selectableCategories.length === 0}
-                emptyLabel="Uncategorized"
+                emptyLabel={isEditing ? "Uncategorized" : "Automatic"}
                 options={[
+                  { value: "", label: isEditing ? "Uncategorized" : "Automatic" },
                   ...selectableSubcategories.map((subcategory) => ({
                     value: subcategory.id,
                     label: `${subcategory.categoryName} → ${subcategory.name}`,
