@@ -40,7 +40,10 @@ export function evaluateMerchantAutomations(input: AutomationInput, rules: Merch
   const merchant = input.merchant.trim();
   const matching = rules
     .filter((rule) => rule.enabled && rule.pattern.trim())
-    .sort((left, right) => left.position - right.position || (left.createdAt ?? "").localeCompare(right.createdAt ?? "") || left.id.localeCompare(right.id))
+    .sort(
+      (left, right) =>
+        left.position - right.position || (left.createdAt ?? "").localeCompare(right.createdAt ?? "") || left.id.localeCompare(right.id),
+    )
     .filter((rule) => compileMerchantPattern(rule.pattern).test(merchant));
   const normalizeRules = matching.filter((rule) => rule.action === "normalize_merchant");
   const categoryRules = matching.filter(
@@ -51,7 +54,11 @@ export function evaluateMerchantAutomations(input: AutomationInput, rules: Merch
   const assignment = categoryRules[0];
   const conflicts: AutomationConflict[] = [];
   if (normalization && normalizeRules.length > 1)
-    conflicts.push({ action: "normalize_merchant", winnerId: normalization.id, shadowedRuleIds: normalizeRules.slice(1).map((rule) => rule.id) });
+    conflicts.push({
+      action: "normalize_merchant",
+      winnerId: normalization.id,
+      shadowedRuleIds: normalizeRules.slice(1).map((rule) => rule.id),
+    });
   if (assignment && categoryRules.length > 1)
     conflicts.push({ action: "assign_category", winnerId: assignment.id, shadowedRuleIds: categoryRules.slice(1).map((rule) => rule.id) });
 

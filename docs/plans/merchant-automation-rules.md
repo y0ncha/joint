@@ -4,7 +4,7 @@ version: 1.0
 date_created: 2026-08-07
 last_updated: 2026-08-07
 owner: Joint
-status: 'In progress'
+status: "In progress"
 tags: [feature, automation, transactions, imports, supabase]
 ---
 
@@ -30,37 +30,37 @@ Implement household-owned, ordered merchant rules. Each atomic rule either norma
 
 - **GOAL-001**: Establish the approved contract and visual surface.
 
-| Task | Description | Status | Date |
-|------|-------------|--------|------|
+| Task     | Description                                                                                                                                     | Status   | Date       |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
 | TASK-001 | Update `docs/design.md` and create the visual-only `/automations` workspace with list, action forms, conflict preview, and confirmation states. | Complete | 2026-08-07 |
-| TASK-002 | Add the exact RE2 and accessible sortable-list dependencies and verify the lockfile scope. | Complete | 2026-08-07 |
+| TASK-002 | Add the exact RE2 and accessible sortable-list dependencies and verify the lockfile scope.                                                      | Complete | 2026-08-07 |
 
 ### Implementation Phase 2
 
 - **GOAL-002**: Add protected persistence and atomic database operations.
 
-| Task | Description | Status | Date |
-|------|-------------|--------|------|
-| TASK-003 | Create the generated `add_merchant_automation_rules` migration with RLS, validated payloads, order and bulk-apply RPCs, and pgTAP coverage. | Planned | |
-| TASK-004 | Apply and verify the migration only after the required `joint-dev` preflight, dry-run, writer check, type generation, and advisor checks. | Planned | |
+| Task     | Description                                                                                                                                 | Status  | Date |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
+| TASK-003 | Create the generated `add_merchant_automation_rules` migration with RLS, validated payloads, order and bulk-apply RPCs, and pgTAP coverage. | Planned |      |
+| TASK-004 | Apply and verify the migration only after the required `joint-dev` preflight, dry-run, writer check, type generation, and advisor checks.   | Planned |      |
 
 ### Implementation Phase 3
 
 - **GOAL-003**: Implement deterministic evaluation and authenticated management actions.
 
-| Task | Description | Status | Date |
-|------|-------------|--------|------|
-| TASK-005 | Add the tested merchant automation engine, exact-count page reader, CRUD/reorder actions, preview fingerprint, and confirmed atomic application. | Planned | |
-| TASK-006 | Update transaction creation and statement import so rules run once before their existing inserts without changing edit behavior or import atomicity. | Planned | |
+| Task     | Description                                                                                                                                          | Status  | Date |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
+| TASK-005 | Add the tested merchant automation engine, exact-count page reader, CRUD/reorder actions, preview fingerprint, and confirmed atomic application.     | Planned |      |
+| TASK-006 | Update transaction creation and statement import so rules run once before their existing inserts without changing edit behavior or import atomicity. | Planned |      |
 
 ### Implementation Phase 4
 
 - **GOAL-004**: Connect the approved UI and prove the complete behavior.
 
-| Task | Description | Status | Date |
-|------|-------------|--------|------|
-| TASK-007 | Connect `/automations`, Settings navigation, accessible sorting, rule forms, conflict preview, and explicit bulk-apply confirmation. | Planned | |
-| TASK-008 | Run focused/full tests, lint, format check, pgTAP, browser workflows, update architecture documentation, and commit intended files. | Planned | |
+| Task     | Description                                                                                                                          | Status  | Date |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------- | ---- |
+| TASK-007 | Connect `/automations`, Settings navigation, accessible sorting, rule forms, conflict preview, and explicit bulk-apply confirmation. | Planned |      |
+| TASK-008 | Run focused/full tests, lint, format check, pgTAP, browser workflows, update architecture documentation, and commit intended files.  | Planned |      |
 
 ## 3. Alternatives
 

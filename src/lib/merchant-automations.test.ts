@@ -1,9 +1,9 @@
 import { expect, it } from "vitest";
 
-const module = await import("./merchant-automations").catch(() => null);
+const merchantAutomations = await import("./merchant-automations").catch(() => null);
 
 it("normalizes and assigns from the first matching rule of each action", () => {
-  const result = module?.evaluateMerchantAutomations(
+  const result = merchantAutomations?.evaluateMerchantAutomations(
     { merchant: "ארומה סניף יפו", kind: "expense", categoryId: null, subcategoryId: null },
     [
       { id: "normalize", action: "normalize_merchant", pattern: "ארומה", replacement: "Aroma", enabled: true, position: 0 },
@@ -30,7 +30,7 @@ it("normalizes and assigns from the first matching rule of each action", () => {
 });
 
 it("keeps an explicit assignment while still normalizing the merchant", () => {
-  const result = module?.evaluateMerchantAutomations(
+  const result = merchantAutomations?.evaluateMerchantAutomations(
     { merchant: "AROMA", kind: "expense", categoryId: null, subcategoryId: "chosen" },
     [
       { id: "normalize", action: "normalize_merchant", pattern: "aroma", replacement: "Aroma", enabled: true, position: 0 },
@@ -53,7 +53,7 @@ it("keeps an explicit assignment while still normalizing the merchant", () => {
 });
 
 it("reports same-action matches while preserving first-rule priority", () => {
-  const result = module?.evaluateMerchantAutomations(
+  const result = merchantAutomations?.evaluateMerchantAutomations(
     { merchant: "Aroma Jaffa", kind: "expense", categoryId: null, subcategoryId: null },
     [
       { id: "first", action: "normalize_merchant", pattern: "Aroma", replacement: "Aroma", enabled: true, position: 0 },

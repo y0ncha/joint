@@ -29,7 +29,9 @@ export function AutomationRulesWorkspace({ rules }: { rules: AutomationRulePrevi
       <Card className="mt-6 border-white/50 bg-card/90">
         <CardHeader>
           <CardTitle>Merchant rules</CardTitle>
-          <CardDescription>Priority decides which matching rule wins. Preview changes before applying them to existing transactions.</CardDescription>
+          <CardDescription>
+            Priority decides which matching rule wins. Preview changes before applying them to existing transactions.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {rules.length === 0 ? (
