@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { validationError, type ActionResult } from "@/app/actions/result";
 import { requireCurrentHousehold } from "@/lib/household";
+import { evaluateMerchantAutomations, getMerchantAutomationRules } from "@/lib/merchant-automations";
 import { transactionSchema } from "@/lib/validation";
 
 async function validatePaidBy(
@@ -51,14 +52,28 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
   if (!parsed.success) {
     return validationError(parsed.error.issues);
   }
-  if (!parsed.data.subcategoryId && !parsed.data.categoryId) {
-    return { status: "error", formError: "Check the form details.", fieldErrors: { subcategoryId: "Select a value." } };
-  }
 
   const household = await requireCurrentHousehold();
+  let automated;
+  try {
+    automated = evaluateMerchantAutomations(
+      {
+        merchant: parsed.data.merchant ?? "",
+        kind: parsed.data.kind,
+        categoryId: parsed.data.categoryId,
+        subcategoryId: parsed.data.subcategoryId,
+      },
+      await getMerchantAutomationRules(household.supabase, household.householdId),
+    );
+  } catch {
+    return { status: "error", formError: "Unable to save the transaction. Please try again.", fieldErrors: {} };
+  }
+  if (!automated.subcategoryId && !automated.categoryId) {
+    return { status: "error", formError: "Check the form details.", fieldErrors: { subcategoryId: "Select a value." } };
+  }
   const servicePeriods = await servicePeriodsFor(
     household,
-    parsed.data.subcategoryId,
+    automated.subcategoryId,
     parsed.data.servicePeriodStart,
     parsed.data.servicePeriodEnd,
   );
@@ -78,10 +93,10 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
     kind: parsed.data.kind,
     amount: parsed.data.amount,
     occurred_on: parsed.data.occurredOn,
-    ...(parsed.data.categoryId ? { category_id: parsed.data.categoryId } : {}),
-    subcategory_id: parsed.data.subcategoryId,
+    ...(automated.categoryId ? { category_id: automated.categoryId } : {}),
+    subcategory_id: automated.subcategoryId,
     note: parsed.data.note,
-    ...(parsed.data.merchant === undefined ? {} : { merchant: parsed.data.merchant }),
+    ...(parsed.data.merchant === undefined ? {} : { merchant: automated.merchant }),
     ...servicePeriods,
   });
 

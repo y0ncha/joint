@@ -15,3 +15,12 @@ it("renders a semantic class for the selected pill", () => {
   expect(markup).toContain("text-negative");
   expect(markup).not.toContain("border-muted-foreground/20 bg-muted text-muted-foreground");
 });
+
+it("associates destination validation feedback with its trigger", () => {
+  const markup = renderToStaticMarkup(
+    <PillSelect ariaLabel="Automation destination" ariaDescribedBy="destination-error" ariaInvalid options={[]} />,
+  );
+
+  expect(markup).toContain('aria-invalid="true"');
+  expect(markup).toContain('aria-describedby="destination-error"');
+});

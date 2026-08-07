@@ -10,9 +10,14 @@ const mocks = vi.hoisted(() => ({
   duplicateHashHouseholdEq: vi.fn(),
   duplicateHashEq: vi.fn(),
   cardMappingsEq: vi.fn(),
+  getMerchantAutomationRules: vi.fn(),
 }));
 
 vi.mock("@/lib/household", () => ({ requireCurrentHousehold: mocks.requireCurrentHousehold }));
+vi.mock("@/lib/merchant-automations", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/merchant-automations")>()),
+  getMerchantAutomationRules: mocks.getMerchantAutomationRules,
+}));
 vi.mock("@/lib/statement-import", () => ({ parseStatementFile: mocks.parseStatementFile }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 
@@ -70,6 +75,7 @@ describe("statement import action", () => {
     mocks.cardMappingsEq.mockResolvedValue({ data: [{ last_four: "4548", user_id: "payer-id" }], error: null });
     mocks.transactionInsert.mockResolvedValue({ error: null });
     mocks.parseStatementFile.mockResolvedValue(parsedStatement());
+    mocks.getMerchantAutomationRules.mockResolvedValue([]);
     mocks.from.mockImplementation((table: string) => {
       if (table === "transactions") {
         return {
@@ -145,6 +151,40 @@ describe("statement import action", () => {
     expect(mocks.transactionInsert).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ paid_by: null })]));
   });
 
+  it("normalizes and assigns every imported row before the one atomic insert", async () => {
+    mocks.getMerchantAutomationRules.mockResolvedValue([
+      { id: "normalize", action: "normalize_merchant", pattern: "corner", replacement: "Market", enabled: true, position: 0 },
+      {
+        id: "expense",
+        action: "assign_category",
+        pattern: "corner",
+        subcategoryId: "groceries",
+        destinationKind: "expense",
+        enabled: true,
+        position: 1,
+      },
+      {
+        id: "income",
+        action: "assign_category",
+        pattern: "refund",
+        categoryId: "income-other",
+        destinationKind: "income",
+        enabled: true,
+        position: 2,
+      },
+    ]);
+
+    await expect(actions.importStatement(null, formData(statementFile()))).resolves.toMatchObject({ status: "success" });
+
+    expect(mocks.transactionInsert).toHaveBeenCalledTimes(1);
+    expect(mocks.transactionInsert).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ merchant: "Market", subcategory_id: "groceries" }),
+        expect.objectContaining({ merchant: "Refund Shop", category_id: "income-other", subcategory_id: null }),
+      ]),
+    );
+  });
+
   it("rejects invalid parsed rows without inserting any transactions", async () => {
     mocks.parseStatementFile.mockRejectedValue(new Error("row 8: invalid date"));
 
@@ -192,6 +232,17 @@ describe("statement import action", () => {
 
   it("sanitizes a card-mapping lookup failure without inserting a partial import", async () => {
     mocks.cardMappingsEq.mockResolvedValue({ data: null, error: { message: "database details" } });
+
+    await expect(actions.importStatement(null, formData(statementFile()))).resolves.toEqual({
+      status: "error",
+      formError: "Unable to process this file. Try again.",
+      fieldErrors: {},
+    });
+    expect(mocks.transactionInsert).not.toHaveBeenCalled();
+  });
+
+  it("does not insert any rows when rule loading fails", async () => {
+    mocks.getMerchantAutomationRules.mockRejectedValue(new Error("database details"));
 
     await expect(actions.importStatement(null, formData(statementFile()))).resolves.toEqual({
       status: "error",

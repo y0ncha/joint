@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(143);
+select extensions.plan(165);
 
 select extensions.is(
   (select count(*) from public.transactions),
@@ -19,11 +19,6 @@ select extensions.ok(
 
 select extensions.ok(
   not exists (
-    select 1
-    from public.categories
-    where system_key is null
-  )
-    and not exists (
       select 1
       from public.households as household
       where (
@@ -50,11 +45,6 @@ select extensions.ok(
 
 select extensions.ok(
   not exists (
-    select 1
-    from public.subcategories
-    where system_key is null
-  )
-    and not exists (
       select 1
       from public.households as household
       where (
@@ -193,7 +183,12 @@ select extensions.ok(
         ('00000000-0000-0000-0000-000000000410'::uuid),
         ('00000000-0000-0000-0000-000000000411'::uuid)
     ) as expected(household_id)
-    where (select count(*) from public.categories where household_id = expected.household_id) <> 2
+    where (
+      select count(*)
+      from public.categories
+      where household_id = expected.household_id
+        and system_key in ('bills', 'groceries', 'other_income', 'other_expense')
+    ) <> 4
       or (
         select count(*)
         from public.categories as category
@@ -927,7 +922,7 @@ select extensions.throws_like(
       '00000000-0000-0000-0000-000000000401'
     )
   $$,
-  '%Transaction subcategory cannot be archived%',
+  '%Transaction category cannot be archived%',
   'an archived subcategory cannot be assigned to a transaction'
 );
 
@@ -1944,6 +1939,441 @@ select extensions.ok(
         'CREATE INDEX transactions_household_subcategory_idx ON public.transactions USING btree (household_id, subcategory_id) WHERE (subcategory_id IS NOT NULL)'
   ),
   'transactions have a valid partial household-subcategory index'
+);
+
+select extensions.has_table('public', 'automation_rules', 'has household-owned automation rules');
+
+select extensions.ok(
+  (
+    select schema_table.relrowsecurity
+    from pg_catalog.pg_class as schema_table
+    join pg_catalog.pg_namespace as table_schema on table_schema.oid = schema_table.relnamespace
+    where table_schema.nspname = 'public' and schema_table.relname = 'automation_rules'
+  ),
+  'automation rules enforce RLS'
+);
+
+select extensions.ok(
+  has_table_privilege('authenticated', 'public.automation_rules', 'SELECT')
+    and has_table_privilege('authenticated', 'public.automation_rules', 'INSERT')
+    and has_table_privilege('authenticated', 'public.automation_rules', 'UPDATE')
+    and has_table_privilege('authenticated', 'public.automation_rules', 'DELETE')
+    and not has_table_privilege('anon', 'public.automation_rules', 'SELECT'),
+  'only authenticated callers receive automation-rule table access'
+);
+
+select extensions.ok(
+  exists (
+    select 1
+    from pg_catalog.pg_constraint as constraint_meta
+    where constraint_meta.conrelid = 'public.automation_rules'::regclass
+      and constraint_meta.conname = 'automation_rules_household_position_key'
+      and constraint_meta.contype = 'u'
+      and constraint_meta.condeferrable
+  ),
+  'automation rule priority is unique per household'
+);
+
+select extensions.ok(
+  exists (
+    select 1 from pg_catalog.pg_trigger as trigger_meta
+    where trigger_meta.tgrelid = 'public.automation_rules'::regclass
+      and trigger_meta.tgname = 'automation_rules_validate_destination'
+      and trigger_meta.tgfoid = 'private.validate_automation_rule()'::regprocedure
+  )
+  and exists (
+    select 1 from pg_catalog.pg_trigger as trigger_meta
+    where trigger_meta.tgrelid = 'public.subcategories'::regclass
+      and trigger_meta.tgname = 'subcategories_protect_automation_destinations'
+      and trigger_meta.tgfoid = 'private.protect_automation_rule_destinations()'::regprocedure
+  ),
+  'automation destinations are validated and cannot become Bills'
+);
+
+select extensions.ok(
+  exists (
+    select 1 from pg_catalog.pg_proc as function_meta
+    where function_meta.oid = 'public.reorder_automation_rules(uuid,uuid[])'::regprocedure
+      and coalesce(function_meta.proconfig, array[]::text[]) @> array['search_path=""']
+      and not function_meta.prosecdef
+  )
+  and exists (
+    select 1 from pg_catalog.pg_proc as function_meta
+    where function_meta.oid = 'public.apply_automation_results(uuid,jsonb,jsonb)'::regprocedure
+      and coalesce(function_meta.proconfig, array[]::text[]) @> array['search_path=""']
+      and not function_meta.prosecdef
+  )
+  and exists (
+    select 1 from pg_catalog.pg_proc as function_meta
+    where function_meta.oid = 'private.is_existing_uncategorized_manual_transaction(uuid,uuid)'::regprocedure
+      and coalesce(function_meta.proconfig, array[]::text[]) @> array['search_path=""']
+      and function_meta.prosecdef
+  ),
+  'automation apply keeps invoker rights and the historical-manual exception private'
+);
+
+select extensions.ok(
+  has_function_privilege('authenticated', 'public.reorder_automation_rules(uuid,uuid[])', 'EXECUTE')
+    and has_function_privilege('authenticated', 'public.apply_automation_results(uuid,jsonb,jsonb)', 'EXECUTE')
+    and has_function_privilege(
+      'authenticated',
+      'private.is_existing_uncategorized_manual_transaction(uuid,uuid)',
+      'EXECUTE'
+    )
+    and not has_function_privilege('anon', 'public.reorder_automation_rules(uuid,uuid[])', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.apply_automation_results(uuid,jsonb,jsonb)', 'EXECUTE')
+    and not has_function_privilege(
+      'anon',
+      'private.is_existing_uncategorized_manual_transaction(uuid,uuid)',
+      'EXECUTE'
+    ),
+  'only authenticated callers can invoke automation functions'
+);
+
+select extensions.ok(
+  exists (
+    select 1 from pg_catalog.pg_trigger as trigger_meta
+    where trigger_meta.tgrelid = 'public.categories'::regclass
+      and trigger_meta.tgname = 'categories_protect_automation_destinations'
+      and trigger_meta.tgfoid = 'private.protect_automation_rule_destinations()'::regprocedure
+  ),
+  'archiving a referenced automation destination is blocked'
+);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000401';
+set local request.jwt.claim.email = 'first-owner@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
+
+select extensions.lives_ok(
+  $$
+    insert into public.automation_rules (household_id, action, pattern, subcategory_id, position)
+    select '00000000-0000-0000-0000-000000000410', 'assign_category', '^corner market$', subcategory.id, 0
+    from public.subcategories as subcategory
+    join public.categories as category on category.id = subcategory.category_id
+    where subcategory.household_id = '00000000-0000-0000-0000-000000000410'
+      and category.system_key = 'groceries'
+      and subcategory.archived_at is null
+      and category.archived_at is null
+    limit 1
+  $$,
+  'a household member can assign an active non-Bills subcategory'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.automation_rules (household_id, action, pattern, replacement, position)
+    values
+      ('00000000-0000-0000-0000-000000000410', 'normalize_merchant', '^first$', 'First', 1),
+      ('00000000-0000-0000-0000-000000000410', 'normalize_merchant', '^second$', 'Second', 2)
+  $$,
+  'a household member can create ordered normalization rules'
+);
+
+select extensions.lives_ok(
+  $$
+    select public.reorder_automation_rules(
+      '00000000-0000-0000-0000-000000000410',
+      array(
+        select id
+        from public.automation_rules
+        where household_id = '00000000-0000-0000-0000-000000000410'
+        order by pattern desc
+      )
+    )
+  $$,
+  'a household member can reorder every household rule atomically'
+);
+
+select extensions.is(
+  (
+    select array_agg(pattern order by position)
+    from public.automation_rules
+    where household_id = '00000000-0000-0000-0000-000000000410'
+  ),
+  array['^second$', '^first$', '^corner market$']::text[],
+  'reordering persists the requested priority order'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.automation_rules (household_id, action, pattern, replacement, subcategory_id, position)
+    select '00000000-0000-0000-0000-000000000410', 'normalize_merchant', '^invalid$', 'Invalid', subcategory.id, 3
+    from public.subcategories as subcategory
+    where subcategory.household_id = '00000000-0000-0000-0000-000000000410'
+    limit 1
+  $$,
+  '%automation_rules_check%',
+  'a normalization rule cannot include a destination payload'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000405';
+set local request.jwt.claim.email = 'outsider@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000405","email":"outsider@example.test"}';
+
+select extensions.is(
+  (
+    select count(*)
+    from public.automation_rules
+    where household_id = '00000000-0000-0000-0000-000000000410'
+  ),
+  0::bigint,
+  'a non-member cannot read another household’s rules'
+);
+
+select extensions.throws_like(
+  $$ select public.reorder_automation_rules('00000000-0000-0000-0000-000000000410', array[]::uuid[]) $$,
+  '%Not a household member%',
+  'a non-member cannot reorder another household’s rules'
+);
+
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000401';
+set local request.jwt.claim.email = 'first-owner@example.test';
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
+
+select extensions.lives_ok(
+  $$
+    insert into public.transactions (id, household_id, created_by, source, kind, amount, occurred_on, merchant, note, subcategory_id)
+    select
+      '00000000-0000-0000-0000-000000000499',
+      '00000000-0000-0000-0000-000000000410',
+      '00000000-0000-0000-0000-000000000401',
+      'manual',
+      'expense',
+      1.00,
+      '2026-08-07',
+      'Corner Market',
+      '',
+      subcategory.id
+    from public.subcategories as subcategory
+    join public.categories as category on category.id = subcategory.category_id
+    where subcategory.household_id = '00000000-0000-0000-0000-000000000410'
+      and category.system_key = 'groceries'
+      and subcategory.archived_at is null
+      and category.archived_at is null
+    limit 1
+  $$,
+  'a member can create a transaction for stale-preview protection'
+);
+
+create temporary table expected_automation_rule_sets (
+  name text primary key,
+  snapshot jsonb not null
+) on commit drop;
+
+insert into expected_automation_rule_sets (name, snapshot)
+select
+  'before edit',
+  coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', rule.id,
+        'action', rule.action,
+        'pattern', rule.pattern,
+        'replacement', rule.replacement,
+        'category_id', rule.category_id,
+        'subcategory_id', rule.subcategory_id,
+        'enabled', rule.enabled,
+        'position', rule.position
+      )
+      order by rule.position, rule.id
+    ),
+    '[]'::jsonb
+  )
+from public.automation_rules as rule
+where rule.household_id = '00000000-0000-0000-0000-000000000410';
+
+select extensions.throws_like(
+  $$
+    select public.apply_automation_results(
+      '00000000-0000-0000-0000-000000000410',
+      (
+        select jsonb_agg(
+          jsonb_build_object(
+            'id', transaction.id,
+            'merchant', 'Renamed Market',
+            'category_id', transaction.category_id,
+            'subcategory_id', transaction.subcategory_id,
+            'expected_updated_at', transaction.updated_at,
+            'expected_merchant', 'Stale merchant',
+            'expected_category_id', transaction.category_id,
+            'expected_subcategory_id', transaction.subcategory_id
+          )
+        )
+        from public.transactions as transaction
+        where transaction.id = '00000000-0000-0000-0000-000000000499'
+      ),
+      (select snapshot from expected_automation_rule_sets where name = 'before edit')
+    )
+  $$,
+  '%Automation preview is stale%',
+  'a stale automation preview rejects the entire bulk application'
+);
+
+update public.automation_rules
+set replacement = 'Second changed'
+where household_id = '00000000-0000-0000-0000-000000000410'
+  and pattern = '^second$';
+
+insert into expected_automation_rule_sets (name, snapshot)
+select
+  'after edit',
+  coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', rule.id,
+        'action', rule.action,
+        'pattern', rule.pattern,
+        'replacement', rule.replacement,
+        'category_id', rule.category_id,
+        'subcategory_id', rule.subcategory_id,
+        'enabled', rule.enabled,
+        'position', rule.position
+      )
+      order by rule.position, rule.id
+    ),
+    '[]'::jsonb
+  )
+from public.automation_rules as rule
+where rule.household_id = '00000000-0000-0000-0000-000000000410';
+
+select extensions.throws_like(
+  $$
+    select public.apply_automation_results(
+      '00000000-0000-0000-0000-000000000410',
+      (
+        select jsonb_agg(
+          jsonb_build_object(
+            'id', transaction.id,
+            'merchant', 'Renamed Market',
+            'category_id', transaction.category_id,
+            'subcategory_id', transaction.subcategory_id,
+            'expected_updated_at', transaction.updated_at,
+            'expected_merchant', transaction.merchant,
+            'expected_category_id', transaction.category_id,
+            'expected_subcategory_id', transaction.subcategory_id
+          )
+        )
+        from public.transactions as transaction
+        where transaction.id = '00000000-0000-0000-0000-000000000499'
+      ),
+      (select snapshot from expected_automation_rule_sets where name = 'before edit')
+    )
+  $$,
+  '%Automation preview is stale%',
+  'changing the household rule set makes a historic preview stale'
+);
+
+select extensions.throws_like(
+  $$
+    select public.apply_automation_results(
+      '00000000-0000-0000-0000-000000000410',
+      (
+        select jsonb_agg(
+          jsonb_build_object(
+            'id', transaction.id,
+            'merchant', transaction.merchant,
+            'category_id', null,
+            'subcategory_id', null,
+            'expected_updated_at', transaction.updated_at,
+            'expected_merchant', transaction.merchant,
+            'expected_category_id', transaction.category_id,
+            'expected_subcategory_id', transaction.subcategory_id
+          )
+        )
+        from public.transactions as transaction
+        where transaction.id = '00000000-0000-0000-0000-000000000499'
+      ),
+      (select snapshot from expected_automation_rule_sets where name = 'after edit')
+    )
+  $$,
+  '%row-level security%',
+  'historic automation cannot clear an assigned manual destination'
+);
+
+with created_category as (
+  select public.create_category('Automation orphan source', 'expense', null, 'tag') as id
+)
+insert into public.subcategories (id, household_id, category_id, name)
+select
+  '00000000-0000-0000-0000-000000000497',
+  '00000000-0000-0000-0000-000000000410',
+  created_category.id,
+  'Deleted destination'
+from created_category;
+
+insert into public.transactions (
+  id,
+  household_id,
+  created_by,
+  source,
+  kind,
+  amount,
+  occurred_on,
+  merchant,
+  note,
+  subcategory_id
+)
+values (
+  '00000000-0000-0000-0000-000000000498',
+  '00000000-0000-0000-0000-000000000410',
+  '00000000-0000-0000-0000-000000000401',
+  'manual',
+  'expense',
+  1.00,
+  '2026-08-07',
+  'first',
+  '',
+  '00000000-0000-0000-0000-000000000497'
+);
+
+delete from public.subcategories
+where id = '00000000-0000-0000-0000-000000000497';
+
+select extensions.lives_ok(
+  $$
+    select public.apply_automation_results(
+      '00000000-0000-0000-0000-000000000410',
+      (
+        select jsonb_agg(
+          jsonb_build_object(
+            'id', transaction.id,
+            'merchant', 'First',
+            'category_id', transaction.category_id,
+            'subcategory_id', transaction.subcategory_id,
+            'expected_updated_at', transaction.updated_at,
+            'expected_merchant', transaction.merchant,
+            'expected_category_id', transaction.category_id,
+            'expected_subcategory_id', transaction.subcategory_id
+          )
+        )
+        from public.transactions as transaction
+        where transaction.id = '00000000-0000-0000-0000-000000000498'
+      ),
+      (select snapshot from expected_automation_rule_sets where name = 'after edit')
+    )
+  $$,
+  'normalization-only historic apply accepts a manual transaction orphaned by deletion'
+);
+
+select extensions.is(
+  (
+    select jsonb_build_object(
+      'merchant', transaction.merchant,
+      'category_id', transaction.category_id,
+      'subcategory_id', transaction.subcategory_id
+    )
+    from public.transactions as transaction
+    where transaction.id = '00000000-0000-0000-0000-000000000498'
+  ),
+  '{"merchant":"First","category_id":null,"subcategory_id":null}'::jsonb,
+  'normalization preserves the orphaned manual destination state'
+);
+
+select extensions.is(
+  (select merchant from public.transactions where id = '00000000-0000-0000-0000-000000000499'),
+  'Corner Market',
+  'a stale automation preview leaves existing transactions unchanged'
 );
 
 set local role anon;

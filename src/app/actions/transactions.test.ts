@@ -10,9 +10,14 @@ const mocks = vi.hoisted(() => ({
   revalidatePath: vi.fn(),
   select: vi.fn(),
   subcategorySelect: vi.fn(),
+  getMerchantAutomationRules: vi.fn(),
 }));
 
 vi.mock("@/lib/household", () => ({ requireCurrentHousehold: mocks.requireCurrentHousehold }));
+vi.mock("@/lib/merchant-automations", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/merchant-automations")>()),
+  getMerchantAutomationRules: mocks.getMerchantAutomationRules,
+}));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 
 const transactionsModule = await import("./transactions");
@@ -95,6 +100,7 @@ describe("transaction actions", () => {
       householdId: "household-id",
       role: "member",
     });
+    mocks.getMerchantAutomationRules.mockResolvedValue([]);
   });
 
   it("creates an account-free transaction through verified request membership", async () => {
@@ -142,6 +148,28 @@ describe("transaction actions", () => {
 
     expect(mocks.from).not.toHaveBeenCalledWith("household_members");
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ paid_by: null, subcategory_id: "groceries" }));
+  });
+
+  it("normalizes and automatically assigns a blank manual destination", async () => {
+    configureContextClient();
+    mocks.getMerchantAutomationRules.mockResolvedValue([
+      { id: "normalize", action: "normalize_merchant", pattern: "corner", replacement: "Corner Market", enabled: true, position: 0 },
+      {
+        id: "assign",
+        action: "assign_category",
+        pattern: "corner",
+        subcategoryId: "groceries",
+        destinationKind: "expense",
+        enabled: true,
+        position: 1,
+      },
+    ]);
+
+    await expect(transactionsModule.createTransaction(transactionForm({ subcategoryId: "", merchant: "Corner shop" }))).resolves.toEqual({
+      status: "success",
+    });
+
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ merchant: "Corner Market", subcategory_id: "groceries" }));
   });
 
   it("persists the inclusive billing period only for a verified Bills subcategory", async () => {
@@ -246,6 +274,7 @@ describe("transaction actions", () => {
     expect(sourceEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ subcategory_id: null, paid_by: null }));
     expect(mocks.update).not.toHaveBeenCalledWith(expect.objectContaining({ source: expect.anything() }));
+    expect(mocks.getMerchantAutomationRules).not.toHaveBeenCalled();
     expect(transactionEqId).toHaveBeenCalledWith("id", "transaction-id");
     expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
   });

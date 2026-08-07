@@ -6,8 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { categoryIcon, categoryIcons, isCategoryIcon, type CategoryIconName } from "@/lib/category-icons";
 
-export function CategoryIcon({ name, className }: { name?: string | null; className?: string }) {
-  const props = { "data-category-icon": name ?? "tag", "aria-hidden": true, className };
+export function CategoryIcon({
+  name,
+  className,
+  "data-icon": dataIcon,
+}: {
+  name?: string | null;
+  className?: string;
+  "data-icon"?: "inline-start" | "inline-end";
+}) {
+  const props = { "data-category-icon": name ?? "tag", "data-icon": dataIcon, "aria-hidden": true, className };
   return createElement(categoryIcon(name), props);
 }
 

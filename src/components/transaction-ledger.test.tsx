@@ -62,7 +62,48 @@ it("keeps transaction selection, editing, and bulk deletion accessible", () => {
   expect(markup).toContain('aria-label="Edit A long supermarket note that should not push the action column outside the card transaction"');
   expect(markup).toContain('aria-label="Delete selected transactions"');
   expect(markup).toContain('aria-haspopup="dialog"');
-  expect(markup).toContain("Food → Groceries");
+  expect(markup).toContain('data-category-icon="utensils"');
+  expect(markup).toContain(">Groceries</span>");
+});
+
+it("shows a subdued subcategory badge with its inherited icon", () => {
+  const markup = renderToStaticMarkup(
+    <TransactionLedger
+      subcategories={[
+        {
+          id: "parking",
+          name: "Parking",
+          categoryId: "transportation",
+          categoryName: "Transportation",
+          kind: "expense",
+          color: "#e49ae9",
+          icon: "car",
+          archivedAt: null,
+          categoryArchivedAt: null,
+        },
+      ]}
+      members={[]}
+      transactions={[
+        {
+          id: "parking-transaction",
+          kind: "expense",
+          amount: 20,
+          occurredOn: "2026-08-07",
+          subcategoryId: "parking",
+          note: "Parking",
+          createdAt: "2026-08-07T08:00:00Z",
+          paidBy: null,
+        },
+      ]}
+    />,
+  );
+
+  expect(markup).toContain('data-category-icon="car"');
+  expect(markup).toContain(">Parking</span>");
+  expect(markup).not.toContain("Transportation → Parking");
+  expect(markup).toContain("color-mix(in srgb, #e49ae9 55%, var(--card))");
+  expect(markup).toContain("hover:bg-foreground/5");
+  expect(markup).toContain("data-[state=selected]:bg-foreground/10");
 });
 
 it("renders imported merchant details with uncategorized and unassigned fallbacks", () => {

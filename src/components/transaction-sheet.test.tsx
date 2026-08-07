@@ -223,6 +223,14 @@ it("renders the transaction composer with labelled core controls", () => {
   expect(markup.indexOf("Merchant")).toBeLessThan(markup.indexOf("Note"));
 });
 
+it("starts new transactions on Automatic so merchant rules can assign the destination", () => {
+  const markup = renderSheet();
+
+  expect(markup).toContain('type="hidden" name="subcategoryId" value=""');
+  expect(markup).toContain('aria-label="Categories">Automatic</button>');
+  expect(mocks.categoryOptions[0]).toEqual({ value: "", label: "Automatic" });
+});
+
 it("renders edit mode with saved transaction values and deletion inside the sheet", () => {
   const markup = renderToStaticMarkup(
     <TransactionSheet
@@ -246,7 +254,7 @@ it("renders edit mode with saved transaction values and deletion inside the shee
         subcategoryId: "groceries",
         note: "Saved note",
         merchant: "Saved merchant",
-        source: "statement_import",
+        source: "manual",
         createdAt: "2026-07-14T08:00:00Z",
         paidBy: "member-id",
       }}
@@ -266,6 +274,7 @@ it("renders edit mode with saved transaction values and deletion inside the shee
   expect(markup).toContain("Delete transaction");
   expect(markup).toContain("Delete this transaction?");
   expect(markup).toContain("This removes the entry from the shared household ledger.");
+  expect(mocks.categoryOptions).not.toContainEqual({ value: "", label: "Uncategorized" });
 });
 
 it("keeps an imported transaction unassigned while allowing its category to be edited", () => {
@@ -304,6 +313,7 @@ it("keeps an imported transaction unassigned while allowing its category to be e
   expect(markup).toContain("Unassigned");
   expect(markup).toContain('type="hidden" name="subcategoryId" value=""');
   expect(markup).toContain('type="hidden" name="paidBy" value=""');
+  expect(mocks.categoryOptions).toContainEqual({ value: "", label: "Uncategorized" });
 });
 
 it("exposes only matching subcategories and clears the selection when the type changes", () => {
@@ -314,6 +324,7 @@ it("exposes only matching subcategories and clears the selection when the type c
 
   expect(markup).toContain('type="hidden" name="subcategoryId" value=""');
   expect(mocks.categoryOptions).toEqual([
+    { value: "", label: "Automatic" },
     expect.objectContaining({ value: "salary", label: "Income → Salary", color: "#d9f0fa", icon: expect.anything() }),
   ]);
 });
@@ -333,7 +344,7 @@ it("submits the locally selected calendar day", async () => {
   expect(mocks.createTransaction.mock.calls[0]?.[0].get("occurredOn")).toBe("2026-01-02");
 });
 
-it("defaults the Billing period from the ledger date in Bills create and edit forms", () => {
+it("defaults the Billing period from the ledger date after Bills selection and in edit forms", () => {
   const billsSubcategory = {
     id: "electricity",
     name: "Electricity",
@@ -345,6 +356,9 @@ it("defaults the Billing period from the ledger date in Bills create and edit fo
     systemKey: "electricity",
     categorySystemKey: "bills",
   };
+  mocks.stateIndex = 0;
+  renderToStaticMarkup(<TransactionSheet subcategories={[billsSubcategory]} members={[]} />);
+  mocks.categoryChange?.("electricity");
   mocks.stateIndex = 0;
   const createMarkup = renderToStaticMarkup(<TransactionSheet subcategories={[billsSubcategory]} members={[]} />);
   mocks.state = [];
@@ -432,24 +446,23 @@ it("shows a billing-period start error returned by the server", () => {
     fieldErrors: { servicePeriodStart: "Use YYYY-MM-DD." },
   };
 
-  const markup = renderToStaticMarkup(
-    <TransactionSheet
-      subcategories={[
-        {
-          id: "electricity",
-          name: "Electricity",
-          categoryId: "bills",
-          categoryName: "Bills",
-          kind: "expense",
-          color: "#d9f0fa",
-          icon: "zap",
-          systemKey: "electricity",
-          categorySystemKey: "bills",
-        },
-      ]}
-      members={[]}
-    />,
-  );
+  const subcategories = [
+    {
+      id: "electricity",
+      name: "Electricity",
+      categoryId: "bills",
+      categoryName: "Bills",
+      kind: "expense" as const,
+      color: "#d9f0fa",
+      icon: "zap",
+      systemKey: "electricity",
+      categorySystemKey: "bills",
+    },
+  ];
+  renderToStaticMarkup(<TransactionSheet subcategories={subcategories} members={[]} />);
+  mocks.categoryChange?.("electricity");
+  mocks.stateIndex = 0;
+  const markup = renderToStaticMarkup(<TransactionSheet subcategories={subcategories} members={[]} />);
 
   expect(markup).toContain("Use YYYY-MM-DD.");
   expect(markup).toContain('aria-invalid="true"');
@@ -487,24 +500,23 @@ it("shows a billing-period end error returned by the server", () => {
     fieldErrors: { servicePeriodEnd: "End on or after the start date." },
   };
 
-  const markup = renderToStaticMarkup(
-    <TransactionSheet
-      subcategories={[
-        {
-          id: "electricity",
-          name: "Electricity",
-          categoryId: "bills",
-          categoryName: "Bills",
-          kind: "expense",
-          color: "#d9f0fa",
-          icon: "zap",
-          systemKey: "electricity",
-          categorySystemKey: "bills",
-        },
-      ]}
-      members={[]}
-    />,
-  );
+  const subcategories = [
+    {
+      id: "electricity",
+      name: "Electricity",
+      categoryId: "bills",
+      categoryName: "Bills",
+      kind: "expense" as const,
+      color: "#d9f0fa",
+      icon: "zap",
+      systemKey: "electricity",
+      categorySystemKey: "bills",
+    },
+  ];
+  renderToStaticMarkup(<TransactionSheet subcategories={subcategories} members={[]} />);
+  mocks.categoryChange?.("electricity");
+  mocks.stateIndex = 0;
+  const markup = renderToStaticMarkup(<TransactionSheet subcategories={subcategories} members={[]} />);
 
   expect(markup).toContain("End on or after the start date.");
   expect(markup).toContain('aria-invalid="true"');

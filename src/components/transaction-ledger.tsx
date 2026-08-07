@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 
 import { deleteTransactions } from "@/app/actions/transactions";
+import { CategoryIcon } from "@/components/category-icon-picker";
 import { TransactionSheet } from "@/components/transaction-sheet";
 import {
   AlertDialog,
@@ -175,7 +176,11 @@ export function TransactionLedger({
         </TableHeader>
         <TableBody>
           {visibleTransactions.map((transaction) => (
-            <TableRow key={transaction.id} data-state={selectedIds.includes(transaction.id) ? "selected" : undefined}>
+            <TableRow
+              key={transaction.id}
+              className="hover:bg-foreground/5 data-[state=selected]:bg-foreground/10"
+              data-state={selectedIds.includes(transaction.id) ? "selected" : undefined}
+            >
               <TableCell>
                 <div className="flex min-h-11 min-w-11 items-center justify-center">
                   <Checkbox
@@ -219,16 +224,18 @@ export function TransactionLedger({
                 {(() => {
                   const subcategory = subcategoriesById.get(transaction.subcategoryId ?? "");
                   const directCategory = directCategoriesById.get(transaction.categoryId ?? "");
+                  const category = subcategory ?? directCategory;
                   return (
                     <Badge
-                      color={subcategory?.color ?? directCategory?.color}
+                      color={category?.color ? `color-mix(in srgb, ${category.color} 55%, var(--card))` : undefined}
                       className={
                         subcategory
                           ? "max-w-full truncate"
                           : "max-w-full truncate border-muted-foreground/20 bg-muted text-muted-foreground"
                       }
                     >
-                      {subcategory ? `${subcategory.categoryName} → ${subcategory.name}` : (directCategory?.name ?? "Uncategorized")}
+                      {category ? <CategoryIcon name={category.icon} data-icon="inline-start" /> : null}
+                      {category?.name ?? "Uncategorized"}
                     </Badge>
                   );
                 })()}
