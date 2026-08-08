@@ -349,9 +349,10 @@ function BillsGroceriesCharts({
   const groceryMonthlyTableData = groceryMonthlyData.filter((month) => month.mainRun + month.topUps > 0);
   const mainRun = data.groceries.subcategories.mainRun;
   const topUps = data.groceries.subcategories.topUps;
+  const groceryColor = data.groceries.category?.color ?? "var(--chart-1)";
   const groceryChartConfig = {
-    mainRun: { label: mainRun?.name ?? "Main run", color: "var(--chart-2)" },
-    topUps: { label: topUps?.name ?? "Top-ups", color: "var(--chart-3)" },
+    mainRun: { label: mainRun?.name ?? "Main run", color: mainRun?.color ?? "var(--chart-2)" },
+    topUps: { label: topUps?.name ?? "Top-ups", color: topUps?.color ?? "var(--chart-3)" },
     budget: { label: "Monthly budget", color: "var(--color-muted-foreground)" },
   } satisfies ChartConfig;
   const groceryBudgetAgorot = data.groceries.monthly.budgetAgorot;
@@ -793,19 +794,17 @@ function BillsGroceriesCharts({
                                 variant="ghost"
                                 className={cn(
                                   "relative flex h-11 items-center justify-center rounded-md text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 hover:before:absolute hover:before:inset-0 hover:before:rounded-md hover:before:bg-foreground/5 sm:h-20 xl:h-auto xl:aspect-square",
-                                  level === 0 && "bg-muted text-muted-foreground",
+                                  level === 0 && "bg-card text-muted-foreground",
                                 )}
                                 style={
                                   level > 0
                                     ? {
-                                        backgroundColor: `color-mix(in oklab, var(--chart-1) ${heatmapStrengths[level]}%, transparent)`,
+                                        backgroundColor: `color-mix(in oklab, ${groceryColor} ${heatmapStrengths[level]}%, transparent)`,
                                       }
                                     : undefined
                                 }
                               >
-                                <span className={cn("relative", level > 0 && "rounded-sm bg-chart-5 px-1 text-foreground")}>
-                                  {day.date.slice(8)}
-                                </span>
+                                <span className={cn("relative", level > 0 && "text-white")}>{day.date.slice(8)}</span>
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent side="right" align="start" sideOffset={8} className="w-72 p-4">
@@ -846,7 +845,7 @@ function BillsGroceriesCharts({
                       key={index}
                       aria-hidden="true"
                       className={cn("size-3 rounded-sm", index === 0 && "bg-muted text-muted-foreground")}
-                      style={index > 0 ? { backgroundColor: `color-mix(in oklab, var(--chart-1) ${strength}%, transparent)` } : undefined}
+                      style={index > 0 ? { backgroundColor: `color-mix(in oklab, ${groceryColor} ${strength}%, transparent)` } : undefined}
                     />
                   ))}
                   <span>Higher</span>
