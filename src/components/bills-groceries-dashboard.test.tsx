@@ -374,7 +374,7 @@ it("renders the analytics palette, missing-data guidance, and exact daily values
   expect(markup).toContain("--color-topUps: var(--analytics-groceries-top-ups)");
   expect(markup).toContain("color-mix(in oklab, var(--analytics-groceries-heatmap) 100%, transparent)");
   expect(markup).toContain("var(--analytics-bill-1)");
-  expect(markup).toContain("No previous-year data");
+  expect(markup).not.toContain("No previous-year data");
   expect(markup).toContain("Set a monthly groceries budget in Settings.");
   expect(markup).toContain("2026-07-01: ₪0.00");
   expect(markup).toContain("2026-07-02: ₪168.00");
@@ -479,7 +479,7 @@ it("renders the selected Bill's aligned year-over-year agorot values and missing
   expect(markup).toContain("₪123.45");
   expect(markup).toContain("₪67.89");
   expect(markup).toContain("₪25.00");
-  expect(markup.match(/No previous-year data/g)).toHaveLength(2);
+  expect(markup.match(/No previous-year data/g)).toHaveLength(1);
 });
 
 it("omits zero-spend rows from analytics detail tables", () => {
