@@ -117,6 +117,8 @@ function ChartTooltipContent({
   color,
   nameKey,
   labelKey,
+  totalLabel,
+  totalFormatter,
 }: React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
   React.ComponentProps<"div"> & {
     hideLabel?: boolean;
@@ -124,6 +126,8 @@ function ChartTooltipContent({
     indicator?: "line" | "dot" | "dashed";
     nameKey?: string;
     labelKey?: string;
+    totalLabel?: React.ReactNode;
+    totalFormatter?: (value: number) => React.ReactNode;
   } & Omit<RechartsPrimitive.DefaultTooltipContentProps<TooltipValueType, TooltipNameType>, "accessibilityLayer">) {
   const { config } = useChart();
 
@@ -218,6 +222,16 @@ function ChartTooltipContent({
               </div>
             );
           })}
+        {totalLabel !== undefined ? (
+          <div className="flex items-center justify-between gap-2 border-t border-border/50 pt-1.5">
+            <span className="font-medium text-muted-foreground">{totalLabel}</span>
+            <span className="font-mono font-medium text-foreground tabular-nums">
+              {totalFormatter
+                ? totalFormatter(payload.reduce((total, item) => (item.type === "none" ? total : total + Number(item.value ?? 0)), 0))
+                : payload.reduce((total, item) => (item.type === "none" ? total : total + Number(item.value ?? 0)), 0).toLocaleString()}
+            </span>
+          </div>
+        ) : null}
       </div>
     </div>
   );
