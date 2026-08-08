@@ -58,13 +58,13 @@ TASK-005 is blocked only on disposable local pgTAP: a fresh `supabase start` fai
 
 - **GOAL-003**: Concentrate transaction form transitions and canonical submission fields in a pure module.
 
-| Task     | Description                                                                                                                                                                                                   | Status  | Date |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
-| TASK-011 | Add `src/lib/transaction-draft.ts` with `TransactionDraft`, discriminated destination state, draft events, initialization, reducer, and canonical form-field projection.                                      | Planned |      |
-| TASK-012 | Define events for kind, destination, date, payer, and service-period changes; make kind changes clear destination and period, Bills selection initialize a same-day period, and non-Bills selection clear it. | Planned |      |
-| TASK-013 | Replace related `TransactionSheet` state setters and hidden-field derivation with the draft reducer while leaving calendar-popover visibility local to the Sheet.                                             | Planned |      |
-| TASK-014 | Add pure transition tests and retain component assertions for edit/import initialization, eligible destinations, payer defaults, date handling, Bills bounds, and unchanged markup order.                     | Planned |      |
-| TASK-015 | Run transaction validation/action/component tests, lint, TypeScript, formatting, and whitespace checks before committing Phase 3.                                                                             | Planned |      |
+| Task     | Description                                                                                                                                                                                                   | Status   | Date       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| TASK-011 | Add `src/lib/transaction-draft.ts` with `TransactionDraft`, discriminated destination state, draft events, initialization, reducer, and canonical form-field projection.                                      | Complete | 2026-08-08 |
+| TASK-012 | Define events for kind, destination, date, payer, and service-period changes; make kind changes clear destination and period, Bills selection initialize a same-day period, and non-Bills selection clear it. | Complete | 2026-08-08 |
+| TASK-013 | Replace related `TransactionSheet` state setters and hidden-field derivation with the draft reducer while leaving calendar-popover visibility local to the Sheet.                                             | Complete | 2026-08-08 |
+| TASK-014 | Add pure transition tests and retain component assertions for edit/import initialization, eligible destinations, payer defaults, date handling, Bills bounds, and unchanged markup order.                     | Complete | 2026-08-08 |
+| TASK-015 | Run transaction validation/action/component tests, lint, TypeScript, formatting, and whitespace checks before committing Phase 3.                                                                             | Complete | 2026-08-08 |
 
 ### Implementation Phase 4 — Deepen Bills & Groceries navigation
 

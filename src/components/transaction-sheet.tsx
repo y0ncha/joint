@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { DateRange } from "react-day-picker";
+import { useActionState, useEffect, useMemo, useReducer, useState, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
@@ -28,6 +27,12 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Textarea } from "@/components/ui/textarea";
 import { categoryIcon } from "@/lib/category-icons";
 import type { ReportTransaction } from "@/lib/financial-report";
+import {
+  initializeTransactionDraft,
+  projectTransactionDraftFields,
+  transactionDraftReducer,
+  type TransactionDestination,
+} from "@/lib/transaction-draft";
 
 type Subcategory = {
   id: string;
@@ -70,11 +75,6 @@ function dateOnlyFromLocalDate(value: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function billingPeriodFor(occurredOn: string): DateRange {
-  const date = dateFromIso(occurredOn);
-  return { from: date, to: date };
-}
-
 export function TransactionSheet({
   subcategories = [],
   directCategories = [],
@@ -103,8 +103,23 @@ export function TransactionSheet({
     `${(transaction ? initialOccurredOn : (defaultMonth ?? initialOccurredOn.slice(0, 7))).slice(0, 7)}-01`,
   );
   const initialSubcategoryId = transaction?.subcategoryId ?? "";
+  const initialSubcategory = subcategories.find((subcategory) => subcategory.id === initialSubcategoryId);
   const [sheetContent, setSheetContent] = useState<HTMLDivElement | null>(null);
-  const [kind, setKind] = useState<"income" | "expense">(initialKind);
+  const [draft, dispatchDraft] = useReducer(
+    transactionDraftReducer,
+    {
+      kind: initialKind,
+      occurredOn: initialOccurredOn,
+      paidBy: transaction?.paidBy ?? currentUserId ?? members[0]?.id ?? "",
+      categoryId: transaction?.categoryId ?? "",
+      subcategoryId: initialSubcategoryId,
+      isBillsSubcategory: initialSubcategory?.categorySystemKey === "bills",
+      servicePeriodStart: transaction?.servicePeriodStart,
+      servicePeriodEnd: transaction?.servicePeriodEnd,
+    },
+    initializeTransactionDraft,
+  );
+  const { kind, occurredOn, paidBy } = draft;
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
     async (_state, formData) => (transaction ? updateTransaction(transaction.id, formData) : createTransaction(formData)),
     null,
@@ -114,30 +129,28 @@ export function TransactionSheet({
     if (state?.status === "error") toast.error(state.formError, { id: "transaction-save" });
   }, [isEditing, state]);
   const selectableSubcategories = useMemo(() => subcategories.filter((subcategory) => subcategory.kind === kind), [subcategories, kind]);
-  const [occurredOn, setOccurredOn] = useState(initialOccurredOn);
-  const [paidBy, setPaidBy] = useState(() => transaction?.paidBy ?? currentUserId ?? members[0]?.id ?? "");
-  const [subcategoryId, setSubcategoryId] = useState(initialSubcategoryId);
-  const [categoryId, setCategoryId] = useState(() => transaction?.categoryId ?? "");
+  const subcategoryId = draft.destination?.type === "subcategory" ? draft.destination.id : "";
+  const categoryId = draft.destination?.type === "category" ? draft.destination.id : "";
   const selectedSubcategoryId = selectableSubcategories.some((subcategory) => subcategory.id === subcategoryId) ? subcategoryId : "";
   const selectedSubcategory = selectableSubcategories.find((subcategory) => subcategory.id === selectedSubcategoryId);
   const selectableCategories = useMemo(() => directCategories.filter((category) => category.kind === kind), [directCategories, kind]);
   const selectedCategoryId = selectableCategories.some((category) => category.id === categoryId) ? categoryId : "";
   const isBillsSubcategory = selectedSubcategory?.categorySystemKey === "bills";
-  const [billingPeriod, setBillingPeriod] = useState<DateRange | undefined>(() => {
-    const initialSubcategory = subcategories.find((subcategory) => subcategory.id === initialSubcategoryId);
-    const isBills = initialSubcategory?.categorySystemKey === "bills";
-    if (!isBills) return undefined;
-    return {
-      from: dateFromIso(transaction?.servicePeriodStart ?? initialOccurredOn),
-      to: dateFromIso(transaction?.servicePeriodEnd ?? transaction?.servicePeriodStart ?? initialOccurredOn),
-    };
-  });
+  const billingPeriod = draft.servicePeriod
+    ? { from: dateFromIso(draft.servicePeriod.start), to: dateFromIso(draft.servicePeriod.end) }
+    : undefined;
   const [billingPeriodStartOpen, setBillingPeriodStartOpen] = useState(false);
   const [billingPeriodEndOpen, setBillingPeriodEndOpen] = useState(false);
   const billingPeriodError =
     state?.status === "error" ? (state.fieldErrors.servicePeriodStart ?? state.fieldErrors.servicePeriodEnd) : undefined;
   const selectedPaidBy =
     paidBy === "" ? "" : members.some((member) => member.id === paidBy) ? paidBy : currentUserId || members[0]?.id || "";
+  const draftFields = projectTransactionDraftFields(draft, {
+    categoryIds: selectableCategories.map((category) => category.id),
+    subcategoryIds: selectableSubcategories.map((subcategory) => subcategory.id),
+    memberIds: members.map((member) => member.id),
+    defaultPaidBy: currentUserId || members[0]?.id || "",
+  });
   const shouldRenderDefaultTrigger = !isEditing && open === undefined && onOpenChange === undefined;
 
   return (
@@ -163,13 +176,13 @@ export function TransactionSheet({
         </SheetHeader>
         <form action={formAction} className="px-6 pb-6">
           <FieldGroup>
-            <input name="kind" type="hidden" value={kind} />
-            <input name="occurredOn" type="hidden" value={occurredOn} />
-            <input name="subcategoryId" type="hidden" value={selectedSubcategoryId} />
-            <input name="categoryId" type="hidden" value={selectedCategoryId} />
-            <input name="paidBy" type="hidden" value={selectedPaidBy} />
-            <input name="servicePeriodStart" type="hidden" value={billingPeriod?.from ? isoFromDate(billingPeriod.from) : ""} />
-            <input name="servicePeriodEnd" type="hidden" value={billingPeriod?.to ? isoFromDate(billingPeriod.to) : ""} />
+            <input name="kind" type="hidden" value={draftFields.kind} />
+            <input name="occurredOn" type="hidden" value={draftFields.occurredOn} />
+            <input name="subcategoryId" type="hidden" value={draftFields.subcategoryId} />
+            <input name="categoryId" type="hidden" value={draftFields.categoryId} />
+            <input name="paidBy" type="hidden" value={draftFields.paidBy} />
+            <input name="servicePeriodStart" type="hidden" value={draftFields.servicePeriodStart} />
+            <input name="servicePeriodEnd" type="hidden" value={draftFields.servicePeriodEnd} />
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.amount)}>
               <FieldLabel htmlFor="amount">Amount</FieldLabel>
               <Input
@@ -191,13 +204,13 @@ export function TransactionSheet({
                 value={selectedCategoryId ? `category:${selectedCategoryId}` : selectedSubcategoryId}
                 onValueChange={(value) => {
                   const directCategoryId = value.startsWith("category:") ? value.slice("category:".length) : "";
-                  setCategoryId(directCategoryId);
-                  setSubcategoryId(directCategoryId ? "" : value);
-                  setBillingPeriod((current) =>
-                    selectableSubcategories.find((subcategory) => subcategory.id === value)?.categorySystemKey === "bills"
-                      ? (current ?? billingPeriodFor(occurredOn))
-                      : undefined,
-                  );
+                  const subcategory = selectableSubcategories.find((candidate) => candidate.id === value);
+                  const destination: TransactionDestination = directCategoryId
+                    ? { type: "category", id: directCategoryId }
+                    : subcategory
+                      ? { type: "subcategory", id: subcategory.id, isBills: subcategory.categorySystemKey === "bills" }
+                      : null;
+                  dispatchDraft({ type: "destination_changed", destination });
                 }}
                 disabled={selectableSubcategories.length + selectableCategories.length === 0}
                 emptyLabel="Uncategorized"
@@ -245,7 +258,7 @@ export function TransactionSheet({
                     mode="single"
                     defaultMonth={calendarDefaultMonth}
                     selected={dateFromIso(occurredOn)}
-                    onSelect={(date) => date && setOccurredOn(isoFromDate(date))}
+                    onSelect={(date) => date && dispatchDraft({ type: "occurred_on_changed", occurredOn: isoFromDate(date) })}
                     buttonVariant="ghost"
                   />
                 </PopoverContent>
@@ -283,7 +296,7 @@ export function TransactionSheet({
                           selected={billingPeriod?.from}
                           onSelect={(from) => {
                             if (!from) return;
-                            setBillingPeriod((current) => ({ from, to: current?.to && current.to >= from ? current.to : from }));
+                            dispatchDraft({ type: "service_period_start_changed", date: isoFromDate(from) });
                             setBillingPeriodStartOpen(false);
                           }}
                           buttonVariant="ghost"
@@ -318,7 +331,7 @@ export function TransactionSheet({
                           selected={billingPeriod?.to}
                           onSelect={(to) => {
                             if (!to) return;
-                            setBillingPeriod((current) => ({ from: current?.from && current.from <= to ? current.from : to, to }));
+                            dispatchDraft({ type: "service_period_end_changed", date: isoFromDate(to) });
                             setBillingPeriodEndOpen(false);
                           }}
                           buttonVariant="ghost"
@@ -345,7 +358,7 @@ export function TransactionSheet({
               <PillSelect
                 ariaLabel="Members"
                 value={selectedPaidBy || "unassigned"}
-                onValueChange={(value) => setPaidBy(value === "unassigned" ? "" : value)}
+                onValueChange={(value) => dispatchDraft({ type: "paid_by_changed", paidBy: value === "unassigned" ? "" : value })}
                 disabled={members.length === 0}
                 options={[
                   { value: "unassigned", label: "Unassigned" },
@@ -360,10 +373,7 @@ export function TransactionSheet({
                 ariaLabel="Type"
                 value={kind}
                 onValueChange={(value) => {
-                  setKind(value as typeof kind);
-                  setCategoryId("");
-                  setSubcategoryId("");
-                  setBillingPeriod(undefined);
+                  dispatchDraft({ type: "kind_changed", kind: value as typeof kind });
                 }}
                 options={[
                   { value: "income", label: "Income", className: "border-positive/20 bg-positive/10 text-positive" },

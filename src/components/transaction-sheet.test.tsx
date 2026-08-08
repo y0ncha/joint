@@ -43,6 +43,16 @@ vi.mock("react", async (importOriginal) => {
         },
       ];
     },
+    useReducer: (reducer: (state: unknown, action: unknown) => unknown, initialArg: unknown, initializer?: (value: unknown) => unknown) => {
+      const index = mocks.stateIndex++;
+      if (!(index in mocks.state)) mocks.state[index] = initializer ? initializer(initialArg) : initialArg;
+      return [
+        mocks.state[index],
+        (action: unknown) => {
+          mocks.state[index] = reducer(mocks.state[index], action);
+        },
+      ];
+    },
   };
 });
 
