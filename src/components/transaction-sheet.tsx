@@ -99,7 +99,9 @@ export function TransactionSheet({
   const initialKind = transaction?.kind === "income" ? "income" : "expense";
   const isEditing = Boolean(transaction);
   const initialOccurredOn = transaction?.occurredOn ?? todayIso();
-  const calendarDefaultMonth = dateFromIso(`${(transaction ? initialOccurredOn : defaultMonth ?? initialOccurredOn.slice(0, 7)).slice(0, 7)}-01`);
+  const calendarDefaultMonth = dateFromIso(
+    `${(transaction ? initialOccurredOn : (defaultMonth ?? initialOccurredOn.slice(0, 7))).slice(0, 7)}-01`,
+  );
   const initialSubcategoryId = transaction?.subcategoryId ?? "";
   const [sheetContent, setSheetContent] = useState<HTMLDivElement | null>(null);
   const [kind, setKind] = useState<"income" | "expense">(initialKind);

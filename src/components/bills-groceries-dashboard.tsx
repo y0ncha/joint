@@ -713,7 +713,7 @@ function BillsGroceriesCharts({
                               navigateWithData({
                                 groceryMonth: data.months.includes(month)
                                   ? month
-                                  : data.months.find((value) => value.startsWith(`${year}-`)) ?? groceryMonth,
+                                  : (data.months.find((value) => value.startsWith(`${year}-`)) ?? groceryMonth),
                               });
                             }}
                           >
@@ -778,96 +778,94 @@ function BillsGroceriesCharts({
               }
             >
               <div
-                  className="mx-2 mt-1.5 flex w-auto flex-1 flex-col gap-8 pt-1 pr-3.5 pb-0.5 pl-3.5"
-                  role="grid"
-                  aria-label="Groceries by day heatmap"
-                >
-                  <div className="grid grid-cols-7 gap-1.5 text-center text-xs text-muted-foreground" role="row">
-                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                      <span key={day} role="columnheader">
-                        {day}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-7 gap-1.5" role="rowgroup">
-                    {dailyHeatmapWeeks.map((week, weekIndex) => (
-                      <div key={weekIndex} className="contents" role="row">
-                        {week.map((day, dayIndex) => {
-                          if (!day) return <span key={`empty-${dayIndex}`} aria-hidden="true" />;
-                          const level = day.total === 0 ? 0 : Math.min(4, Math.ceil((day.total / highestDailyTotal) * 4));
-                          const transactions = groceryTransactionsForDate(data.groceries.transactions, day.date, groceryFilter);
-                          return (
-                            <Popover key={day.date}>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  type="button"
-                                  role="gridcell"
-                                  title={`${day.date}: ${currency.format(day.total)}`}
-                                  aria-label={`${day.date}: ${currency.format(day.total)}`}
-                                  variant="ghost"
-                                  className={cn(
-                                    "relative flex h-11 items-center justify-center rounded-md text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 hover:before:absolute hover:before:inset-0 hover:before:rounded-md hover:before:bg-foreground/5 sm:h-20 xl:h-auto xl:aspect-square",
-                                    level === 0 && "bg-muted text-muted-foreground",
-                                  )}
-                                  style={
-                                    level > 0
-                                      ? {
-                                          backgroundColor: `color-mix(in oklab, var(--chart-1) ${heatmapStrengths[level]}%, transparent)`,
-                                        }
-                                      : undefined
-                                  }
-                                >
-                                  <span className={cn("relative", level > 0 && "rounded-sm bg-chart-5 px-1 text-foreground")}>
-                                    {day.date.slice(8)}
-                                  </span>
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent side="right" align="start" sideOffset={8} className="w-72 p-4">
-                                <PopoverHeader>
-                                  <PopoverTitle>Groceries on {day.date}</PopoverTitle>
-                                </PopoverHeader>
-                                {transactions.length > 0 ? (
-                                  <ul className="mt-3 flex flex-col gap-3">
-                                    {transactions.map((transaction) => (
-                                      <li key={transaction.id} className="flex items-start justify-between gap-4">
-                                        <div className="min-w-0">
-                                          <p className="truncate font-medium">{transaction.merchant || transaction.note || "Groceries"}</p>
-                                          {transaction.merchant && transaction.note ? (
-                                            <p className="truncate text-muted-foreground">{transaction.note}</p>
-                                          ) : null}
-                                        </div>
-                                        <span className="shrink-0 font-mono tabular-nums">{currency.format(transaction.amount)}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  <p className="mt-3 text-muted-foreground">No Groceries expenses recorded.</p>
-                                )}
-                              </PopoverContent>
-                            </Popover>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                  <div
-                    className="mt-auto flex items-center justify-center gap-2 text-xs text-muted-foreground"
-                    aria-label="Total daily spending heatmap legend"
-                  >
-                    <span>Lower</span>
-                    {heatmapStrengths.map((strength, index) => (
-                      <span
-                        key={index}
-                        aria-hidden="true"
-                        className={cn("size-3 rounded-sm", index === 0 && "bg-muted text-muted-foreground")}
-                        style={
-                          index > 0 ? { backgroundColor: `color-mix(in oklab, var(--chart-1) ${strength}%, transparent)` } : undefined
-                        }
-                      />
-                    ))}
-                    <span>Higher</span>
-                  </div>
+                className="mx-2 mt-1.5 flex w-auto flex-1 flex-col gap-8 pt-1 pr-3.5 pb-0.5 pl-3.5"
+                role="grid"
+                aria-label="Groceries by day heatmap"
+              >
+                <div className="grid grid-cols-7 gap-1.5 text-center text-xs text-muted-foreground" role="row">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                    <span key={day} role="columnheader">
+                      {day}
+                    </span>
+                  ))}
                 </div>
+                <div className="grid grid-cols-7 gap-1.5" role="rowgroup">
+                  {dailyHeatmapWeeks.map((week, weekIndex) => (
+                    <div key={weekIndex} className="contents" role="row">
+                      {week.map((day, dayIndex) => {
+                        if (!day) return <span key={`empty-${dayIndex}`} aria-hidden="true" />;
+                        const level = day.total === 0 ? 0 : Math.min(4, Math.ceil((day.total / highestDailyTotal) * 4));
+                        const transactions = groceryTransactionsForDate(data.groceries.transactions, day.date, groceryFilter);
+                        return (
+                          <Popover key={day.date}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                role="gridcell"
+                                title={`${day.date}: ${currency.format(day.total)}`}
+                                aria-label={`${day.date}: ${currency.format(day.total)}`}
+                                variant="ghost"
+                                className={cn(
+                                  "relative flex h-11 items-center justify-center rounded-md text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 hover:before:absolute hover:before:inset-0 hover:before:rounded-md hover:before:bg-foreground/5 sm:h-20 xl:h-auto xl:aspect-square",
+                                  level === 0 && "bg-muted text-muted-foreground",
+                                )}
+                                style={
+                                  level > 0
+                                    ? {
+                                        backgroundColor: `color-mix(in oklab, var(--chart-1) ${heatmapStrengths[level]}%, transparent)`,
+                                      }
+                                    : undefined
+                                }
+                              >
+                                <span className={cn("relative", level > 0 && "rounded-sm bg-chart-5 px-1 text-foreground")}>
+                                  {day.date.slice(8)}
+                                </span>
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent side="right" align="start" sideOffset={8} className="w-72 p-4">
+                              <PopoverHeader>
+                                <PopoverTitle>Groceries on {day.date}</PopoverTitle>
+                              </PopoverHeader>
+                              {transactions.length > 0 ? (
+                                <ul className="mt-3 flex flex-col gap-3">
+                                  {transactions.map((transaction) => (
+                                    <li key={transaction.id} className="flex items-start justify-between gap-4">
+                                      <div className="min-w-0">
+                                        <p className="truncate font-medium">{transaction.merchant || transaction.note || "Groceries"}</p>
+                                        {transaction.merchant && transaction.note ? (
+                                          <p className="truncate text-muted-foreground">{transaction.note}</p>
+                                        ) : null}
+                                      </div>
+                                      <span className="shrink-0 font-mono tabular-nums">{currency.format(transaction.amount)}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="mt-3 text-muted-foreground">No Groceries expenses recorded.</p>
+                              )}
+                            </PopoverContent>
+                          </Popover>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+                <div
+                  className="mt-auto flex items-center justify-center gap-2 text-xs text-muted-foreground"
+                  aria-label="Total daily spending heatmap legend"
+                >
+                  <span>Lower</span>
+                  {heatmapStrengths.map((strength, index) => (
+                    <span
+                      key={index}
+                      aria-hidden="true"
+                      className={cn("size-3 rounded-sm", index === 0 && "bg-muted text-muted-foreground")}
+                      style={index > 0 ? { backgroundColor: `color-mix(in oklab, var(--chart-1) ${strength}%, transparent)` } : undefined}
+                    />
+                  ))}
+                  <span>Higher</span>
+                </div>
+              </div>
               {detailChart === "daily" && dailyTableRows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No Groceries data yet.</p>
               ) : null}

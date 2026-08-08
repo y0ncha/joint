@@ -37,6 +37,19 @@ describe("automation condition groups", () => {
     expect(evaluateAutomationConditionGroup(group, { merchant: "Shop", note: "other", amount: 10 })).toBe(false);
   });
 
+  it("evaluates each later condition with its own connector from left to right", () => {
+    const group = {
+      logic: "and",
+      conditions: [
+        { field: "merchant", operator: "contains", value: "market" },
+        { connector: "and", field: "amount", operator: "greater_than", value: 100 },
+        { connector: "or", field: "note", operator: "equals", value: "refund" },
+      ],
+    } as unknown as AutomationConditionGroup;
+
+    expect(evaluateAutomationConditionGroup(group, { merchant: "Market", note: "refund", amount: 20 })).toBe(true);
+  });
+
   it("describes fields and operators without exposing the storage format", () => {
     expect(
       describeConditionGroup({

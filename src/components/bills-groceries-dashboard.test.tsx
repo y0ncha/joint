@@ -31,17 +31,7 @@ vi.mock("@/components/ui/checkbox", () => ({
 }));
 vi.mock("@/components/ui/popover", () => ({
   Popover: ({ children }: { children: ReactNode }) => <>{children}</>,
-  PopoverContent: ({
-    align,
-    children,
-    className,
-    side,
-  }: {
-    align?: string;
-    children: ReactNode;
-    className?: string;
-    side?: string;
-  }) =>
+  PopoverContent: ({ align, children, className, side }: { align?: string; children: ReactNode; className?: string; side?: string }) =>
     mocks.showPopoverContent ? (
       <div className={className} data-align={align} data-side={side}>
         {children}
