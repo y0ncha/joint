@@ -66,7 +66,7 @@ function formatMonthName(month: string) {
 
 const heatmapStrengths = [0, 25, 45, 70, 100] as const;
 const chartMargin = { top: 24, right: 8, bottom: 32, left: 8 };
-const billsChartColors = ["#6fafa8", "#829cd0", "#ae8fc2", "#d2a271", "#c98eaa", "#91a9b6", "#b4b975", "#7aa9a3", "#b78b73"] as const;
+const billsChartColors = ["#8cbfba", "#9bb2d6", "#bba5ce", "#d8b58d", "#d3a5b9", "#a5b7c0", "#c1c78e", "#96bdb6", "#c7a697"] as const;
 export function stackedBarRadius(stack: number[], segmentIndex: number) {
   return stack[segmentIndex] > 0 && stack.slice(segmentIndex + 1).every((value) => value === 0) ? ([3, 3, 0, 0] as const) : 0;
 }
@@ -350,7 +350,7 @@ function BillsGroceriesCharts({
   const mainRun = data.groceries.subcategories.mainRun;
   const topUps = data.groceries.subcategories.topUps;
   const groceryChartConfig = {
-    mainRun: { label: mainRun?.name ?? "Main run", color: "var(--chart-1)" },
+    mainRun: { label: mainRun?.name ?? "Main run", color: "var(--chart-2)" },
     topUps: { label: topUps?.name ?? "Top-ups", color: "var(--chart-3)" },
     budget: { label: "Monthly budget", color: "var(--color-muted-foreground)" },
   } satisfies ChartConfig;

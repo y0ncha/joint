@@ -370,13 +370,13 @@ it("renders live series colors, missing-data guidance, and exact daily values", 
     <BillsGroceriesDashboard data={liveData as never} billIds={["rent"]} billId="rent" period="rolling" />,
   );
 
-  expect(markup).toContain("--color-mainRun: var(--chart-1)");
+  expect(markup).toContain("--color-mainRun: var(--chart-2)");
   expect(markup).toContain("--color-topUps: var(--chart-3)");
   expect(markup).not.toContain("#234567");
   expect(markup).not.toContain("#345678");
   expect(markup).toContain("var(--chart-1)");
-  expect(markup).toContain("#6fafa8");
-  expect(markup).toContain("#829cd0");
+  expect(markup).toContain("#8cbfba");
+  expect(markup).toContain("#9bb2d6");
   expect(markup).toContain("No previous-year data");
   expect(markup).toContain("Set a monthly groceries budget in Settings.");
   expect(markup).toContain("2026-07-01: ₪0.00");
@@ -394,7 +394,7 @@ it("uses nine distinct presentation colors and a two-row legend for Bills series
 
   const markup = renderToStaticMarkup(<BillsGroceriesDashboard data={data} billIds={["bill-0"]} billId="bill-0" period="rolling" />);
 
-  for (const color of ["#6fafa8", "#829cd0", "#ae8fc2", "#d2a271", "#c98eaa", "#91a9b6", "#b4b975", "#7aa9a3", "#b78b73"]) {
+  for (const color of ["#8cbfba", "#9bb2d6", "#bba5ce", "#d8b58d", "#d3a5b9", "#a5b7c0", "#c1c78e", "#96bdb6", "#c7a697"]) {
     expect(markup).toContain(color);
   }
 });
