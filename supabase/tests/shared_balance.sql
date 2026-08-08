@@ -2123,7 +2123,7 @@ select extensions.lives_ok(
   'a household member can persist independent condition connectors'
 );
 
-select extensions.lives_ok(
+select extensions.throws_like(
   $$
     insert into public.automation_rules (household_id, action, pattern, conditions, replacement, position)
     values (
@@ -2139,7 +2139,7 @@ select extensions.lives_ok(
   'the first automation condition cannot have a connector'
 );
 
-select extensions.throws_like(
+select extensions.lives_ok(
   $$
     insert into public.automation_rules (household_id, action, pattern, conditions, replacement, position)
     values (

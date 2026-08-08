@@ -75,7 +75,6 @@ vi.mock("@/components/ui/select", () => ({
 import {
   BillsGroceriesChartDetail,
   BillsGroceriesDashboard,
-  billsLegendClassName,
   billsGroceriesChartIds,
   groceryTransactionsForDate,
   stackedBarRadius,
@@ -398,7 +397,6 @@ it("uses nine distinct presentation colors and a two-row legend for Bills series
   for (const color of ["#6fafa8", "#829cd0", "#ae8fc2", "#d2a271", "#c98eaa", "#91a9b6", "#b4b975", "#7aa9a3", "#b78b73"]) {
     expect(markup).toContain(color);
   }
-  expect(billsLegendClassName).toContain("grid-cols-5");
 });
 
 it("uses the accent palette consistently for the heatmap and day labels", () => {

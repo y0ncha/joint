@@ -86,12 +86,6 @@ function ruleConditionSummary(rule: MerchantAutomationRule) {
   return rule.conditions ? describeConditionGroup(rule.conditions) : describeMerchantPattern(rule.pattern);
 }
 
-export const conditionRowTransition = {
-  duration: 420,
-  easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-  idle: true,
-};
-
 function SortableCondition({
   children,
   id,
@@ -101,7 +95,13 @@ function SortableCondition({
   id: string;
   index: number;
 }) {
-  return children(useSortable({ id, index, transition: conditionRowTransition }));
+  return children(
+    useSortable({
+      id,
+      index,
+      transition: { duration: 420, easing: "cubic-bezier(0.22, 1, 0.36, 1)", idle: true },
+    }),
+  );
 }
 
 export type AutomationConditionRow = {

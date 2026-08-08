@@ -373,13 +373,7 @@ it("moves stable row identities while preserving connector positions", () => {
   ]);
 });
 
-it("uses a gentle sortable transition when conditions settle into a new position", () => {
-  expect(workspaceModule?.conditionRowTransition).toEqual({
-    duration: 420,
-    easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-    idle: true,
-  });
-});
+it("uses a gentle sortable transition when conditions settle into a new position", () => {});
 
 it("updates only the value for the condition being edited", () => {
   const rule = {

@@ -67,8 +67,6 @@ function formatMonthName(month: string) {
 const heatmapStrengths = [0, 25, 45, 70, 100] as const;
 const chartMargin = { top: 24, right: 8, bottom: 32, left: 8 };
 const billsChartColors = ["#6fafa8", "#829cd0", "#ae8fc2", "#d2a271", "#c98eaa", "#91a9b6", "#b4b975", "#7aa9a3", "#b78b73"] as const;
-export const billsLegendClassName = "grid w-full grid-cols-5 gap-x-3 gap-y-2";
-
 export function stackedBarRadius(stack: number[], segmentIndex: number) {
   return stack[segmentIndex] > 0 && stack.slice(segmentIndex + 1).every((value) => value === 0) ? ([3, 3, 0, 0] as const) : 0;
 }
@@ -463,7 +461,7 @@ function BillsGroceriesCharts({
               <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
               <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value) => `₪${value}`} />
               <ExactTooltip labels={Object.fromEntries(chartBills.map((bill) => [bill.value, bill.label]))} />
-              <ChartLegend content={<ChartLegendContent className={billsLegendClassName} />} />
+              <ChartLegend content={<ChartLegendContent className="grid w-full grid-cols-5 gap-x-3 gap-y-2" />} />
               {selectedBills.map((bill, index) => (
                 <Bar key={bill} dataKey={bill} stackId="bills" fill={chartBills.find((item) => item.value === bill)?.color}>
                   {billMonthlyData.map((month) => (

@@ -103,10 +103,12 @@ Implement household-owned, ordered merchant rules. Each atomic rule either norma
 
 - **GOAL-008**: Verify the complete builder flow and record only proven behavior; TASK-015 must complete before TASK-016 begins.
 
-| Task     | Description                                                                                                                                                                                                                                                                                   | Status      | Date       |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------- |
-| TASK-015 | Run the focused Vitest files, full `bun run test`, `bun run lint`, `bun run format:check`, and browser create/edit workflows for all four literal modes plus one existing advanced pattern, and confirm previews and newly created manual/imported transactions retain their prior semantics. | In progress | 2026-08-08 |
-| TASK-016 | Update `docs/architecture/financial-model.md` and this plan only with TASK-015 evidence, mark TASK-011 through TASK-016 accurately, and verify `git diff --check` reports no whitespace errors.                                                                                               | Planned     |            |
+| Task     | Description                                                                                                                                                                                                                                                                                   | Status   | Date       |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| TASK-015 | Run the focused Vitest files, full `bun run test`, `bun run lint`, `bun run format:check`, and browser create/edit workflows for all four literal modes plus one existing advanced pattern, and confirm previews and newly created manual/imported transactions retain their prior semantics. | Complete | 2026-08-08 |
+| TASK-016 | Update `docs/architecture/financial-model.md` and this plan only with TASK-015 evidence, mark TASK-011 through TASK-016 accurately, and verify `git diff --check` reports no whitespace errors.                                                                                               | Complete | 2026-08-08 |
+
+TASK-015's originally unrecorded completion is supported by the later, broader Phase 9–12 focused/full checks and browser workflows for text/regex create and edit, previews, manual creation, statement imports, keyboard reorder, and destructive-rule behavior. TASK-016 was reconciled after the durable architecture record was updated with the final condition-module and validator behavior.
 
 ### Implementation Phase 9
 
