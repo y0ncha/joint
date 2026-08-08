@@ -28,6 +28,7 @@
 *.p12
 *.pfx
 /supabase/.temp/
+/supabase/fixtures/
 
 # machine-specific files
 .DS_Store

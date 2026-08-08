@@ -372,12 +372,33 @@ it("renders the analytics palette, missing-data guidance, and exact daily values
 
   expect(markup).toContain("--color-mainRun: var(--analytics-groceries-main-run)");
   expect(markup).toContain("--color-topUps: var(--analytics-groceries-top-ups)");
+  expect(markup).toContain("--color-current: var(--analytics-year-over-year-current)");
+  expect(markup).toContain("--color-previous: var(--analytics-year-over-year-previous)");
   expect(markup).toContain("color-mix(in oklab, var(--analytics-groceries-heatmap) 100%, transparent)");
   expect(markup).toContain("var(--analytics-bill-1)");
   expect(markup).not.toContain("No previous-year data");
   expect(markup).toContain("Set a monthly groceries budget in Settings.");
   expect(markup).toContain("2026-07-01: ₪0.00");
   expect(markup).toContain("2026-07-02: ₪168.00");
+});
+
+it("keeps Bills stacks and their equivalent table in stable chart order", () => {
+  mocks.searchParams = new URLSearchParams("bills=water,rent&bill=rent");
+  const data = {
+    ...liveData,
+    bills: {
+      ...liveData.bills,
+      subcategories: [...liveData.bills.subcategories, { id: "water", name: "Water", color: "#234567" }],
+      monthly: [...liveData.bills.monthly, { month: "2026-07", subcategoryId: "water", agorot: 6_789 }],
+    },
+  };
+
+  const markup = renderToStaticMarkup(
+    <BillsGroceriesChartDetail chart="bills" data={data as never} billIds={["rent", "water"]} billId="rent" period="rolling" />,
+  );
+  const table = detailTable(markup, "Bills by month");
+
+  expect(table.indexOf(">Rent</th>")).toBeLessThan(table.indexOf(">Water</th>"));
 });
 
 it("uses nine distinct presentation colors and a two-row legend for Bills series", () => {
