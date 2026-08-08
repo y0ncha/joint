@@ -365,16 +365,14 @@ it("renders Groceries by day as a total-spend heatmap", () => {
   expect(markup).not.toContain("Stacked daily groceries chart");
 });
 
-it("renders live series colors, missing-data guidance, and exact daily values", () => {
+it("renders saved Groceries colors, missing-data guidance, and exact daily values", () => {
   const markup = renderToStaticMarkup(
     <BillsGroceriesDashboard data={liveData as never} billIds={["rent"]} billId="rent" period="rolling" />,
   );
 
-  expect(markup).toContain("--color-mainRun: var(--chart-2)");
-  expect(markup).toContain("--color-topUps: var(--chart-3)");
-  expect(markup).not.toContain("#234567");
-  expect(markup).not.toContain("#345678");
-  expect(markup).toContain("var(--chart-1)");
+  expect(markup).toContain("--color-mainRun: #234567");
+  expect(markup).toContain("--color-topUps: #345678");
+  expect(markup).toContain("color-mix(in oklab, #654321 100%, transparent)");
   expect(markup).toContain("#8cbfba");
   expect(markup).toContain("#9bb2d6");
   expect(markup).toContain("No previous-year data");
@@ -399,7 +397,7 @@ it("uses nine distinct presentation colors and a two-row legend for Bills series
   }
 });
 
-it("uses the accent palette consistently for the heatmap and day labels", () => {
+it("uses the Groceries category palette with white active-day labels and light idle cells", () => {
   const markup = renderToStaticMarkup(
     <BillsGroceriesDashboard
       data={
@@ -417,9 +415,9 @@ it("uses the accent palette consistently for the heatmap and day labels", () => 
     />,
   );
 
-  expect(markup).toContain("color-mix(in oklab, var(--chart-1) 100%, transparent)");
-  expect(markup).toContain("bg-chart-5");
-  expect(markup).not.toContain("#ccebef");
+  expect(markup).toContain("color-mix(in oklab, #ccebef 100%, transparent)");
+  expect(markup).toContain("text-white");
+  expect(markup).toContain("bg-card text-muted-foreground");
 });
 
 it("renders the Bills empty state instead of a missing-prior-year notice when no Bills values exist", () => {
