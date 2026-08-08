@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import type { ActionResult } from "@/app/actions/result";
+import { getIsoMonthRange } from "@/lib/date-range";
 import { requireCurrentHousehold } from "@/lib/household";
 import { evaluateMerchantAutomations, getMerchantAutomationRules } from "@/lib/merchant-automations";
 import { parseStatementFile } from "@/lib/statement-import";
@@ -78,6 +79,7 @@ export async function importStatement(_previousState: ActionResult | null, formD
       { merchant: row.merchant, note: row.note, amount: row.amount, kind: row.kind, categoryId: null, subcategoryId: null },
       rules,
     );
+    const servicePeriod = automated.assignsBills ? getIsoMonthRange(row.occurredOn.slice(0, 7)) : undefined;
     return {
       household_id: household.householdId,
       created_by: household.userId,
@@ -90,6 +92,7 @@ export async function importStatement(_previousState: ActionResult | null, formD
       occurred_on: row.occurredOn,
       kind: row.kind,
       amount: row.amount,
+      ...(servicePeriod ? { service_period_start: servicePeriod.from, service_period_end: servicePeriod.to } : {}),
       import_file_hash: importFileHash,
       import_row_number: row.importRowNumber,
     };

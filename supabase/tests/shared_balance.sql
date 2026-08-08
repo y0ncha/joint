@@ -1943,6 +1943,16 @@ select extensions.ok(
 
 select extensions.has_table('public', 'automation_rules', 'has household-owned automation rules');
 
+select extensions.ok(
+  not exists (
+    select 1
+    from pg_catalog.pg_constraint as constraint_meta
+    where constraint_meta.conrelid = 'public.automation_rules'::regclass
+      and constraint_meta.conname = 'automation_rules_action_check'
+  ),
+  'automation action constraint allows delete transaction rules'
+);
+
 select extensions.has_column(
   'public',
   'automation_rules',

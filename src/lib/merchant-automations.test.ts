@@ -38,6 +38,26 @@ it("normalizes and assigns from the first matching rule of each action", () => {
   });
 });
 
+it("marks a Bills assignment for monthly service-period defaults", () => {
+  const result = merchantAutomations.evaluateMerchantAutomations(
+    { merchant: "Power company", kind: "expense", categoryId: null, subcategoryId: null },
+    [
+      {
+        id: "electricity",
+        action: "assign_category",
+        pattern: "power",
+        subcategoryId: "electricity-id",
+        destinationKind: "expense",
+        destinationIsBills: true,
+        enabled: true,
+        position: 0,
+      },
+    ],
+  );
+
+  expect(result).toMatchObject({ subcategoryId: "electricity-id", assignsBills: true });
+});
+
 it("keeps an explicit assignment while still normalizing the merchant", () => {
   const result = merchantAutomations.evaluateMerchantAutomations(
     { merchant: "AROMA", kind: "expense", categoryId: null, subcategoryId: "chosen" },
@@ -338,14 +358,29 @@ it("reads the authenticated rules workspace with eligible destinations and a com
         categoryId: null,
         subcategoryId: "cafe-id",
         label: "Expense → Food → Cafe",
+        pickerLabel: "Cafe",
+        section: { id: "food-id", label: "Food" },
         kind: "expense",
         color: "#444444",
         icon: "coffee",
       },
       {
+        categoryId: null,
+        subcategoryId: "electricity-id",
+        label: "Expense → Bills → Electricity",
+        pickerLabel: "Electricity",
+        section: { id: "bills-id", label: "Bills" },
+        isBills: true,
+        kind: "expense",
+        color: "#555555",
+        icon: "zap",
+      },
+      {
         categoryId: "other-id",
         subcategoryId: null,
         label: "Expense → Other",
+        pickerLabel: "Other",
+        section: { id: "direct-categories", label: "Other" },
         kind: "expense",
         color: "#333333",
         icon: "tag",
@@ -354,6 +389,8 @@ it("reads the authenticated rules workspace with eligible destinations and a com
         categoryId: "other-income-id",
         subcategoryId: null,
         label: "Income → Other",
+        pickerLabel: "Other",
+        section: { id: "direct-categories", label: "Other" },
         kind: "income",
         color: "#666666",
         icon: "tag",

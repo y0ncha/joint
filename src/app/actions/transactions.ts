@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { validationError, type ActionResult } from "@/app/actions/result";
+import { getIsoMonthRange } from "@/lib/date-range";
 import { requireCurrentHousehold } from "@/lib/household";
 import { evaluateMerchantAutomations, getMerchantAutomationRules } from "@/lib/merchant-automations";
 import { transactionSchema } from "@/lib/validation";
@@ -27,6 +28,7 @@ async function servicePeriodsFor(
   subcategoryId: string | null,
   servicePeriodStart: string | null,
   servicePeriodEnd: string | null,
+  automatedMonth?: string,
 ): Promise<{ service_period_start: string | null; service_period_end: string | null } | ActionResult> {
   if (!subcategoryId) return { service_period_start: null, service_period_end: null };
 
@@ -41,6 +43,10 @@ async function servicePeriodsFor(
     return { status: "error", formError: "Check the form details.", fieldErrors: { subcategoryId: "Select a value." } };
   }
   if (systemKey !== "bills") return { service_period_start: null, service_period_end: null };
+  const defaultPeriod = automatedMonth ? getIsoMonthRange(automatedMonth) : undefined;
+  if (!servicePeriodStart && !servicePeriodEnd && defaultPeriod) {
+    return { service_period_start: defaultPeriod.from, service_period_end: defaultPeriod.to };
+  }
   if (!servicePeriodStart || !servicePeriodEnd) {
     return { status: "error", formError: "Check the form details.", fieldErrors: { servicePeriodEnd: "Choose a billing period." } };
   }
@@ -78,6 +84,7 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
     automated.subcategoryId,
     parsed.data.servicePeriodStart,
     parsed.data.servicePeriodEnd,
+    automated.assignsBills ? parsed.data.occurredOn.slice(0, 7) : undefined,
   );
   if ("status" in servicePeriods) return servicePeriods;
   if (parsed.data.paidBy && !(await validatePaidBy(household.supabase, household.householdId, parsed.data.paidBy))) {

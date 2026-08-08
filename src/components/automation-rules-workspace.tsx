@@ -3,8 +3,18 @@
 import { move } from "@dnd-kit/helpers";
 import { DragDropProvider } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
-import { type ReactNode, useActionState, useEffect, useId, useOptimistic, useRef, useState, useTransition } from "react";
-import { GripVertical, Pencil, Plus, Power, Trash2, WandSparkles } from "lucide-react";
+import {
+  type ComponentProps,
+  type ReactNode,
+  useActionState,
+  useEffect,
+  useId,
+  useOptimistic,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
+import { Ellipsis, GripVertical, Plus, Trash2, WandSparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -36,6 +46,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import {
   amountConditionOperatorOptions,
@@ -60,10 +71,14 @@ import type { AutomationDestination, MerchantAutomationPreview, MerchantAutomati
 import { describeMerchantPattern } from "@/lib/merchant-pattern";
 import { cn } from "@/lib/utils";
 
-function ruleLabel(rule: MerchantAutomationRule) {
-  if (rule.action === "normalize_merchant") return "Normalize merchant";
-  if (rule.action === "assign_category") return "Assign category";
+function actionLabel(action: MerchantAutomationRule["action"]) {
+  if (action === "normalize_merchant") return "Normalize merchant";
+  if (action === "assign_category") return "Assign category";
   return "Delete transaction";
+}
+
+function ruleLabel(rule: MerchantAutomationRule) {
+  return actionLabel(rule.action);
 }
 
 function destinationValue(destination: AutomationDestination) {
@@ -84,6 +99,38 @@ function ruleOutcome(rule: MerchantAutomationRule, destination: AutomationDestin
 
 function ruleConditionSummary(rule: MerchantAutomationRule) {
   return rule.conditions ? describeConditionGroup(rule.conditions) : describeMerchantPattern(rule.pattern);
+}
+
+function RuleDeleteDialog({
+  deleteAction,
+  deletePending,
+  trigger,
+}: {
+  deleteAction: ComponentProps<"form">["action"];
+  deletePending: boolean;
+  trigger: ReactNode;
+}) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete this automation rule?</AlertDialogTitle>
+          <AlertDialogDescription>New transactions will stop using it. Existing transactions will not be changed.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel className="min-h-11" disabled={deletePending}>
+            Cancel
+          </AlertDialogCancel>
+          <form action={deleteAction}>
+            <AlertDialogAction type="submit" variant="destructive" className="min-h-11" disabled={deletePending}>
+              Delete rule
+            </AlertDialogAction>
+          </form>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 }
 
 function SortableCondition({
@@ -132,10 +179,12 @@ export function removeConditionRow(previous: AutomationConditionRow[], index: nu
 export function AutomationRuleForm({
   destinations,
   onSaved,
+  popoverContainer,
   rule,
 }: {
   destinations: AutomationDestination[];
   onSaved?: () => void;
+  popoverContainer?: HTMLElement | null;
   rule?: MerchantAutomationRule;
 }) {
   const formId = useId();
@@ -488,9 +537,13 @@ export function AutomationRuleForm({
                 onValueChange={setDestination}
                 emptyLabel="Choose a category"
                 triggerRef={destinationRef}
+                popoverContainer={popoverContainer}
+                grouped
                 options={destinations.map((option) => ({
                   value: destinationValue(option),
-                  label: option.label,
+                  label: option.pickerLabel ?? option.label,
+                  ...(option.section ? { section: option.section } : {}),
+                  ...(option.isBills ? { description: "Uses the transaction month as the billing period." } : {}),
                   color: option.color,
                   icon: categoryIcon(option.icon ?? "tag"),
                 }))}
@@ -512,11 +565,13 @@ function SortableRule({
   canReorder,
   destinations,
   index,
+  priority,
   rule,
 }: {
   canReorder: boolean;
   destinations: AutomationDestination[];
   index: number;
+  priority: number;
   rule: MerchantAutomationRule;
 }) {
   const label = ruleLabel(rule);
@@ -526,6 +581,10 @@ function SortableRule({
   const outcome = ruleOutcome(rule, destination);
   const { ref, handleRef, isDragging } = useSortable({ id: rule.id, index, disabled: !canReorder });
   const [editOpen, setEditOpen] = useState(false);
+  const [editSheetContent, setEditSheetContent] = useState<HTMLElement | null>(null);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const toggleFormRef = useRef<HTMLFormElement>(null);
+  const mobileToggleFormRef = useRef<HTMLFormElement>(null);
   const [toggleState, toggleAction, togglePending] = useActionState<ActionResult | null, FormData>(
     async () => setAutomationRuleEnabled(rule.id, !rule.enabled),
     null,
@@ -548,93 +607,196 @@ function SortableRule({
   }, [deleteState, rule.id]);
 
   return (
-    <div
-      ref={ref}
-      className={cn(
-        "flex min-h-14 flex-wrap items-center gap-2 rounded-xl border border-border/70 px-2 py-2 sm:flex-nowrap",
-        isDragging && "opacity-60",
-      )}
-    >
-      <Button
-        ref={handleRef}
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="size-11 cursor-grab touch-none active:cursor-grabbing"
-        aria-label={`Reorder ${label} rule`}
-        aria-describedby="automation-sort-instructions"
-        disabled={!canReorder}
+    <Sheet open={editOpen} onOpenChange={setEditOpen}>
+      <div
+        ref={ref}
+        className={cn(
+          "flex min-h-14 flex-wrap items-center gap-2 rounded-xl border border-border/70 px-2 py-2 sm:flex-nowrap",
+          !rule.enabled && "border-border/40 bg-muted/20",
+          isDragging && "opacity-60",
+        )}
       >
-        <GripVertical aria-hidden="true" />
-      </Button>
-      <span className="w-5 text-sm text-muted-foreground">{index + 1}</span>
-      <div className="min-w-40 flex-1">
-        <p className="font-medium">{label}</p>
-        <p className="truncate text-sm text-muted-foreground">
-          {ruleConditionSummary(rule)} → {outcome}
-        </p>
-      </div>
-      <Badge variant="secondary">{rule.replacement ?? destination?.label ?? "Missing destination"}</Badge>
-      <Badge variant={rule.enabled ? "outline" : "secondary"}>{rule.enabled ? "Enabled" : "Disabled"}</Badge>
-      <div className="ml-auto flex items-center gap-1">
-        <form action={toggleAction}>
-          <Button
-            type="submit"
-            variant="ghost"
-            size="icon"
-            className="size-11"
-            disabled={togglePending}
-            aria-label={`${rule.enabled ? "Disable" : "Enable"} ${label} rule`}
+        <Button
+          ref={handleRef}
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={cn("hidden size-11 cursor-grab touch-none active:cursor-grabbing sm:inline-flex", !rule.enabled && "opacity-60")}
+          aria-label={`Reorder ${label} rule`}
+          aria-describedby="automation-sort-instructions"
+          disabled={!canReorder}
+        >
+          <GripVertical aria-hidden="true" />
+        </Button>
+        <SheetTrigger asChild>
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            aria-label={`Edit ${label} rule`}
           >
-            <Power aria-hidden="true" />
-          </Button>
-        </form>
-        <Sheet open={editOpen} onOpenChange={setEditOpen}>
-          <SheetTrigger asChild>
-            <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={`Edit ${label} rule`}>
-              <Pencil aria-hidden="true" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent
-            side="right"
-            className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto overscroll-contain border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl data-[side=right]:md:w-[36rem] data-[side=right]:md:max-w-[calc(100vw-2rem)]"
-          >
-            <SheetHeader className="p-6">
-              <SheetTitle className="text-xl">Edit rule</SheetTitle>
-              <SheetDescription>Update this merchant rule without changing its priority.</SheetDescription>
-            </SheetHeader>
-            <div className="px-6 pb-6">
-              <AutomationRuleForm destinations={destinations} rule={rule} onSaved={() => setEditOpen(false)} />
-            </div>
-          </SheetContent>
-        </Sheet>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={`Delete ${label} rule`}>
-              <Trash2 aria-hidden="true" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete this automation rule?</AlertDialogTitle>
-              <AlertDialogDescription>
-                New transactions will stop using it. Existing transactions will not be changed.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel className="min-h-11" disabled={deletePending}>
-                Cancel
-              </AlertDialogCancel>
-              <form action={deleteAction}>
-                <AlertDialogAction type="submit" variant="destructive" className="min-h-11" disabled={deletePending}>
-                  Delete rule
-                </AlertDialogAction>
-              </form>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+            <span
+              aria-label={`${label} priority ${priority}`}
+              className={cn("w-5 text-sm text-muted-foreground", !rule.enabled && "opacity-60")}
+            >
+              {priority}
+            </span>
+            <Badge variant="outline" className={cn("shrink-0", !rule.enabled && "opacity-60")}>
+              {label}
+            </Badge>
+            <span className={cn("min-w-0 flex-1", !rule.enabled && "opacity-60")}>
+              <span className="block truncate text-sm text-muted-foreground">
+                {ruleConditionSummary(rule)} → {outcome}
+              </span>
+            </span>
+            {rule.action === "assign_category" ? (
+              <Badge className={cn("max-w-full truncate", !rule.enabled && "opacity-60")} variant="secondary">
+                {destination?.label ?? "Missing destination"}
+              </Badge>
+            ) : null}
+          </button>
+        </SheetTrigger>
+        <div className="ml-auto flex items-center gap-1">
+          <div className="hidden items-center gap-1 sm:flex">
+            <form ref={toggleFormRef} action={toggleAction} className="translate-y-0.5">
+              <Switch
+                checked={rule.enabled}
+                disabled={togglePending}
+                aria-label={`${rule.enabled ? "Disable" : "Enable"} ${label} rule`}
+                className="h-6 w-11"
+                onCheckedChange={() => toggleFormRef.current?.requestSubmit()}
+              />
+            </form>
+            <SheetContent
+              ref={setEditSheetContent}
+              side="right"
+              className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto overscroll-contain border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl data-[side=right]:md:w-[36rem] data-[side=right]:md:max-w-[calc(100vw-2rem)]"
+            >
+              <SheetHeader className="p-6">
+                <SheetTitle className="text-xl">Edit rule</SheetTitle>
+                <SheetDescription>Update this merchant rule without changing its priority.</SheetDescription>
+              </SheetHeader>
+              <div className="flex flex-col gap-3 px-6 pb-6">
+                <AutomationRuleForm
+                  destinations={destinations}
+                  popoverContainer={editSheetContent}
+                  rule={rule}
+                  onSaved={() => setEditOpen(false)}
+                />
+                <div className="flex justify-end">
+                  <RuleDeleteDialog
+                    deleteAction={deleteAction}
+                    deletePending={deletePending}
+                    trigger={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-11 text-destructive"
+                        aria-label={`Delete ${label} rule`}
+                      >
+                        <Trash2 aria-hidden="true" />
+                      </Button>
+                    }
+                  />
+                </div>
+              </div>
+            </SheetContent>
+          </div>
+          <Sheet open={actionsOpen} onOpenChange={setActionsOpen}>
+            <SheetTrigger asChild>
+              <Button type="button" variant="ghost" size="icon" className="size-11 sm:hidden" aria-label={`More actions for ${label} rule`}>
+                <Ellipsis aria-hidden="true" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent
+              side="right"
+              className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto overscroll-contain border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl data-[side=right]:md:w-96 data-[side=right]:md:max-w-[calc(100vw-2rem)]"
+            >
+              <SheetHeader className="p-6">
+                <SheetTitle className="text-xl">Rule actions</SheetTitle>
+                <SheetDescription>
+                  {label} · {ruleConditionSummary(rule)}
+                </SheetDescription>
+              </SheetHeader>
+              <div className="flex flex-col gap-3 px-6 pb-6">
+                <Button
+                  ref={handleRef}
+                  type="button"
+                  variant="outline"
+                  className="min-h-11 w-full justify-start"
+                  aria-label={`Reorder ${label} rule`}
+                  aria-describedby="automation-sort-instructions"
+                  disabled={!canReorder}
+                >
+                  <GripVertical data-icon="inline-start" aria-hidden="true" />
+                  Reorder rule
+                </Button>
+                <form
+                  ref={mobileToggleFormRef}
+                  action={toggleAction}
+                  className="flex min-h-11 items-center justify-between rounded-lg border border-border px-3"
+                >
+                  <span className="text-sm">{rule.enabled ? "Disable rule" : "Enable rule"}</span>
+                  <Switch
+                    checked={rule.enabled}
+                    disabled={togglePending}
+                    aria-label={`${rule.enabled ? "Disable" : "Enable"} ${label} rule`}
+                    className="h-6 w-11"
+                    onCheckedChange={() => mobileToggleFormRef.current?.requestSubmit()}
+                  />
+                </form>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
-    </div>
+    </Sheet>
+  );
+}
+
+function AutomationPreviewList({
+  changes,
+  className,
+  destinations,
+  label,
+}: {
+  changes: MerchantAutomationPreview["changes"];
+  className?: string;
+  destinations: AutomationDestination[];
+  label: string;
+}) {
+  if (changes.length === 0) {
+    return (
+      <p role="status" className="text-sm text-muted-foreground">
+        No existing transactions would change.
+      </p>
+    );
+  }
+
+  return (
+    <ul className={cn("flex flex-col gap-2", className)} aria-label={label}>
+      {changes.map((change) => {
+        if (change.delete_transaction) {
+          return (
+            <li key={change.id} className="rounded-lg border border-destructive/30 p-3">
+              <p className="font-medium">Delete “{change.expected_merchant}”</p>
+              <p className="text-sm text-muted-foreground">This transaction will be permanently deleted.</p>
+            </li>
+          );
+        }
+        const destination = destinations.find(
+          (option) => option.categoryId === change.category_id && option.subcategoryId === change.subcategory_id,
+        );
+        return (
+          <li key={change.id} className="rounded-lg border border-border/70 p-3">
+            <p className="font-medium">
+              {change.expected_merchant} → {change.merchant}
+            </p>
+            {destination ? <p className="text-sm text-muted-foreground">Destination: {destination.label}</p> : null}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -677,29 +839,12 @@ export function ApplyPreviewControl({
             here.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <ul className="flex max-h-64 flex-col gap-2 overflow-y-auto" aria-label="Existing transaction changes">
-          {preview.changes.map((change) => {
-            if (change.delete_transaction) {
-              return (
-                <li key={change.id} className="rounded-lg border border-destructive/30 p-3">
-                  <p className="font-medium">Delete “{change.expected_merchant}”</p>
-                  <p className="text-sm text-muted-foreground">This transaction will be permanently deleted.</p>
-                </li>
-              );
-            }
-            const destination = destinations.find(
-              (option) => option.categoryId === change.category_id && option.subcategoryId === change.subcategory_id,
-            );
-            return (
-              <li key={change.id} className="rounded-lg border border-border/70 p-3">
-                <p className="font-medium">
-                  {change.expected_merchant} → {change.merchant}
-                </p>
-                {destination ? <p className="text-sm text-muted-foreground">Destination: {destination.label}</p> : null}
-              </li>
-            );
-          })}
-        </ul>
+        <AutomationPreviewList
+          changes={preview.changes}
+          className="max-h-64 overflow-y-auto"
+          destinations={destinations}
+          label="Existing transaction changes"
+        />
         {state?.status === "error" ? <FieldError aria-live="polite">{state.formError}</FieldError> : null}
         <AlertDialogFooter>
           <AlertDialogCancel className="min-h-11" disabled={isPending}>
@@ -728,11 +873,18 @@ export function AutomationRulesWorkspace({
   rules: MerchantAutomationRule[];
 }) {
   const [addOpen, setAddOpen] = useState(false);
+  const [addSheetContent, setAddSheetContent] = useState<HTMLElement | null>(null);
   const [orderedRules, setOrderedRules] = useOptimistic(rules, (_current, next: MerchantAutomationRule[]) => next);
   const [reordering, startReordering] = useTransition();
   const completeRuleList = count === orderedRules.length;
   const canReorder = completeRuleList && orderedRules.length > 1 && !reordering;
-
+  const actionPriorities = new Map<MerchantAutomationRule["action"], number>();
+  const priorityByRuleId = new Map<string, number>();
+  orderedRules.forEach((rule) => {
+    const priority = (actionPriorities.get(rule.action) ?? 0) + 1;
+    actionPriorities.set(rule.action, priority);
+    priorityByRuleId.set(rule.id, priority);
+  });
   return (
     <WorkspaceShell
       title="Automations"
@@ -745,6 +897,7 @@ export function AutomationRulesWorkspace({
             </Button>
           </SheetTrigger>
           <SheetContent
+            ref={setAddSheetContent}
             side="right"
             className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto overscroll-contain border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl data-[side=right]:md:w-[36rem] data-[side=right]:md:max-w-[calc(100vw-2rem)]"
           >
@@ -753,72 +906,78 @@ export function AutomationRulesWorkspace({
               <SheetDescription>Create one merchant normalization or category rule.</SheetDescription>
             </SheetHeader>
             <div className="px-6 pb-6">
-              <AutomationRuleForm destinations={destinations} onSaved={() => setAddOpen(false)} />
+              <AutomationRuleForm destinations={destinations} popoverContainer={addSheetContent} onSaved={() => setAddOpen(false)} />
             </div>
           </SheetContent>
         </Sheet>
       }
     >
-      <Card className="mt-6 border-white/50 bg-card/90">
-        <CardHeader>
-          <CardTitle>Merchant rules</CardTitle>
-          <CardDescription>
-            Priority decides which matching rule wins. Preview changes before applying them to existing transactions.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <p id="automation-sort-instructions" className="sr-only">
-            Press Space or Enter to pick up a rule, use the arrow keys to move it, then press Space or Enter to drop it.
+      <div className="mt-6 flex flex-col gap-4">
+        <div className="px-1">
+          <h2 className="text-base font-medium">Automation rules</h2>
+          <p className="text-sm text-muted-foreground">
+            Rules share one order. For each action, the first enabled matching rule wins; different actions run independently. Preview
+            changes before applying them to existing transactions.
           </p>
-          {!completeRuleList ? (
-            <p role="status" className="text-sm text-muted-foreground">
-              Showing {orderedRules.length} of {count} rules. Reordering and bulk preview require the complete list.
-            </p>
-          ) : null}
-          {orderedRules.length === 0 ? (
-            <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
-              <WandSparkles aria-hidden="true" />
-              <p>No automation rules yet.</p>
-            </div>
-          ) : (
-            <DragDropProvider
-              onDragEnd={(event) => {
-                const previous = orderedRules;
-                const next = move(previous, event).map((rule, position) => ({ ...rule, position }));
-                if (next.every((rule, position) => rule.id === previous[position]?.id)) return;
-                startReordering(async () => {
-                  setOrderedRules(next);
-                  const result = await reorderAutomationRules(next.map((rule) => rule.id));
-                  if (result.status === "error") {
-                    toast.error(result.formError, { id: "automation-reorder" });
-                  } else {
-                    toast.success("Rule order saved", { id: "automation-reorder" });
-                  }
-                });
-              }}
-            >
-              {orderedRules.map((rule, index) => (
-                <SortableRule key={rule.id} canReorder={canReorder} destinations={destinations} index={index} rule={rule} />
-              ))}
-            </DragDropProvider>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+        <p id="automation-sort-instructions" className="sr-only">
+          Press Space or Enter to pick up a rule, use the arrow keys to move it, then press Space or Enter to drop it.
+        </p>
+        {!completeRuleList ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            Showing {orderedRules.length} of {count} rules. Reordering and bulk preview require the complete list.
+          </p>
+        ) : null}
+        <DragDropProvider
+          onDragEnd={(event) => {
+            const previous = orderedRules;
+            const next = move(previous, event).map((rule, position) => ({ ...rule, position }));
+            if (next.every((rule, position) => rule.id === previous[position]?.id)) return;
+            startReordering(async () => {
+              setOrderedRules(next);
+              const result = await reorderAutomationRules(next.map((rule) => rule.id));
+              if (result.status === "error") {
+                toast.error(result.formError, { id: "automation-reorder" });
+              } else {
+                toast.success("Rule order saved", { id: "automation-reorder" });
+              }
+            });
+          }}
+        >
+          <Card className="border-white/50 bg-card/90">
+            <CardHeader>
+              <CardTitle>All rules</CardTitle>
+              <CardDescription>Drag rules into one shared order. Priority is evaluated separately for each action.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              {orderedRules.length > 0 ? (
+                orderedRules.map((rule, index) => (
+                  <SortableRule
+                    key={rule.id}
+                    canReorder={canReorder}
+                    destinations={destinations}
+                    index={index}
+                    priority={priorityByRuleId.get(rule.id) ?? 0}
+                    rule={rule}
+                  />
+                ))
+              ) : (
+                <div className="flex min-h-24 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+                  <WandSparkles aria-hidden="true" />
+                  <p>No automation rules yet.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </DragDropProvider>
+      </div>
       <Card className="mt-5 border-white/50 bg-card/90">
         <CardHeader>
           <CardTitle>Existing transactions</CardTitle>
-          <CardDescription>Nothing changes until you review and confirm this preview.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div aria-live="polite">
-              <p className="font-medium">
-                {preview.changes.length} existing {preview.changes.length === 1 ? "transaction" : "transactions"} would change
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {preview.conflicts.length} priority {preview.conflicts.length === 1 ? "conflict" : "conflicts"} resolved by rule order
-              </p>
-            </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <AutomationPreviewList changes={preview.changes} destinations={destinations} label="Existing transaction preview" />
             <ApplyPreviewControl destinations={destinations} disabled={!completeRuleList || reordering} preview={preview} />
           </div>
           {preview.conflicts.length > 0 ? (
@@ -833,7 +992,7 @@ export function AutomationRulesWorkspace({
                     key={`${conflict.action}:${conflict.winnerId}:${conflict.shadowedRuleIds.join(",")}`}
                     className="text-sm text-muted-foreground"
                   >
-                    {winner ? ruleConditionSummary(winner) : "Higher-priority rule"} wins over{" "}
+                    {actionLabel(conflict.action)}: {winner ? ruleConditionSummary(winner) : "Higher-priority rule"} wins over{" "}
                     {shadowed.map(ruleConditionSummary).join(", ") || "lower-priority rules"} for {conflict.transactionCount}{" "}
                     {conflict.transactionCount === 1 ? "transaction" : "transactions"}.
                   </li>

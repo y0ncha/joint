@@ -172,6 +172,34 @@ describe("transaction actions", () => {
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ merchant: "Corner Market", subcategory_id: "groceries" }));
   });
 
+  it("defaults an automated Bills assignment to the transaction month", async () => {
+    configureContextClient({ subcategory: { categories: { system_key: "bills" } } });
+    mocks.getMerchantAutomationRules.mockResolvedValue([
+      {
+        id: "assign-bills",
+        action: "assign_category",
+        pattern: "power",
+        subcategoryId: "electricity",
+        destinationKind: "expense",
+        destinationIsBills: true,
+        enabled: true,
+        position: 0,
+      },
+    ]);
+
+    await expect(transactionsModule.createTransaction(transactionForm({ subcategoryId: "", merchant: "Power company" }))).resolves.toEqual({
+      status: "success",
+    });
+
+    expect(mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subcategory_id: "electricity",
+        service_period_start: "2026-07-01",
+        service_period_end: "2026-07-31",
+      }),
+    );
+  });
+
   it("persists the inclusive billing period only for a verified Bills subcategory", async () => {
     const { subcategoryEqHousehold, subcategoryEqId } = configureContextClient({ subcategory: { categories: { system_key: "bills" } } });
 

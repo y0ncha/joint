@@ -185,6 +185,33 @@ describe("statement import action", () => {
     );
   });
 
+  it("defaults imported Bills assignments to each transaction month", async () => {
+    mocks.getMerchantAutomationRules.mockResolvedValue([
+      {
+        id: "bills",
+        action: "assign_category",
+        pattern: "corner",
+        subcategoryId: "electricity",
+        destinationKind: "expense",
+        destinationIsBills: true,
+        enabled: true,
+        position: 0,
+      },
+    ]);
+
+    await expect(actions.importStatement(null, formData(statementFile()))).resolves.toMatchObject({ status: "success" });
+
+    expect(mocks.transactionInsert).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          subcategory_id: "electricity",
+          service_period_start: "2026-07-01",
+          service_period_end: "2026-07-31",
+        }),
+      ]),
+    );
+  });
+
   it("rejects invalid parsed rows without inserting any transactions", async () => {
     mocks.parseStatementFile.mockRejectedValue(new Error("row 8: invalid date"));
 
