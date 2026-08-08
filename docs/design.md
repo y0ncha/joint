@@ -42,7 +42,7 @@ Color must reinforce meaning rather than carry it alone. Text, values, labels, o
 
 ### Analytics chart colors
 
-Bills & Groceries uses stable presentation colors that do not follow a browser accent or saved category color. Bills uses the color-blind-safe Paul Tol muted nine-color qualitative set; Year-over-year uses one blue with reduced opacity for the previous period; Groceries uses green for Main run, blue for Top-ups, and green intensity for its daily heatmap. Saved category colors remain for category UI, such as pills and pickers.
+Bills & Groceries uses stable presentation colors that do not follow a browser accent or saved category color. Bills uses the Soft coast muted 15-color qualitative set; Year-over-year uses one blue with reduced opacity for the previous period; Groceries uses green for Main run, blue for Top-ups, and green intensity for its daily heatmap. Saved category colors remain for category UI, such as pills and pickers.
 
 ### Personal accent color
 

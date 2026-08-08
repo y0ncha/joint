@@ -76,6 +76,12 @@ const billsChartColors = [
   "var(--analytics-bill-7)",
   "var(--analytics-bill-8)",
   "var(--analytics-bill-9)",
+  "var(--analytics-bill-10)",
+  "var(--analytics-bill-11)",
+  "var(--analytics-bill-12)",
+  "var(--analytics-bill-13)",
+  "var(--analytics-bill-14)",
+  "var(--analytics-bill-15)",
 ] as const;
 export function stackedBarRadius(stack: number[], segmentIndex: number) {
   return stack[segmentIndex] > 0 && stack.slice(segmentIndex + 1).every((value) => value === 0) ? ([3, 3, 0, 0] as const) : 0;
@@ -560,9 +566,6 @@ function BillsGroceriesCharts({
             </BarChart>
           </ChartContainer>
           {chartBills.length === 0 || !hasYearOverYearData ? <p className="text-sm text-muted-foreground">No Bills data yet.</p> : null}
-          {chartBills.length > 0 && hasYearOverYearData && yearOverYearData.some((month) => month.previous === undefined) ? (
-            <p className="text-sm text-muted-foreground">No previous-year data</p>
-          ) : null}
           {detailChart === "year-over-year" && yearOverYearTableData.length > 0 && (
             <ChartTable label="Year-over-year">
               <TableHeader>
