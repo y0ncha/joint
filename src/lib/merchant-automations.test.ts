@@ -184,6 +184,24 @@ it("matches category rules against the original merchant before normalization", 
   expect(result.appliedRuleIds).toEqual(["normalize"]);
 });
 
+it("stages the first enabled matching delete rule without changing a new transaction", () => {
+  const result = merchantAutomations.evaluateMerchantAutomations(
+    { merchant: "Duplicate charge", kind: "expense", categoryId: null, subcategoryId: null },
+    [
+      { id: "disabled", action: "delete_transaction", pattern: "duplicate", enabled: false, position: 0 },
+      { id: "delete", action: "delete_transaction", pattern: "duplicate", enabled: true, position: 1 },
+    ],
+  );
+
+  expect(result).toMatchObject({
+    merchant: "Duplicate charge",
+    categoryId: null,
+    subcategoryId: null,
+    deleteTransaction: true,
+    appliedRuleIds: ["delete"],
+  });
+});
+
 it("reads the authenticated rules workspace with eligible destinations and a complete preview", async () => {
   const rulesQuery = {
     select: vi.fn(),

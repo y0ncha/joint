@@ -17,17 +17,17 @@ Implement household-owned, ordered merchant rules. Each atomic rule either norma
 ## 1. Requirements & Constraints
 
 - **REQ-001**: Add `/automations`, linked from Settings, with accessible list, create, edit, enable, delete, and drag/keyboard reorder behavior.
-- **REQ-002**: Support only `normalize_merchant` and `assign_category`; future actions require a separate approved migration and plan.
+- **REQ-002**: Support only `normalize_merchant`, `assign_category`, and preview-confirmed `delete_transaction`; future actions require a separate approved migration and plan.
 - **REQ-003**: Evaluate RE2-compatible patterns case-insensitively against the original trimmed merchant; first enabled match per action wins by persisted order.
 - **REQ-004**: Preserve an explicit manual destination; a blank manual destination resolves through the category rule or retains the current validation error.
 - **REQ-005**: Apply rules while creating manual and statement-import transactions, never implicitly on edit, and bulk-apply existing rows only after preview and confirmation.
 - **REQ-006**: Replace the raw merchant-pattern input with an owned `Select` matching the current Action dropdown style and containing exactly `Contains`, `Is exactly`, `Starts with`, and `Ends with` for new rules.
 - **REQ-007**: Convert trimmed literal merchant text with `RE2JS.quote` on the server to `quoted`, `^quoted$`, `^quoted`, or `quoted$` for `contains`, `equals`, `starts_with`, or `ends_with`, respectively.
-- **REQ-008**: Decode existing patterns that are losslessly equivalent to the four builder modes and expose `Advanced pattern` only while editing an existing pattern that cannot be decoded without changing its behavior.
-- **REQ-009**: Render builder rules as a localized operator label plus literal value in the ordered list and conflict guidance; render an undecodable existing pattern as `Advanced pattern` plus its raw value.
+- **REQ-008**: Decode existing patterns that are losslessly equivalent to the four builder modes and expose `Matches regex` for Merchant and Note conditions; existing undecodable merchant patterns retain their raw regex value without changing behavior.
+- **REQ-009**: Render builder rules as a localized operator label plus literal or regex value in the ordered list and conflict guidance.
 - **REQ-010**: Keep `automation_rules.pattern`, rule evaluation, preview fingerprints, bulk application, RLS, and generated database types unchanged; this phase must create no migration and run no linked Supabase write.
 - **REQ-011**: Phase 9 supersedes REQ-010 only for the expanded condition builder: add optional validated `automation_rules.conditions` JSONB, preserve null-condition legacy rules, include conditions in stale-preview snapshots, and do not apply the new migration to hosted `joint-dev` without explicit approval and the required preflight.
-- **REQ-012**: A condition group uses exactly one `and` or `or` logic value and one to eight conditions. Fields are `merchant`, `note`, or `amount`; text operators are literal contains/equal/starts-with/ends-with (plus legacy merchant advanced patterns), and amount operators are equals, not-equals, greater-than, greater-than-or-equal, less-than, and less-than-or-equal.
+- **REQ-012**: A condition group has one to eight conditions. Legacy groups may use one `and` or `or` logic value; new groups persist an AND/OR connector on every condition after the first and evaluate left to right. Fields are `merchant`, `note`, or `amount`; Merchant and Note operators are literal contains/equal/starts-with/ends-with plus RE2 `Matches regex`, and Amount operators are equals, not-equals, greater-than, greater-than-or-equal, less-than, and less-than-or-equal.
 - **SEC-001**: Derive household identity server-side, use household RLS, use linear-time RE2 matching, and make confirmed bulk changes atomic.
 - **SEC-002**: Treat `matchMode` and `matchValue` as untrusted Server Action input, allow only the declared modes, validate the compiled pattern length against the existing 200-character database constraint, and compile it with RE2 before persistence.
 - **CON-001**: Use a generated forward migration, verified `joint-dev`, generated database types, focused/full tests, lint, formatting, and browser proof; do not run `bun run build` unless requested.
@@ -112,12 +112,38 @@ Implement household-owned, ordered merchant rules. Each atomic rule either norma
 
 - **GOAL-009**: Expand rules from merchant-only matching to a validated condition group while preserving legacy rules, atomic actions, ordering, previews, and the main-page enable control.
 
-| Task     | Description                                                                                                                                                                                                                               | Status      | Date       |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------- |
-| TASK-017 | Add the forward `automation_rules.conditions` migration, validation constraints, stale-preview snapshot support, generated database types, and focused database/action regressions without applying a hosted migration.                   | In progress | 2026-08-08 |
-| TASK-018 | Extend the server evaluator and manual/import intake with AND/OR conditions over Merchant, Note, and numeric Amount; preserve legacy merchant patterns and explicit destination precedence.                                               | Planned     |            |
-| TASK-019 | Update the Add/Edit Sheet with repeatable condition rows, a ToggleGroup AND/OR selector, field-specific operators and numeric inputs; move Enabled to the ordered list and align the visible Add rule action with other workspace sheets. | Planned     |            |
-| TASK-020 | Run focused/full tests, lint, formatting, and browser proof for text, numeric, AND/OR, enable, create, edit, preview, manual-create, and statement-import flows; update architecture/design evidence and mark this phase accurately.      | Planned     |            |
+| Task     | Description                                                                                                                                                                                                                          | Status   | Date       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | ---------- |
+| TASK-017 | Add the forward `automation_rules.conditions` migration and connector-validator migration, stale-preview snapshot support, generated database types, and focused database/action regressions.                                        | Complete | 2026-08-08 |
+| TASK-018 | Extend the server evaluator and manual/import intake with Merchant, Note, and numeric Amount conditions, preserving legacy group logic and adding left-to-right per-row connectors.                                                  | Complete | 2026-08-08 |
+| TASK-019 | Update the Add/Edit Sheet with compact repeatable rows, per-row AND/OR connectors, field-specific operators and numeric inputs; keep Enabled on the ordered list and align Add rule actions.                                         | Complete | 2026-08-08 |
+| TASK-020 | Run focused/full tests, lint, formatting, and browser proof for text, numeric, AND/OR, enable, create, edit, preview, manual-create, and statement-import flows; update architecture/design evidence and mark this phase accurately. | Complete | 2026-08-08 |
+
+### Implementation Phase 10
+
+- **GOAL-010**: Make flat condition ordering directly manipulable without changing its persisted, left-to-right condition model.
+
+| Task     | Description                                                                                                                             | Status   | Date       |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| TASK-021 | Add pointer and keyboard drag handles to condition rows; preserve connector positions between rows and keep nested groups out of scope. | Complete | 2026-08-08 |
+| TASK-022 | Verify focused component behavior, lint, whitespace, and an unsaved browser keyboard reorder workflow.                                  | Complete | 2026-08-08 |
+
+### Implementation Phase 11
+
+- **GOAL-011**: Allow an ordered rule to permanently delete matching existing transactions only after the server-derived preview and explicit confirmation.
+
+| Task     | Description                                                                                                                                                            | Status   | Date       |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| TASK-023 | Add the `delete_transaction` action, guarded database validation and atomic delete-or-update RPC behavior, preview fingerprint coverage, and focused regressions.      | Complete | 2026-08-08 |
+| TASK-024 | Add destructive editor/preview copy, verify the unsaved local browser flow, and confirm manual creation and statement imports continue to ignore delete-rule outcomes. | Complete | 2026-08-08 |
+
+### Implementation Phase 12
+
+- **GOAL-012**: Permit RE2 conditions for either supported text field without changing rule storage or amount matching.
+
+| Task     | Description                                                                                                                                          | Status   | Date       |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| TASK-025 | Add the `Matches regex` operator to Merchant and Note rows, validate both fields with RE2, and verify unit, action, component, and browser behavior. | Complete | 2026-08-08 |
 
 ## 3. Alternatives
 
@@ -156,7 +182,7 @@ Implement household-owned, ordered merchant rules. Each atomic rule either norma
 - **TEST-005**: The final-review wave has local evidence from 381 passing Vitest tests, 165 passing pgTAP assertions in a disposable unlinked Postgres instance, clean ESLint, Prettier, TypeScript, and public/private schema lint. Linked history, dry-run, application, type generation, advisors, and hosted browser proof remain blocked because this isolated worktree has no `supabase/.temp/project-ref`; no linked command was run.
 - **TEST-006**: Focused helper tests prove exact canonical patterns for all four modes and lossless fallback for every existing pattern that is not a quoted literal with optional builder anchors.
 - **TEST-007**: Focused Server Action tests prove submitted raw `pattern` fields are ignored, unsupported modes fail validation, and only server-built RE2 patterns reach insert or update calls.
-- **TEST-008**: Component tests prove add and edit Sheets expose the correct operator/value state, friendly summaries replace raw canonical patterns, and advanced mode appears only for an undecodable existing pattern.
+- **TEST-008**: Component tests prove add and edit Sheets expose the correct operator/value state, including `Matches regex` for Merchant and Note, and friendly summaries replace raw canonical patterns.
 - **TEST-009**: Browser proof covers add and edit Sheets at mobile and desktop widths, keyboard-only operation, literal metacharacters, Hebrew text, all four match modes, preview output, and one new manual or imported transaction matched by a saved builder rule.
 
 ## 7. Risks & Assumptions

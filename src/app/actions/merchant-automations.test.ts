@@ -67,6 +67,20 @@ function normalizeRuleForm(overrides: Record<string, string> = {}) {
   });
 }
 
+function deleteRuleForm(overrides: Record<string, string> = {}) {
+  return formData({
+    action: "delete_transaction",
+    matchMode: "contains",
+    matchValue: "duplicate",
+    pattern: "duplicate",
+    replacement: "",
+    categoryId: "",
+    subcategoryId: "",
+    enabled: "true",
+    ...overrides,
+  });
+}
+
 function configureActionClient({ lastPosition = 2, error = null }: { lastPosition?: number | null; error?: unknown } = {}) {
   const lastRuleQuery = {
     select: vi.fn(),
@@ -142,6 +156,20 @@ describe("merchant automation actions", () => {
       fieldErrors: { matchMode: "Choose a valid merchant match mode." },
     });
     expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("creates a delete rule without a replacement or destination", async () => {
+    configureActionClient();
+
+    await expect(actions.createAutomationRule(deleteRuleForm())).resolves.toEqual({ status: "success" });
+    expect(mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "delete_transaction",
+        replacement: null,
+        category_id: null,
+        subcategory_id: null,
+      }),
+    );
   });
 
   it("rejects a server-built pattern longer than the database limit without truncating it", async () => {
@@ -259,16 +287,71 @@ describe("merchant automation actions", () => {
     );
   });
 
-  it("rejects advanced matching on notes and malformed numeric values", async () => {
+  it("persists independent connectors from trusted server-side parsing", async () => {
+    configureActionClient({ lastPosition: null });
+    const conditions = JSON.stringify({
+      conditions: [
+        { field: "merchant", operator: "contains", value: "Cafe" },
+        { connector: "or", field: "amount", operator: "greater_than", value: 100 },
+      ],
+    });
+
+    await expect(
+      actions.createAutomationRule(
+        formData({
+          action: "assign_category",
+          conditions,
+          matchMode: "contains",
+          matchValue: "ignored",
+          pattern: "ignored",
+          categoryId: "11111111-1111-4111-8111-111111111111",
+          subcategoryId: "",
+          enabled: "true",
+        }),
+      ),
+    ).resolves.toEqual({ status: "success" });
+
+    expect(mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pattern: "__conditions__",
+        conditions: {
+          conditions: [
+            { field: "merchant", operator: "contains", value: "Cafe" },
+            { connector: "or", field: "amount", operator: "greater_than", value: 100 },
+          ],
+        },
+      }),
+    );
+  });
+
+  it("persists a Note regex condition after server-side RE2 validation", async () => {
     configureActionClient();
-    const invalid = JSON.stringify({
+    const conditions = JSON.stringify({
       logic: "and",
       conditions: [{ field: "note", operator: "advanced", value: "(weekly|monthly)" }],
     });
 
-    await expect(actions.createAutomationRule(normalizeRuleForm({ conditions: invalid }))).resolves.toMatchObject({
+    await expect(actions.createAutomationRule(normalizeRuleForm({ conditions }))).resolves.toEqual({ status: "success" });
+    expect(mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conditions: {
+          logic: "and",
+          conditions: [{ field: "note", operator: "advanced", value: "(weekly|monthly)" }],
+        },
+      }),
+    );
+  });
+
+  it("rejects an invalid Note regex before inserting a rule", async () => {
+    configureActionClient();
+    const conditions = JSON.stringify({
+      logic: "and",
+      conditions: [{ field: "note", operator: "advanced", value: "(" }],
+    });
+
+    await expect(actions.createAutomationRule(normalizeRuleForm({ conditions }))).resolves.toMatchObject({
       status: "error",
-      fieldErrors: { conditions: "Check each condition." },
+      fieldErrors: { pattern: "Enter a valid RE2 pattern." },
     });
     expect(mocks.insert).not.toHaveBeenCalled();
   });

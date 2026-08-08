@@ -37,6 +37,15 @@ describe("automation condition groups", () => {
     expect(evaluateAutomationConditionGroup(group, { merchant: "Shop", note: "other", amount: 10 })).toBe(false);
   });
 
+  it("matches a case-insensitive regex against a Note", () => {
+    const group: AutomationConditionGroup = {
+      conditions: [{ field: "note", operator: "advanced", value: "^(weekly|monthly) shop$" }],
+    };
+
+    expect(evaluateAutomationConditionGroup(group, { merchant: "Market", note: "Monthly Shop", amount: 40 })).toBe(true);
+    expect(evaluateAutomationConditionGroup(group, { merchant: "Market", note: "One-off shop", amount: 40 })).toBe(false);
+  });
+
   it("evaluates each later condition with its own connector from left to right", () => {
     const group = {
       logic: "and",

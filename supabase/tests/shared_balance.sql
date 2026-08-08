@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(169);
+select extensions.plan(171);
 
 select extensions.is(
   (select count(*) from public.transactions),
@@ -2103,6 +2103,40 @@ select extensions.lives_ok(
       and pattern = '__conditions__';
   $$,
   'a household member can persist a validated note and amount condition group'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.automation_rules (household_id, action, pattern, conditions, replacement, position)
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'normalize_merchant',
+      '__conditions__',
+      '{"conditions":[{"field":"merchant","operator":"contains","value":"Cafe"},{"connector":"or","field":"amount","operator":"greater_than","value":100}]}'::jsonb,
+      'Cafe purchase',
+      3
+    );
+    delete from public.automation_rules
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and pattern = '__conditions__';
+  $$,
+  'a household member can persist independent condition connectors'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.automation_rules (household_id, action, pattern, conditions, replacement, position)
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'normalize_merchant',
+      '__conditions__',
+      '{"conditions":[{"connector":"and","field":"merchant","operator":"contains","value":"Cafe"}]}'::jsonb,
+      'Invalid first connector',
+      3
+    )
+  $$,
+  '%first automation condition cannot have a connector%',
+  'the first automation condition cannot have a connector'
 );
 
 select extensions.throws_like(

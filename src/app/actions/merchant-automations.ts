@@ -29,26 +29,43 @@ const enabled = z.preprocess(
 const merchantMatchModes = ["contains", "equals", "starts_with", "ends_with", "advanced"] as const satisfies readonly MerchantMatchMode[];
 
 const textConditionSchema = z.object({
+  connector: z.enum(["and", "or"]).optional(),
   field: z.enum(["merchant", "note"]),
   operator: z.enum(["contains", "equals", "starts_with", "ends_with", "advanced"]),
   value: z.string().trim().min(1).max(500),
 });
 const amountConditionSchema = z.object({
+  connector: z.enum(["and", "or"]).optional(),
   field: z.literal("amount"),
   operator: z.enum(["equals", "not_equals", "greater_than", "greater_than_or_equal", "less_than", "less_than_or_equal"]),
   value: z.preprocess((value) => (value === "" ? undefined : value), z.coerce.number().finite().min(0)),
 });
-const conditionGroupSchema = z.object({
-  logic: z.enum(["and", "or"]),
-  conditions: z
-    .array(z.union([textConditionSchema, amountConditionSchema]))
-    .min(1)
-    .max(8),
-});
+const conditionGroupSchema = z
+  .object({
+    logic: z.enum(["and", "or"]).optional(),
+    conditions: z
+      .array(z.union([textConditionSchema, amountConditionSchema]))
+      .min(1)
+      .max(8),
+  })
+  .superRefine((group, context) => {
+    group.conditions.forEach((condition, index) => {
+      if (index === 0 && condition.connector !== undefined) {
+        context.addIssue({
+          code: "custom",
+          path: ["conditions", index, "connector"],
+          message: "The first condition cannot have a connector.",
+        });
+      }
+      if (index > 0 && group.logic === undefined && condition.connector === undefined) {
+        context.addIssue({ code: "custom", path: ["conditions", index, "connector"], message: "Choose AND or OR." });
+      }
+    });
+  });
 
 const automationRuleSchema = z
   .object({
-    action: z.enum(["normalize_merchant", "assign_category"]),
+    action: z.enum(["normalize_merchant", "assign_category", "delete_transaction"]),
     matchMode: z.enum(merchantMatchModes, { error: "Choose a valid merchant match mode." }),
     matchValue: z.string().trim().min(1, "Enter a merchant pattern."),
     replacement: nullableText,
@@ -62,11 +79,16 @@ const automationRuleSchema = z
       if (value.categoryId !== null) context.addIssue({ code: "custom", path: ["categoryId"], message: "Leave the category empty." });
       if (value.subcategoryId !== null)
         context.addIssue({ code: "custom", path: ["subcategoryId"], message: "Leave the subcategory empty." });
-    } else {
+    } else if (value.action === "assign_category") {
       if (value.replacement !== null) context.addIssue({ code: "custom", path: ["replacement"], message: "Leave the replacement empty." });
       if ((value.categoryId === null ? 0 : 1) + (value.subcategoryId === null ? 0 : 1) !== 1) {
         context.addIssue({ code: "custom", path: ["categoryId"], message: "Choose one destination." });
       }
+    } else {
+      if (value.replacement !== null) context.addIssue({ code: "custom", path: ["replacement"], message: "Leave the replacement empty." });
+      if (value.categoryId !== null) context.addIssue({ code: "custom", path: ["categoryId"], message: "Leave the category empty." });
+      if (value.subcategoryId !== null)
+        context.addIssue({ code: "custom", path: ["subcategoryId"], message: "Leave the subcategory empty." });
     }
   });
 
@@ -119,7 +141,7 @@ function parseRule(input: FormData) {
   }
   try {
     for (const condition of conditions.conditions) {
-      if (condition.field === "merchant" && condition.operator === "advanced") compileMerchantPattern(condition.value);
+      if (condition.field !== "amount" && condition.operator === "advanced") compileMerchantPattern(condition.value);
     }
     if (!submittedConditions) compileMerchantPattern(pattern);
   } catch {

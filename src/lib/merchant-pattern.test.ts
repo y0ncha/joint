@@ -65,6 +65,6 @@ describe("merchant match patterns", () => {
     expect(describeMerchantPattern("^Corner Market$")).toBe("Is exactly “Corner Market”");
     expect(describeMerchantPattern("^Super")).toBe("Starts with “Super”");
     expect(describeMerchantPattern("Pharm$")).toBe("Ends with “Pharm”");
-    expect(describeMerchantPattern("(Aroma|Cafe)")).toBe("Advanced pattern “(Aroma|Cafe)”");
+    expect(describeMerchantPattern("(Aroma|Cafe)")).toBe("Matches regex “(Aroma|Cafe)”");
   });
 });

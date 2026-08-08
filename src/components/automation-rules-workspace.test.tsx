@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   applyAutomationResults: vi.fn(),
   createAutomationRule: vi.fn(),
   focus: vi.fn(),
+  inputChanges: {} as Record<string, ChangeEventHandler<HTMLInputElement> | undefined>,
   matchValueChange: undefined as ChangeEventHandler<HTMLInputElement> | undefined,
   runEffects: false,
   selectChanges: [] as Array<{ value?: string; onValueChange?: (value: string) => void }>,
@@ -53,6 +54,7 @@ vi.mock("@/app/actions/merchant-automations", () => ({
 vi.mock("@/components/ui/input", () => ({
   Input: ({ onChange, ...props }: React.ComponentProps<"input">) => {
     if (props.name === "matchValue") mocks.matchValueChange = onChange;
+    if (props.name) mocks.inputChanges[props.name] = onChange;
     return <input {...props} onChange={onChange} />;
   },
 }));
@@ -96,10 +98,16 @@ function renderRuleForm({
     action: "normalize_merchant" | "assign_category";
     pattern: string;
     conditions?: {
-      logic: "and" | "or";
+      logic?: "and" | "or";
       conditions: Array<
-        | { field: "merchant" | "note"; operator: "contains" | "equals" | "starts_with" | "ends_with" | "advanced"; value: string }
         | {
+            connector?: "and" | "or";
+            field: "merchant" | "note";
+            operator: "contains" | "equals" | "starts_with" | "ends_with" | "advanced";
+            value: string;
+          }
+        | {
+            connector?: "and" | "or";
             field: "amount";
             operator: "equals" | "not_equals" | "greater_than" | "greater_than_or_equal" | "less_than" | "less_than_or_equal";
             value: number;
@@ -117,6 +125,7 @@ function renderRuleForm({
   if (!preserveState) mocks.state = [];
   mocks.stateIndex = 0;
   mocks.matchValueChange = undefined;
+  mocks.inputChanges = {};
   mocks.selectChanges.length = 0;
   return renderToStaticMarkup(<workspaceModule.AutomationRuleForm destinations={[]} rule={rule} />);
 }
@@ -126,6 +135,7 @@ beforeEach(() => {
   mocks.actionState = null;
   mocks.actionReducers.length = 0;
   mocks.matchValueChange = undefined;
+  mocks.inputChanges = {};
   mocks.runEffects = false;
   mocks.selectChanges.length = 0;
   mocks.sheetSides.length = 0;
@@ -217,30 +227,33 @@ it("renders ordered atomic automation rules with conflict guidance", () => {
   expect(markup).toContain("1 priority conflict");
   expect(markup).toContain("Contains “ארומה” → Rename merchant to “Aroma”");
   expect(markup).toContain("Contains “ארומה” → Assign category “Expense → Food → Cafe”");
-  expect(markup).toContain("Advanced pattern “אר.*” → Rename merchant to “Aroma Israel”");
-  expect(markup).toContain("Contains “ארומה” wins over Advanced pattern “אר.*” for 1 transaction.");
+  expect(markup).toContain("Matches regex “אר.*” → Rename merchant to “Aroma Israel”");
+  expect(markup).toContain("Contains “ארומה” wins over Matches regex “אר.*” for 1 transaction.");
   expect(markup).toContain("Review and apply");
 });
 
-it("renders a default literal merchant match builder with four 44px options", () => {
+it("renders a default merchant match builder with a 44px regex option", () => {
   const markup = renderRuleForm();
 
+  expect(markup).toContain("Delete transaction");
   expect(markup).toContain("Merchant match");
   expect(markup).toContain("Merchant text");
+  expect(markup).toContain('aria-label="Reorder condition 1"');
+  expect(markup).toContain("motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-out motion-reduce:transition-none");
   expect(markup).not.toContain("Merchant pattern");
   expect(markup).toMatch(/<input(?=[^>]*name="matchMode")(?=[^>]*value="contains")[^>]*>/);
-  expect(markup).toMatch(/<input(?=[^>]*name="matchValue")(?=[^>]*class="[^"]*min-h-11)[^>]*>/);
+  expect(markup).toMatch(/<input(?=[^>]*name="matchValue")(?=[^>]*class="h-11")[^>]*>/);
   expect(markup).toMatch(/<input(?=[^>]*name="pattern")(?=[^>]*type="hidden")(?=[^>]*value="")[^>]*>/);
-  expect(markup).toMatch(/<button(?=[^>]*id="[^"]*-match-mode")(?=[^>]*class="h-11 w-full rounded-xl")[^>]*>/);
-  expect(markup.match(/data-select-item="(?:contains|equals|starts_with|ends_with)"/g)).toHaveLength(4);
+  expect(markup).toMatch(/<button(?=[^>]*id="[^"]*-match-mode")(?=[^>]*class="w-full rounded-xl")[^>]*>/);
+  expect(markup.match(/data-select-item="(?:contains|equals|starts_with|ends_with|advanced)"/g)).toHaveLength(5);
   expect(markup).toContain('class="min-h-11" data-select-item="contains">Contains');
   expect(markup).toContain('class="min-h-11" data-select-item="equals">Is exactly');
   expect(markup).toContain('class="min-h-11" data-select-item="starts_with">Starts with');
   expect(markup).toContain('class="min-h-11" data-select-item="ends_with">Ends with');
-  expect(markup).not.toContain('data-select-item="advanced"');
+  expect(markup).toContain('class="min-h-11" data-select-item="advanced">Matches regex');
 });
 
-it("renders AND/OR condition controls for merchant, note, and numeric amount without an editor enable toggle", () => {
+it("renders legacy condition groups as per-row connectors for merchant, note, and numeric amount without an editor enable toggle", () => {
   const markup = renderRuleForm({
     rule: {
       id: "condition-rule",
@@ -260,8 +273,11 @@ it("renders AND/OR condition controls for merchant, note, and numeric amount wit
     },
   });
 
-  expect(markup).toContain("Match all (AND)");
-  expect(markup).toContain("Match any (OR)");
+  expect(markup).not.toContain("Match all (AND)");
+  expect(markup).not.toContain("Match any (OR)");
+  expect(markup).toContain('aria-label="Condition 2 connector"');
+  expect(markup.match(/data-slot="separator"/g)).toHaveLength(2);
+  expect(markup).toContain('data-select-item="or">OR');
   expect(markup).toContain('data-select-item="merchant">Merchant');
   expect(markup).toContain('data-select-item="note">Note');
   expect(markup).toContain('data-select-item="amount">Amount');
@@ -271,7 +287,128 @@ it("renders AND/OR condition controls for merchant, note, and numeric amount wit
   expect(markup).not.toContain(">Enabled<");
 });
 
-it("decodes canonical edit state and exposes Advanced pattern only for a legacy rule", () => {
+it("renders a compact connector before each condition after the first", () => {
+  const markup = renderRuleForm({
+    rule: {
+      id: "connector-rule",
+      action: "assign_category",
+      pattern: "__conditions__",
+      conditions: {
+        conditions: [
+          { field: "merchant", operator: "contains", value: "Cafe" },
+          { connector: "or", field: "amount", operator: "greater_than", value: 100 },
+        ],
+      },
+      categoryId: null,
+      subcategoryId: "cafe-id",
+      enabled: true,
+      position: 0,
+    },
+  });
+
+  expect(markup).not.toContain("Match all (AND)");
+  expect(markup).toContain('aria-label="Condition 2 connector"');
+  expect(markup).toContain('data-select-item="and">AND');
+  expect(markup).toContain('data-select-item="or">OR');
+  expect(markup).toContain('type="number"');
+});
+
+it("renders each connector after the preceding condition so a promoted first row does not jump", () => {
+  const markup = renderRuleForm({
+    rule: {
+      id: "connector-position-rule",
+      action: "assign_category",
+      pattern: "__conditions__",
+      conditions: {
+        conditions: [
+          { field: "merchant", operator: "contains", value: "Cafe" },
+          { connector: "or", field: "note", operator: "contains", value: "weekly" },
+        ],
+      },
+      categoryId: null,
+      subcategoryId: "cafe-id",
+      enabled: true,
+      position: 0,
+    },
+  });
+
+  expect(markup.indexOf('aria-label="Reorder condition 1"')).toBeLessThan(markup.indexOf('aria-label="Condition 2 connector"'));
+  expect(markup.indexOf('aria-label="Condition 2 connector"')).toBeLessThan(markup.indexOf('aria-label="Reorder condition 2"'));
+  expect(markup).toContain('data-condition-row="1"');
+  expect(markup).toContain('data-connector-after-condition="1"');
+});
+
+it("keeps operators with their conditions and normalizes a new first condition", () => {
+  if (!workspaceModule?.normalizeConditionConnectors) {
+    throw new Error("normalizeConditionConnectors is unavailable.");
+  }
+
+  const reordered = workspaceModule.normalizeConditionConnectors([
+    { connector: "and" as const, field: "amount" as const, operator: "greater_than" as const, value: 100 },
+    { field: "merchant" as const, operator: "contains" as const, value: "Cafe" },
+    { connector: "or" as const, field: "note" as const, operator: "contains" as const, value: "weekly" },
+  ]);
+
+  expect(reordered).toEqual([
+    { field: "amount", operator: "greater_than", value: 100, connector: undefined },
+    { field: "merchant", operator: "contains", value: "Cafe", connector: "and" },
+    { field: "note", operator: "contains", value: "weekly", connector: "or" },
+  ]);
+});
+
+it("moves stable row identities with their condition and normalizes the first row", () => {
+  if (!workspaceModule?.applyReorderedConditionRows) {
+    throw new Error("applyReorderedConditionRows is unavailable.");
+  }
+
+  const reordered = workspaceModule.applyReorderedConditionRows([
+    {
+      id: "second",
+      condition: { connector: "or" as const, field: "merchant" as const, operator: "contains" as const, value: "second" },
+    },
+    { id: "first", condition: { field: "merchant" as const, operator: "contains" as const, value: "first" } },
+  ]);
+
+  expect(reordered).toEqual([
+    { id: "second", condition: { field: "merchant", operator: "contains", value: "second", connector: undefined } },
+    { id: "first", condition: { field: "merchant", operator: "contains", value: "first", connector: "and" } },
+  ]);
+});
+
+it("uses a gentle sortable transition when conditions settle into a new position", () => {
+  expect(workspaceModule?.conditionRowTransition).toEqual({
+    duration: 420,
+    easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+    idle: true,
+  });
+});
+
+it("updates only the value for the condition being edited", () => {
+  const rule = {
+    id: "edit-values-rule",
+    action: "assign_category" as const,
+    pattern: "__conditions__",
+    conditions: {
+      conditions: [
+        { field: "note" as const, operator: "contains" as const, value: "weekly" },
+        { connector: "or" as const, field: "amount" as const, operator: "greater_than" as const, value: 100 },
+      ],
+    },
+    categoryId: null,
+    subcategoryId: "cafe-id",
+    enabled: true,
+    position: 0,
+  };
+
+  renderRuleForm({ rule });
+  mocks.inputChanges["condition-1-value"]?.({ target: { value: "200" } } as React.ChangeEvent<HTMLInputElement>);
+
+  const markup = renderRuleForm({ preserveState: true, rule });
+  expect(markup).toContain("&quot;value&quot;:&quot;weekly&quot;");
+  expect(markup).toContain("&quot;value&quot;:200");
+});
+
+it("decodes canonical edit state and exposes Matches regex for a legacy rule", () => {
   const canonicalMarkup = renderRuleForm({
     rule: {
       id: "canonical-rule",
@@ -285,7 +422,7 @@ it("decodes canonical edit state and exposes Advanced pattern only for a legacy 
 
   expect(canonicalMarkup).toMatch(/<input(?=[^>]*name="matchMode")(?=[^>]*value="equals")[^>]*>/);
   expect(canonicalMarkup).toMatch(/<input(?=[^>]*name="matchValue")(?=[^>]*value="Super-Pharm")[^>]*>/);
-  expect(canonicalMarkup).not.toContain('data-select-item="advanced"');
+  expect(canonicalMarkup).toContain('class="min-h-11" data-select-item="advanced">Matches regex');
 
   const legacyMarkup = renderRuleForm({
     rule: {
@@ -300,7 +437,7 @@ it("decodes canonical edit state and exposes Advanced pattern only for a legacy 
 
   expect(legacyMarkup).toMatch(/<input(?=[^>]*name="matchMode")(?=[^>]*value="advanced")[^>]*>/);
   expect(legacyMarkup).toMatch(/<input(?=[^>]*name="matchValue")(?=[^>]*value="\(Aroma\|Cafe\)")[^>]*>/);
-  expect(legacyMarkup).toContain('class="min-h-11" data-select-item="advanced">Advanced pattern');
+  expect(legacyMarkup).toContain('class="min-h-11" data-select-item="advanced">Matches regex');
 });
 
 it("updates the compatibility pattern when merchant mode or text changes", () => {
@@ -329,6 +466,13 @@ it("focuses the visible Merchant text input for a pattern field error", () => {
 
   expect(markup).toMatch(/<input(?=[^>]*name="matchValue")(?=[^>]*aria-invalid="true")[^>]*>/);
   expect(mocks.focus).toHaveBeenCalledTimes(1);
+});
+
+it("defers empty rule fields to the toast-backed Server Action validation", () => {
+  const markup = renderRuleForm();
+
+  expect(markup).toContain("noValidate");
+  expect(markup).not.toContain('required=""');
 });
 
 it("renders add and edit rule forms in right-side sheets", () => {
@@ -375,7 +519,7 @@ it("submits create and edit rule forms through the existing Server Actions", asy
   expect(createMarkup).toContain('name="subcategoryId"');
   expect(createMarkup).toContain('name="enabled"');
   expect(createMarkup).toMatch(/<button(?=[^>]*type="submit")(?=[^>]*w-full)[^>]*>Add rule<\/button>/);
-  expect(createMarkup).toMatch(/<input(?=[^>]*name="matchValue")(?=[^>]*min-h-11)[^>]*>/);
+  expect(createMarkup).toMatch(/<input(?=[^>]*name="matchValue")(?=[^>]*class="h-11")[^>]*>/);
   expect(createMarkup).toMatch(/<input(?=[^>]*name="replacement")(?=[^>]*min-h-11)[^>]*>/);
 
   const createData = new FormData();

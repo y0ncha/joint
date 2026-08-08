@@ -15,7 +15,7 @@ const modeLabels: Record<MerchantMatchMode, string> = {
   equals: "Is exactly",
   starts_with: "Starts with",
   ends_with: "Ends with",
-  advanced: "Advanced pattern",
+  advanced: "Matches regex",
 };
 
 export function encodeMerchantPattern(mode: MerchantMatchMode, value: string) {

@@ -3,19 +3,22 @@ import { RE2JS } from "re2js";
 import { decodeMerchantPattern, encodeMerchantPattern, type MerchantMatchMode } from "@/lib/merchant-pattern";
 
 export type AutomationConditionLogic = "and" | "or";
+export type AutomationConditionConnector = AutomationConditionLogic;
 export type AutomationConditionTextField = "merchant" | "note";
 export type AutomationConditionField = AutomationConditionTextField | "amount";
-export type AutomationConditionTextOperator = Exclude<MerchantMatchMode, "advanced">;
+export type AutomationConditionTextOperator = MerchantMatchMode;
 export type AutomationConditionAmountOperator =
   "equals" | "not_equals" | "greater_than" | "greater_than_or_equal" | "less_than" | "less_than_or_equal";
 
 export type AutomationTextCondition = {
+  connector?: AutomationConditionConnector;
   field: AutomationConditionTextField;
   operator: AutomationConditionTextOperator | "advanced";
   value: string;
 };
 
 export type AutomationAmountCondition = {
+  connector?: AutomationConditionConnector;
   field: "amount";
   operator: AutomationConditionAmountOperator;
   value: number;
@@ -24,13 +27,19 @@ export type AutomationAmountCondition = {
 export type AutomationCondition = AutomationTextCondition | AutomationAmountCondition;
 
 export type AutomationConditionGroup = {
-  logic: AutomationConditionLogic;
+  /** Legacy group-level connector for rules saved before per-row connectors. */
+  logic?: AutomationConditionLogic;
   conditions: AutomationCondition[];
 };
 
 export const conditionLogicOptions = [
   { value: "and" as const, label: "Match all (AND)" },
   { value: "or" as const, label: "Match any (OR)" },
+];
+
+export const conditionConnectorOptions = [
+  { value: "and" as const, label: "AND" },
+  { value: "or" as const, label: "OR" },
 ];
 
 export const textConditionFieldOptions = [
@@ -43,6 +52,7 @@ export const textConditionOperatorOptions = [
   { value: "equals" as const, label: "Is exactly" },
   { value: "starts_with" as const, label: "Starts with" },
   { value: "ends_with" as const, label: "Ends with" },
+  { value: "advanced" as const, label: "Matches regex" },
 ];
 
 export const amountConditionOperatorOptions = [
@@ -78,20 +88,26 @@ export function isAutomationConditionGroup(value: unknown): value is AutomationC
   if (!value || typeof value !== "object") return false;
   const group = value as Partial<AutomationConditionGroup>;
   if (
-    (group.logic !== "and" && group.logic !== "or") ||
+    (group.logic !== undefined && group.logic !== "and" && group.logic !== "or") ||
     !Array.isArray(group.conditions) ||
     group.conditions.length < 1 ||
     group.conditions.length > 8
   )
     return false;
-  return group.conditions.every((condition) => {
+  return group.conditions.every((condition, index) => {
     if (!condition || typeof condition !== "object") return false;
     const candidate = condition as Partial<AutomationCondition>;
+    if (
+      index === 0
+        ? candidate.connector !== undefined
+        : candidate.connector !== undefined && candidate.connector !== "and" && candidate.connector !== "or"
+    )
+      return false;
+    if (index > 0 && group.logic === undefined && candidate.connector === undefined) return false;
     if (candidate.field === "amount") return isAmountOperator(candidate.operator) && typeof candidate.value === "number";
     return (
       (candidate.field === "merchant" || candidate.field === "note") &&
       isTextOperator(candidate.operator) &&
-      (candidate.field === "merchant" || candidate.operator !== "advanced") &&
       typeof candidate.value === "string" &&
       candidate.value.trim().length > 0
     );
@@ -130,13 +146,24 @@ export function conditionDisplayLabel(condition: AutomationCondition) {
     condition.field === "amount"
       ? amountConditionOperatorOptions.find((option) => option.value === condition.operator)?.label
       : condition.operator === "advanced"
-        ? "Advanced pattern"
+        ? "Matches regex"
         : textConditionOperatorOptions.find((option) => option.value === condition.operator)?.label;
   return `${fieldLabel} ${operatorLabel ?? condition.operator} “${condition.value}”`;
 }
 
+export function connectorForCondition(group: AutomationConditionGroup, index: number): AutomationConditionConnector | undefined {
+  if (index === 0) return undefined;
+  return group.conditions[index]?.connector ?? group.logic ?? "and";
+}
+
 export function describeConditionGroup(group: AutomationConditionGroup) {
-  return group.conditions.map(conditionDisplayLabel).join(group.logic === "and" ? " AND " : " OR ");
+  return group.conditions
+    .map((condition, index) =>
+      index === 0
+        ? conditionDisplayLabel(condition)
+        : `${connectorForCondition(group, index)?.toUpperCase()} ${conditionDisplayLabel(condition)}`,
+    )
+    .join(" ");
 }
 
 export function groupFromLegacyPattern(pattern: string): AutomationConditionGroup {
@@ -180,6 +207,13 @@ export function evaluateAutomationConditionGroup(
   group: AutomationConditionGroup,
   input: { merchant: string; note: string; amount: number },
 ) {
-  const results = group.conditions.map((condition) => evaluateAutomationCondition(condition, input));
-  return group.logic === "and" ? results.every(Boolean) : results.some(Boolean);
+  const [firstCondition, ...remainingConditions] = group.conditions;
+  if (!firstCondition) return false;
+  return remainingConditions.reduce(
+    (result, condition, index) => {
+      const matches = evaluateAutomationCondition(condition, input);
+      return connectorForCondition(group, index + 1) === "or" ? result || matches : result && matches;
+    },
+    evaluateAutomationCondition(firstCondition, input),
+  );
 }
