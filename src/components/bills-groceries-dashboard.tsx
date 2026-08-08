@@ -65,6 +65,7 @@ function formatMonthName(month: string) {
 }
 
 const heatmapStrengths = [0, 25, 45, 70, 100] as const;
+const dailyHeatmapScaleMax = 700;
 const chartMargin = { top: 24, right: 8, bottom: 32, left: 8 };
 const billsChartColors = [
   "var(--analytics-bill-1)",
@@ -87,13 +88,20 @@ export function stackedBarRadius(stack: number[], segmentIndex: number) {
   return stack[segmentIndex] > 0 && stack.slice(segmentIndex + 1).every((value) => value === 0) ? ([3, 3, 0, 0] as const) : 0;
 }
 
-function ExactTooltip({ labels }: { labels: Record<string, string> }) {
+export function dailyHeatmapLevel(total: number) {
+  return total === 0 ? 0 : Math.min(4, Math.ceil((total / dailyHeatmapScaleMax) * 4));
+}
+
+function ExactTooltip({ labels, totalLabel }: { labels: Record<string, string>; totalLabel?: string }) {
   return (
     <ChartTooltip
       cursor={{ fill: "var(--muted)", opacity: 0.35 }}
+      wrapperStyle={{ zIndex: 50 }}
       content={
         <ChartTooltipContent
           className="border-border bg-popover text-popover-foreground shadow-sm"
+          totalLabel={totalLabel}
+          totalFormatter={(value) => currency.format(value)}
           formatter={(value, name) => (
             <>
               <span className="text-muted-foreground">{labels[String(name)] ?? String(name)}</span>
@@ -269,6 +277,7 @@ function ChartCard({
       className={cn(
         "min-w-0 border-border",
         "bg-card/80",
+        "overflow-visible",
         "px-3 py-7",
         detail && "rounded-none border-0 bg-transparent px-0 py-0 ring-0 shadow-none hover:shadow-none lg:h-[calc(100dvh-4rem)]",
         layoutClassName,
@@ -419,7 +428,6 @@ function BillsGroceriesCharts({
   const dailyHeatmapWeeks = Array.from({ length: Math.ceil(dailyHeatmapCells.length / 7) }, (_, index) =>
     dailyHeatmapCells.slice(index * 7, index * 7 + 7),
   );
-  const highestDailyTotal = Math.max(1, ...dailyData.map((day) => day.total));
   const dailyTableData = dailyData.reduce<Array<(typeof dailyData)[number] & { cumulative: number }>>(
     (rows, day) => [...rows, { ...day, cumulative: (rows.at(-1)?.cumulative ?? 0) + day.total }],
     [],
@@ -474,7 +482,7 @@ function BillsGroceriesCharts({
               <CartesianGrid vertical={false} />
               <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
               <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value) => `₪${value}`} />
-              <ExactTooltip labels={Object.fromEntries(chartBills.map((bill) => [bill.value, bill.label]))} />
+              <ExactTooltip labels={Object.fromEntries(chartBills.map((bill) => [bill.value, bill.label]))} totalLabel="Total" />
               <ChartLegend content={<ChartLegendContent className="grid w-full grid-cols-5 gap-x-3 gap-y-2" />} />
               {orderedSelectedBills.map((bill, index) => (
                 <Bar key={bill.value} dataKey={bill.value} stackId="bills" fill={bill.color}>
@@ -614,7 +622,7 @@ function BillsGroceriesCharts({
                   <CartesianGrid vertical={false} />
                   <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
                   <YAxis tickLine={false} axisLine={false} width={58} tickFormatter={(value) => `₪${value}`} />
-                  <ExactTooltip labels={{ mainRun: mainRun?.name ?? "Main run", topUps: topUps?.name ?? "Top-ups" }} />
+                  <ExactTooltip labels={{ mainRun: mainRun?.name ?? "Main run", topUps: topUps?.name ?? "Top-ups" }} totalLabel="Total" />
                   <ChartLegend content={<ChartLegendContent />} />
                   {groceryBudgetAgorot != null ? (
                     <ReferenceLine
@@ -791,7 +799,7 @@ function BillsGroceriesCharts({
                     <div key={weekIndex} className="contents" role="row">
                       {week.map((day, dayIndex) => {
                         if (!day) return <span key={`empty-${dayIndex}`} aria-hidden="true" />;
-                        const level = day.total === 0 ? 0 : Math.min(4, Math.ceil((day.total / highestDailyTotal) * 4));
+                        const level = dailyHeatmapLevel(day.total);
                         const transactions = groceryTransactionsForDate(data.groceries.transactions, day.date, groceryFilter);
                         return (
                           <Popover key={day.date}>

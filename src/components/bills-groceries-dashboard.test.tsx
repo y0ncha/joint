@@ -76,6 +76,7 @@ import {
   BillsGroceriesChartDetail,
   BillsGroceriesDashboard,
   billsGroceriesChartIds,
+  dailyHeatmapLevel,
   groceryTransactionsForDate,
   stackedBarRadius,
 } from "./bills-groceries-dashboard";
@@ -151,6 +152,15 @@ it("rounds only the visible top segment of a stack", () => {
   expect(stackedBarRadius([380, 0], 0)).toEqual([3, 3, 0, 0]);
   expect(stackedBarRadius([380, 60], 0)).toBe(0);
   expect(stackedBarRadius([380, 60], 1)).toEqual([3, 3, 0, 0]);
+});
+
+it("uses a fixed 700 ILS ceiling for daily heatmap intensity", () => {
+  expect(dailyHeatmapLevel(0)).toBe(0);
+  expect(dailyHeatmapLevel(175)).toBe(1);
+  expect(dailyHeatmapLevel(350)).toBe(2);
+  expect(dailyHeatmapLevel(525)).toBe(3);
+  expect(dailyHeatmapLevel(700)).toBe(4);
+  expect(dailyHeatmapLevel(900)).toBe(4);
 });
 
 it("writes the separately selected daily year and month without losing dashboard filters", () => {
@@ -374,7 +384,7 @@ it("renders the analytics palette, missing-data guidance, and exact daily values
   expect(markup).toContain("--color-topUps: var(--analytics-groceries-top-ups)");
   expect(markup).toContain("--color-current: var(--analytics-year-over-year-current)");
   expect(markup).toContain("--color-previous: var(--analytics-year-over-year-previous)");
-  expect(markup).toContain("color-mix(in oklab, var(--analytics-groceries-heatmap) 100%, transparent)");
+  expect(markup).toContain("color-mix(in oklab, var(--analytics-groceries-heatmap) 25%, transparent)");
   expect(markup).toContain("var(--analytics-bill-1)");
   expect(markup).not.toContain("No previous-year data");
   expect(markup).toContain("Set a monthly groceries budget in Settings.");
@@ -445,7 +455,7 @@ it("uses the Groceries analytics heatmap palette with white active-day labels an
     />,
   );
 
-  expect(markup).toContain("color-mix(in oklab, var(--analytics-groceries-heatmap) 100%, transparent)");
+  expect(markup).toContain("color-mix(in oklab, var(--analytics-groceries-heatmap) 25%, transparent)");
   expect(markup).toContain("text-white");
   expect(markup).toContain("bg-card text-muted-foreground");
 });
