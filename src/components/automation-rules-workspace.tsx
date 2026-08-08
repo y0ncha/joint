@@ -45,6 +45,7 @@ import {
   decodeAutomationConditions,
   describeConditionGroup,
   groupFromLegacyPattern,
+  preserveConditionConnectorPositions,
   textConditionFieldOptions,
   textConditionOperatorOptions,
   type AutomationCondition,
@@ -103,12 +104,6 @@ function SortableCondition({
   return children(useSortable({ id, index, transition: conditionRowTransition }));
 }
 
-export function normalizeConditionConnectors(reordered: AutomationCondition[]) {
-  return reordered.map((condition, index) =>
-    index === 0 ? { ...condition, connector: undefined } : { ...condition, connector: condition.connector ?? "and" },
-  );
-}
-
 export type AutomationConditionRow = {
   id: string;
   condition: AutomationCondition;
@@ -118,11 +113,11 @@ export function applyReorderedConditionRows(
   previous: AutomationConditionRow[],
   reordered: AutomationConditionRow[],
 ): AutomationConditionRow[] {
-  const connectors = previous.slice(1).map((row) => row.condition.connector ?? "and");
-  return reordered.map((row, index) => ({
-    ...row,
-    condition: index === 0 ? { ...row.condition, connector: undefined } : { ...row.condition, connector: connectors[index - 1] ?? "and" },
-  }));
+  const conditions = preserveConditionConnectorPositions(
+    previous.map((row) => row.condition),
+    reordered.map((row) => row.condition),
+  );
+  return reordered.map((row, index) => ({ ...row, condition: conditions[index]! }));
 }
 
 export function AutomationRuleForm({

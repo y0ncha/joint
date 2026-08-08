@@ -46,13 +46,13 @@ TASK-005 is blocked only on disposable local pgTAP: a fresh `supabase start` fai
 
 - **GOAL-002**: Make one TypeScript module own condition parsing, canonicalization, evaluation, descriptions, and connector transitions.
 
-| Task     | Description                                                                                                                                                                             | Status  | Date |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
-| TASK-006 | Move the condition-group Zod schema and RE2 validation from the Server Action into `src/lib/automation-conditions.ts`, exposing a typed parse result with field-level errors.           | Planned |      |
-| TASK-007 | Add `preserveConditionConnectorPositions(previous, reordered)` to the condition module and make the editor consume it rather than owning connector semantics.                           | Planned |      |
-| TASK-008 | Remove the duplicate runtime guard, unused encoded JSON result, dead group-level option list, and obsolete tests while retaining legacy group-level decoding.                           | Planned |      |
-| TASK-009 | Add table-driven parity tests covering Merchant and Note literal/regex conditions, amount operators, legacy logic, per-row connectors, invalid RE2, limits, and compatibility patterns. | Planned |      |
-| TASK-010 | Run focused automation tests, lint, TypeScript, formatting, and whitespace checks before committing Phase 2.                                                                            | Planned |      |
+| Task     | Description                                                                                                                                                                             | Status   | Date       |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| TASK-006 | Move the condition-group Zod schema and RE2 validation from the Server Action into `src/lib/automation-conditions.ts`, exposing a typed parse result with field-level errors.           | Complete | 2026-08-08 |
+| TASK-007 | Add `preserveConditionConnectorPositions(previous, reordered)` to the condition module and make the editor consume it rather than owning connector semantics.                           | Complete | 2026-08-08 |
+| TASK-008 | Remove the duplicate runtime guard, unused encoded JSON result, dead group-level option list, and obsolete tests while retaining legacy group-level decoding.                           | Complete | 2026-08-08 |
+| TASK-009 | Add table-driven parity tests covering Merchant and Note literal/regex conditions, amount operators, legacy logic, per-row connectors, invalid RE2, limits, and compatibility patterns. | Complete | 2026-08-08 |
+| TASK-010 | Run focused automation tests, lint, TypeScript, formatting, and whitespace checks before committing Phase 2.                                                                            | Complete | 2026-08-08 |
 
 ### Implementation Phase 3 — Deepen transaction-draft state
 

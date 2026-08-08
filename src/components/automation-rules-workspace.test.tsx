@@ -338,24 +338,6 @@ it("renders each connector after the preceding condition so a promoted first row
   expect(markup).toContain('data-connector-after-condition="1"');
 });
 
-it("keeps operators with their conditions and normalizes a new first condition", () => {
-  if (!workspaceModule?.normalizeConditionConnectors) {
-    throw new Error("normalizeConditionConnectors is unavailable.");
-  }
-
-  const reordered = workspaceModule.normalizeConditionConnectors([
-    { connector: "and" as const, field: "amount" as const, operator: "greater_than" as const, value: 100 },
-    { field: "merchant" as const, operator: "contains" as const, value: "Cafe" },
-    { connector: "or" as const, field: "note" as const, operator: "contains" as const, value: "weekly" },
-  ]);
-
-  expect(reordered).toEqual([
-    { field: "amount", operator: "greater_than", value: 100, connector: undefined },
-    { field: "merchant", operator: "contains", value: "Cafe", connector: "and" },
-    { field: "note", operator: "contains", value: "weekly", connector: "or" },
-  ]);
-});
-
 it("moves stable row identities while preserving connector positions", () => {
   if (!workspaceModule?.applyReorderedConditionRows) {
     throw new Error("applyReorderedConditionRows is unavailable.");

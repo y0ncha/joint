@@ -1,4 +1,5 @@
 import { RE2JS } from "re2js";
+import { z } from "zod";
 
 import { decodeMerchantPattern, encodeMerchantPattern, type MerchantMatchMode } from "@/lib/merchant-pattern";
 
@@ -32,11 +33,6 @@ export type AutomationConditionGroup = {
   conditions: AutomationCondition[];
 };
 
-export const conditionLogicOptions = [
-  { value: "and" as const, label: "Match all (AND)" },
-  { value: "or" as const, label: "Match any (OR)" },
-];
-
 export const conditionConnectorOptions = [
   { value: "and" as const, label: "AND" },
   { value: "or" as const, label: "OR" },
@@ -69,66 +65,97 @@ export const legacyConditionGroup = (pattern: string): AutomationConditionGroup 
   conditions: [{ field: "merchant", operator: "advanced", value: pattern.trim() }],
 });
 
-function isTextOperator(value: unknown): value is AutomationTextCondition["operator"] {
-  return value === "contains" || value === "equals" || value === "starts_with" || value === "ends_with" || value === "advanced";
-}
-
-function isAmountOperator(value: unknown): value is AutomationConditionAmountOperator {
-  return (
-    value === "equals" ||
-    value === "not_equals" ||
-    value === "greater_than" ||
-    value === "greater_than_or_equal" ||
-    value === "less_than" ||
-    value === "less_than_or_equal"
-  );
-}
-
-export function isAutomationConditionGroup(value: unknown): value is AutomationConditionGroup {
-  if (!value || typeof value !== "object") return false;
-  const group = value as Partial<AutomationConditionGroup>;
-  if (
-    (group.logic !== undefined && group.logic !== "and" && group.logic !== "or") ||
-    !Array.isArray(group.conditions) ||
-    group.conditions.length < 1 ||
-    group.conditions.length > 8
-  )
-    return false;
-  return group.conditions.every((condition, index) => {
-    if (!condition || typeof condition !== "object") return false;
-    const candidate = condition as Partial<AutomationCondition>;
-    if (
-      index === 0
-        ? candidate.connector !== undefined
-        : candidate.connector !== undefined && candidate.connector !== "and" && candidate.connector !== "or"
-    )
-      return false;
-    if (index > 0 && group.logic === undefined && candidate.connector === undefined) return false;
-    if (candidate.field === "amount") return isAmountOperator(candidate.operator) && typeof candidate.value === "number";
-    return (
-      (candidate.field === "merchant" || candidate.field === "note") &&
-      isTextOperator(candidate.operator) &&
-      typeof candidate.value === "string" &&
-      candidate.value.trim().length > 0
-    );
+const connectorSchema = z.enum(["and", "or"]);
+const textOperatorSchema = z.enum(["contains", "equals", "starts_with", "ends_with", "advanced"]);
+const amountOperatorSchema = z.enum(["equals", "not_equals", "greater_than", "greater_than_or_equal", "less_than", "less_than_or_equal"]);
+const merchantConditionSchema = z.object({
+  connector: connectorSchema.optional(),
+  field: z.literal("merchant"),
+  operator: textOperatorSchema,
+  value: z.string().trim().min(1).max(200),
+});
+const noteConditionSchema = z.object({
+  connector: connectorSchema.optional(),
+  field: z.literal("note"),
+  operator: textOperatorSchema,
+  value: z.string().trim().min(1).max(500),
+});
+const amountConditionSchema = z.object({
+  connector: connectorSchema.optional(),
+  field: z.literal("amount"),
+  operator: amountOperatorSchema,
+  value: z.preprocess((value) => (value === "" ? undefined : value), z.coerce.number().finite().min(0)),
+});
+const conditionGroupSchema = z
+  .object({
+    logic: connectorSchema.optional(),
+    conditions: z
+      .array(z.discriminatedUnion("field", [merchantConditionSchema, noteConditionSchema, amountConditionSchema]))
+      .min(1)
+      .max(8),
+  })
+  .superRefine((group, context) => {
+    group.conditions.forEach((condition, index) => {
+      if (index === 0 && condition.connector !== undefined) {
+        context.addIssue({
+          code: "custom",
+          path: ["conditions", index, "connector"],
+          message: "The first condition cannot have a connector.",
+        });
+      }
+      if (index > 0 && group.logic === undefined && condition.connector === undefined) {
+        context.addIssue({ code: "custom", path: ["conditions", index, "connector"], message: "Choose AND or OR." });
+      }
+      if (condition.field !== "amount" && condition.operator === "advanced") {
+        try {
+          RE2JS.compile(condition.value);
+        } catch {
+          context.addIssue({
+            code: "custom",
+            path: ["conditions", index, "value"],
+            message: "Enter a valid RE2 pattern.",
+          });
+        }
+      }
+    });
   });
+
+export type AutomationConditionParseIssue = { path: PropertyKey[]; message: string };
+export type AutomationConditionParseResult =
+  { success: true; data: AutomationConditionGroup } | { success: false; issues: AutomationConditionParseIssue[] };
+
+export function parseAutomationConditionGroup(value: unknown): AutomationConditionParseResult {
+  const result = conditionGroupSchema.safeParse(value);
+  if (result.success) return { success: true, data: result.data };
+  return {
+    success: false,
+    issues: result.error.issues.map((issue) => ({ path: issue.path, message: issue.message })),
+  };
 }
 
 export function decodeAutomationConditions(value: unknown, pattern: string): AutomationConditionGroup {
   if (typeof value === "string" && value.trim()) {
     try {
       const parsed: unknown = JSON.parse(value);
-      if (isAutomationConditionGroup(parsed)) return parsed;
+      const result = parseAutomationConditionGroup(parsed);
+      if (result.success) return result.data;
     } catch {
       // Fall through to the legacy merchant pattern.
     }
   }
-  if (isAutomationConditionGroup(value)) return value;
+  const result = parseAutomationConditionGroup(value);
+  if (result.success) return result.data;
   return legacyConditionGroup(pattern);
 }
 
-export function encodeAutomationConditions(group: AutomationConditionGroup) {
-  return JSON.stringify(group);
+export function preserveConditionConnectorPositions(
+  previous: AutomationCondition[],
+  reordered: AutomationCondition[],
+): AutomationCondition[] {
+  const connectors = previous.slice(1).map((condition) => condition.connector ?? "and");
+  return reordered.map((condition, index) =>
+    index === 0 ? { ...condition, connector: undefined } : { ...condition, connector: connectors[index - 1] ?? "and" },
+  );
 }
 
 export function compatibilityPattern(group: AutomationConditionGroup) {

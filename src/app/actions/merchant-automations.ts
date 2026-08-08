@@ -4,12 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { validationError, type ActionResult } from "@/app/actions/result";
-import {
-  compatibilityPattern,
-  encodeAutomationConditions,
-  isAutomationConditionGroup,
-  type AutomationConditionGroup,
-} from "@/lib/automation-conditions";
+import { compatibilityPattern, parseAutomationConditionGroup, type AutomationConditionGroup } from "@/lib/automation-conditions";
 import { requireCurrentHousehold } from "@/lib/household";
 import { compileMerchantPattern, getMerchantAutomationRulesPage } from "@/lib/merchant-automations";
 import { encodeMerchantPattern, type MerchantMatchMode } from "@/lib/merchant-pattern";
@@ -27,41 +22,6 @@ const enabled = z.preprocess(
   z.boolean().default(true),
 );
 const merchantMatchModes = ["contains", "equals", "starts_with", "ends_with", "advanced"] as const satisfies readonly MerchantMatchMode[];
-
-const textConditionSchema = z.object({
-  connector: z.enum(["and", "or"]).optional(),
-  field: z.enum(["merchant", "note"]),
-  operator: z.enum(["contains", "equals", "starts_with", "ends_with", "advanced"]),
-  value: z.string().trim().min(1).max(500),
-});
-const amountConditionSchema = z.object({
-  connector: z.enum(["and", "or"]).optional(),
-  field: z.literal("amount"),
-  operator: z.enum(["equals", "not_equals", "greater_than", "greater_than_or_equal", "less_than", "less_than_or_equal"]),
-  value: z.preprocess((value) => (value === "" ? undefined : value), z.coerce.number().finite().min(0)),
-});
-const conditionGroupSchema = z
-  .object({
-    logic: z.enum(["and", "or"]).optional(),
-    conditions: z
-      .array(z.union([textConditionSchema, amountConditionSchema]))
-      .min(1)
-      .max(8),
-  })
-  .superRefine((group, context) => {
-    group.conditions.forEach((condition, index) => {
-      if (index === 0 && condition.connector !== undefined) {
-        context.addIssue({
-          code: "custom",
-          path: ["conditions", index, "connector"],
-          message: "The first condition cannot have a connector.",
-        });
-      }
-      if (index > 0 && group.logic === undefined && condition.connector === undefined) {
-        context.addIssue({ code: "custom", path: ["conditions", index, "connector"], message: "Choose AND or OR." });
-      }
-    });
-  });
 
 const automationRuleSchema = z
   .object({
@@ -103,8 +63,12 @@ function parseRule(input: FormData) {
   if (typeof conditionValue === "string" && conditionValue.trim()) {
     try {
       const decoded: unknown = JSON.parse(conditionValue);
-      const conditionResult = conditionGroupSchema.safeParse(decoded);
-      if (!conditionResult.success || !isAutomationConditionGroup(conditionResult.data)) {
+      const conditionResult = parseAutomationConditionGroup(decoded);
+      if (!conditionResult.success) {
+        const regexIssue = conditionResult.issues.find((issue) => issue.message === "Enter a valid RE2 pattern.");
+        if (regexIssue) {
+          return { error: validationError([{ path: ["pattern"], message: regexIssue.message }]) as ActionResult };
+        }
         return { error: validationError([{ path: ["conditions"], message: "Check each condition." }]) as ActionResult };
       }
       submittedConditions = conditionResult.data;
@@ -140,9 +104,6 @@ function parseRule(input: FormData) {
     };
   }
   try {
-    for (const condition of conditions.conditions) {
-      if (condition.field !== "amount" && condition.operator === "advanced") compileMerchantPattern(condition.value);
-    }
     if (!submittedConditions) compileMerchantPattern(pattern);
   } catch {
     return {
@@ -158,7 +119,6 @@ function parseRule(input: FormData) {
       ...parsed.data,
       pattern,
       conditions: submittedConditions ? conditions : undefined,
-      encodedConditions: submittedConditions ? encodeAutomationConditions(conditions) : undefined,
     },
   };
 }

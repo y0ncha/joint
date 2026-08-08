@@ -5,6 +5,9 @@ import {
   describeConditionGroup,
   evaluateAutomationConditionGroup,
   groupFromLegacyPattern,
+  parseAutomationConditionGroup,
+  preserveConditionConnectorPositions,
+  type AutomationCondition,
   type AutomationConditionGroup,
 } from "./automation-conditions";
 
@@ -75,5 +78,96 @@ describe("automation condition groups", () => {
     const group = groupFromLegacyPattern("^Super-Pharm$");
     expect(group).toEqual({ logic: "and", conditions: [{ field: "merchant", operator: "equals", value: "Super-Pharm" }] });
     expect(compatibilityPattern(group)).toBe("^Super-Pharm$");
+  });
+
+  it.each([
+    [{ conditions: [{ field: "merchant", operator: "contains", value: "Cafe" }] }, "Cafe"],
+    [{ conditions: [{ field: "note", operator: "contains", value: "weekly" }] }, "__conditions__"],
+    [
+      {
+        conditions: [
+          { field: "merchant", operator: "contains", value: "Cafe" },
+          { connector: "and", field: "note", operator: "contains", value: "weekly" },
+        ],
+      },
+      "__conditions__",
+    ],
+  ] as const)("derives the compatibility pattern without changing condition storage", (group, pattern) => {
+    expect(compatibilityPattern(group as unknown as AutomationConditionGroup)).toBe(pattern);
+  });
+
+  it.each([
+    ["merchant", "contains", "Market"],
+    ["merchant", "advanced", "^(market|shop)$"],
+    ["note", "equals", "Weekly"],
+    ["note", "advanced", "^(weekly|monthly)$"],
+  ] as const)("parses a valid %s %s condition", (field, operator, value) => {
+    expect(parseAutomationConditionGroup({ conditions: [{ field, operator, value }] })).toEqual({
+      success: true,
+      data: { conditions: [{ field, operator, value }] },
+    });
+  });
+
+  it.each([
+    ["equals", 10],
+    ["not_equals", 10],
+    ["greater_than", 10],
+    ["greater_than_or_equal", 10],
+    ["less_than", 10],
+    ["less_than_or_equal", 10],
+  ] as const)("parses the amount %s operator", (operator, value) => {
+    expect(parseAutomationConditionGroup({ conditions: [{ field: "amount", operator, value }] }).success).toBe(true);
+  });
+
+  it("returns a field-level issue for invalid RE2", () => {
+    const result = parseAutomationConditionGroup({ conditions: [{ field: "note", operator: "advanced", value: "[" }] });
+
+    expect(result).toEqual({
+      success: false,
+      issues: [{ path: ["conditions", 0, "value"], message: "Enter a valid RE2 pattern." }],
+    });
+  });
+
+  it("enforces condition limits, connector positions, and field lengths", () => {
+    const cases = [
+      { conditions: [] },
+      { conditions: Array.from({ length: 9 }, () => ({ field: "note", operator: "contains", value: "x" })) },
+      { conditions: [{ connector: "and", field: "note", operator: "contains", value: "x" }] },
+      {
+        conditions: [
+          { field: "note", operator: "contains", value: "x" },
+          { field: "note", operator: "contains", value: "y" },
+        ],
+      },
+      { conditions: [{ field: "merchant", operator: "contains", value: "x".repeat(201) }] },
+      { conditions: [{ field: "note", operator: "contains", value: "x".repeat(501) }] },
+    ];
+
+    expect(cases.map((value) => parseAutomationConditionGroup(value).success)).toEqual([false, false, false, false, false, false]);
+    expect(
+      parseAutomationConditionGroup({
+        logic: "or",
+        conditions: [
+          { field: "note", operator: "contains", value: "x" },
+          { field: "note", operator: "contains", value: "y" },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("preserves connector slots when conditions are reordered or removed", () => {
+    const a = { field: "merchant", operator: "contains", value: "a" } satisfies AutomationCondition;
+    const b = { connector: "and", field: "note", operator: "contains", value: "b" } satisfies AutomationCondition;
+    const c = { connector: "or", field: "amount", operator: "greater_than", value: 3 } satisfies AutomationCondition;
+
+    expect(preserveConditionConnectorPositions([a, b, c], [c, a, b])).toEqual([
+      { field: "amount", operator: "greater_than", value: 3 },
+      { connector: "and", field: "merchant", operator: "contains", value: "a" },
+      { connector: "or", field: "note", operator: "contains", value: "b" },
+    ]);
+    expect(preserveConditionConnectorPositions([a, b, c], [a, c])).toEqual([
+      a,
+      { connector: "and", field: "amount", operator: "greater_than", value: 3 },
+    ]);
   });
 });
