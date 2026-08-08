@@ -10,7 +10,9 @@ const mocks = vi.hoisted(() => ({
   focus: vi.fn(),
   inputChanges: {} as Record<string, ChangeEventHandler<HTMLInputElement> | undefined>,
   matchValueChange: undefined as ChangeEventHandler<HTMLInputElement> | undefined,
+  pillSelectProps: [] as Array<Record<string, unknown>>,
   runEffects: false,
+  renderSheetContent: false,
   selectChanges: [] as Array<{ value?: string; onValueChange?: (value: string) => void }>,
   setAutomationRuleEnabled: vi.fn(),
   sheetSides: [] as Array<string | undefined>,
@@ -58,6 +60,12 @@ vi.mock("@/components/ui/input", () => ({
     return <input {...props} onChange={onChange} />;
   },
 }));
+vi.mock("@/components/pill-select", () => ({
+  PillSelect: (props: Record<string, unknown>) => {
+    mocks.pillSelectProps.push(props);
+    return <button aria-label={String(props.ariaLabel)} type="button" />;
+  },
+}));
 vi.mock("@/components/ui/select", () => ({
   Select: ({ children, onValueChange, value }: { children: ReactNode; onValueChange?: (value: string) => void; value?: string }) => {
     mocks.selectChanges.push({ value, onValueChange });
@@ -75,9 +83,9 @@ vi.mock("@/components/ui/select", () => ({
 }));
 vi.mock("@/components/ui/sheet", () => ({
   Sheet: ({ children }: { children: ReactNode }) => children,
-  SheetContent: ({ side }: { side?: string }) => {
+  SheetContent: ({ children, side }: { children: ReactNode; side?: string }) => {
     mocks.sheetSides.push(side);
-    return null;
+    return mocks.renderSheetContent ? <div data-sheet-content>{children}</div> : null;
   },
   SheetDescription: ({ children }: { children: ReactNode }) => children,
   SheetHeader: ({ children }: { children: ReactNode }) => children,
@@ -125,6 +133,7 @@ function renderRuleForm({
   if (!preserveState) mocks.state = [];
   mocks.stateIndex = 0;
   mocks.matchValueChange = undefined;
+  mocks.pillSelectProps.length = 0;
   mocks.inputChanges = {};
   mocks.selectChanges.length = 0;
   return renderToStaticMarkup(<workspaceModule.AutomationRuleForm destinations={[]} rule={rule} />);
@@ -137,6 +146,7 @@ beforeEach(() => {
   mocks.matchValueChange = undefined;
   mocks.inputChanges = {};
   mocks.runEffects = false;
+  mocks.renderSheetContent = false;
   mocks.selectChanges.length = 0;
   mocks.sheetSides.length = 0;
   mocks.state = [];
@@ -212,7 +222,9 @@ it("renders ordered atomic automation rules with conflict guidance", () => {
     : "";
 
   expect(markup).toContain("Automations");
-  expect(markup).toContain("Priority decides which matching rule wins.");
+  expect(markup).toContain(
+    "Rules share one order. For each action, the first enabled matching rule wins; different actions run independently.",
+  );
   expect(markup).toContain("Normalize merchant");
   expect(markup).toContain("Assign category");
   expect(markup).toContain("Aroma");
@@ -222,14 +234,119 @@ it("renders ordered atomic automation rules with conflict guidance", () => {
   expect(markup).toContain('aria-label="Reorder Normalize merchant rule"');
   expect(markup).toContain('aria-label="Edit Normalize merchant rule"');
   expect(markup).toContain('aria-label="Disable Normalize merchant rule"');
-  expect(markup).toContain('aria-label="Delete Normalize merchant rule"');
-  expect(markup).toContain("1 existing transaction");
-  expect(markup).toContain("1 priority conflict");
+  expect(markup).toContain('aria-label="Existing transaction preview"');
+  expect(markup).toContain("ארומה → Aroma");
+  expect(markup).not.toContain("1 existing transaction would change");
+  expect(markup).not.toContain("1 priority conflict resolved by rule order");
   expect(markup).toContain("Contains “ארומה” → Rename merchant to “Aroma”");
   expect(markup).toContain("Contains “ארומה” → Assign category “Expense → Food → Cafe”");
   expect(markup).toContain("Matches regex “אר.*” → Rename merchant to “Aroma Israel”");
   expect(markup).toContain("Contains “ארומה” wins over Matches regex “אר.*” for 1 transaction.");
   expect(markup).toContain("Review and apply");
+});
+
+it("keeps one persisted rule order while showing action-local priorities", () => {
+  if (!workspaceModule?.AutomationRulesWorkspace) throw new Error("AutomationRulesWorkspace is unavailable.");
+
+  const markup = renderToStaticMarkup(
+    <workspaceModule.AutomationRulesWorkspace
+      count={3}
+      destinations={[]}
+      preview={{ changes: [], conflicts: [], fingerprint: "preview-fingerprint", ruleSet: [] }}
+      rules={[
+        { id: "normalize-enabled", action: "normalize_merchant", pattern: "shop", replacement: "Shop", enabled: true, position: 0 },
+        {
+          id: "normalize-disabled",
+          action: "normalize_merchant",
+          pattern: "old shop",
+          replacement: "Old Shop",
+          enabled: false,
+          position: 1,
+        },
+        { id: "category-enabled", action: "assign_category", pattern: "cafe", enabled: true, position: 2 },
+      ]}
+    />,
+  );
+
+  expect(markup).toContain("Automation rules");
+  expect(markup).toContain(
+    "Rules share one order. For each action, the first enabled matching rule wins; different actions run independently.",
+  );
+  expect(markup).toContain(">Normalize merchant</span>");
+  expect(markup).toContain(">Assign category</span>");
+  expect(markup).not.toContain("No transaction deletion rules yet.");
+  expect(markup.match(/role="switch"/g)).toHaveLength(3);
+  expect(markup).toContain('aria-label="Normalize merchant priority 1"');
+  expect(markup).toContain('aria-label="Normalize merchant priority 2"');
+  expect(markup.indexOf("Contains “shop” → Rename merchant to “Shop”")).toBeLessThan(markup.indexOf("Contains “cafe” → Assign category "));
+  expect(markup.indexOf("Contains “old shop” → Rename merchant to “Old Shop”")).toBeLessThan(
+    markup.indexOf("Contains “cafe” → Assign category "),
+  );
+});
+
+it("omits destination pills for normalization and deletion rules", () => {
+  if (!workspaceModule?.AutomationRulesWorkspace) throw new Error("AutomationRulesWorkspace is unavailable.");
+
+  const markup = renderToStaticMarkup(
+    <workspaceModule.AutomationRulesWorkspace
+      count={2}
+      destinations={[]}
+      preview={{ changes: [], conflicts: [], fingerprint: "preview-fingerprint", ruleSet: [] }}
+      rules={[
+        { id: "normalize", action: "normalize_merchant", pattern: "shop", replacement: "Shop", enabled: true, position: 0 },
+        { id: "delete", action: "delete_transaction", pattern: "duplicate", enabled: true, position: 1 },
+      ]}
+    />,
+  );
+
+  expect(markup).not.toContain("Missing destination");
+});
+
+it("uses the transaction-style grouped picker for automation destinations", () => {
+  if (!workspaceModule?.AutomationRuleForm) throw new Error("AutomationRuleForm is unavailable.");
+  const popoverContainer = {} as HTMLElement;
+
+  renderToStaticMarkup(
+    <workspaceModule.AutomationRuleForm
+      popoverContainer={popoverContainer}
+      destinations={[
+        {
+          categoryId: null,
+          subcategoryId: "electricity-id",
+          label: "Expense → Bills → Electricity",
+          pickerLabel: "Electricity",
+          section: { id: "bills-id", label: "Bills" },
+          isBills: true,
+          kind: "expense",
+          color: "#dcece3",
+          icon: "zap",
+        },
+      ]}
+      rule={{
+        id: "rule-id",
+        action: "assign_category",
+        pattern: "power",
+        categoryId: null,
+        subcategoryId: null,
+        enabled: true,
+        position: 0,
+      }}
+    />,
+  );
+
+  expect(mocks.pillSelectProps).toContainEqual(
+    expect.objectContaining({
+      grouped: true,
+      popoverContainer,
+      options: [
+        expect.objectContaining({
+          label: "Electricity",
+          section: { id: "bills-id", label: "Bills" },
+          description: "Uses the transaction month as the billing period.",
+        }),
+      ],
+    }),
+  );
 });
 
 it("renders a default merchant match builder with a 44px regex option", () => {
@@ -508,7 +625,46 @@ it("renders add and edit rule forms in right-side sheets", () => {
     />,
   );
 
-  expect(mocks.sheetSides).toEqual(["right", "right"]);
+  expect(mocks.sheetSides).toEqual(["right", "right", "right"]);
+});
+
+it("keeps secondary rule actions in the mobile actions sheet", () => {
+  if (!workspaceModule?.AutomationRulesWorkspace) throw new Error("AutomationRulesWorkspace is unavailable.");
+  mocks.renderSheetContent = true;
+
+  const markup = renderToStaticMarkup(
+    <workspaceModule.AutomationRulesWorkspace
+      count={1}
+      destinations={[]}
+      preview={{ changes: [], conflicts: [], fingerprint: "preview-fingerprint", ruleSet: [] }}
+      rules={[{ id: "rule-id", action: "normalize_merchant", pattern: "shop", replacement: "Shop", enabled: true, position: 0 }]}
+    />,
+  );
+
+  expect(markup).toContain('aria-label="More actions for Normalize merchant rule"');
+  expect(markup).toContain("Rule actions");
+  expect(markup).toContain(">Reorder rule</button>");
+  expect(markup).toContain('aria-label="Disable Normalize merchant rule"');
+  expect(markup).not.toContain(">Edit rule</button>");
+});
+
+it("adds an icon-only destructive delete action to the bottom of the edit rule sheet", () => {
+  if (!workspaceModule?.AutomationRulesWorkspace) throw new Error("AutomationRulesWorkspace is unavailable.");
+  mocks.renderSheetContent = true;
+
+  const markup = renderToStaticMarkup(
+    <workspaceModule.AutomationRulesWorkspace
+      count={1}
+      destinations={[]}
+      preview={{ changes: [], conflicts: [], fingerprint: "preview-fingerprint", ruleSet: [] }}
+      rules={[{ id: "rule-id", action: "normalize_merchant", pattern: "shop", replacement: "Shop", enabled: true, position: 0 }]}
+    />,
+  );
+
+  expect(markup.match(/aria-label="Delete Normalize merchant rule"/g)).toHaveLength(1);
+  expect(markup).toMatch(
+    /data-variant="ghost"(?=[^>]*data-size="icon")(?=[^>]*text-destructive)(?=[^>]*aria-label="Delete Normalize merchant rule")/,
+  );
 });
 
 it("submits create and edit rule forms through the existing Server Actions", async () => {

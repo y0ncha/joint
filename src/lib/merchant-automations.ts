@@ -17,6 +17,7 @@ export type MerchantAutomationRule = {
   categoryId?: string | null;
   subcategoryId?: string | null;
   destinationKind?: TransactionKind;
+  destinationIsBills?: boolean;
   enabled: boolean;
   position: number;
   createdAt?: string;
@@ -37,6 +38,7 @@ export type MerchantAutomationResult = {
   merchant: string;
   categoryId: string | null;
   subcategoryId: string | null;
+  assignsBills?: true;
   deleteTransaction?: true;
   appliedRuleIds: string[];
   conflicts: AutomationConflict[];
@@ -82,6 +84,9 @@ export type AutomationDestination = {
   kind: TransactionKind;
   color: string;
   icon: string | null;
+  pickerLabel?: string;
+  section?: { id: string; label: string };
+  isBills?: boolean;
 };
 
 type PreviewTransaction = {
@@ -149,6 +154,7 @@ export function evaluateMerchantAutomations(input: AutomationInput, rules: Merch
     merchant: normalization?.replacement?.trim() || merchant,
     categoryId: assignment?.categoryId ?? input.categoryId,
     subcategoryId: assignment?.subcategoryId ?? input.subcategoryId,
+    ...(assignment?.destinationIsBills ? { assignsBills: true as const } : {}),
     ...(deleteRules[0] ? { deleteTransaction: true } : {}),
     appliedRuleIds: winnerByAction.map((rule) => rule.id),
     conflicts,
@@ -320,7 +326,7 @@ export async function getMerchantAutomationRules(supabase: SupabaseClient<Databa
     ...new Set([...rules.flatMap((rule) => (rule.categoryId ? [rule.categoryId] : [])), ...subcategoryCategoryIds.values()]),
   ];
   const { data: categories, error: categoriesError } = categoryIds.length
-    ? await supabase.from("categories").select("id, kind").eq("household_id", householdId).in("id", categoryIds)
+    ? await supabase.from("categories").select("id, kind, system_key").eq("household_id", householdId).in("id", categoryIds)
     : { data: [], error: null };
   if (categoriesError) throw new Error("Unable to load automation rules.");
 
@@ -330,6 +336,9 @@ export async function getMerchantAutomationRules(supabase: SupabaseClient<Databa
     destinationKind: rule.categoryId
       ? categoryKinds.get(rule.categoryId)
       : categoryKinds.get(subcategoryCategoryIds.get(rule.subcategoryId ?? "") ?? ""),
+    destinationIsBills:
+      !rule.categoryId &&
+      categories?.find((category) => category.id === subcategoryCategoryIds.get(rule.subcategoryId ?? ""))?.system_key === "bills",
   }));
 }
 
@@ -381,12 +390,15 @@ export async function getMerchantAutomationRulesPage(options: AutomationPage = {
   const categoriesById = new Map(categories.map((category) => [category.id, category]));
   const subcategoryDestinations: AutomationDestination[] = (subcategoriesResult.data ?? []).flatMap((subcategory) => {
     const category = categoriesById.get(subcategory.category_id);
-    return category && category.system_key !== "bills"
+    return category
       ? [
           {
             categoryId: null,
             subcategoryId: subcategory.id,
             label: `${category.kind === "income" ? "Income" : "Expense"} → ${category.name} → ${subcategory.name}`,
+            pickerLabel: subcategory.name,
+            section: { id: category.id, label: category.name },
+            ...(category.system_key === "bills" ? { isBills: true as const } : {}),
             kind: category.kind,
             color: subcategory.color,
             icon: subcategory.icon ?? category.icon,
@@ -401,6 +413,8 @@ export async function getMerchantAutomationRulesPage(options: AutomationPage = {
             categoryId: category.id,
             subcategoryId: null,
             label: `${category.kind === "income" ? "Income" : "Expense"} → Other`,
+            pickerLabel: "Other",
+            section: { id: "direct-categories", label: "Other" },
             kind: category.kind,
             color: category.color,
             icon: category.icon,
