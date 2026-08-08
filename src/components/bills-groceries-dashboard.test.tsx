@@ -77,7 +77,6 @@ import {
   BillsGroceriesDashboard,
   billsLegendClassName,
   billsGroceriesChartIds,
-  dashboardUrl,
   groceryTransactionsForDate,
   stackedBarRadius,
 } from "./bills-groceries-dashboard";
@@ -153,19 +152,6 @@ it("rounds only the visible top segment of a stack", () => {
   expect(stackedBarRadius([380, 0], 0)).toEqual([3, 3, 0, 0]);
   expect(stackedBarRadius([380, 60], 0)).toBe(0);
   expect(stackedBarRadius([380, 60], 1)).toEqual([3, 3, 0, 0]);
-});
-
-it("updates one dashboard URL field without losing unrelated canonical state", () => {
-  const params = new URLSearchParams("period=rolling&bills=rent,water&bill=rent&groceryMonth=2026-07&source=household");
-
-  expect(dashboardUrl("/bills-groceries", params, { period: "calendar" })).toBe(
-    "/bills-groceries?period=calendar&bills=rent%2Cwater&bill=rent&groceryMonth=2026-07&source=household",
-  );
-  expect(
-    dashboardUrl("/bills-groceries", params, {
-      grocery: "main-run",
-    }),
-  ).toBe("/bills-groceries?period=rolling&bills=rent%2Cwater&bill=rent&groceryMonth=2026-07&source=household&grocery=main-run");
 });
 
 it("writes the separately selected daily year and month without losing dashboard filters", () => {
@@ -296,6 +282,29 @@ it("renders valid Bills selections and the year-over-year Bill from synchronized
   expect(billsMarkup).not.toContain(">Rent</th>");
   expect(mocks.alignBillYearOverYear).toHaveBeenLastCalledWith(data.months, data.bills.monthly, "water");
   expect(yearOverYearMarkup).toContain('aria-label="Water year-over-year chart');
+});
+
+it("re-derives presentation state when browser history supplies different search parameters", () => {
+  const data = {
+    ...liveData,
+    bills: {
+      ...liveData.bills,
+      subcategories: [...liveData.bills.subcategories, { id: "water", name: "Water", color: "#234567" }],
+      monthly: [...liveData.bills.monthly, { month: "2026-07", subcategoryId: "water", agorot: 6_789 }],
+    },
+  };
+  mocks.searchParams = new URLSearchParams("bills=water&bill=water&grocery=top-ups");
+  const forwardMarkup = renderToStaticMarkup(
+    <BillsGroceriesChartDetail chart="year-over-year" data={data as never} billIds={["rent"]} billId="rent" period="rolling" />,
+  );
+  mocks.searchParams = new URLSearchParams("bills=rent&bill=rent&grocery=main-run");
+  const backMarkup = renderToStaticMarkup(
+    <BillsGroceriesChartDetail chart="year-over-year" data={data as never} billIds={["water"]} billId="water" period="rolling" />,
+  );
+
+  expect(forwardMarkup).toContain('aria-label="Water year-over-year chart');
+  expect(backMarkup).toContain('aria-label="Rent year-over-year chart');
+  expect(mocks.push).not.toHaveBeenCalled();
 });
 
 it("links every dashboard chart to the detail route for its exported ID", () => {

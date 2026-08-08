@@ -70,13 +70,13 @@ TASK-005 is blocked only on disposable local pgTAP: a fresh `supabase start` fai
 
 - **GOAL-004**: Centralize URL-state derivation and navigation policy without redesigning chart rendering or data access.
 
-| Task     | Description                                                                                                                                                                                                     | Status  | Date |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
-| TASK-016 | Add `src/lib/bills-groceries-navigation.ts` with owned URL-key types, presentation-state parsing, URL construction, and `data` versus `presentation` navigation classification.                                 | Planned |      |
-| TASK-017 | Classify any update containing `period` or `groceryMonth` as `data`; classify updates limited to `bills`, `bill`, or `grocery` as `presentation`; preserve unrelated and repeated parameters in both paths.     | Planned |      |
-| TASK-018 | Replace the dashboard’s separate navigation helpers and inline selection parsing with the navigation module, using `router.push` for data updates and native `history.pushState` for presentation updates.      | Planned |      |
-| TASK-019 | Keep canonical redirects and `getBillsGroceriesData` unchanged, and retain the existing chart, table, detail-route, and accessibility markup in the dashboard module.                                           | Planned |      |
-| TASK-020 | Test URL classification, invalid-selection fallbacks, detail links, unknown parameters, back/forward synchronization, and absence of server navigation for presentation-only changes before committing Phase 4. | Planned |      |
+| Task     | Description                                                                                                                                                                                                     | Status   | Date       |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| TASK-016 | Add `src/lib/bills-groceries-navigation.ts` with owned URL-key types, presentation-state parsing, URL construction, and `data` versus `presentation` navigation classification.                                 | Complete | 2026-08-08 |
+| TASK-017 | Classify any update containing `period` or `groceryMonth` as `data`; classify updates limited to `bills`, `bill`, or `grocery` as `presentation`; preserve unrelated and repeated parameters in both paths.     | Complete | 2026-08-08 |
+| TASK-018 | Replace the dashboard’s separate navigation helpers and inline selection parsing with the navigation module, using `router.push` for data updates and native `history.pushState` for presentation updates.      | Complete | 2026-08-08 |
+| TASK-019 | Keep canonical redirects and `getBillsGroceriesData` unchanged, and retain the existing chart, table, detail-route, and accessibility markup in the dashboard module.                                           | Complete | 2026-08-08 |
+| TASK-020 | Test URL classification, invalid-selection fallbacks, detail links, unknown parameters, back/forward synchronization, and absence of server navigation for presentation-only changes before committing Phase 4. | Complete | 2026-08-08 |
 
 ### Implementation Phase 5 — Cleanup, hosted proof, and completion
 

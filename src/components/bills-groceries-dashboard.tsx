@@ -24,6 +24,13 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { alignBillYearOverYear } from "@/lib/bills-groceries";
 import type { BillsGroceriesChartId } from "@/lib/bills-groceries-chart-ids";
+import {
+  billsGroceriesNavigationKind,
+  buildBillsGroceriesUrl,
+  parseBillsGroceriesPresentationState,
+  type BillsGroceriesUrlUpdates,
+  type GroceryPresentationFilter,
+} from "@/lib/bills-groceries-navigation";
 import { cn } from "@/lib/utils";
 import type { getBillsGroceriesData } from "@/lib/bills-groceries-data";
 
@@ -31,14 +38,13 @@ export { billsGroceriesChartIds, type BillsGroceriesChartId } from "@/lib/bills-
 
 type BillKey = string;
 type Period = "rolling" | "calendar";
-type GroceryFilter = "all" | "main-run" | "top-ups";
 type MonthlyChartDatum = { month: string } & Record<string, string | number>;
 type GroceryMonthlyDatum = { month: string; mainRun: number; topUps: number };
 
 export function groceryTransactionsForDate<Transaction extends { occurredOn: string; subcategoryKey: "main_run" | "top_ups" }>(
   transactions: Transaction[],
   date: string | null,
-  filter: GroceryFilter,
+  filter: GroceryPresentationFilter,
 ) {
   const subcategoryKey = filter === "main-run" ? "main_run" : filter === "top-ups" ? "top_ups" : null;
   return transactions.filter(
@@ -65,16 +71,6 @@ export const billsLegendClassName = "grid w-full grid-cols-5 gap-x-3 gap-y-2";
 
 export function stackedBarRadius(stack: number[], segmentIndex: number) {
   return stack[segmentIndex] > 0 && stack.slice(segmentIndex + 1).every((value) => value === 0) ? ([3, 3, 0, 0] as const) : 0;
-}
-
-export function dashboardUrl(pathname: string, searchParams: URLSearchParams, updates: Record<string, string | null>) {
-  const params = new URLSearchParams(searchParams);
-  for (const [name, value] of Object.entries(updates)) {
-    if (value === null) params.delete(name);
-    else params.set(name, value);
-  }
-  const query = params.toString();
-  return query ? `${pathname}?${query}` : pathname;
 }
 
 function ExactTooltip({ labels }: { labels: Record<string, string> }) {
@@ -329,20 +325,14 @@ function BillsGroceriesCharts({
     label: bill.name,
     color: billsChartColors[index % billsChartColors.length],
   }));
-  const urlBillIds = searchParams.get("bills")?.split(",");
-  const selectedBills =
-    urlBillIds?.length && urlBillIds.every((id) => chartBills.some((bill) => bill.value === id))
-      ? [...new Set(urlBillIds)]
-      : initialBillIds;
-  const urlBillId = searchParams.get("bill");
-  const yearOverYearBill =
-    (urlBillId && chartBills.some((bill) => bill.value === urlBillId) ? urlBillId : null) ??
-    initialBillId ??
-    data.bills.defaultSubcategoryId ??
-    chartBills[0]?.value ??
-    "";
-  const groceryParam = searchParams.get("grocery");
-  const groceryFilter: GroceryFilter = groceryParam === "main-run" || groceryParam === "top-ups" ? groceryParam : "all";
+  const presentation = parseBillsGroceriesPresentationState(new URLSearchParams(searchParams), {
+    availableBillIds: chartBills.map((bill) => bill.value),
+    fallbackBillIds: initialBillIds,
+    fallbackBillId: initialBillId ?? data.bills.defaultSubcategoryId,
+  });
+  const selectedBills = presentation.billIds;
+  const yearOverYearBill = presentation.billId;
+  const groceryFilter = presentation.grocery;
   const billMonthlyData: MonthlyChartDatum[] = data.months.map((month) => ({
     month,
     ...Object.fromEntries(
@@ -424,16 +414,14 @@ function BillsGroceriesCharts({
   );
   const dailyTableRows = dailyTableData.filter((day) => day.total > 0);
 
-  function navigateWithData(updates: Record<string, string | null>) {
-    router.push(dashboardUrl(pathname, new URLSearchParams(searchParams), updates));
-  }
-
-  function updatePresentationUrl(updates: Record<string, string | null>) {
-    window.history.pushState(null, "", dashboardUrl(pathname, new URLSearchParams(searchParams), updates));
+  function navigate(updates: BillsGroceriesUrlUpdates) {
+    const url = buildBillsGroceriesUrl(pathname, new URLSearchParams(searchParams), updates);
+    if (billsGroceriesNavigationKind(updates) === "data") router.push(url);
+    else window.history.pushState(null, "", url);
   }
 
   function changePeriod(nextPeriod: Period) {
-    navigateWithData({ period: nextPeriod });
+    navigate({ period: nextPeriod });
   }
 
   function toggleBill(value: BillKey) {
@@ -442,7 +430,7 @@ function BillsGroceriesCharts({
       : selectedBills.length === 1
         ? selectedBills
         : selectedBills.filter((bill) => bill !== value);
-    updatePresentationUrl({ bills: next.join(",") });
+    navigate({ bills: next.join(",") });
   }
 
   const detailQuery = new URLSearchParams(searchParams).toString();
@@ -543,7 +531,7 @@ function BillsGroceriesCharts({
                 bills={chartBills}
                 selectedBills={[yearOverYearBill]}
                 toggleBill={(value) => {
-                  updatePresentationUrl({ bill: value });
+                  navigate({ bill: value });
                 }}
                 single
               />
@@ -710,7 +698,7 @@ function BillsGroceriesCharts({
                             value={groceryYear}
                             onValueChange={(year) => {
                               const month = `${year}-${groceryMonthNumber}`;
-                              navigateWithData({
+                              navigate({
                                 groceryMonth: data.months.includes(month)
                                   ? month
                                   : (data.months.find((value) => value.startsWith(`${year}-`)) ?? groceryMonth),
@@ -735,7 +723,7 @@ function BillsGroceriesCharts({
                           <FieldLabel htmlFor="groceries-month">Month</FieldLabel>
                           <Select
                             value={groceryMonthNumber}
-                            onValueChange={(month) => navigateWithData({ groceryMonth: `${groceryYear}-${month}` })}
+                            onValueChange={(month) => navigate({ groceryMonth: `${groceryYear}-${month}` })}
                           >
                             <SelectTrigger id="groceries-month" aria-label="Select Groceries month" className="min-h-11 w-full">
                               <SelectValue />
@@ -756,8 +744,8 @@ function BillsGroceriesCharts({
                         <FieldLabel htmlFor="groceries-spending">Show spending</FieldLabel>
                         <Select
                           value={groceryFilter}
-                          onValueChange={(value: GroceryFilter) => {
-                            updatePresentationUrl({ grocery: value === "all" ? null : value });
+                          onValueChange={(value: GroceryPresentationFilter) => {
+                            navigate({ grocery: value === "all" ? null : value });
                           }}
                         >
                           <SelectTrigger id="groceries-spending" aria-label="Show spending" className="min-h-11 w-full">
