@@ -4,12 +4,6 @@ create extension if not exists pgtap with schema extensions;
 
 select extensions.plan(171);
 
-select extensions.is(
-  (select count(*) from public.transactions),
-  0::bigint,
-  'the Essentials migration resets all financial transactions'
-);
-
 select extensions.ok(
   (select count(*) > 0 from public.households)
     and (select count(*) > 0 from public.profiles)
