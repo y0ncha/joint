@@ -345,6 +345,7 @@ function BillsGroceriesCharts({
     fallbackBillId: initialBillId ?? data.bills.defaultSubcategoryId,
   });
   const selectedBills = presentation.billIds;
+  const orderedSelectedBills = chartBills.filter((bill) => selectedBills.includes(bill.value));
   const yearOverYearBill = presentation.billId;
   const groceryFilter = presentation.grocery;
   const billMonthlyData: MonthlyChartDatum[] = data.months.map((month) => ({
@@ -385,11 +386,11 @@ function BillsGroceriesCharts({
   const yearOverYearChartConfig = {
     current: {
       label: `${yearOverYearBillDetails?.label ?? "Bills"} · current year`,
-      color: "var(--analytics-year-over-year)",
+      color: "var(--analytics-year-over-year-current)",
     },
     previous: {
       label: `${yearOverYearBillDetails?.label ?? "Bills"} · previous year`,
-      color: "var(--analytics-year-over-year)",
+      color: "var(--analytics-year-over-year-previous)",
     },
   } satisfies ChartConfig;
   const dailyData = data.groceries.daily
@@ -475,14 +476,14 @@ function BillsGroceriesCharts({
               <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value) => `₪${value}`} />
               <ExactTooltip labels={Object.fromEntries(chartBills.map((bill) => [bill.value, bill.label]))} />
               <ChartLegend content={<ChartLegendContent className="grid w-full grid-cols-5 gap-x-3 gap-y-2" />} />
-              {selectedBills.map((bill, index) => (
-                <Bar key={bill} dataKey={bill} stackId="bills" fill={chartBills.find((item) => item.value === bill)?.color}>
+              {orderedSelectedBills.map((bill, index) => (
+                <Bar key={bill.value} dataKey={bill.value} stackId="bills" fill={bill.color}>
                   {billMonthlyData.map((month) => (
                     <Cell
                       key={month.month}
                       radius={
                         stackedBarRadius(
-                          selectedBills.map((key) => Number(month[key] ?? 0)),
+                          orderedSelectedBills.map((item) => Number(month[item.value] ?? 0)),
                           index,
                         ) as unknown as number
                       }
@@ -502,8 +503,8 @@ function BillsGroceriesCharts({
               <TableHeader>
                 <TableRow>
                   <TableHead>Month</TableHead>
-                  {selectedBills.map((bill) => (
-                    <TableHead key={bill}>{chartBills.find((item) => item.value === bill)?.label}</TableHead>
+                  {orderedSelectedBills.map((bill) => (
+                    <TableHead key={bill.value}>{bill.label}</TableHead>
                   ))}
                   <TableHead>Total</TableHead>
                 </TableRow>
@@ -512,13 +513,13 @@ function BillsGroceriesCharts({
                 {billTableData.map((month) => (
                   <TableRow key={month.month}>
                     <TableCell>{month.month}</TableCell>
-                    {selectedBills.map((bill) => (
-                      <TableCell key={bill} className="tabular-nums">
-                        {currency.format(Number(month[bill] ?? 0))}
+                    {orderedSelectedBills.map((bill) => (
+                      <TableCell key={bill.value} className="tabular-nums">
+                        {currency.format(Number(month[bill.value] ?? 0))}
                       </TableCell>
                     ))}
                     <TableCell className="font-medium tabular-nums">
-                      {currency.format(selectedBills.reduce((total, bill) => total + Number(month[bill] ?? 0), 0))}
+                      {currency.format(orderedSelectedBills.reduce((total, bill) => total + Number(month[bill.value] ?? 0), 0))}
                     </TableCell>
                   </TableRow>
                 ))}
