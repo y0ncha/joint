@@ -83,6 +83,18 @@ describe("transaction draft", () => {
     expect(earlierEnd.servicePeriod).toEqual({ start: "2026-07-15", end: "2026-07-15" });
   });
 
+  it("sets a Bills service period to the supplied calendar month", () => {
+    const bills = transactionDraftReducer(baseDraft(), {
+      type: "destination_changed",
+      destination: { type: "subcategory", id: "electricity", isBills: true },
+    });
+
+    expect(transactionDraftReducer(bills, { type: "service_period_month_changed", month: "2026-02" }).servicePeriod).toEqual({
+      start: "2026-02-01",
+      end: "2026-02-28",
+    });
+  });
+
   it("updates posting date and payer without rewriting an existing Bills period", () => {
     const bills = transactionDraftReducer(baseDraft(), {
       type: "destination_changed",

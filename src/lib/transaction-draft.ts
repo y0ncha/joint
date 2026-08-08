@@ -1,3 +1,5 @@
+import { getIsoMonthRange } from "@/lib/date-range";
+
 export type TransactionKind = "income" | "expense";
 
 export type TransactionDestination = { type: "category"; id: string } | { type: "subcategory"; id: string; isBills: boolean } | null;
@@ -18,7 +20,8 @@ export type TransactionDraftEvent =
   | { type: "occurred_on_changed"; occurredOn: string }
   | { type: "paid_by_changed"; paidBy: string }
   | { type: "service_period_start_changed"; date: string }
-  | { type: "service_period_end_changed"; date: string };
+  | { type: "service_period_end_changed"; date: string }
+  | { type: "service_period_month_changed"; month: string };
 
 export function initializeTransactionDraft(input: {
   kind: TransactionKind;
@@ -75,6 +78,10 @@ export function transactionDraftReducer(draft: TransactionDraft, event: Transact
     case "service_period_end_changed": {
       const start = draft.servicePeriod?.start && draft.servicePeriod.start <= event.date ? draft.servicePeriod.start : event.date;
       return { ...draft, servicePeriod: { start, end: event.date } };
+    }
+    case "service_period_month_changed": {
+      const range = getIsoMonthRange(event.month);
+      return range ? { ...draft, servicePeriod: { start: range.from, end: range.to } } : draft;
     }
   }
 }
