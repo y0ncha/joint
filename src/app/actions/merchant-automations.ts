@@ -4,6 +4,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { validationError, type ActionResult } from "@/app/actions/result";
+import {
+  compatibilityPattern,
+  encodeAutomationConditions,
+  isAutomationConditionGroup,
+  type AutomationConditionGroup,
+} from "@/lib/automation-conditions";
 import { requireCurrentHousehold } from "@/lib/household";
 import { compileMerchantPattern, getMerchantAutomationRulesPage } from "@/lib/merchant-automations";
 import { encodeMerchantPattern, type MerchantMatchMode } from "@/lib/merchant-pattern";
@@ -21,6 +27,24 @@ const enabled = z.preprocess(
   z.boolean().default(true),
 );
 const merchantMatchModes = ["contains", "equals", "starts_with", "ends_with", "advanced"] as const satisfies readonly MerchantMatchMode[];
+
+const textConditionSchema = z.object({
+  field: z.enum(["merchant", "note"]),
+  operator: z.enum(["contains", "equals", "starts_with", "ends_with", "advanced"]),
+  value: z.string().trim().min(1).max(500),
+});
+const amountConditionSchema = z.object({
+  field: z.literal("amount"),
+  operator: z.enum(["equals", "not_equals", "greater_than", "greater_than_or_equal", "less_than", "less_than_or_equal"]),
+  value: z.preprocess((value) => (value === "" ? undefined : value), z.coerce.number().finite().min(0)),
+});
+const conditionGroupSchema = z.object({
+  logic: z.enum(["and", "or"]),
+  conditions: z
+    .array(z.union([textConditionSchema, amountConditionSchema]))
+    .min(1)
+    .max(8),
+});
 
 const automationRuleSchema = z
   .object({
@@ -51,7 +75,23 @@ const enabledRuleSchema = z.object({ ruleId: z.string().uuid(), enabled: z.boole
 const GENERIC_ERROR = "Unable to save the automation rule. Please try again.";
 
 function parseRule(input: FormData) {
-  const parsed = automationRuleSchema.safeParse(Object.fromEntries(input));
+  const raw = Object.fromEntries(input);
+  const conditionValue = raw.conditions;
+  let submittedConditions: AutomationConditionGroup | undefined;
+  if (typeof conditionValue === "string" && conditionValue.trim()) {
+    try {
+      const decoded: unknown = JSON.parse(conditionValue);
+      const conditionResult = conditionGroupSchema.safeParse(decoded);
+      if (!conditionResult.success || !isAutomationConditionGroup(conditionResult.data)) {
+        return { error: validationError([{ path: ["conditions"], message: "Check each condition." }]) as ActionResult };
+      }
+      submittedConditions = conditionResult.data;
+    } catch {
+      return { error: validationError([{ path: ["conditions"], message: "Check each condition." }]) as ActionResult };
+    }
+  }
+
+  const parsed = automationRuleSchema.safeParse(raw);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((issue) => ({
       path: issue.path[0] === "matchValue" ? ["pattern"] : issue.path,
@@ -59,7 +99,15 @@ function parseRule(input: FormData) {
     }));
     return { error: validationError(issues) as ActionResult };
   }
-  const pattern = encodeMerchantPattern(parsed.data.matchMode, parsed.data.matchValue);
+  const conditions =
+    submittedConditions ??
+    ({
+      logic: "and",
+      conditions: [{ field: "merchant", operator: parsed.data.matchMode, value: parsed.data.matchValue }],
+    } as AutomationConditionGroup);
+  const pattern = submittedConditions
+    ? compatibilityPattern(conditions)
+    : encodeMerchantPattern(parsed.data.matchMode, parsed.data.matchValue);
   if (pattern.length > 200) {
     return {
       error: {
@@ -70,7 +118,10 @@ function parseRule(input: FormData) {
     };
   }
   try {
-    compileMerchantPattern(pattern);
+    for (const condition of conditions.conditions) {
+      if (condition.field === "merchant" && condition.operator === "advanced") compileMerchantPattern(condition.value);
+    }
+    if (!submittedConditions) compileMerchantPattern(pattern);
   } catch {
     return {
       error: {
@@ -80,7 +131,14 @@ function parseRule(input: FormData) {
       } as ActionResult,
     };
   }
-  return { data: { ...parsed.data, pattern } };
+  return {
+    data: {
+      ...parsed.data,
+      pattern,
+      conditions: submittedConditions ? conditions : undefined,
+      encodedConditions: submittedConditions ? encodeAutomationConditions(conditions) : undefined,
+    },
+  };
 }
 
 function revalidateAutomations() {
@@ -107,6 +165,7 @@ export async function createAutomationRule(input: FormData): Promise<ActionResul
     household_id: household.householdId,
     action: data.action,
     pattern: data.pattern,
+    ...(data.conditions ? { conditions: data.conditions } : {}),
     replacement: data.replacement,
     category_id: data.categoryId,
     subcategory_id: data.subcategoryId,
@@ -128,6 +187,7 @@ export async function updateAutomationRule(ruleId: string, input: FormData): Pro
     .update({
       action: data.action,
       pattern: data.pattern,
+      ...(data.conditions ? { conditions: data.conditions } : {}),
       replacement: data.replacement,
       category_id: data.categoryId,
       subcategory_id: data.subcategoryId,

@@ -12,7 +12,7 @@ tags: [feature, automation, transactions, imports, supabase]
 
 ![Status: In Progress](https://img.shields.io/badge/status-In_Progress-yellow)
 
-Implement household-owned, ordered merchant rules. Each atomic rule either normalizes a merchant or assigns a transaction destination. Rules affect new manual and statement-import transactions; existing transactions require preview and explicit confirmation. Replace the raw regular-expression field with a literal match builder while retaining the existing persisted pattern contract.
+Implement household-owned, ordered merchant rules. Each atomic rule either normalizes a merchant or assigns a transaction destination. Rules affect new manual and statement-import transactions; existing transactions require preview and explicit confirmation. Replace the raw regular-expression field with a literal match builder while retaining the existing persisted pattern contract. The follow-up condition-builder phase adds a persisted AND/OR group across merchant, note, and amount fields.
 
 ## 1. Requirements & Constraints
 
@@ -26,6 +26,8 @@ Implement household-owned, ordered merchant rules. Each atomic rule either norma
 - **REQ-008**: Decode existing patterns that are losslessly equivalent to the four builder modes and expose `Advanced pattern` only while editing an existing pattern that cannot be decoded without changing its behavior.
 - **REQ-009**: Render builder rules as a localized operator label plus literal value in the ordered list and conflict guidance; render an undecodable existing pattern as `Advanced pattern` plus its raw value.
 - **REQ-010**: Keep `automation_rules.pattern`, rule evaluation, preview fingerprints, bulk application, RLS, and generated database types unchanged; this phase must create no migration and run no linked Supabase write.
+- **REQ-011**: Phase 9 supersedes REQ-010 only for the expanded condition builder: add optional validated `automation_rules.conditions` JSONB, preserve null-condition legacy rules, include conditions in stale-preview snapshots, and do not apply the new migration to hosted `joint-dev` without explicit approval and the required preflight.
+- **REQ-012**: A condition group uses exactly one `and` or `or` logic value and one to eight conditions. Fields are `merchant`, `note`, or `amount`; text operators are literal contains/equal/starts-with/ends-with (plus legacy merchant advanced patterns), and amount operators are equals, not-equals, greater-than, greater-than-or-equal, less-than, and less-than-or-equal.
 - **SEC-001**: Derive household identity server-side, use household RLS, use linear-time RE2 matching, and make confirmed bulk changes atomic.
 - **SEC-002**: Treat `matchMode` and `matchValue` as untrusted Server Action input, allow only the declared modes, validate the compiled pattern length against the existing 200-character database constraint, and compile it with RE2 before persistence.
 - **CON-001**: Use a generated forward migration, verified `joint-dev`, generated database types, focused/full tests, lint, formatting, and browser proof; do not run `bun run build` unless requested.
@@ -83,28 +85,39 @@ Implement household-owned, ordered merchant rules. Each atomic rule either norma
 
 - **GOAL-006**: Approve the literal match-builder contract and its visual arrangement before changing form submission behavior.
 
-| Task     | Description                                                                                                                                                                                                                                                                                              | Status                    | Date       |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ---------- |
+| Task     | Description                                                                                                                                                                                                                                                                                                     | Status   | Date       |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
 | TASK-011 | Update `docs/design.md`, temporarily render the four-mode Select match builder in `AutomationRuleForm` within `src/components/automation-rules-workspace.tsx`, obtain browser confirmation of the add and edit Sheets at mobile and desktop widths, and restore the temporary component edit before continuing. | Complete | 2026-08-08 |
 
 ### Implementation Phase 7
 
 - **GOAL-007**: Implement and connect the approved match builder without changing the database schema or evaluation semantics; TASK-012 must complete before TASK-013 and TASK-014 begin.
 
-| Task     | Description                                                                                                                                                                                                                                                                                                                          | Status  | Date |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ---- |
-| TASK-012 | Add `MerchantMatchMode`, literal pattern encoding, lossless existing-pattern decoding, and friendly descriptions in `src/lib/merchant-pattern.ts`, and prove all modes, RE2 metacharacters, Hebrew text, anchors, and advanced fallback in `src/lib/merchant-pattern.test.ts`.                                                       | Planned |      |
-| TASK-013 | Replace the raw pattern field and raw rule labels in `src/components/automation-rules-workspace.tsx` with the approved operator/value controls and friendly descriptions, and verify create, edit, legacy-advanced, keyboard, focus, and 44px-target behavior in `src/components/automation-rules-workspace.test.tsx`.               | Planned |      |
-| TASK-014 | Replace raw `pattern` parsing in `src/app/actions/merchant-automations.ts` with server-side `matchMode` and `matchValue` validation through `src/lib/merchant-pattern.ts`, and verify canonical persistence, compiled-length rejection, invalid modes, and advanced compatibility in `src/app/actions/merchant-automations.test.ts`. | Planned |      |
+| Task     | Description                                                                                                                                                                                                                                                                                                                          | Status   | Date       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | ---------- |
+| TASK-012 | Add `MerchantMatchMode`, literal pattern encoding, lossless existing-pattern decoding, and friendly descriptions in `src/lib/merchant-pattern.ts`, and prove all modes, RE2 metacharacters, Hebrew text, anchors, and advanced fallback in `src/lib/merchant-pattern.test.ts`.                                                       | Complete | 2026-08-08 |
+| TASK-013 | Replace the raw pattern field and raw rule labels in `src/components/automation-rules-workspace.tsx` with the approved operator/value controls and friendly descriptions, and verify create, edit, legacy-advanced, keyboard, focus, and 44px-target behavior in `src/components/automation-rules-workspace.test.tsx`.               | Complete | 2026-08-08 |
+| TASK-014 | Replace raw `pattern` parsing in `src/app/actions/merchant-automations.ts` with server-side `matchMode` and `matchValue` validation through `src/lib/merchant-pattern.ts`, and verify canonical persistence, compiled-length rejection, invalid modes, and advanced compatibility in `src/app/actions/merchant-automations.test.ts`. | Complete | 2026-08-08 |
 
 ### Implementation Phase 8
 
 - **GOAL-008**: Verify the complete builder flow and record only proven behavior; TASK-015 must complete before TASK-016 begins.
 
-| Task     | Description                                                                                                                                                                                                                                                                                   | Status  | Date |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
-| TASK-015 | Run the focused Vitest files, full `bun run test`, `bun run lint`, `bun run format:check`, and browser create/edit workflows for all four literal modes plus one existing advanced pattern, and confirm previews and newly created manual/imported transactions retain their prior semantics. | Planned |      |
-| TASK-016 | Update `docs/architecture/financial-model.md` and this plan only with TASK-015 evidence, mark TASK-011 through TASK-016 accurately, and verify `git diff --check` reports no whitespace errors.                                                                                               | Planned |      |
+| Task     | Description                                                                                                                                                                                                                                                                                   | Status      | Date       |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------- |
+| TASK-015 | Run the focused Vitest files, full `bun run test`, `bun run lint`, `bun run format:check`, and browser create/edit workflows for all four literal modes plus one existing advanced pattern, and confirm previews and newly created manual/imported transactions retain their prior semantics. | In progress | 2026-08-08 |
+| TASK-016 | Update `docs/architecture/financial-model.md` and this plan only with TASK-015 evidence, mark TASK-011 through TASK-016 accurately, and verify `git diff --check` reports no whitespace errors.                                                                                               | Planned     |            |
+
+### Implementation Phase 9
+
+- **GOAL-009**: Expand rules from merchant-only matching to a validated condition group while preserving legacy rules, atomic actions, ordering, previews, and the main-page enable control.
+
+| Task     | Description                                                                                                                                                                                                                               | Status      | Date       |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------- |
+| TASK-017 | Add the forward `automation_rules.conditions` migration, validation constraints, stale-preview snapshot support, generated database types, and focused database/action regressions without applying a hosted migration.                   | In progress | 2026-08-08 |
+| TASK-018 | Extend the server evaluator and manual/import intake with AND/OR conditions over Merchant, Note, and numeric Amount; preserve legacy merchant patterns and explicit destination precedence.                                               | Planned     |            |
+| TASK-019 | Update the Add/Edit Sheet with repeatable condition rows, a ToggleGroup AND/OR selector, field-specific operators and numeric inputs; move Enabled to the ordered list and align the visible Add rule action with other workspace sheets. | Planned     |            |
+| TASK-020 | Run focused/full tests, lint, formatting, and browser proof for text, numeric, AND/OR, enable, create, edit, preview, manual-create, and statement-import flows; update architecture/design evidence and mark this phase accurately.      | Planned     |            |
 
 ## 3. Alternatives
 

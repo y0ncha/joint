@@ -74,7 +74,10 @@ export async function importStatement(_previousState: ActionResult | null, formD
     return { status: "error", formError: IMPORT_ERROR, fieldErrors: {} };
   }
   const rows = parsedStatement.rows.map((row) => {
-    const automated = evaluateMerchantAutomations({ merchant: row.merchant, kind: row.kind, categoryId: null, subcategoryId: null }, rules);
+    const automated = evaluateMerchantAutomations(
+      { merchant: row.merchant, note: row.note, amount: row.amount, kind: row.kind, categoryId: null, subcategoryId: null },
+      rules,
+    );
     return {
       household_id: household.householdId,
       created_by: household.userId,

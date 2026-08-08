@@ -220,6 +220,59 @@ describe("merchant automation actions", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/automations");
   });
 
+  it("persists an AND/OR condition group from trusted server-side parsing", async () => {
+    configureActionClient({ lastPosition: null });
+    const conditions = JSON.stringify({
+      logic: "or",
+      conditions: [
+        { field: "note", operator: "contains", value: "weekly" },
+        { field: "amount", operator: "greater_than_or_equal", value: 250 },
+      ],
+    });
+
+    await expect(
+      actions.createAutomationRule(
+        formData({
+          action: "assign_category",
+          conditions,
+          matchMode: "contains",
+          matchValue: "ignored",
+          pattern: "ignored",
+          categoryId: "11111111-1111-4111-8111-111111111111",
+          subcategoryId: "",
+          enabled: "true",
+        }),
+      ),
+    ).resolves.toEqual({ status: "success" });
+
+    expect(mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pattern: "__conditions__",
+        conditions: {
+          logic: "or",
+          conditions: [
+            { field: "note", operator: "contains", value: "weekly" },
+            { field: "amount", operator: "greater_than_or_equal", value: 250 },
+          ],
+        },
+      }),
+    );
+  });
+
+  it("rejects advanced matching on notes and malformed numeric values", async () => {
+    configureActionClient();
+    const invalid = JSON.stringify({
+      logic: "and",
+      conditions: [{ field: "note", operator: "advanced", value: "(weekly|monthly)" }],
+    });
+
+    await expect(actions.createAutomationRule(normalizeRuleForm({ conditions: invalid }))).resolves.toMatchObject({
+      status: "error",
+      fieldErrors: { conditions: "Check each condition." },
+    });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
   it("updates only the requested rule in the verified household", async () => {
     configureActionClient();
 

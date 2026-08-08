@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           action: string
           category_id: string | null
+          conditions: Json | null
           created_at: string
           enabled: boolean
           household_id: string
@@ -31,6 +32,7 @@ export type Database = {
         Insert: {
           action: string
           category_id?: string | null
+          conditions?: Json | null
           created_at?: string
           enabled?: boolean
           household_id: string
@@ -44,6 +46,7 @@ export type Database = {
         Update: {
           action?: string
           category_id?: string | null
+          conditions?: Json | null
           created_at?: string
           enabled?: boolean
           household_id?: string

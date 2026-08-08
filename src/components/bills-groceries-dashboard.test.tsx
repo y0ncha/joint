@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => ({
   alignBillYearOverYear: vi.fn(),
   billChanges: new Map<string, (checked: boolean) => void>(),
   historyPushState: vi.fn(),
-  monthChange: undefined as undefined | ((event: { target: { value: string } }) => void),
   push: vi.fn(),
   searchParams: new URLSearchParams(),
   selectChanges: new Map<string, (value: string) => void>(),
@@ -24,20 +23,6 @@ vi.mock("@/lib/bills-groceries", async (importOriginal) => {
   mocks.alignBillYearOverYear.mockImplementation(actual.alignBillYearOverYear);
   return { ...actual, alignBillYearOverYear: mocks.alignBillYearOverYear };
 });
-vi.mock("@/components/ui/input", () => ({
-  Input: ({
-    "aria-label": ariaLabel,
-    className,
-    onChange,
-  }: {
-    "aria-label"?: string;
-    className?: string;
-    onChange?: (event: { target: { value: string } }) => void;
-  }) => {
-    if (ariaLabel === "Select Groceries month") mocks.monthChange = onChange;
-    return <input aria-label={ariaLabel} className={className} />;
-  },
-}));
 vi.mock("@/components/ui/checkbox", () => ({
   Checkbox: ({ id, onCheckedChange }: { id: string; onCheckedChange: (checked: boolean) => void }) => {
     mocks.billChanges.set(id, onCheckedChange);
@@ -46,7 +31,22 @@ vi.mock("@/components/ui/checkbox", () => ({
 }));
 vi.mock("@/components/ui/popover", () => ({
   Popover: ({ children }: { children: ReactNode }) => <>{children}</>,
-  PopoverContent: ({ children }: { children: ReactNode }) => (mocks.showPopoverContent ? <>{children}</> : null),
+  PopoverContent: ({
+    align,
+    children,
+    className,
+    side,
+  }: {
+    align?: string;
+    children: ReactNode;
+    className?: string;
+    side?: string;
+  }) =>
+    mocks.showPopoverContent ? (
+      <div className={className} data-align={align} data-side={side}>
+        {children}
+      </div>
+    ) : null,
   PopoverHeader: ({ children }: { children: ReactNode }) => <>{children}</>,
   PopoverTitle: ({ children }: { children: ReactNode }) => <>{children}</>,
   PopoverTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -73,7 +73,11 @@ vi.mock("@/components/ui/select", () => ({
   }) => {
     const control = id ?? ariaLabel;
     if (control && mocks.activeSelectChange) mocks.selectChanges.set(control, mocks.activeSelectChange);
-    return <button aria-label={ariaLabel} className={className}>{children}</button>;
+    return (
+      <button aria-label={ariaLabel} className={className}>
+        {children}
+      </button>
+    );
   },
   SelectValue: () => null,
 }));
@@ -81,6 +85,7 @@ vi.mock("@/components/ui/select", () => ({
 import {
   BillsGroceriesChartDetail,
   BillsGroceriesDashboard,
+  billsLegendClassName,
   billsGroceriesChartIds,
   dashboardUrl,
   groceryTransactionsForDate,
@@ -136,7 +141,6 @@ beforeEach(() => {
   mocks.alignBillYearOverYear.mockClear();
   mocks.billChanges.clear();
   mocks.historyPushState.mockReset();
-  mocks.monthChange = undefined;
   mocks.push.mockReset();
   mocks.searchParams = new URLSearchParams();
   mocks.selectChanges.clear();
@@ -174,25 +178,56 @@ it("updates one dashboard URL field without losing unrelated canonical state", (
   ).toBe("/bills-groceries?period=rolling&bills=rent%2Cwater&bill=rent&groceryMonth=2026-07&source=household&grocery=main-run");
 });
 
-it("writes the selected daily month without losing dashboard filters", () => {
+it("writes the separately selected daily year and month without losing dashboard filters", () => {
   mocks.searchParams = new URLSearchParams("period=calendar&bills=rent&bill=rent&groceryMonth=2026-07&grocery=top-ups");
   mocks.showPopoverContent = true;
 
-  renderToStaticMarkup(<BillsGroceriesDashboard data={liveData as never} billIds={["rent"]} billId="rent" period="calendar" />);
-  mocks.monthChange?.({ target: { value: "2026-06" } });
+  const markup = renderToStaticMarkup(
+    <BillsGroceriesDashboard
+      data={{ ...liveData, months: ["2025-09", "2025-10", "2026-06", "2026-07"] } as never}
+      billIds={["rent"]}
+      billId="rent"
+      period="calendar"
+    />,
+  );
+  mocks.selectChanges.get("groceries-year")?.("2025");
+  mocks.selectChanges.get("groceries-month")?.("10");
 
-  expect(mocks.push).toHaveBeenCalledWith("/bills-groceries?period=calendar&bills=rent&bill=rent&groceryMonth=2026-06&grocery=top-ups");
+  expect(markup).toContain('for="groceries-year"');
+  expect(markup).toContain('for="groceries-month"');
+  expect(markup).toContain("2025");
+  expect(markup).toContain("July");
+  expect(mocks.push).toHaveBeenNthCalledWith(
+    1,
+    "/bills-groceries?period=calendar&bills=rent&bill=rent&groceryMonth=2025-09&grocery=top-ups",
+  );
+  expect(mocks.push).toHaveBeenNthCalledWith(
+    2,
+    "/bills-groceries?period=calendar&bills=rent&bill=rent&groceryMonth=2026-10&grocery=top-ups",
+  );
 });
 
-it("gives the Groceries day controls the same width", () => {
+it("anchors Groceries day details to their selected cell", () => {
   mocks.showPopoverContent = true;
 
   const markup = renderToStaticMarkup(<BillsGroceriesDashboard {...dashboardProps} />);
-  const monthControl = markup.match(/<input[^>]*aria-label="Select Groceries month"[^>]*>/)?.[0] ?? "";
+
+  expect(markup).toContain('data-side="right"');
+  expect(markup).toContain('data-align="start"');
+  expect(markup).toContain('class="w-72 p-4"');
+});
+
+it("renders separate year and month selectors for Groceries by day", () => {
+  mocks.showPopoverContent = true;
+
+  const markup = renderToStaticMarkup(<BillsGroceriesDashboard {...dashboardProps} />);
+  const yearControl = markup.match(/<button[^>]*aria-label="Select Groceries year"[^>]*>/)?.[0] ?? "";
+  const monthControl = markup.match(/<button[^>]*aria-label="Select Groceries month"[^>]*>/)?.[0] ?? "";
   const spendingControl = markup.match(/<button[^>]*aria-label="Show spending"[^>]*>/)?.[0] ?? "";
 
-  expect(monthControl).toContain('class="min-h-11 w-44"');
-  expect(spendingControl).toContain('class="min-h-11 w-44"');
+  expect(yearControl).toContain("min-h-11 w-full");
+  expect(monthControl).toContain("min-h-11 w-full");
+  expect(spendingControl).toContain("min-h-11 w-full");
 });
 
 it("uses router navigation only for data-bearing dashboard filters", () => {
@@ -213,7 +248,7 @@ it("uses router navigation only for data-bearing dashboard filters", () => {
   mocks.selectChanges.get("Groceries by month-period")?.("calendar");
   mocks.billChanges.get("bills-water")?.(true);
   mocks.selectChanges.get("year-over-year-bill")?.("water");
-  mocks.selectChanges.get("Show spending")?.("top-ups");
+  mocks.selectChanges.get("groceries-spending")?.("top-ups");
 
   expect(mocks.push).toHaveBeenNthCalledWith(
     1,
@@ -332,14 +367,16 @@ it("renders Groceries by day as a total-spend heatmap", () => {
   expect(markup).not.toContain("Stacked daily groceries chart");
 });
 
-it("renders live colors, missing-data guidance, and exact daily values", () => {
+it("renders live series colors, missing-data guidance, and exact daily values", () => {
   const markup = renderToStaticMarkup(
     <BillsGroceriesDashboard data={liveData as never} billIds={["rent"]} billId="rent" period="rolling" />,
   );
 
-  expect(markup).toContain("#234567");
-  expect(markup).toContain("#345678");
-  expect(markup).toContain("#654321");
+  expect(markup).toContain("--color-mainRun: var(--chart-1)");
+  expect(markup).toContain("--color-topUps: var(--chart-3)");
+  expect(markup).not.toContain("#234567");
+  expect(markup).not.toContain("#345678");
+  expect(markup).toContain("var(--chart-1)");
   expect(markup).toContain("#6fafa8");
   expect(markup).toContain("#829cd0");
   expect(markup).toContain("No previous-year data");
@@ -348,23 +385,24 @@ it("renders live colors, missing-data guidance, and exact daily values", () => {
   expect(markup).toContain("2026-07-02: ₪168.00");
 });
 
-it("uses distinct presentation colors for Bills series", () => {
+it("uses nine distinct presentation colors and a two-row legend for Bills series", () => {
   const data = {
     ...liveData,
     bills: {
       ...liveData.bills,
-      subcategories: Array.from({ length: 7 }, (_, index) => ({ id: `bill-${index}`, name: `Bill ${index}`, color: "#d9f0fa" })),
+      subcategories: Array.from({ length: 9 }, (_, index) => ({ id: `bill-${index}`, name: `Bill ${index}`, color: "#d9f0fa" })),
     },
   } as never;
 
   const markup = renderToStaticMarkup(<BillsGroceriesDashboard data={data} billIds={["bill-0"]} billId="bill-0" period="rolling" />);
 
-  for (const color of ["#6fafa8", "#829cd0", "#ae8fc2", "#d2a271", "#c98eaa", "#91a9b6", "#b4b975"]) {
+  for (const color of ["#6fafa8", "#829cd0", "#ae8fc2", "#d2a271", "#c98eaa", "#91a9b6", "#b4b975", "#7aa9a3", "#b78b73"]) {
     expect(markup).toContain(color);
   }
+  expect(billsLegendClassName).toContain("grid-cols-5");
 });
 
-it("uses a contrast-safe backing behind day labels on stored heatmap colors", () => {
+it("uses the accent palette consistently for the heatmap and day labels", () => {
   const markup = renderToStaticMarkup(
     <BillsGroceriesDashboard
       data={
@@ -382,7 +420,9 @@ it("uses a contrast-safe backing behind day labels on stored heatmap colors", ()
     />,
   );
 
-  expect(markup).toContain("bg-background/85");
+  expect(markup).toContain("color-mix(in oklab, var(--chart-1) 100%, transparent)");
+  expect(markup).toContain("bg-chart-5");
+  expect(markup).not.toContain("#ccebef");
 });
 
 it("renders the Bills empty state instead of a missing-prior-year notice when no Bills values exist", () => {

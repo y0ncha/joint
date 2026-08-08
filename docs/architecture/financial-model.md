@@ -19,15 +19,15 @@ household
 
 ## Data model and invariants
 
-| Record              | Implemented purpose                                                                                                                                                           |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `households`        | Shared container with a signed `opening_balance` and optional shared Groceries monthly threshold.                                                                             |
-| `household_members` | Household membership and `owner` or `member` role.                                                                                                                            |
-| `categories`        | Household-owned `income` or `expense` parent categories with a registered family color and icon.                                                                              |
-| `subcategories`     | Household-owned children with a persisted color from the parent category's database family palette and an optional icon override.                                             |
-| `member_cards`      | Optional household-scoped mapping of a member to one card's last four digits.                                                                                                 |
-| `automation_rules`  | Household-owned, enabled or disabled merchant normalization and category-assignment rules with one persisted order.                                                           |
-| `transactions`      | Positive ILS amount, date, `income` or `expense` direction, creator, optional payer and `subcategory_id`, source, merchant, optional note, and optional Bills service period. |
+| Record              | Implemented purpose                                                                                                                                                                    |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `households`        | Shared container with a signed `opening_balance` and optional shared Groceries monthly threshold.                                                                                      |
+| `household_members` | Household membership and `owner` or `member` role.                                                                                                                                     |
+| `categories`        | Household-owned `income` or `expense` parent categories with a registered family color and icon.                                                                                       |
+| `subcategories`     | Household-owned children with a persisted color from the parent category's database family palette and an optional icon override.                                                      |
+| `member_cards`      | Optional household-scoped mapping of a member to one card's last four digits.                                                                                                          |
+| `automation_rules`  | Household-owned, enabled or disabled normalization and category-assignment rules with one persisted order; each rule may use a validated AND/OR group over merchant, note, and amount. |
+| `transactions`      | Positive ILS amount, date, `income` or `expense` direction, creator, optional payer and `subcategory_id`, source, merchant, optional note, and optional Bills service period.          |
 
 - The opening balance may be positive, zero, or negative.
 - Transaction amounts are positive ILS values with at most two decimal places; direction comes only from `kind`.
@@ -54,7 +54,7 @@ Uncategorized statement imports and historical transactions orphaned by category
 
 Merchant automation has two atomic actions: `normalize_merchant` stores one literal replacement, and `assign_category` stores exactly one destination. A destination is either an active non-Bills subcategory or the active direct `Other` category for its transaction kind. Database constraints, validation triggers, and destination-protection triggers reject malformed rules, cross-household destinations, Bills destinations, and archiving or invalid reparenting of destinations while a rule references them.
 
-`src/lib/merchant-automations.ts` compiles user patterns with RE2, case-insensitively, and evaluates every enabled rule against the original trimmed merchant. Persisted `position`, then creation time and ID, determine order; the first match for each action wins. Normalization and assignment are independent rather than a sequential pipeline. Normalization writes the trimmed literal replacement. Assignment runs only when the input has no explicit category or subcategory and only when the destination kind matches the transaction kind. Later matches are reported as conflicts but do not alter the result.
+`src/lib/merchant-automations.ts` evaluates every enabled rule against the original trimmed merchant plus the transaction note and positive ILS amount. New condition groups use case-insensitive literal text operators and cents-safe numeric comparisons, joined by `AND` or `OR`; legacy rows without `conditions` continue to use their RE2 merchant pattern. Persisted `position`, then creation time and ID, determine order; the first match for each action wins. Normalization and assignment are independent rather than a sequential pipeline. Normalization writes the trimmed literal replacement. Assignment runs only when the input has no explicit category or subcategory and only when the destination kind matches the transaction kind. Later matches are reported as conflicts but do not alter the result.
 
 New manual transactions and statement-import rows load the household's rules server-side and evaluate them once before the existing insert. An explicit manual destination remains authoritative; an unmatched blank manual destination retains the existing validation error. Statement imports preserve their atomic batch and duplicate-import metadata. Rule loading or evaluation failure stops the new mutation. Transaction edits never run automations.
 
@@ -82,12 +82,15 @@ Only Bills transactions may have an optional inclusive `service_period_start` an
 
 `20260807172644_harden_merchant_automation_confirmation.sql` added locked rule-set snapshot validation and the narrow RLS exception required to normalize manual history already orphaned by a permitted destination deletion.
 
+`20260808064522_add_automation_rule_conditions.sql` adds the optional validated `automation_rules.conditions` JSONB group and includes it in the stale-preview rule snapshot. A null group is the backward-compatible legacy merchant-pattern representation; newly created condition rules retain a compatibility `pattern` for older readers while the evaluator uses the structured group.
+
 ## Primary verification
 
 - `src/lib/financial-report.test.ts`
 - `src/lib/dashboard-data.test.ts`
 - `src/app/actions/transactions.test.ts`
 - `src/lib/merchant-automations.test.ts`
+- `src/lib/automation-conditions.test.ts`
 - `src/app/actions/merchant-automations.test.ts`
 - `src/app/actions/statement-import.test.ts`
 - `src/components/automation-rules-workspace.test.tsx`

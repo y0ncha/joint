@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { PillSelect } from "@/components/pill-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -80,6 +80,7 @@ export function TransactionSheet({
   directCategories = [],
   currentUserId = "",
   members = [],
+  defaultMonth,
   onOpenChange,
   open,
   transaction,
@@ -89,6 +90,7 @@ export function TransactionSheet({
   directCategories?: DirectCategory[];
   currentUserId?: string;
   members?: Member[];
+  defaultMonth?: string;
   onOpenChange?: (open: boolean) => void;
   open?: boolean;
   transaction?: ReportTransaction | null;
@@ -97,7 +99,9 @@ export function TransactionSheet({
   const initialKind = transaction?.kind === "income" ? "income" : "expense";
   const isEditing = Boolean(transaction);
   const initialOccurredOn = transaction?.occurredOn ?? todayIso();
+  const calendarDefaultMonth = dateFromIso(`${(transaction ? initialOccurredOn : defaultMonth ?? initialOccurredOn.slice(0, 7)).slice(0, 7)}-01`);
   const initialSubcategoryId = transaction?.subcategoryId ?? "";
+  const [sheetContent, setSheetContent] = useState<HTMLDivElement | null>(null);
   const [kind, setKind] = useState<"income" | "expense">(initialKind);
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
     async (_state, formData) => (transaction ? updateTransaction(transaction.id, formData) : createTransaction(formData)),
@@ -126,6 +130,8 @@ export function TransactionSheet({
       to: dateFromIso(transaction?.servicePeriodEnd ?? transaction?.servicePeriodStart ?? initialOccurredOn),
     };
   });
+  const [billingPeriodStartOpen, setBillingPeriodStartOpen] = useState(false);
+  const [billingPeriodEndOpen, setBillingPeriodEndOpen] = useState(false);
   const billingPeriodError =
     state?.status === "error" ? (state.fieldErrors.servicePeriodStart ?? state.fieldErrors.servicePeriodEnd) : undefined;
   const selectedPaidBy =
@@ -145,6 +151,7 @@ export function TransactionSheet({
           </SheetTrigger>
         ) : null)}
       <SheetContent
+        ref={setSheetContent}
         side="right"
         className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg"
       >
@@ -173,6 +180,47 @@ export function TransactionSheet({
               />
               {state?.status === "error" ? <FieldError>{state.fieldErrors.amount}</FieldError> : null}
             </Field>
+            <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.subcategoryId)}>
+              <FieldLabel>Category</FieldLabel>
+              <PillSelect
+                ariaLabel="Categories"
+                grouped
+                popoverContainer={sheetContent}
+                value={selectedCategoryId ? `category:${selectedCategoryId}` : selectedSubcategoryId}
+                onValueChange={(value) => {
+                  const directCategoryId = value.startsWith("category:") ? value.slice("category:".length) : "";
+                  setCategoryId(directCategoryId);
+                  setSubcategoryId(directCategoryId ? "" : value);
+                  setBillingPeriod((current) =>
+                    selectableSubcategories.find((subcategory) => subcategory.id === value)?.categorySystemKey === "bills"
+                      ? (current ?? billingPeriodFor(occurredOn))
+                      : undefined,
+                  );
+                }}
+                disabled={selectableSubcategories.length + selectableCategories.length === 0}
+                emptyLabel="Uncategorized"
+                options={[
+                  ...(!isEditing || transaction?.source === "statement_import"
+                    ? [{ value: "", label: "Uncategorized", description: "Choose automatically when you save." }]
+                    : []),
+                  ...selectableSubcategories.map((subcategory) => ({
+                    value: subcategory.id,
+                    label: subcategory.name,
+                    section: { id: subcategory.categoryId, label: subcategory.categoryName },
+                    color: subcategory.color,
+                    icon: categoryIcon(subcategory.icon),
+                  })),
+                  ...selectableCategories.map((category) => ({
+                    value: `category:${category.id}`,
+                    label: "Other",
+                    section: { id: "direct-categories", label: "Other" },
+                    color: category.color,
+                    icon: categoryIcon(category.icon ?? "tag"),
+                  })),
+                ]}
+              />
+              {state?.status === "error" ? <FieldError>{state.fieldErrors.subcategoryId}</FieldError> : null}
+            </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.occurredOn)}>
               <FieldLabel id="transaction-date-label">Date</FieldLabel>
               <Popover>
@@ -193,6 +241,7 @@ export function TransactionSheet({
                 >
                   <Calendar
                     mode="single"
+                    defaultMonth={calendarDefaultMonth}
                     selected={dateFromIso(occurredOn)}
                     onSelect={(date) => date && setOccurredOn(isoFromDate(date))}
                     buttonVariant="ghost"
@@ -200,6 +249,108 @@ export function TransactionSheet({
                 </PopoverContent>
               </Popover>
               {state?.status === "error" ? <FieldError>{state.fieldErrors.occurredOn}</FieldError> : null}
+            </Field>
+            {isBillsSubcategory ? (
+              <Field data-invalid={Boolean(billingPeriodError)}>
+                <FieldLabel id="billing-period-label">Billing period</FieldLabel>
+                <FieldGroup className="grid grid-cols-2 gap-3">
+                  <Field>
+                    <FieldLabel id="billing-period-from-label" className="text-muted-foreground">
+                      From
+                    </FieldLabel>
+                    <Popover open={billingPeriodStartOpen} onOpenChange={setBillingPeriodStartOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-11 w-full justify-start rounded-xl bg-white/55"
+                          aria-label="Choose billing period start"
+                          aria-invalid={Boolean(billingPeriodError)}
+                        >
+                          {billingPeriod?.from ? displayDate.format(billingPeriod.from) : "Select date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        align="start"
+                        className="w-auto max-w-[calc(100vw-2rem)] rounded-2xl border-white/70 bg-card p-3 shadow-[0_20px_60px_rgba(15,44,55,0.18)]"
+                      >
+                        <Calendar
+                          id="billing-period-start-calendar"
+                          mode="single"
+                          defaultMonth={transaction ? billingPeriod?.from : calendarDefaultMonth}
+                          selected={billingPeriod?.from}
+                          onSelect={(from) => {
+                            if (!from) return;
+                            setBillingPeriod((current) => ({ from, to: current?.to && current.to >= from ? current.to : from }));
+                            setBillingPeriodStartOpen(false);
+                          }}
+                          buttonVariant="ghost"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </Field>
+                  <Field>
+                    <FieldLabel id="billing-period-to-label" className="text-muted-foreground">
+                      To
+                    </FieldLabel>
+                    <Popover open={billingPeriodEndOpen} onOpenChange={setBillingPeriodEndOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-11 w-full justify-start rounded-xl bg-white/55"
+                          aria-label="Choose billing period end"
+                          aria-invalid={Boolean(billingPeriodError)}
+                        >
+                          {billingPeriod?.to ? displayDate.format(billingPeriod.to) : "Select date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        align="end"
+                        className="w-auto max-w-[calc(100vw-2rem)] rounded-2xl border-white/70 bg-card p-3 shadow-[0_20px_60px_rgba(15,44,55,0.18)]"
+                      >
+                        <Calendar
+                          id="billing-period-end-calendar"
+                          mode="single"
+                          defaultMonth={transaction ? billingPeriod?.to : calendarDefaultMonth}
+                          selected={billingPeriod?.to}
+                          onSelect={(to) => {
+                            if (!to) return;
+                            setBillingPeriod((current) => ({ from: current?.from && current.from <= to ? current.from : to, to }));
+                            setBillingPeriodEndOpen(false);
+                          }}
+                          buttonVariant="ghost"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </Field>
+                </FieldGroup>
+                {billingPeriodError ? <FieldError>{billingPeriodError}</FieldError> : null}
+              </Field>
+            ) : null}
+            <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)}>
+              <FieldLabel htmlFor="merchant">Merchant</FieldLabel>
+              <Input
+                id="merchant"
+                name="merchant"
+                defaultValue={transaction?.merchant ?? undefined}
+                aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)}
+              />
+              {state?.status === "error" ? <FieldError>{state.fieldErrors.merchant}</FieldError> : null}
+            </Field>
+            <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.paidBy)}>
+              <FieldLabel>Paid by</FieldLabel>
+              <PillSelect
+                ariaLabel="Members"
+                value={selectedPaidBy || "unassigned"}
+                onValueChange={(value) => setPaidBy(value === "unassigned" ? "" : value)}
+                disabled={members.length === 0}
+                options={[
+                  { value: "unassigned", label: "Unassigned" },
+                  ...members.map((member) => ({ value: member.id, label: member.label, color: member.color })),
+                ]}
+              />
+              {state?.status === "error" ? <FieldError>{state.fieldErrors.paidBy}</FieldError> : null}
             </Field>
             <Field>
               <FieldLabel>Type</FieldLabel>
@@ -216,110 +367,6 @@ export function TransactionSheet({
                   { value: "expense", label: "Expense", className: "border-negative/20 bg-negative/10 text-negative" },
                 ]}
               />
-            </Field>
-            <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.paidBy)}>
-              <FieldLabel>Paid by</FieldLabel>
-              <PillSelect
-                ariaLabel="Members"
-                value={selectedPaidBy || "unassigned"}
-                onValueChange={(value) => setPaidBy(value === "unassigned" ? "" : value)}
-                disabled={members.length === 0}
-                options={[
-                  { value: "unassigned", label: "Unassigned" },
-                  ...members.map((member) => ({ value: member.id, label: member.label, color: member.color })),
-                ]}
-              />
-              {state?.status === "error" ? <FieldError>{state.fieldErrors.paidBy}</FieldError> : null}
-            </Field>
-            <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.subcategoryId)}>
-              <FieldLabel>Category</FieldLabel>
-              <PillSelect
-                ariaLabel="Categories"
-                value={selectedCategoryId ? `category:${selectedCategoryId}` : selectedSubcategoryId}
-                onValueChange={(value) => {
-                  const directCategoryId = value.startsWith("category:") ? value.slice("category:".length) : "";
-                  setCategoryId(directCategoryId);
-                  setSubcategoryId(directCategoryId ? "" : value);
-                  setBillingPeriod((current) =>
-                    selectableSubcategories.find((subcategory) => subcategory.id === value)?.categorySystemKey === "bills"
-                      ? (current ?? billingPeriodFor(occurredOn))
-                      : undefined,
-                  );
-                }}
-                disabled={selectableSubcategories.length + selectableCategories.length === 0}
-                emptyLabel={isEditing ? "Uncategorized" : "Automatic"}
-                options={[
-                  ...(!isEditing || transaction?.source === "statement_import"
-                    ? [{ value: "", label: isEditing ? "Uncategorized" : "Automatic" }]
-                    : []),
-                  ...selectableSubcategories.map((subcategory) => ({
-                    value: subcategory.id,
-                    label: `${subcategory.categoryName} → ${subcategory.name}`,
-                    color: subcategory.color,
-                    icon: categoryIcon(subcategory.icon),
-                  })),
-                  ...selectableCategories.map((category) => ({
-                    value: `category:${category.id}`,
-                    label: "Other",
-                    color: category.color,
-                    icon: categoryIcon(category.icon ?? "tag"),
-                  })),
-                ]}
-              />
-              {state?.status === "error" ? <FieldError>{state.fieldErrors.subcategoryId}</FieldError> : null}
-            </Field>
-            {isBillsSubcategory ? (
-              <Field data-invalid={Boolean(billingPeriodError)}>
-                <FieldLabel id="billing-period-label">Billing period</FieldLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-11 w-full justify-start rounded-xl bg-white/55"
-                      aria-label="Choose billing period"
-                      aria-describedby="billing-period-feedback"
-                      aria-invalid={Boolean(billingPeriodError)}
-                    >
-                      {billingPeriod?.from && billingPeriod.to
-                        ? `${displayDate.format(billingPeriod.from)} – ${displayDate.format(billingPeriod.to)}`
-                        : "Choose billing period"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    align="start"
-                    className="w-auto max-w-[calc(100vw-2rem)] rounded-2xl border-white/70 bg-card p-3 shadow-[0_20px_60px_rgba(15,44,55,0.18)]"
-                  >
-                    <FieldGroup className="grid grid-cols-2 gap-3">
-                      <Field>
-                        <FieldLabel htmlFor="billing-period-from">From</FieldLabel>
-                        <Input id="billing-period-from" value={billingPeriod?.from ? isoFromDate(billingPeriod.from) : ""} readOnly />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="billing-period-to">To</FieldLabel>
-                        <Input id="billing-period-to" value={billingPeriod?.to ? isoFromDate(billingPeriod.to) : ""} readOnly />
-                      </Field>
-                    </FieldGroup>
-                    <Calendar mode="range" selected={billingPeriod} onSelect={setBillingPeriod} buttonVariant="ghost" />
-                  </PopoverContent>
-                </Popover>
-                <FieldDescription id="billing-period-feedback" aria-live="polite">
-                  {billingPeriod?.from && billingPeriod.to
-                    ? `Inclusive range from ${isoFromDate(billingPeriod.from)} to ${isoFromDate(billingPeriod.to)}.`
-                    : "Choose an inclusive range."}
-                </FieldDescription>
-                {billingPeriodError ? <FieldError>{billingPeriodError}</FieldError> : null}
-              </Field>
-            ) : null}
-            <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)}>
-              <FieldLabel htmlFor="merchant">Merchant</FieldLabel>
-              <Input
-                id="merchant"
-                name="merchant"
-                defaultValue={transaction?.merchant ?? undefined}
-                aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)}
-              />
-              {state?.status === "error" ? <FieldError>{state.fieldErrors.merchant}</FieldError> : null}
             </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.note)}>
               <FieldLabel htmlFor="note">Note</FieldLabel>

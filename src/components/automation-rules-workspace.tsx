@@ -31,21 +31,31 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { WorkspaceShell } from "@/components/workspace-shell";
+import {
+  amountConditionOperatorOptions,
+  compatibilityPattern,
+  conditionLogicOptions,
+  decodeAutomationConditions,
+  describeConditionGroup,
+  groupFromLegacyPattern,
+  textConditionFieldOptions,
+  textConditionOperatorOptions,
+  type AutomationCondition,
+  type AutomationConditionAmountOperator,
+  type AutomationConditionField,
+  type AutomationConditionGroup,
+  type AutomationConditionLogic,
+  type AutomationConditionTextOperator,
+} from "@/lib/automation-conditions";
 import { categoryIcon } from "@/lib/category-icons";
 import type { AutomationDestination, MerchantAutomationPreview, MerchantAutomationRule } from "@/lib/merchant-automations";
-import {
-  decodeMerchantPattern,
-  describeMerchantPattern,
-  encodeMerchantPattern,
-  merchantMatchModeOptions,
-  type MerchantMatchMode,
-} from "@/lib/merchant-pattern";
+import { describeMerchantPattern } from "@/lib/merchant-pattern";
 import { cn } from "@/lib/utils";
 
 function ruleLabel(rule: MerchantAutomationRule) {
@@ -68,6 +78,10 @@ function ruleOutcome(rule: MerchantAutomationRule, destination: AutomationDestin
     : `Assign category “${destination?.label ?? "Missing destination"}”`;
 }
 
+function ruleConditionSummary(rule: MerchantAutomationRule) {
+  return rule.conditions ? describeConditionGroup(rule.conditions) : describeMerchantPattern(rule.pattern);
+}
+
 export function AutomationRuleForm({
   destinations,
   onSaved,
@@ -80,11 +94,15 @@ export function AutomationRuleForm({
   const formId = useId();
   const [action, setAction] = useState(rule?.action ?? "normalize_merchant");
   const [destination, setDestination] = useState(() => selectedDestination(rule));
-  const [enabled, setEnabled] = useState(rule?.enabled ?? true);
-  const decodedPattern = decodeMerchantPattern(rule?.pattern ?? "");
-  const [matchMode, setMatchMode] = useState<MerchantMatchMode>(decodedPattern.mode);
-  const [matchValue, setMatchValue] = useState(decodedPattern.value);
+  const initialConditions = rule
+    ? rule.conditions
+      ? decodeAutomationConditions(rule.conditions, rule.pattern)
+      : groupFromLegacyPattern(rule.pattern)
+    : { logic: "and" as const, conditions: [{ field: "merchant" as const, operator: "contains" as const, value: "" }] };
+  const [conditionLogic, setConditionLogic] = useState<AutomationConditionLogic>(initialConditions.logic);
+  const [conditions, setConditions] = useState<AutomationCondition[]>(initialConditions.conditions);
   const merchantTextRef = useRef<HTMLInputElement>(null);
+  const conditionInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const replacementRef = useRef<HTMLInputElement>(null);
   const destinationRef = useRef<HTMLButtonElement>(null);
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
@@ -100,11 +118,46 @@ export function AutomationRuleForm({
       onSaved?.();
     } else if (state?.status === "error") {
       toast.error(state.formError, { id: `automation-rule-${rule?.id ?? "new"}` });
-      if (state.fieldErrors.pattern) merchantTextRef.current?.focus();
+      if (state.fieldErrors.pattern || state.fieldErrors.conditions) (merchantTextRef.current ?? conditionInputRefs.current[0])?.focus();
       else if (state.fieldErrors.replacement) replacementRef.current?.focus();
       else if (state.fieldErrors.categoryId || state.fieldErrors.subcategoryId) destinationRef.current?.focus();
     }
   }, [onSaved, rule, state]);
+
+  const conditionGroup: AutomationConditionGroup = { logic: conditionLogic, conditions };
+  const firstCondition = conditions[0];
+  const firstMerchantCondition = firstCondition?.field === "merchant" ? firstCondition : undefined;
+  const legacyMatchMode = firstMerchantCondition?.operator ?? "contains";
+  const legacyMatchValue = firstMerchantCondition?.value ?? "__conditions__";
+  const updateOperator = (index: number, value: string) => {
+    setConditions((current) =>
+      current.map((condition, conditionIndex) => {
+        if (conditionIndex !== index) return condition;
+        return condition.field === "amount"
+          ? { ...condition, operator: value as AutomationConditionAmountOperator }
+          : { ...condition, operator: value as AutomationConditionTextOperator };
+      }),
+    );
+  };
+  const updateValue = (index: number, value: string | number) => {
+    setConditions((current) =>
+      current.map((condition, conditionIndex) => {
+        if (conditionIndex !== index) return condition;
+        return condition.field === "amount" ? { ...condition, value: Number(value) } : { ...condition, value: String(value) };
+      }),
+    );
+  };
+  const changeField = (index: number, field: AutomationConditionField) => {
+    const next: AutomationCondition =
+      field === "amount" ? { field, operator: "equals", value: 0 } : { field, operator: "contains", value: "" };
+    setConditions((current) => current.map((condition, conditionIndex) => (conditionIndex === index ? next : condition)));
+  };
+  const removeCondition = (index: number) => {
+    setConditions((current) => (current.length === 1 ? current : current.filter((_, conditionIndex) => conditionIndex !== index)));
+  };
+  const addCondition = () => {
+    setConditions((current) => [...current, { field: "merchant", operator: "contains", value: "" }]);
+  };
 
   return (
     <form action={formAction}>
@@ -112,9 +165,11 @@ export function AutomationRuleForm({
         <input name="action" type="hidden" value={action} />
         <input name="categoryId" type="hidden" value={destinationOption?.categoryId ?? ""} />
         <input name="subcategoryId" type="hidden" value={destinationOption?.subcategoryId ?? ""} />
-        <input name="enabled" type="hidden" value={String(enabled)} />
-        <input name="matchMode" type="hidden" value={matchMode} />
-        <input name="pattern" type="hidden" value={encodeMerchantPattern(matchMode, matchValue)} />
+        <input name="enabled" type="hidden" value={String(rule?.enabled ?? true)} />
+        <input name="conditions" type="hidden" value={JSON.stringify(conditionGroup)} />
+        <input name="matchMode" type="hidden" value={legacyMatchMode} />
+        <input name="matchValue" type="hidden" value={legacyMatchValue} />
+        <input name="pattern" type="hidden" value={compatibilityPattern(conditionGroup)} />
         <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.action)}>
           <FieldLabel htmlFor={`${formId}-action`}>Action</FieldLabel>
           <Select
@@ -144,44 +199,125 @@ export function AutomationRuleForm({
           </Select>
           {state?.status === "error" ? <FieldError>{state.fieldErrors.action}</FieldError> : null}
         </Field>
-        <Field>
-          <FieldLabel htmlFor={`${formId}-match-mode`}>Merchant match</FieldLabel>
-          <Select value={matchMode} onValueChange={(value) => setMatchMode(value as MerchantMatchMode)}>
-            <SelectTrigger id={`${formId}-match-mode`} className="h-11 w-full rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {merchantMatchModeOptions.map((option) => (
-                  <SelectItem key={option.value} className="min-h-11" value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-                {rule && decodedPattern.mode === "advanced" ? (
-                  <SelectItem className="min-h-11" value="advanced">
-                    Advanced pattern
-                  </SelectItem>
-                ) : null}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.pattern)}>
-          <FieldLabel htmlFor={`${formId}-match-value`}>Merchant text</FieldLabel>
-          <Input
-            ref={merchantTextRef}
-            id={`${formId}-match-value`}
-            name="matchValue"
-            value={matchValue}
-            onChange={(event) => setMatchValue(event.target.value)}
-            required
-            maxLength={200}
-            autoComplete="off"
-            className="min-h-11"
-            aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.pattern)}
-          />
-          {state?.status === "error" ? <FieldError>{state.fieldErrors.pattern}</FieldError> : null}
-        </Field>
+        <FieldSet>
+          <FieldLegend>Conditions</FieldLegend>
+          <FieldDescription>Choose what a transaction must match before this action runs.</FieldDescription>
+          <ToggleGroup
+            type="single"
+            value={conditionLogic}
+            onValueChange={(value) => value && setConditionLogic(value as AutomationConditionLogic)}
+            variant="outline"
+            size="lg"
+            aria-label="Condition logic"
+            className="w-full"
+          >
+            {conditionLogicOptions.map((option) => (
+              <ToggleGroupItem key={option.value} value={option.value} className="min-h-11 flex-1">
+                {option.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <FieldGroup>
+            {conditions.map((condition, index) => {
+              const isMerchant = condition.field === "merchant";
+              const isAmount = condition.field === "amount";
+              const inputId = `${formId}-condition-${index}`;
+              return (
+                <Field
+                  key={`${inputId}-${condition.field}`}
+                  data-invalid={state?.status === "error" && Boolean(state.fieldErrors.conditions)}
+                >
+                  <div className="flex items-end gap-2">
+                    <div className="min-w-0 flex-1">
+                      <FieldLabel htmlFor={`${inputId}-field`}>Condition {index + 1}</FieldLabel>
+                      <Select value={condition.field} onValueChange={(value) => changeField(index, value as AutomationConditionField)}>
+                        <SelectTrigger id={`${inputId}-field`} className="h-11 w-full rounded-xl">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            {textConditionFieldOptions.map((option) => (
+                              <SelectItem key={option.value} className="min-h-11" value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                            <SelectItem className="min-h-11" value="amount">
+                              Amount
+                            </SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-11 shrink-0"
+                      aria-label={`Remove condition ${index + 1}`}
+                      onClick={() => removeCondition(index)}
+                      disabled={conditions.length === 1}
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </Button>
+                  </div>
+                  <FieldLabel htmlFor={`${inputId}-operator`}>{index === 0 && isMerchant ? "Merchant match" : "Match operator"}</FieldLabel>
+                  <Select value={condition.operator} onValueChange={(value) => updateOperator(index, value)}>
+                    <SelectTrigger
+                      id={index === 0 && isMerchant ? `${formId}-match-mode` : `${inputId}-operator`}
+                      className="h-11 w-full rounded-xl"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {(isAmount ? amountConditionOperatorOptions : textConditionOperatorOptions).map((option) => (
+                          <SelectItem key={option.value} className="min-h-11" value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                        {rule && isMerchant && condition.operator === "advanced" ? (
+                          <SelectItem className="min-h-11" value="advanced">
+                            Advanced pattern
+                          </SelectItem>
+                        ) : null}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FieldLabel htmlFor={inputId}>
+                    {index === 0 && isMerchant ? "Merchant text" : isAmount ? "Amount value" : "Text value"}
+                  </FieldLabel>
+                  <Input
+                    ref={(element) => {
+                      conditionInputRefs.current[index] = element;
+                      if (index === 0 && isMerchant) merchantTextRef.current = element;
+                    }}
+                    id={inputId}
+                    name={index === 0 && isMerchant ? "matchValue" : `condition-${index}-value`}
+                    type={isAmount ? "number" : "text"}
+                    inputMode={isAmount ? "decimal" : undefined}
+                    min={isAmount ? 0 : undefined}
+                    step={isAmount ? "0.01" : undefined}
+                    value={String(condition.value)}
+                    onChange={(event) => updateValue(index, isAmount ? Number(event.target.value) : event.target.value)}
+                    required
+                    maxLength={isAmount ? undefined : condition.field === "merchant" ? 200 : 500}
+                    autoComplete="off"
+                    className="min-h-11"
+                    aria-label={`${condition.field === "merchant" ? "Merchant" : condition.field === "note" ? "Note" : "Amount"} value`}
+                    aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.conditions || state.fieldErrors.pattern)}
+                  />
+                  {state?.status === "error" && index === 0 ? (
+                    <FieldError>{state.fieldErrors.conditions ?? state.fieldErrors.pattern}</FieldError>
+                  ) : null}
+                </Field>
+              );
+            })}
+          </FieldGroup>
+          <Button type="button" variant="outline" className="min-h-11 w-full rounded-xl" onClick={addCondition}>
+            <Plus data-icon="inline-start" />
+            Add condition
+          </Button>
+        </FieldSet>
         {action === "normalize_merchant" ? (
           <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.replacement)}>
             <FieldLabel htmlFor={`${formId}-replacement`}>Replacement</FieldLabel>
@@ -222,19 +358,8 @@ export function AutomationRuleForm({
             </Field>
           </>
         )}
-        <Field orientation="horizontal">
-          <Checkbox
-            id={`${formId}-enabled`}
-            checked={enabled}
-            onCheckedChange={(checked) => setEnabled(checked === true)}
-            className="size-5 after:-inset-3"
-          />
-          <FieldLabel htmlFor={`${formId}-enabled`} className="font-normal">
-            Enabled
-          </FieldLabel>
-        </Field>
         {state?.status === "error" ? <FieldError aria-live="polite">{state.formError}</FieldError> : null}
-        <Button type="submit" disabled={isPending} className="min-h-11 rounded-xl">
+        <Button type="submit" disabled={isPending} className="min-h-11 w-full rounded-xl">
           {rule ? "Save rule" : "Add rule"}
         </Button>
       </FieldGroup>
@@ -305,7 +430,7 @@ function SortableRule({
       <div className="min-w-40 flex-1">
         <p className="font-medium">{label}</p>
         <p className="truncate text-sm text-muted-foreground">
-          {describeMerchantPattern(rule.pattern)} → {outcome}
+          {ruleConditionSummary(rule)} → {outcome}
         </p>
       </div>
       <Badge variant="secondary">{rule.replacement ?? destination?.label ?? "Missing destination"}</Badge>
@@ -331,7 +456,7 @@ function SortableRule({
           </SheetTrigger>
           <SheetContent
             side="right"
-            className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg"
+            className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto overscroll-contain border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg"
           >
             <SheetHeader className="p-6">
               <SheetTitle className="text-xl">Edit rule</SheetTitle>
@@ -471,7 +596,7 @@ export function AutomationRulesWorkspace({
           </SheetTrigger>
           <SheetContent
             side="right"
-            className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg"
+            className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto overscroll-contain border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg"
           >
             <SheetHeader className="p-6">
               <SheetTitle className="text-xl">Add rule</SheetTitle>
@@ -551,15 +676,15 @@ export function AutomationRulesWorkspace({
               {preview.conflicts.map((conflict) => {
                 const winner = orderedRules.find((rule) => rule.id === conflict.winnerId);
                 const shadowed = conflict.shadowedRuleIds
-                  .map((id) => orderedRules.find((rule) => rule.id === id)?.pattern)
-                  .filter((pattern): pattern is string => Boolean(pattern));
+                  .map((id) => orderedRules.find((rule) => rule.id === id))
+                  .filter((rule): rule is MerchantAutomationRule => Boolean(rule));
                 return (
                   <li
                     key={`${conflict.action}:${conflict.winnerId}:${conflict.shadowedRuleIds.join(",")}`}
                     className="text-sm text-muted-foreground"
                   >
-                    {winner ? describeMerchantPattern(winner.pattern) : "Higher-priority rule"} wins over{" "}
-                    {shadowed.map(describeMerchantPattern).join(", ") || "lower-priority rules"} for {conflict.transactionCount}{" "}
+                    {winner ? ruleConditionSummary(winner) : "Higher-priority rule"} wins over{" "}
+                    {shadowed.map(ruleConditionSummary).join(", ") || "lower-priority rules"} for {conflict.transactionCount}{" "}
                     {conflict.transactionCount === 1 ? "transaction" : "transactions"}.
                   </li>
                 );

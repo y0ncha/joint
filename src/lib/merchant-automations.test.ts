@@ -133,6 +133,34 @@ it("skips disabled rules and treats normalization replacements as literals", () 
   expect(result.appliedRuleIds).toEqual(["literal"]);
 });
 
+it("evaluates note and amount conditions with AND/OR semantics before selecting an action", () => {
+  const result = merchantAutomations.evaluateMerchantAutomations(
+    { merchant: "Fresh Market", note: "Weekly groceries", amount: 125, kind: "expense", categoryId: null, subcategoryId: null },
+    [
+      {
+        id: "condition-rule",
+        action: "assign_category",
+        pattern: "__conditions__",
+        conditions: {
+          logic: "and",
+          conditions: [
+            { field: "note", operator: "contains", value: "weekly" },
+            { field: "amount", operator: "less_than_or_equal", value: 125 },
+          ],
+        },
+        categoryId: null,
+        subcategoryId: "groceries-id",
+        destinationKind: "expense",
+        enabled: true,
+        position: 0,
+      },
+    ],
+  );
+
+  expect(result.subcategoryId).toBe("groceries-id");
+  expect(result.appliedRuleIds).toEqual(["condition-rule"]);
+});
+
 it("matches category rules against the original merchant before normalization", () => {
   const result = merchantAutomations.evaluateMerchantAutomations(
     { merchant: "Old Shop", kind: "expense", categoryId: null, subcategoryId: null },
@@ -332,6 +360,7 @@ it("reads the authenticated rules workspace with eligible destinations and a com
           id: "rule-id",
           action: "normalize_merchant",
           pattern: "shop",
+          conditions: null,
           replacement: "Shop",
           category_id: null,
           subcategory_id: null,
@@ -340,15 +369,17 @@ it("reads the authenticated rules workspace with eligible destinations and a com
         },
       ],
       fingerprint:
-        '{"changes":[{"id":"11111111-1111-4111-8111-111111111111","merchant":"Shop","category_id":null,"subcategory_id":null,"expected_updated_at":"2026-08-07T10:00:00Z","expected_merchant":"shop","expected_category_id":null,"expected_subcategory_id":null}],"ruleSet":[{"id":"rule-id","action":"normalize_merchant","pattern":"shop","replacement":"Shop","category_id":null,"subcategory_id":null,"enabled":true,"position":0}]}',
+        '{"changes":[{"id":"11111111-1111-4111-8111-111111111111","merchant":"Shop","category_id":null,"subcategory_id":null,"expected_updated_at":"2026-08-07T10:00:00Z","expected_merchant":"shop","expected_category_id":null,"expected_subcategory_id":null}],"ruleSet":[{"id":"rule-id","action":"normalize_merchant","pattern":"shop","conditions":null,"replacement":"Shop","category_id":null,"subcategory_id":null,"enabled":true,"position":0}]}',
     },
   });
   expect(rulesQuery.select).toHaveBeenCalledWith(
-    "id, action, pattern, replacement, category_id, subcategory_id, enabled, position, created_at",
+    "id, action, pattern, conditions, replacement, category_id, subcategory_id, enabled, position, created_at",
     { count: "exact" },
   );
   expect(rulesQuery.range).toHaveBeenCalledWith(0, 99);
-  expect(transactionsQuery.select).toHaveBeenCalledWith("id, merchant, kind, category_id, subcategory_id, updated_at", { count: "exact" });
+  expect(transactionsQuery.select).toHaveBeenCalledWith("id, merchant, kind, amount, note, category_id, subcategory_id, updated_at", {
+    count: "exact",
+  });
   expect(transactionsQuery.range).toHaveBeenCalledWith(0, 999);
 });
 
@@ -446,6 +477,7 @@ it("previews only changed transactions and groups same-action conflicts", () => 
       id: "normalize-first",
       action: "normalize_merchant",
       pattern: "shop",
+      conditions: null,
       replacement: "Shop",
       enabled: true,
       position: 0,
@@ -454,6 +486,7 @@ it("previews only changed transactions and groups same-action conflicts", () => 
       id: "normalize-shadowed",
       action: "normalize_merchant",
       pattern: "market",
+      conditions: null,
       replacement: "Market",
       enabled: true,
       position: 1,
@@ -462,6 +495,7 @@ it("previews only changed transactions and groups same-action conflicts", () => 
       id: "category",
       action: "assign_category",
       pattern: "shop",
+      conditions: null,
       categoryId: null,
       subcategoryId: "groceries-id",
       destinationKind: "expense",
@@ -517,6 +551,7 @@ it("previews only changed transactions and groups same-action conflicts", () => 
       id: "normalize-first",
       action: "normalize_merchant",
       pattern: "shop",
+      conditions: null,
       replacement: "Shop",
       category_id: null,
       subcategory_id: null,
@@ -527,6 +562,7 @@ it("previews only changed transactions and groups same-action conflicts", () => 
       id: "normalize-shadowed",
       action: "normalize_merchant",
       pattern: "market",
+      conditions: null,
       replacement: "Market",
       category_id: null,
       subcategory_id: null,
@@ -537,6 +573,7 @@ it("previews only changed transactions and groups same-action conflicts", () => 
       id: "category",
       action: "assign_category",
       pattern: "shop",
+      conditions: null,
       replacement: null,
       category_id: null,
       subcategory_id: "groceries-id",

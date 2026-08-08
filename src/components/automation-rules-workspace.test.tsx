@@ -95,6 +95,17 @@ function renderRuleForm({
     id: string;
     action: "normalize_merchant" | "assign_category";
     pattern: string;
+    conditions?: {
+      logic: "and" | "or";
+      conditions: Array<
+        | { field: "merchant" | "note"; operator: "contains" | "equals" | "starts_with" | "ends_with" | "advanced"; value: string }
+        | {
+            field: "amount";
+            operator: "equals" | "not_equals" | "greater_than" | "greater_than_or_equal" | "less_than" | "less_than_or_equal";
+            value: number;
+          }
+      >;
+    };
     replacement?: string | null;
     categoryId?: string | null;
     subcategoryId?: string | null;
@@ -229,6 +240,37 @@ it("renders a default literal merchant match builder with four 44px options", ()
   expect(markup).not.toContain('data-select-item="advanced"');
 });
 
+it("renders AND/OR condition controls for merchant, note, and numeric amount without an editor enable toggle", () => {
+  const markup = renderRuleForm({
+    rule: {
+      id: "condition-rule",
+      action: "assign_category",
+      pattern: "__conditions__",
+      conditions: {
+        logic: "or",
+        conditions: [
+          { field: "note", operator: "contains", value: "weekly" },
+          { field: "amount", operator: "greater_than_or_equal", value: 250 },
+        ],
+      },
+      categoryId: null,
+      subcategoryId: "cafe-id",
+      enabled: false,
+      position: 0,
+    },
+  });
+
+  expect(markup).toContain("Match all (AND)");
+  expect(markup).toContain("Match any (OR)");
+  expect(markup).toContain('data-select-item="merchant">Merchant');
+  expect(markup).toContain('data-select-item="note">Note');
+  expect(markup).toContain('data-select-item="amount">Amount');
+  expect(markup).toContain('type="number"');
+  expect(markup).toContain('name="conditions"');
+  expect(markup).toContain("Add condition");
+  expect(markup).not.toContain(">Enabled<");
+});
+
 it("decodes canonical edit state and exposes Advanced pattern only for a legacy rule", () => {
   const canonicalMarkup = renderRuleForm({
     rule: {
@@ -332,6 +374,7 @@ it("submits create and edit rule forms through the existing Server Actions", asy
   expect(createMarkup).toContain('name="categoryId"');
   expect(createMarkup).toContain('name="subcategoryId"');
   expect(createMarkup).toContain('name="enabled"');
+  expect(createMarkup).toMatch(/<button(?=[^>]*type="submit")(?=[^>]*w-full)[^>]*>Add rule<\/button>/);
   expect(createMarkup).toMatch(/<input(?=[^>]*name="matchValue")(?=[^>]*min-h-11)[^>]*>/);
   expect(createMarkup).toMatch(/<input(?=[^>]*name="replacement")(?=[^>]*min-h-11)[^>]*>/);
 

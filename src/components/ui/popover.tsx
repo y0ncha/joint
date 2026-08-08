@@ -5,6 +5,9 @@ import { Popover as PopoverPrimitive } from "radix-ui";
 
 import { cn } from "@/lib/utils";
 
+type PopoverContentProps = React.ComponentProps<typeof PopoverPrimitive.Content> &
+  Pick<React.ComponentProps<typeof PopoverPrimitive.Portal>, "container">;
+
 function Popover({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />;
 }
@@ -13,9 +16,9 @@ function PopoverTrigger({ ...props }: React.ComponentProps<typeof PopoverPrimiti
   return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />;
 }
 
-function PopoverContent({ className, align = "center", sideOffset = 4, ...props }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+function PopoverContent({ container, className, align = "center", sideOffset = 4, ...props }: PopoverContentProps) {
   return (
-    <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Portal container={container}>
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}

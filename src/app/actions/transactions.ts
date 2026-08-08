@@ -59,6 +59,8 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
     automated = evaluateMerchantAutomations(
       {
         merchant: parsed.data.merchant ?? "",
+        note: parsed.data.note,
+        amount: parsed.data.amount,
         kind: parsed.data.kind,
         categoryId: parsed.data.categoryId,
         subcategoryId: parsed.data.subcategoryId,

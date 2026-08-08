@@ -2,6 +2,7 @@ import { RE2JS } from "re2js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/database.types";
+import { decodeAutomationConditions, evaluateAutomationConditionGroup, type AutomationConditionGroup } from "@/lib/automation-conditions";
 import { getCurrentHouseholdContext } from "@/lib/household";
 
 export type AutomationAction = "normalize_merchant" | "assign_category";
@@ -11,6 +12,7 @@ export type MerchantAutomationRule = {
   id: string;
   action: AutomationAction;
   pattern: string;
+  conditions?: AutomationConditionGroup | null;
   replacement?: string | null;
   categoryId?: string | null;
   subcategoryId?: string | null;
@@ -22,6 +24,8 @@ export type MerchantAutomationRule = {
 
 export type AutomationInput = {
   merchant: string;
+  note?: string;
+  amount?: number;
   kind: TransactionKind;
   categoryId: string | null;
   subcategoryId: string | null;
@@ -54,6 +58,7 @@ export type AutomationRuleSnapshot = {
   id: string;
   action: AutomationAction;
   pattern: string;
+  conditions?: AutomationConditionGroup | null;
   replacement: string | null;
   category_id: string | null;
   subcategory_id: string | null;
@@ -81,6 +86,8 @@ type PreviewTransaction = {
   id: string;
   merchant: string;
   kind: TransactionKind;
+  amount?: number;
+  note?: string;
   categoryId: string | null;
   subcategoryId: string | null;
   updatedAt: string;
@@ -99,10 +106,17 @@ export function compileMerchantPattern(pattern: string) {
 export function evaluateMerchantAutomations(input: AutomationInput, rules: MerchantAutomationRule[]): MerchantAutomationResult {
   const merchant = input.merchant.trim();
   const matching = rules
-    .filter((rule) => rule.enabled && rule.pattern.trim())
+    .filter((rule) => rule.enabled && (rule.conditions?.conditions.length || rule.pattern.trim()))
     .slice()
     .sort(comparePersistedOrder)
-    .filter((rule) => compileMerchantPattern(rule.pattern).test(merchant));
+    .filter((rule) => {
+      if (!rule.conditions) return compileMerchantPattern(rule.pattern).test(merchant);
+      return evaluateAutomationConditionGroup(rule.conditions, {
+        merchant,
+        note: input.note ?? "",
+        amount: input.amount ?? 0,
+      });
+    });
   const normalizeRules = matching.filter((rule) => rule.action === "normalize_merchant");
   const categoryRules = matching.filter(
     (rule) => rule.action === "assign_category" && rule.destinationKind === input.kind && !input.categoryId && !input.subcategoryId,
@@ -137,6 +151,7 @@ function snapshotAutomationRules(rules: readonly MerchantAutomationRule[]): Auto
       id: rule.id,
       action: rule.action,
       pattern: rule.pattern,
+      conditions: rule.conditions ?? null,
       replacement: rule.replacement ?? null,
       category_id: rule.categoryId ?? null,
       subcategory_id: rule.subcategoryId ?? null,
@@ -217,6 +232,8 @@ async function readAllPreviewTransactions(
       id: string;
       merchant: string;
       kind: TransactionKind;
+      amount: number;
+      note: string;
       category_id: string | null;
       subcategory_id: string | null;
       updated_at: string;
@@ -241,6 +258,7 @@ function automationRuleFromRow(row: {
   id: string;
   action: string;
   pattern: string;
+  conditions?: unknown;
   replacement: string | null;
   category_id: string | null;
   subcategory_id: string | null;
@@ -249,7 +267,7 @@ function automationRuleFromRow(row: {
   created_at: string;
 }): MerchantAutomationRule {
   if (row.action !== "normalize_merchant" && row.action !== "assign_category") throw new Error("Unable to load automation rules.");
-  return {
+  const rule: MerchantAutomationRule = {
     id: row.id,
     action: row.action,
     pattern: row.pattern,
@@ -260,12 +278,13 @@ function automationRuleFromRow(row: {
     position: row.position,
     createdAt: row.created_at,
   };
+  return row.conditions == null ? rule : { ...rule, conditions: decodeAutomationConditions(row.conditions, row.pattern) };
 }
 
 export async function getMerchantAutomationRules(supabase: SupabaseClient<Database>, householdId: string) {
   const { data, error } = await supabase
     .from("automation_rules")
-    .select("id, action, pattern, replacement, category_id, subcategory_id, enabled, position, created_at")
+    .select("id, action, pattern, conditions, replacement, category_id, subcategory_id, enabled, position, created_at")
     .eq("household_id", householdId)
     .order("position")
     .order("created_at")
@@ -305,7 +324,9 @@ export async function getMerchantAutomationRulesPage(options: AutomationPage = {
   const [rulesResult, categoriesResult, subcategoriesResult, transactions] = await Promise.all([
     household.supabase
       .from("automation_rules")
-      .select("id, action, pattern, replacement, category_id, subcategory_id, enabled, position, created_at", { count: "exact" })
+      .select("id, action, pattern, conditions, replacement, category_id, subcategory_id, enabled, position, created_at", {
+        count: "exact",
+      })
       .eq("household_id", household.householdId)
       .order("position")
       .order("created_at")
@@ -327,7 +348,7 @@ export async function getMerchantAutomationRulesPage(options: AutomationPage = {
     readAllPreviewTransactions((pageFrom, pageTo) =>
       household.supabase
         .from("transactions")
-        .select("id, merchant, kind, category_id, subcategory_id, updated_at", { count: "exact" })
+        .select("id, merchant, kind, amount, note, category_id, subcategory_id, updated_at", { count: "exact" })
         .eq("household_id", household.householdId)
         .order("id")
         .range(pageFrom, pageTo),
@@ -393,6 +414,8 @@ export async function getMerchantAutomationRulesPage(options: AutomationPage = {
             id: transaction.id,
             merchant: transaction.merchant,
             kind: transaction.kind,
+            amount: transaction.amount,
+            note: transaction.note,
             categoryId: transaction.category_id,
             subcategoryId: transaction.subcategory_id,
             updatedAt: transaction.updated_at,
