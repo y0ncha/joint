@@ -3,8 +3,17 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  billingPeriodSelect: undefined as undefined | ((range: { from?: Date; to?: Date } | undefined) => void),
-  categoryOptions: [] as Array<{ color?: string; icon?: unknown; label: string; value: string }>,
+  billingPeriodEndSelect: undefined as undefined | ((date: Date | undefined) => void),
+  billingPeriodStartSelect: undefined as undefined | ((date: Date | undefined) => void),
+  calendarDefaultMonths: [] as Array<Date | undefined>,
+  categoryOptions: [] as Array<{
+    color?: string;
+    description?: string;
+    icon?: unknown;
+    label: string;
+    section?: { id: string; label: string };
+    value: string;
+  }>,
   categoryChange: undefined as undefined | ((value: string) => void),
   actionState: null as null | { status: "error"; formError: string; fieldErrors: Record<string, string> },
   createTransaction: vi.fn(),
@@ -34,6 +43,16 @@ vi.mock("react", async (importOriginal) => {
         },
       ];
     },
+    useReducer: (reducer: (state: unknown, action: unknown) => unknown, initialArg: unknown, initializer?: (value: unknown) => unknown) => {
+      const index = mocks.stateIndex++;
+      if (!(index in mocks.state)) mocks.state[index] = initializer ? initializer(initialArg) : initialArg;
+      return [
+        mocks.state[index],
+        (action: unknown) => {
+          mocks.state[index] = reducer(mocks.state[index], action);
+        },
+      ];
+    },
   };
 });
 
@@ -53,7 +72,14 @@ vi.mock("@/components/pill-select", () => ({
     ariaLabel: string;
     emptyLabel?: string;
     onValueChange?: (value: string) => void;
-    options: Array<{ color?: string; icon?: unknown; label: string; value: string }>;
+    options: Array<{
+      color?: string;
+      description?: string;
+      icon?: unknown;
+      label: string;
+      section?: { id: string; label: string };
+      value: string;
+    }>;
     value?: string;
   }) => {
     if (ariaLabel === "Type") mocks.kindChange = onValueChange;
@@ -66,13 +92,17 @@ vi.mock("@/components/pill-select", () => ({
 }));
 vi.mock("@/components/ui/calendar", () => ({
   Calendar: ({
-    mode,
+    defaultMonth,
+    id,
     onSelect,
   }: {
-    mode: "range" | "single";
+    defaultMonth?: Date;
+    id?: string;
     onSelect: (value: Date | { from?: Date; to?: Date } | undefined) => void;
   }) => {
-    if (mode === "range") mocks.billingPeriodSelect = onSelect as typeof mocks.billingPeriodSelect;
+    mocks.calendarDefaultMonths.push(defaultMonth);
+    if (id === "billing-period-start-calendar") mocks.billingPeriodStartSelect = onSelect as typeof mocks.billingPeriodStartSelect;
+    else if (id === "billing-period-end-calendar") mocks.billingPeriodEndSelect = onSelect as typeof mocks.billingPeriodEndSelect;
     else mocks.dateSelect = onSelect as typeof mocks.dateSelect;
     return <button type="button">Calendar</button>;
   },
@@ -136,6 +166,15 @@ function renderSheet() {
           icon: "utensils",
         },
         {
+          id: "electricity",
+          name: "Electricity",
+          categoryId: "bills",
+          categoryName: "Bills",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "zap",
+        },
+        {
           id: "salary",
           name: "Salary",
           categoryId: "income",
@@ -153,7 +192,9 @@ function renderSheet() {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date(2026, 6, 14, 12));
-  mocks.billingPeriodSelect = undefined;
+  mocks.billingPeriodEndSelect = undefined;
+  mocks.billingPeriodStartSelect = undefined;
+  mocks.calendarDefaultMonths = [];
   mocks.categoryOptions = [];
   mocks.categoryChange = undefined;
   mocks.actionState = null;
@@ -163,6 +204,57 @@ beforeEach(() => {
   mocks.kindChange = undefined;
   mocks.state = [];
   mocks.stateIndex = 0;
+});
+
+it("opens a new transaction calendar in the viewed ledger month", () => {
+  renderToStaticMarkup(<TransactionSheet defaultMonth="2026-03" members={[]} />);
+
+  expect(mocks.calendarDefaultMonths[0]?.toISOString()).toContain("2026-03-01");
+});
+
+it("opens a new billing period calendar in the viewed ledger month", () => {
+  const billsSubcategory = {
+    id: "electricity",
+    name: "Electricity",
+    categoryId: "bills",
+    categoryName: "Bills",
+    kind: "expense" as const,
+    color: "#d9f0fa",
+    icon: "zap",
+    categorySystemKey: "bills",
+  };
+  renderToStaticMarkup(<TransactionSheet defaultMonth="2026-03" subcategories={[billsSubcategory]} members={[]} />);
+  mocks.categoryChange?.("electricity");
+  mocks.stateIndex = 0;
+  renderToStaticMarkup(<TransactionSheet defaultMonth="2026-03" subcategories={[billsSubcategory]} members={[]} />);
+
+  expect(mocks.calendarDefaultMonths.at(-1)?.toISOString()).toContain("2026-03-01");
+});
+
+it("keeps separately selected billing dates in order", () => {
+  const billsSubcategory = {
+    id: "electricity",
+    name: "Electricity",
+    categoryId: "bills",
+    categoryName: "Bills",
+    kind: "expense" as const,
+    color: "#d9f0fa",
+    icon: "zap",
+    categorySystemKey: "bills",
+  };
+  renderToStaticMarkup(<TransactionSheet subcategories={[billsSubcategory]} members={[]} />);
+  mocks.categoryChange?.("electricity");
+  mocks.stateIndex = 0;
+  renderToStaticMarkup(<TransactionSheet subcategories={[billsSubcategory]} members={[]} />);
+  mocks.billingPeriodStartSelect?.(new Date(2026, 6, 20, 12));
+  mocks.stateIndex = 0;
+  renderToStaticMarkup(<TransactionSheet subcategories={[billsSubcategory]} members={[]} />);
+  mocks.billingPeriodEndSelect?.(new Date(2026, 6, 15, 12));
+  mocks.stateIndex = 0;
+  const markup = renderToStaticMarkup(<TransactionSheet subcategories={[billsSubcategory]} members={[]} />);
+
+  expect(markup).toContain('name="servicePeriodStart" value="2026-07-15"');
+  expect(markup).toContain('name="servicePeriodEnd" value="2026-07-15"');
 });
 
 afterEach(() => vi.useRealTimers());
@@ -215,20 +307,66 @@ it("renders the transaction composer with labelled core controls", () => {
   expect(markup).toContain("Expense");
   expect(markup).toContain("Paid by");
   expect(markup).toContain("Choose date");
-  expect(markup.indexOf("Amount")).toBeLessThan(markup.indexOf("transaction-date-label"));
-  expect(markup.indexOf("transaction-date-label")).toBeLessThan(markup.indexOf('aria-label="Type"'));
-  expect(markup.indexOf('aria-label="Type"')).toBeLessThan(markup.indexOf("Paid by"));
-  expect(markup.indexOf("Paid by")).toBeLessThan(markup.indexOf("Category"));
-  expect(markup.indexOf("Category")).toBeLessThan(markup.indexOf("Merchant"));
-  expect(markup.indexOf("Merchant")).toBeLessThan(markup.indexOf("Note"));
+  expect(markup.indexOf("Amount")).toBeLessThan(markup.indexOf("Category"));
+  expect(markup.indexOf("Category")).toBeLessThan(markup.indexOf("transaction-date-label"));
+  expect(markup.indexOf("transaction-date-label")).toBeLessThan(markup.indexOf("Merchant"));
+  expect(markup.indexOf("Merchant")).toBeLessThan(markup.indexOf("Paid by"));
+  expect(markup.indexOf("Paid by")).toBeLessThan(markup.indexOf('aria-label="Type"'));
+  expect(markup.indexOf('aria-label="Type"')).toBeLessThan(markup.indexOf("Note"));
 });
 
-it("starts new transactions on Automatic so merchant rules can assign the destination", () => {
+it("starts new transactions Uncategorized and groups categories by parent", () => {
   const markup = renderSheet();
 
   expect(markup).toContain('type="hidden" name="subcategoryId" value=""');
-  expect(markup).toContain('aria-label="Categories">Automatic</button>');
-  expect(mocks.categoryOptions[0]).toEqual({ value: "", label: "Automatic" });
+  expect(mocks.categoryOptions).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        value: "",
+        label: "Uncategorized",
+        description: "Choose automatically when you save.",
+      }),
+      expect.objectContaining({ label: "Electricity", section: { id: "bills", label: "Bills" } }),
+    ]),
+  );
+  expect(mocks.categoryOptions.filter((option) => option.description)).toEqual([
+    { value: "", label: "Uncategorized", description: "Choose automatically when you save." },
+  ]);
+  expect(markup).toContain('aria-label="Categories">Uncategorized</button>');
+});
+
+it("submits a direct Other category without a subcategory", () => {
+  const directCategories = [{ id: "other-expense", name: "Other", kind: "expense" as const, color: "#d5d5c4", systemKey: "other_expense" }];
+
+  renderToStaticMarkup(<TransactionSheet directCategories={directCategories} members={[]} />);
+  mocks.categoryChange?.("category:other-expense");
+  mocks.stateIndex = 0;
+  const markup = renderToStaticMarkup(<TransactionSheet directCategories={directCategories} members={[]} />);
+
+  expect(markup).toContain('type="hidden" name="categoryId" value="other-expense"');
+  expect(markup).toContain('type="hidden" name="subcategoryId" value=""');
+});
+
+it("does not restore a direct category after changing transaction type away and back", () => {
+  const directCategories = [
+    { id: "other-expense", name: "Other", kind: "expense" as const, color: "#d5d5c4", systemKey: "other_expense" },
+    { id: "other-income", name: "Other", kind: "income" as const, color: "#d5d5c4", systemKey: "other_income" },
+  ];
+
+  mocks.stateIndex = 0;
+  renderToStaticMarkup(<TransactionSheet directCategories={directCategories} members={[]} />);
+  mocks.categoryChange?.("category:other-expense");
+  mocks.kindChange?.("income");
+
+  mocks.stateIndex = 0;
+  renderToStaticMarkup(<TransactionSheet directCategories={directCategories} members={[]} />);
+  mocks.kindChange?.("expense");
+
+  mocks.stateIndex = 0;
+  const markup = renderToStaticMarkup(<TransactionSheet directCategories={directCategories} members={[]} />);
+
+  expect(markup).toContain('type="hidden" name="categoryId" value=""');
+  expect(markup).toContain('aria-label="Categories">Uncategorized</button>');
 });
 
 it("renders edit mode with saved transaction values and deletion inside the sheet", () => {
@@ -264,7 +402,7 @@ it("renders edit mode with saved transaction values and deletion inside the shee
   expect(markup).toContain("Edit transaction");
   expect(markup).toContain("Update or remove this shared ledger entry.");
   expect(markup).toContain('type="hidden" name="subcategoryId" value="groceries"');
-  expect(markup).toContain('aria-label="Categories">Food → Groceries');
+  expect(markup).toContain('aria-label="Categories">Groceries');
   expect(markup).toContain('name="amount" value="50"');
   expect(markup).toContain("<textarea");
   expect(markup).toMatch(/<textarea[^>]*bg-white\/55/);
@@ -313,7 +451,9 @@ it("keeps an imported transaction unassigned while allowing its category to be e
   expect(markup).toContain("Unassigned");
   expect(markup).toContain('type="hidden" name="subcategoryId" value=""');
   expect(markup).toContain('type="hidden" name="paidBy" value=""');
-  expect(mocks.categoryOptions).toContainEqual({ value: "", label: "Uncategorized" });
+  expect(mocks.categoryOptions).toContainEqual(
+    expect.objectContaining({ value: "", label: "Uncategorized", description: "Choose automatically when you save." }),
+  );
 });
 
 it("exposes only matching subcategories and clears the selection when the type changes", () => {
@@ -324,8 +464,14 @@ it("exposes only matching subcategories and clears the selection when the type c
 
   expect(markup).toContain('type="hidden" name="subcategoryId" value=""');
   expect(mocks.categoryOptions).toEqual([
-    { value: "", label: "Automatic" },
-    expect.objectContaining({ value: "salary", label: "Income → Salary", color: "#d9f0fa", icon: expect.anything() }),
+    { value: "", label: "Uncategorized", description: "Choose automatically when you save." },
+    expect.objectContaining({
+      value: "salary",
+      label: "Salary",
+      section: { id: "income", label: "Income" },
+      color: "#d9f0fa",
+      icon: expect.anything(),
+    }),
   ]);
 });
 
@@ -385,12 +531,12 @@ it("defaults the Billing period from the ledger date after Bills selection and i
 
   for (const markup of [createMarkup, editMarkup]) {
     expect(markup).toContain("Billing period");
-    expect(markup).toContain('aria-label="Choose billing period"');
+    expect(markup).toContain('aria-label="Choose billing period start"');
+    expect(markup).toContain('aria-label="Choose billing period end"');
   }
-  expect(createMarkup).toMatch(/id="billing-period-from"[^>]*value="2026-07-14"/);
-  expect(createMarkup).toMatch(/id="billing-period-to"[^>]*value="2026-07-14"/);
-  expect(editMarkup).toMatch(/id="billing-period-from"[^>]*value="2026-06-15"/);
-  expect(editMarkup).toMatch(/id="billing-period-to"[^>]*value="2026-07-14"/);
+  expect(createMarkup).toContain("14/07/2026");
+  expect(editMarkup).toContain("15/06/2026");
+  expect(editMarkup).toContain("14/07/2026");
   expect(editMarkup).toContain('type="hidden" name="servicePeriodStart" value="2026-06-15"');
   expect(editMarkup).toContain('type="hidden" name="servicePeriodEnd" value="2026-07-14"');
 });
@@ -431,8 +577,8 @@ it("initializes and clears the Billing period from the selected parent without c
   mocks.stateIndex = 0;
   const nonBillsMarkup = renderToStaticMarkup(<TransactionSheet subcategories={subcategories} members={[]} />);
 
-  expect(billsMarkup).toMatch(/id="billing-period-from"[^>]*value="2026-01-02"/);
-  expect(billsMarkup).toMatch(/id="billing-period-to"[^>]*value="2026-01-02"/);
+  expect(billsMarkup).toContain('type="hidden" name="servicePeriodStart" value="2026-01-02"');
+  expect(billsMarkup).toContain('type="hidden" name="servicePeriodEnd" value="2026-01-02"');
   expect(nonBillsMarkup).not.toContain("Billing period");
   expect(nonBillsMarkup).toContain('type="hidden" name="occurredOn" value="2026-01-02"');
   expect(nonBillsMarkup).toContain('type="hidden" name="servicePeriodStart" value=""');

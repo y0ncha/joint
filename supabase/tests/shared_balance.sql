@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(165);
+select extensions.plan(171);
 
 select extensions.is(
   (select count(*) from public.transactions),
@@ -1943,6 +1943,13 @@ select extensions.ok(
 
 select extensions.has_table('public', 'automation_rules', 'has household-owned automation rules');
 
+select extensions.has_column(
+  'public',
+  'automation_rules',
+  'conditions',
+  'automation rules expose structured conditions'
+);
+
 select extensions.ok(
   (
     select schema_table.relrowsecurity
@@ -1988,6 +1995,16 @@ select extensions.ok(
       and trigger_meta.tgfoid = 'private.protect_automation_rule_destinations()'::regprocedure
   ),
   'automation destinations are validated and cannot become Bills'
+);
+
+select extensions.ok(
+  exists (
+    select 1 from pg_catalog.pg_trigger as trigger_meta
+    where trigger_meta.tgrelid = 'public.automation_rules'::regclass
+      and trigger_meta.tgname = 'automation_rules_validate_conditions'
+      and trigger_meta.tgfoid = 'private.validate_automation_rule_conditions()'::regprocedure
+  ),
+  'automation conditions are validated by a private trigger'
 );
 
 select extensions.ok(
@@ -2068,6 +2085,76 @@ select extensions.lives_ok(
       ('00000000-0000-0000-0000-000000000410', 'normalize_merchant', '^second$', 'Second', 2)
   $$,
   'a household member can create ordered normalization rules'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.automation_rules (household_id, action, pattern, conditions, replacement, position)
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'normalize_merchant',
+      '__conditions__',
+      '{"logic":"or","conditions":[{"field":"note","operator":"contains","value":"weekly"},{"field":"amount","operator":"greater_than_or_equal","value":250}]}'::jsonb,
+      'Weekly purchase',
+      3
+    );
+    delete from public.automation_rules
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and pattern = '__conditions__';
+  $$,
+  'a household member can persist a validated note and amount condition group'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.automation_rules (household_id, action, pattern, conditions, replacement, position)
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'normalize_merchant',
+      '__conditions__',
+      '{"conditions":[{"field":"merchant","operator":"contains","value":"Cafe"},{"connector":"or","field":"amount","operator":"greater_than","value":100}]}'::jsonb,
+      'Cafe purchase',
+      3
+    );
+    delete from public.automation_rules
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and pattern = '__conditions__';
+  $$,
+  'a household member can persist independent condition connectors'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.automation_rules (household_id, action, pattern, conditions, replacement, position)
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'normalize_merchant',
+      '__conditions__',
+      '{"conditions":[{"connector":"and","field":"merchant","operator":"contains","value":"Cafe"}]}'::jsonb,
+      'Invalid first connector',
+      3
+    )
+  $$,
+  '%first automation condition cannot have a connector%',
+  'the first automation condition cannot have a connector'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.automation_rules (household_id, action, pattern, conditions, replacement, position)
+    values (
+      '00000000-0000-0000-0000-000000000410',
+      'normalize_merchant',
+      '__conditions__',
+      '{"logic":"and","conditions":[{"field":"note","operator":"advanced","value":"(weekly|monthly)"}]}'::jsonb,
+      'Recurring purchase',
+      3
+    );
+    delete from public.automation_rules
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and pattern = '__conditions__';
+  $$,
+  'advanced patterns are accepted for Note conditions'
 );
 
 select extensions.lives_ok(
@@ -2170,6 +2257,7 @@ select
         'id', rule.id,
         'action', rule.action,
         'pattern', rule.pattern,
+        'conditions', rule.conditions,
         'replacement', rule.replacement,
         'category_id', rule.category_id,
         'subcategory_id', rule.subcategory_id,
@@ -2224,6 +2312,7 @@ select
         'id', rule.id,
         'action', rule.action,
         'pattern', rule.pattern,
+        'conditions', rule.conditions,
         'replacement', rule.replacement,
         'category_id', rule.category_id,
         'subcategory_id', rule.subcategory_id,

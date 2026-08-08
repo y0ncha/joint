@@ -56,7 +56,29 @@ function formData(values: Record<string, string>) {
 }
 
 function normalizeRuleForm(overrides: Record<string, string> = {}) {
-  return formData({ action: "normalize_merchant", pattern: "shop", replacement: "Shop", enabled: "true", ...overrides });
+  return formData({
+    action: "normalize_merchant",
+    matchMode: "contains",
+    matchValue: "shop",
+    pattern: "shop",
+    replacement: "Shop",
+    enabled: "true",
+    ...overrides,
+  });
+}
+
+function deleteRuleForm(overrides: Record<string, string> = {}) {
+  return formData({
+    action: "delete_transaction",
+    matchMode: "contains",
+    matchValue: "duplicate",
+    pattern: "duplicate",
+    replacement: "",
+    categoryId: "",
+    subcategoryId: "",
+    enabled: "true",
+    ...overrides,
+  });
 }
 
 function configureActionClient({ lastPosition = 2, error = null }: { lastPosition?: number | null; error?: unknown } = {}) {
@@ -102,10 +124,93 @@ describe("merchant automation actions", () => {
     mocks.getMerchantAutomationRulesPage.mockResolvedValue({ count: 1, rules: [], destinations: [], preview: automationPreview });
   });
 
-  it("rejects an invalid RE2 pattern before inserting a rule", async () => {
+  it.each([
+    { matchMode: "contains", expectedPattern: "Aroma" },
+    { matchMode: "equals", expectedPattern: "^Aroma$" },
+    { matchMode: "starts_with", expectedPattern: "^Aroma" },
+    { matchMode: "ends_with", expectedPattern: "Aroma$" },
+  ])("persists a server-built $matchMode pattern instead of the submitted raw pattern", async ({ matchMode, expectedPattern }) => {
     configureActionClient();
 
-    await expect(actions.createAutomationRule(normalizeRuleForm({ pattern: "(" }))).resolves.toMatchObject({
+    await expect(
+      actions.createAutomationRule(
+        normalizeRuleForm({
+          matchMode,
+          matchValue: "  Aroma  ",
+          pattern: "(raw-pattern-injection",
+        }),
+      ),
+    ).resolves.toEqual({ status: "success" });
+    expect(mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pattern: expectedPattern,
+      }),
+    );
+  });
+
+  it("rejects an unsupported merchant match mode before inserting a rule", async () => {
+    configureActionClient();
+
+    await expect(actions.createAutomationRule(normalizeRuleForm({ matchMode: "regex" }))).resolves.toMatchObject({
+      status: "error",
+      fieldErrors: { matchMode: "Choose a valid merchant match mode." },
+    });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("creates a delete rule without a replacement or destination", async () => {
+    configureActionClient();
+
+    await expect(actions.createAutomationRule(deleteRuleForm())).resolves.toEqual({ status: "success" });
+    expect(mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "delete_transaction",
+        replacement: null,
+        category_id: null,
+        subcategory_id: null,
+      }),
+    );
+  });
+
+  it("rejects a server-built pattern longer than the database limit without truncating it", async () => {
+    configureActionClient();
+
+    await expect(
+      actions.createAutomationRule(normalizeRuleForm({ matchMode: "contains", matchValue: ".".repeat(101) })),
+    ).resolves.toMatchObject({
+      status: "error",
+      fieldErrors: { pattern: "Use 200 characters or fewer." },
+    });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("preserves a trimmed legacy advanced pattern when updating a rule", async () => {
+    configureActionClient();
+
+    await expect(
+      actions.updateAutomationRule(
+        "rule-id",
+        normalizeRuleForm({
+          matchMode: "advanced",
+          matchValue: "  (Aroma|Cafe)  ",
+          pattern: "raw-pattern-injection",
+          replacement: "Updated",
+        }),
+      ),
+    ).resolves.toEqual({ status: "success" });
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pattern: "(Aroma|Cafe)",
+      }),
+    );
+  });
+
+  it("rejects an invalid advanced RE2 pattern before inserting a rule", async () => {
+    configureActionClient();
+
+    await expect(
+      actions.createAutomationRule(normalizeRuleForm({ matchMode: "advanced", matchValue: "(", pattern: "valid-injection" })),
+    ).resolves.toMatchObject({
       status: "error",
       fieldErrors: { pattern: "Enter a valid RE2 pattern." },
     });
@@ -119,6 +224,8 @@ describe("merchant automation actions", () => {
       actions.createAutomationRule(
         formData({
           action: "assign_category",
+          matchMode: "contains",
+          matchValue: "shop",
           pattern: "shop",
           categoryId: "11111111-1111-4111-8111-111111111111",
           subcategoryId: "",
@@ -139,6 +246,114 @@ describe("merchant automation actions", () => {
       position: 5,
     });
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/automations");
+  });
+
+  it("persists an AND/OR condition group from trusted server-side parsing", async () => {
+    configureActionClient({ lastPosition: null });
+    const conditions = JSON.stringify({
+      logic: "or",
+      conditions: [
+        { field: "note", operator: "contains", value: "weekly" },
+        { field: "amount", operator: "greater_than_or_equal", value: 250 },
+      ],
+    });
+
+    await expect(
+      actions.createAutomationRule(
+        formData({
+          action: "assign_category",
+          conditions,
+          matchMode: "contains",
+          matchValue: "ignored",
+          pattern: "ignored",
+          categoryId: "11111111-1111-4111-8111-111111111111",
+          subcategoryId: "",
+          enabled: "true",
+        }),
+      ),
+    ).resolves.toEqual({ status: "success" });
+
+    expect(mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pattern: "__conditions__",
+        conditions: {
+          logic: "or",
+          conditions: [
+            { field: "note", operator: "contains", value: "weekly" },
+            { field: "amount", operator: "greater_than_or_equal", value: 250 },
+          ],
+        },
+      }),
+    );
+  });
+
+  it("persists independent connectors from trusted server-side parsing", async () => {
+    configureActionClient({ lastPosition: null });
+    const conditions = JSON.stringify({
+      conditions: [
+        { field: "merchant", operator: "contains", value: "Cafe" },
+        { connector: "or", field: "amount", operator: "greater_than", value: 100 },
+      ],
+    });
+
+    await expect(
+      actions.createAutomationRule(
+        formData({
+          action: "assign_category",
+          conditions,
+          matchMode: "contains",
+          matchValue: "ignored",
+          pattern: "ignored",
+          categoryId: "11111111-1111-4111-8111-111111111111",
+          subcategoryId: "",
+          enabled: "true",
+        }),
+      ),
+    ).resolves.toEqual({ status: "success" });
+
+    expect(mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pattern: "__conditions__",
+        conditions: {
+          conditions: [
+            { field: "merchant", operator: "contains", value: "Cafe" },
+            { connector: "or", field: "amount", operator: "greater_than", value: 100 },
+          ],
+        },
+      }),
+    );
+  });
+
+  it("persists a Note regex condition after server-side RE2 validation", async () => {
+    configureActionClient();
+    const conditions = JSON.stringify({
+      logic: "and",
+      conditions: [{ field: "note", operator: "advanced", value: "(weekly|monthly)" }],
+    });
+
+    await expect(actions.createAutomationRule(normalizeRuleForm({ conditions }))).resolves.toEqual({ status: "success" });
+    expect(mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conditions: {
+          logic: "and",
+          conditions: [{ field: "note", operator: "advanced", value: "(weekly|monthly)" }],
+        },
+      }),
+    );
+  });
+
+  it("rejects an invalid Note regex before inserting a rule", async () => {
+    configureActionClient();
+    const conditions = JSON.stringify({
+      logic: "and",
+      conditions: [{ field: "note", operator: "advanced", value: "(" }],
+    });
+
+    await expect(actions.createAutomationRule(normalizeRuleForm({ conditions }))).resolves.toMatchObject({
+      status: "error",
+      fieldErrors: { pattern: "Enter a valid RE2 pattern." },
+    });
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
 
   it("updates only the requested rule in the verified household", async () => {

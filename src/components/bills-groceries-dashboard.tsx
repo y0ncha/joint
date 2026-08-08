@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useRef, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from "recharts";
 import { ArrowLeft, ChevronDown, Maximize2, Settings2 } from "lucide-react";
 
@@ -17,15 +17,20 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { alignBillYearOverYear } from "@/lib/bills-groceries";
 import type { BillsGroceriesChartId } from "@/lib/bills-groceries-chart-ids";
+import {
+  billsGroceriesNavigationKind,
+  buildBillsGroceriesUrl,
+  parseBillsGroceriesPresentationState,
+  type BillsGroceriesUrlUpdates,
+  type GroceryPresentationFilter,
+} from "@/lib/bills-groceries-navigation";
 import { cn } from "@/lib/utils";
 import type { getBillsGroceriesData } from "@/lib/bills-groceries-data";
 
@@ -33,14 +38,13 @@ export { billsGroceriesChartIds, type BillsGroceriesChartId } from "@/lib/bills-
 
 type BillKey = string;
 type Period = "rolling" | "calendar";
-type GroceryFilter = "all" | "main-run" | "top-ups";
 type MonthlyChartDatum = { month: string } & Record<string, string | number>;
 type GroceryMonthlyDatum = { month: string; mainRun: number; topUps: number };
 
 export function groceryTransactionsForDate<Transaction extends { occurredOn: string; subcategoryKey: "main_run" | "top_ups" }>(
   transactions: Transaction[],
   date: string | null,
-  filter: GroceryFilter,
+  filter: GroceryPresentationFilter,
 ) {
   const subcategoryKey = filter === "main-run" ? "main_run" : filter === "top-ups" ? "top_ups" : null;
   return transactions.filter(
@@ -54,23 +58,17 @@ const currency = new Intl.NumberFormat("en-IL", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
+const monthName = new Intl.DateTimeFormat("en-IL", { month: "long", timeZone: "UTC" });
+
+function formatMonthName(month: string) {
+  return monthName.format(new Date(`${month}-01T00:00:00Z`));
+}
 
 const heatmapStrengths = [0, 25, 45, 70, 100] as const;
 const chartMargin = { top: 24, right: 8, bottom: 32, left: 8 };
-const billsChartColors = ["#6fafa8", "#829cd0", "#ae8fc2", "#d2a271", "#c98eaa", "#91a9b6", "#b4b975"] as const;
-
+const billsChartColors = ["#6fafa8", "#829cd0", "#ae8fc2", "#d2a271", "#c98eaa", "#91a9b6", "#b4b975", "#7aa9a3", "#b78b73"] as const;
 export function stackedBarRadius(stack: number[], segmentIndex: number) {
   return stack[segmentIndex] > 0 && stack.slice(segmentIndex + 1).every((value) => value === 0) ? ([3, 3, 0, 0] as const) : 0;
-}
-
-export function dashboardUrl(pathname: string, searchParams: URLSearchParams, updates: Record<string, string | null>) {
-  const params = new URLSearchParams(searchParams);
-  for (const [name, value] of Object.entries(updates)) {
-    if (value === null) params.delete(name);
-    else params.set(name, value);
-  }
-  const query = params.toString();
-  return query ? `${pathname}?${query}` : pathname;
 }
 
 function ExactTooltip({ labels }: { labels: Record<string, string> }) {
@@ -314,8 +312,6 @@ function BillsGroceriesCharts({
   initialBillId: string | null;
   initialPeriod: Period;
 }) {
-  const [selectedGroceryDate, setSelectedGroceryDate] = useState<string | null>(null);
-  const selectedGroceryDateButton = useRef<HTMLButtonElement | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -327,20 +323,14 @@ function BillsGroceriesCharts({
     label: bill.name,
     color: billsChartColors[index % billsChartColors.length],
   }));
-  const urlBillIds = searchParams.get("bills")?.split(",");
-  const selectedBills =
-    urlBillIds?.length && urlBillIds.every((id) => chartBills.some((bill) => bill.value === id))
-      ? [...new Set(urlBillIds)]
-      : initialBillIds;
-  const urlBillId = searchParams.get("bill");
-  const yearOverYearBill =
-    (urlBillId && chartBills.some((bill) => bill.value === urlBillId) ? urlBillId : null) ??
-    initialBillId ??
-    data.bills.defaultSubcategoryId ??
-    chartBills[0]?.value ??
-    "";
-  const groceryParam = searchParams.get("grocery");
-  const groceryFilter: GroceryFilter = groceryParam === "main-run" || groceryParam === "top-ups" ? groceryParam : "all";
+  const presentation = parseBillsGroceriesPresentationState(new URLSearchParams(searchParams), {
+    availableBillIds: chartBills.map((bill) => bill.value),
+    fallbackBillIds: initialBillIds,
+    fallbackBillId: initialBillId ?? data.bills.defaultSubcategoryId,
+  });
+  const selectedBills = presentation.billIds;
+  const yearOverYearBill = presentation.billId;
+  const groceryFilter = presentation.grocery;
   const billMonthlyData: MonthlyChartDatum[] = data.months.map((month) => ({
     month,
     ...Object.fromEntries(
@@ -360,11 +350,10 @@ function BillsGroceriesCharts({
   const mainRun = data.groceries.subcategories.mainRun;
   const topUps = data.groceries.subcategories.topUps;
   const groceryChartConfig = {
-    mainRun: { label: mainRun?.name ?? "Main run", color: mainRun?.color ?? "var(--chart-4)" },
-    topUps: { label: topUps?.name ?? "Top-ups", color: topUps?.color ?? "var(--chart-5)" },
+    mainRun: { label: mainRun?.name ?? "Main run", color: "var(--chart-1)" },
+    topUps: { label: topUps?.name ?? "Top-ups", color: "var(--chart-3)" },
     budget: { label: "Monthly budget", color: "var(--color-muted-foreground)" },
   } satisfies ChartConfig;
-  const groceryColor = data.groceries.category?.color ?? "var(--chart-4)";
   const groceryBudgetAgorot = data.groceries.monthly.budgetAgorot;
   const yearOverYearBillDetails = chartBills.find((bill) => bill.value === yearOverYearBill) ?? chartBills[0];
   const yearOverYearBillIndex = Math.max(
@@ -404,6 +393,10 @@ function BillsGroceriesCharts({
       total: groceryFilter === "main-run" ? day.mainRun : groceryFilter === "top-ups" ? day.topUps : day.total,
     }));
   const groceryMonth = searchParams.get("groceryMonth") ?? dailyData[0]?.date.slice(0, 7) ?? "";
+  const groceryYear = groceryMonth.slice(0, 4);
+  const groceryMonthNumber = groceryMonth.slice(5, 7);
+  const groceryYears = [...new Set(data.months.map((month) => month.slice(0, 4)))];
+  const groceryMonthsForYear = data.months.filter((month) => month.startsWith(`${groceryYear}-`));
   const dailyHeatmapOffset = dailyData.length ? new Date(`${dailyData[0].date}T12:00:00`).getDay() : 0;
   const dailyHeatmapCells: Array<(typeof dailyData)[number] | null> = [
     ...Array.from({ length: dailyHeatmapOffset }, () => null),
@@ -418,18 +411,15 @@ function BillsGroceriesCharts({
     [],
   );
   const dailyTableRows = dailyTableData.filter((day) => day.total > 0);
-  const selectedGroceryTransactions = groceryTransactionsForDate(data.groceries.transactions, selectedGroceryDate, groceryFilter);
 
-  function navigateWithData(updates: Record<string, string | null>) {
-    router.push(dashboardUrl(pathname, new URLSearchParams(searchParams), updates));
-  }
-
-  function updatePresentationUrl(updates: Record<string, string | null>) {
-    window.history.pushState(null, "", dashboardUrl(pathname, new URLSearchParams(searchParams), updates));
+  function navigate(updates: BillsGroceriesUrlUpdates) {
+    const url = buildBillsGroceriesUrl(pathname, new URLSearchParams(searchParams), updates);
+    if (billsGroceriesNavigationKind(updates) === "data") router.push(url);
+    else window.history.pushState(null, "", url);
   }
 
   function changePeriod(nextPeriod: Period) {
-    navigateWithData({ period: nextPeriod });
+    navigate({ period: nextPeriod });
   }
 
   function toggleBill(value: BillKey) {
@@ -438,7 +428,7 @@ function BillsGroceriesCharts({
       : selectedBills.length === 1
         ? selectedBills
         : selectedBills.filter((bill) => bill !== value);
-    updatePresentationUrl({ bills: next.join(",") });
+    navigate({ bills: next.join(",") });
   }
 
   const detailQuery = new URLSearchParams(searchParams).toString();
@@ -471,7 +461,7 @@ function BillsGroceriesCharts({
               <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
               <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value) => `₪${value}`} />
               <ExactTooltip labels={Object.fromEntries(chartBills.map((bill) => [bill.value, bill.label]))} />
-              <ChartLegend content={<ChartLegendContent />} />
+              <ChartLegend content={<ChartLegendContent className="grid w-full grid-cols-5 gap-x-3 gap-y-2" />} />
               {selectedBills.map((bill, index) => (
                 <Bar key={bill} dataKey={bill} stackId="bills" fill={chartBills.find((item) => item.value === bill)?.color}>
                   {billMonthlyData.map((month) => (
@@ -539,7 +529,7 @@ function BillsGroceriesCharts({
                 bills={chartBills}
                 selectedBills={[yearOverYearBill]}
                 toggleBill={(value) => {
-                  updatePresentationUrl({ bill: value });
+                  navigate({ bill: value });
                 }}
                 single
               />
@@ -694,141 +684,174 @@ function BillsGroceriesCharts({
                       <Settings2 aria-hidden="true" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent align="end" className="w-auto max-w-[calc(100vw-2rem)] p-3">
+                  <PopoverContent align="end" className="w-64 max-w-[calc(100vw-2rem)] p-3">
                     <PopoverHeader>
                       <PopoverTitle>Show spending</PopoverTitle>
                     </PopoverHeader>
-                    <Field className="mt-3">
-                      <FieldLabel htmlFor="groceries-month">Month</FieldLabel>
-                      <Input
-                        id="groceries-month"
-                        type="month"
-                        value={groceryMonth}
-                        onChange={(event) => navigateWithData({ groceryMonth: event.target.value || null })}
-                        aria-label="Select Groceries month"
-                        className="min-h-11 w-36"
-                      />
-                    </Field>
-                    <Select
-                      value={groceryFilter}
-                      onValueChange={(value: GroceryFilter) => {
-                        updatePresentationUrl({ grocery: value === "all" ? null : value });
-                      }}
-                    >
-                      <SelectTrigger aria-label="Show spending" className="min-h-11 w-36">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectItem value="all">All</SelectItem>
-                          <SelectItem value="main-run">Main run</SelectItem>
-                          <SelectItem value="top-ups">Top-ups</SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
+                    <FieldGroup className="mt-3 gap-3">
+                      <FieldGroup className="grid grid-cols-2 gap-2">
+                        <Field>
+                          <FieldLabel htmlFor="groceries-year">Year</FieldLabel>
+                          <Select
+                            value={groceryYear}
+                            onValueChange={(year) => {
+                              const month = `${year}-${groceryMonthNumber}`;
+                              navigate({
+                                groceryMonth: data.months.includes(month)
+                                  ? month
+                                  : (data.months.find((value) => value.startsWith(`${year}-`)) ?? groceryMonth),
+                              });
+                            }}
+                          >
+                            <SelectTrigger id="groceries-year" aria-label="Select Groceries year" className="min-h-11 w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                {groceryYears.map((year) => (
+                                  <SelectItem key={year} value={year}>
+                                    {year}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="groceries-month">Month</FieldLabel>
+                          <Select
+                            value={groceryMonthNumber}
+                            onValueChange={(month) => navigate({ groceryMonth: `${groceryYear}-${month}` })}
+                          >
+                            <SelectTrigger id="groceries-month" aria-label="Select Groceries month" className="min-h-11 w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                {groceryMonthsForYear.map((month) => (
+                                  <SelectItem key={month} value={month.slice(5, 7)}>
+                                    {formatMonthName(month)}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                        </Field>
+                      </FieldGroup>
+                      <Field>
+                        <FieldLabel htmlFor="groceries-spending">Show spending</FieldLabel>
+                        <Select
+                          value={groceryFilter}
+                          onValueChange={(value: GroceryPresentationFilter) => {
+                            navigate({ grocery: value === "all" ? null : value });
+                          }}
+                        >
+                          <SelectTrigger id="groceries-spending" aria-label="Show spending" className="min-h-11 w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectItem value="all">All</SelectItem>
+                              <SelectItem value="main-run">Main run</SelectItem>
+                              <SelectItem value="top-ups">Top-ups</SelectItem>
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    </FieldGroup>
                   </PopoverContent>
                 </Popover>
               }
             >
-              <Dialog open={selectedGroceryDate !== null} onOpenChange={(open) => !open && setSelectedGroceryDate(null)}>
-                <div
-                  className="mx-2 mt-1.5 flex w-auto flex-1 flex-col gap-8 pt-1 pr-3.5 pb-0.5 pl-3.5"
-                  role="grid"
-                  aria-label="Groceries by day heatmap"
-                >
-                  <div className="grid grid-cols-7 gap-1.5 text-center text-xs text-muted-foreground" role="row">
-                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                      <span key={day} role="columnheader">
-                        {day}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-7 gap-1.5" role="rowgroup">
-                    {dailyHeatmapWeeks.map((week, weekIndex) => (
-                      <div key={weekIndex} className="contents" role="row">
-                        {week.map((day, dayIndex) => {
-                          if (!day) return <span key={`empty-${dayIndex}`} aria-hidden="true" />;
-                          const level = day.total === 0 ? 0 : Math.min(4, Math.ceil((day.total / highestDailyTotal) * 4));
-                          return (
-                            <Button
-                              key={day.date}
-                              type="button"
-                              role="gridcell"
-                              title={`${day.date}: ${currency.format(day.total)}`}
-                              aria-label={`${day.date}: ${currency.format(day.total)}`}
-                              onClick={(event) => {
-                                selectedGroceryDateButton.current = event.currentTarget;
-                                setSelectedGroceryDate(day.date);
-                              }}
-                              variant="ghost"
-                              className={cn(
-                                "relative flex h-11 items-center justify-center rounded-md text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 hover:before:absolute hover:before:inset-0 hover:before:rounded-md hover:before:bg-foreground/5 sm:h-20 xl:h-auto xl:aspect-square",
-                                level === 0 && "bg-muted text-muted-foreground",
-                              )}
-                              style={
-                                level > 0
-                                  ? {
-                                      backgroundColor: `color-mix(in oklab, ${groceryColor} ${heatmapStrengths[level]}%, transparent)`,
-                                    }
-                                  : undefined
-                              }
-                            >
-                              <span className={cn("relative", level > 0 && "rounded-sm bg-background/85 px-1 text-foreground")}>
-                                {day.date.slice(8)}
-                              </span>
-                            </Button>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                  <div
-                    className="mt-auto flex items-center justify-center gap-2 text-xs text-muted-foreground"
-                    aria-label="Total daily spending heatmap legend"
-                  >
-                    <span>Lower</span>
-                    {heatmapStrengths.map((strength, index) => (
-                      <span
-                        key={index}
-                        aria-hidden="true"
-                        className={cn("size-3 rounded-sm", index === 0 && "bg-muted text-muted-foreground")}
-                        style={
-                          index > 0 ? { backgroundColor: `color-mix(in oklab, ${groceryColor} ${strength}%, transparent)` } : undefined
-                        }
-                      />
-                    ))}
-                    <span>Higher</span>
-                  </div>
+              <div
+                className="mx-2 mt-1.5 flex w-auto flex-1 flex-col gap-8 pt-1 pr-3.5 pb-0.5 pl-3.5"
+                role="grid"
+                aria-label="Groceries by day heatmap"
+              >
+                <div className="grid grid-cols-7 gap-1.5 text-center text-xs text-muted-foreground" role="row">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                    <span key={day} role="columnheader">
+                      {day}
+                    </span>
+                  ))}
                 </div>
-                <DialogContent
-                  onCloseAutoFocus={(event) => {
-                    event.preventDefault();
-                    selectedGroceryDateButton.current?.focus();
-                  }}
+                <div className="grid grid-cols-7 gap-1.5" role="rowgroup">
+                  {dailyHeatmapWeeks.map((week, weekIndex) => (
+                    <div key={weekIndex} className="contents" role="row">
+                      {week.map((day, dayIndex) => {
+                        if (!day) return <span key={`empty-${dayIndex}`} aria-hidden="true" />;
+                        const level = day.total === 0 ? 0 : Math.min(4, Math.ceil((day.total / highestDailyTotal) * 4));
+                        const transactions = groceryTransactionsForDate(data.groceries.transactions, day.date, groceryFilter);
+                        return (
+                          <Popover key={day.date}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                role="gridcell"
+                                title={`${day.date}: ${currency.format(day.total)}`}
+                                aria-label={`${day.date}: ${currency.format(day.total)}`}
+                                variant="ghost"
+                                className={cn(
+                                  "relative flex h-11 items-center justify-center rounded-md text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 hover:before:absolute hover:before:inset-0 hover:before:rounded-md hover:before:bg-foreground/5 sm:h-20 xl:h-auto xl:aspect-square",
+                                  level === 0 && "bg-muted text-muted-foreground",
+                                )}
+                                style={
+                                  level > 0
+                                    ? {
+                                        backgroundColor: `color-mix(in oklab, var(--chart-1) ${heatmapStrengths[level]}%, transparent)`,
+                                      }
+                                    : undefined
+                                }
+                              >
+                                <span className={cn("relative", level > 0 && "rounded-sm bg-chart-5 px-1 text-foreground")}>
+                                  {day.date.slice(8)}
+                                </span>
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent side="right" align="start" sideOffset={8} className="w-72 p-4">
+                              <PopoverHeader>
+                                <PopoverTitle>Groceries on {day.date}</PopoverTitle>
+                              </PopoverHeader>
+                              {transactions.length > 0 ? (
+                                <ul className="mt-3 flex flex-col gap-3">
+                                  {transactions.map((transaction) => (
+                                    <li key={transaction.id} className="flex items-start justify-between gap-4">
+                                      <div className="min-w-0">
+                                        <p className="truncate font-medium">{transaction.merchant || transaction.note || "Groceries"}</p>
+                                        {transaction.merchant && transaction.note ? (
+                                          <p className="truncate text-muted-foreground">{transaction.note}</p>
+                                        ) : null}
+                                      </div>
+                                      <span className="shrink-0 font-mono tabular-nums">{currency.format(transaction.amount)}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="mt-3 text-muted-foreground">No Groceries expenses recorded.</p>
+                              )}
+                            </PopoverContent>
+                          </Popover>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+                <div
+                  className="mt-auto flex items-center justify-center gap-2 text-xs text-muted-foreground"
+                  aria-label="Total daily spending heatmap legend"
                 >
-                  <DialogHeader>
-                    <DialogTitle>Groceries on {selectedGroceryDate}</DialogTitle>
-                    <DialogDescription>Only Groceries expenses are shown.</DialogDescription>
-                  </DialogHeader>
-                  {selectedGroceryTransactions.length > 0 ? (
-                    <ul className="flex flex-col gap-3">
-                      {selectedGroceryTransactions.map((transaction) => (
-                        <li key={transaction.id} className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <p className="truncate font-medium">{transaction.merchant || transaction.note || "Groceries"}</p>
-                            {transaction.merchant && transaction.note ? (
-                              <p className="truncate text-muted-foreground">{transaction.note}</p>
-                            ) : null}
-                          </div>
-                          <span className="shrink-0 font-mono tabular-nums">{currency.format(transaction.amount)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-muted-foreground">No Groceries expenses recorded.</p>
-                  )}
-                </DialogContent>
-              </Dialog>
+                  <span>Lower</span>
+                  {heatmapStrengths.map((strength, index) => (
+                    <span
+                      key={index}
+                      aria-hidden="true"
+                      className={cn("size-3 rounded-sm", index === 0 && "bg-muted text-muted-foreground")}
+                      style={index > 0 ? { backgroundColor: `color-mix(in oklab, var(--chart-1) ${strength}%, transparent)` } : undefined}
+                    />
+                  ))}
+                  <span>Higher</span>
+                </div>
+              </div>
               {detailChart === "daily" && dailyTableRows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No Groceries data yet.</p>
               ) : null}

@@ -86,6 +86,7 @@ export default async function TransactionsPage({
               (subcategory) => subcategory.archivedAt === null && subcategory.categoryArchivedAt === null,
             )}
             currentUserId={data.currentUserId}
+            defaultMonth={month}
             members={data.members}
           />
         </>

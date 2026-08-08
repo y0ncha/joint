@@ -2,15 +2,17 @@ import { RE2JS } from "re2js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/database.types";
+import { decodeAutomationConditions, evaluateAutomationConditionGroup, type AutomationConditionGroup } from "@/lib/automation-conditions";
 import { getCurrentHouseholdContext } from "@/lib/household";
 
-export type AutomationAction = "normalize_merchant" | "assign_category";
+export type AutomationAction = "normalize_merchant" | "assign_category" | "delete_transaction";
 export type TransactionKind = "income" | "expense";
 
 export type MerchantAutomationRule = {
   id: string;
   action: AutomationAction;
   pattern: string;
+  conditions?: AutomationConditionGroup | null;
   replacement?: string | null;
   categoryId?: string | null;
   subcategoryId?: string | null;
@@ -22,6 +24,8 @@ export type MerchantAutomationRule = {
 
 export type AutomationInput = {
   merchant: string;
+  note?: string;
+  amount?: number;
   kind: TransactionKind;
   categoryId: string | null;
   subcategoryId: string | null;
@@ -33,6 +37,7 @@ export type MerchantAutomationResult = {
   merchant: string;
   categoryId: string | null;
   subcategoryId: string | null;
+  deleteTransaction?: true;
   appliedRuleIds: string[];
   conflicts: AutomationConflict[];
 };
@@ -46,6 +51,7 @@ export type AutomationPreviewChange = {
   expected_merchant: string;
   expected_category_id: string | null;
   expected_subcategory_id: string | null;
+  delete_transaction?: true;
 };
 
 export type AutomationPreviewConflict = AutomationConflict & { transactionCount: number };
@@ -54,6 +60,7 @@ export type AutomationRuleSnapshot = {
   id: string;
   action: AutomationAction;
   pattern: string;
+  conditions?: AutomationConditionGroup | null;
   replacement: string | null;
   category_id: string | null;
   subcategory_id: string | null;
@@ -81,6 +88,8 @@ type PreviewTransaction = {
   id: string;
   merchant: string;
   kind: TransactionKind;
+  amount?: number;
+  note?: string;
   categoryId: string | null;
   subcategoryId: string | null;
   updatedAt: string;
@@ -99,15 +108,25 @@ export function compileMerchantPattern(pattern: string) {
 export function evaluateMerchantAutomations(input: AutomationInput, rules: MerchantAutomationRule[]): MerchantAutomationResult {
   const merchant = input.merchant.trim();
   const matching = rules
-    .filter((rule) => rule.enabled && rule.pattern.trim())
+    .filter((rule) => rule.enabled && (rule.conditions?.conditions.length || rule.pattern.trim()))
     .slice()
     .sort(comparePersistedOrder)
-    .filter((rule) => compileMerchantPattern(rule.pattern).test(merchant));
+    .filter((rule) => {
+      if (!rule.conditions) return compileMerchantPattern(rule.pattern).test(merchant);
+      return evaluateAutomationConditionGroup(rule.conditions, {
+        merchant,
+        note: input.note ?? "",
+        amount: input.amount ?? 0,
+      });
+    });
   const normalizeRules = matching.filter((rule) => rule.action === "normalize_merchant");
   const categoryRules = matching.filter(
     (rule) => rule.action === "assign_category" && rule.destinationKind === input.kind && !input.categoryId && !input.subcategoryId,
   );
-  const winnerByAction = [normalizeRules[0], categoryRules[0]].filter((rule): rule is MerchantAutomationRule => Boolean(rule));
+  const deleteRules = matching.filter((rule) => rule.action === "delete_transaction");
+  const winnerByAction = [normalizeRules[0], categoryRules[0], deleteRules[0]].filter((rule): rule is MerchantAutomationRule =>
+    Boolean(rule),
+  );
   const normalization = normalizeRules[0];
   const assignment = categoryRules[0];
   const conflicts: AutomationConflict[] = [];
@@ -119,11 +138,18 @@ export function evaluateMerchantAutomations(input: AutomationInput, rules: Merch
     });
   if (assignment && categoryRules.length > 1)
     conflicts.push({ action: "assign_category", winnerId: assignment.id, shadowedRuleIds: categoryRules.slice(1).map((rule) => rule.id) });
+  if (deleteRules[0] && deleteRules.length > 1)
+    conflicts.push({
+      action: "delete_transaction",
+      winnerId: deleteRules[0].id,
+      shadowedRuleIds: deleteRules.slice(1).map((rule) => rule.id),
+    });
 
   return {
     merchant: normalization?.replacement?.trim() || merchant,
     categoryId: assignment?.categoryId ?? input.categoryId,
     subcategoryId: assignment?.subcategoryId ?? input.subcategoryId,
+    ...(deleteRules[0] ? { deleteTransaction: true } : {}),
     appliedRuleIds: winnerByAction.map((rule) => rule.id),
     conflicts,
   };
@@ -137,6 +163,7 @@ function snapshotAutomationRules(rules: readonly MerchantAutomationRule[]): Auto
       id: rule.id,
       action: rule.action,
       pattern: rule.pattern,
+      conditions: rule.conditions ?? null,
       replacement: rule.replacement ?? null,
       category_id: rule.categoryId ?? null,
       subcategory_id: rule.subcategoryId ?? null,
@@ -157,6 +184,7 @@ export function fingerprintAutomationPreview(changes: readonly AutomationPreview
         expected_merchant: change.expected_merchant,
         expected_category_id: change.expected_category_id,
         expected_subcategory_id: change.expected_subcategory_id,
+        ...(change.delete_transaction ? { delete_transaction: true } : {}),
       }))
       .sort((left, right) => left.id.localeCompare(right.id)),
     ruleSet: ruleSet.slice().sort((left, right) => left.position - right.position || left.id.localeCompare(right.id)),
@@ -177,6 +205,7 @@ export function previewMerchantAutomations(
       conflicts.set(key, { ...conflict, transactionCount: (current?.transactionCount ?? 0) + 1 });
     }
     if (
+      !result.deleteTransaction &&
       result.merchant === transaction.merchant &&
       result.categoryId === transaction.categoryId &&
       result.subcategoryId === transaction.subcategoryId
@@ -193,6 +222,7 @@ export function previewMerchantAutomations(
         expected_merchant: transaction.merchant,
         expected_category_id: transaction.categoryId,
         expected_subcategory_id: transaction.subcategoryId,
+        ...(result.deleteTransaction ? { delete_transaction: true as const } : {}),
       },
     ];
   });
@@ -217,6 +247,8 @@ async function readAllPreviewTransactions(
       id: string;
       merchant: string;
       kind: TransactionKind;
+      amount: number;
+      note: string;
       category_id: string | null;
       subcategory_id: string | null;
       updated_at: string;
@@ -241,6 +273,7 @@ function automationRuleFromRow(row: {
   id: string;
   action: string;
   pattern: string;
+  conditions?: unknown;
   replacement: string | null;
   category_id: string | null;
   subcategory_id: string | null;
@@ -248,8 +281,10 @@ function automationRuleFromRow(row: {
   position: number;
   created_at: string;
 }): MerchantAutomationRule {
-  if (row.action !== "normalize_merchant" && row.action !== "assign_category") throw new Error("Unable to load automation rules.");
-  return {
+  if (row.action !== "normalize_merchant" && row.action !== "assign_category" && row.action !== "delete_transaction") {
+    throw new Error("Unable to load automation rules.");
+  }
+  const rule: MerchantAutomationRule = {
     id: row.id,
     action: row.action,
     pattern: row.pattern,
@@ -260,12 +295,13 @@ function automationRuleFromRow(row: {
     position: row.position,
     createdAt: row.created_at,
   };
+  return row.conditions == null ? rule : { ...rule, conditions: decodeAutomationConditions(row.conditions, row.pattern) };
 }
 
 export async function getMerchantAutomationRules(supabase: SupabaseClient<Database>, householdId: string) {
   const { data, error } = await supabase
     .from("automation_rules")
-    .select("id, action, pattern, replacement, category_id, subcategory_id, enabled, position, created_at")
+    .select("id, action, pattern, conditions, replacement, category_id, subcategory_id, enabled, position, created_at")
     .eq("household_id", householdId)
     .order("position")
     .order("created_at")
@@ -305,7 +341,9 @@ export async function getMerchantAutomationRulesPage(options: AutomationPage = {
   const [rulesResult, categoriesResult, subcategoriesResult, transactions] = await Promise.all([
     household.supabase
       .from("automation_rules")
-      .select("id, action, pattern, replacement, category_id, subcategory_id, enabled, position, created_at", { count: "exact" })
+      .select("id, action, pattern, conditions, replacement, category_id, subcategory_id, enabled, position, created_at", {
+        count: "exact",
+      })
       .eq("household_id", household.householdId)
       .order("position")
       .order("created_at")
@@ -327,7 +365,7 @@ export async function getMerchantAutomationRulesPage(options: AutomationPage = {
     readAllPreviewTransactions((pageFrom, pageTo) =>
       household.supabase
         .from("transactions")
-        .select("id, merchant, kind, category_id, subcategory_id, updated_at", { count: "exact" })
+        .select("id, merchant, kind, amount, note, category_id, subcategory_id, updated_at", { count: "exact" })
         .eq("household_id", household.householdId)
         .order("id")
         .range(pageFrom, pageTo),
@@ -393,6 +431,8 @@ export async function getMerchantAutomationRulesPage(options: AutomationPage = {
             id: transaction.id,
             merchant: transaction.merchant,
             kind: transaction.kind,
+            amount: transaction.amount,
+            note: transaction.note,
             categoryId: transaction.category_id,
             subcategoryId: transaction.subcategory_id,
             updatedAt: transaction.updated_at,
