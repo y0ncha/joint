@@ -410,6 +410,8 @@ it("renders edit mode with saved transaction values and deletion inside the shee
   expect(markup).toContain(">Saved note</textarea>");
   expect(markup).toContain("Save changes");
   expect(markup).toContain("Delete transaction");
+  expect(markup).toContain('aria-label="Delete transaction"');
+  expect(markup).toContain("lucide-trash-2");
   expect(markup).toContain("Delete this transaction?");
   expect(markup).toContain("This removes the entry from the shared household ledger.");
   expect(mocks.categoryOptions).not.toContainEqual({ value: "", label: "Uncategorized" });
@@ -531,6 +533,8 @@ it("defaults the Billing period from the ledger date after Bills selection and i
 
   for (const markup of [createMarkup, editMarkup]) {
     expect(markup).toContain("Billing period");
+    expect(markup).toContain('aria-label="Use current month"');
+    expect(markup).toContain("lucide-calendar-range");
     expect(markup).toContain('aria-label="Choose billing period start"');
     expect(markup).toContain('aria-label="Choose billing period end"');
   }

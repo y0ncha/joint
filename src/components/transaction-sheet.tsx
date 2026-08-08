@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useReducer, useState, type ReactNode } from "react";
-import { Plus } from "lucide-react";
+import { CalendarRange, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { createTransaction, deleteTransaction, updateTransaction } from "@/app/actions/transactions";
@@ -268,7 +268,7 @@ export function TransactionSheet({
             {isBillsSubcategory ? (
               <Field data-invalid={Boolean(billingPeriodError)}>
                 <FieldLabel id="billing-period-label">Billing period</FieldLabel>
-                <FieldGroup className="grid grid-cols-2 gap-3">
+                <FieldGroup className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-3">
                   <Field>
                     <FieldLabel id="billing-period-from-label" className="text-muted-foreground">
                       From
@@ -339,6 +339,17 @@ export function TransactionSheet({
                       </PopoverContent>
                     </Popover>
                   </Field>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="size-11 shrink-0 rounded-xl bg-white/55"
+                    aria-label="Use current month"
+                    title="Use current month"
+                    onClick={() => dispatchDraft({ type: "service_period_month_changed", month: todayIso().slice(0, 7) })}
+                  >
+                    <CalendarRange aria-hidden="true" />
+                  </Button>
                 </FieldGroup>
                 {billingPeriodError ? <FieldError>{billingPeriodError}</FieldError> : null}
               </Field>
@@ -399,11 +410,11 @@ export function TransactionSheet({
           </FieldGroup>
         </form>
         {transaction ? (
-          <div className="px-6 pb-6">
+          <div className="flex justify-end px-6 pb-6">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button type="button" variant="destructive" className="w-full rounded-xl">
-                  Delete transaction
+                <Button type="button" variant="ghost" size="icon" className="size-11 text-destructive" aria-label="Delete transaction">
+                  <Trash2 aria-hidden="true" />
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
