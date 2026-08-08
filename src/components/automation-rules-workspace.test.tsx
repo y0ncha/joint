@@ -373,7 +373,28 @@ it("moves stable row identities while preserving connector positions", () => {
   ]);
 });
 
-it("uses a gentle sortable transition when conditions settle into a new position", () => {});
+it("removes a condition while preserving connector positions", () => {
+  if (!workspaceModule?.removeConditionRow) {
+    throw new Error("removeConditionRow is unavailable.");
+  }
+
+  const previous = [
+    { id: "first", condition: { field: "merchant" as const, operator: "contains" as const, value: "first" } },
+    {
+      id: "second",
+      condition: { connector: "and" as const, field: "amount" as const, operator: "greater_than" as const, value: 100 },
+    },
+    {
+      id: "third",
+      condition: { connector: "or" as const, field: "note" as const, operator: "contains" as const, value: "weekly" },
+    },
+  ];
+
+  expect(workspaceModule.removeConditionRow(previous, 1)).toEqual([
+    { id: "first", condition: { field: "merchant", operator: "contains", value: "first", connector: undefined } },
+    { id: "third", condition: { field: "note", operator: "contains", value: "weekly", connector: "and" } },
+  ]);
+});
 
 it("updates only the value for the condition being edited", () => {
   const rule = {

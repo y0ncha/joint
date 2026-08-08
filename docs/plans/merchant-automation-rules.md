@@ -1,18 +1,18 @@
 ---
-goal: Add ordered merchant automation rules for normalization and category assignment
+goal: Add ordered merchant automation rules for normalization, category assignment, and preview-confirmed deletion
 version: 1.1
 date_created: 2026-08-07
 last_updated: 2026-08-08
 owner: Joint
-status: "In Progress"
+status: "Complete"
 tags: [feature, automation, transactions, imports, supabase]
 ---
 
 # Introduction
 
-![Status: In Progress](https://img.shields.io/badge/status-In_Progress-yellow)
+![Status: Complete](https://img.shields.io/badge/status-Complete-brightgreen)
 
-Implement household-owned, ordered merchant rules. Each atomic rule either normalizes a merchant or assigns a transaction destination. Rules affect new manual and statement-import transactions; existing transactions require preview and explicit confirmation. Replace the raw regular-expression field with a literal match builder while retaining the existing persisted pattern contract. The follow-up condition-builder phase adds a persisted AND/OR group across merchant, note, and amount fields.
+Implement household-owned, ordered merchant rules. Each atomic rule normalizes a merchant, assigns a transaction destination, or marks existing transactions for deletion after preview and explicit confirmation. Normalization and assignment affect new manual and statement-import transactions; delete rules are ignored during intake. Replace the raw regular-expression field with a literal match builder while retaining the existing persisted pattern contract. The follow-up condition-builder phase adds a persisted AND/OR group across merchant, note, and amount fields.
 
 ## 1. Requirements & Constraints
 
@@ -151,7 +151,7 @@ TASK-015's originally unrecorded completion is supported by the later, broader P
 
 - **ALT-001**: A sequential pipeline was rejected because normalization would silently change later rule matches.
 - **ALT-002**: Database-trigger matching was rejected because it would diverge from UI preview semantics.
-- **ALT-003**: Generic JSON automations were rejected because only two concrete actions are approved.
+- **ALT-003**: Generic JSON automations were rejected because only three concrete actions are approved.
 - **ALT-004**: Persisting separate match-mode and match-value columns was rejected because the existing RE2 pattern stores all four semantics and a migration would add no execution capability.
 - **ALT-005**: Converting literal input to a pattern only in the client was rejected because Server Actions must validate and canonicalize untrusted form input.
 - **ALT-006**: Removing support for existing arbitrary RE2 patterns was rejected because editing a stored rule must not silently change its matching behavior.
@@ -181,7 +181,7 @@ TASK-015's originally unrecorded completion is supported by the later, broader P
 - **TEST-002**: Action and database tests cover RLS, payload/destination validation, reordering, stale preview rejection, and atomic bulk application.
 - **TEST-003**: Transaction/import tests cover explicit destination precedence, automatic blank resolution, normalization, and import idempotency.
 - **TEST-004**: Browser checks cover rule management, pointer and keyboard sorting, real forms, preview/confirmation, manual entry, and import.
-- **TEST-005**: The final-review wave has local evidence from 381 passing Vitest tests, 165 passing pgTAP assertions in a disposable unlinked Postgres instance, clean ESLint, Prettier, TypeScript, and public/private schema lint. Linked history, dry-run, application, type generation, advisors, and hosted browser proof remain blocked because this isolated worktree has no `supabase/.temp/project-ref`; no linked command was run.
+- **TEST-005**: Final local and hosted evidence is recorded in `docs/plans/current-branch-review-remediation.md` TASK-022 through TASK-026, including joint-dev migration history/catalog/advisor/type checks, hosted pgTAP, authenticated browser proof, full Vitest, ESLint, TypeScript, Prettier, and public/private schema lint. A disposable local database replay remains blocked by the pre-existing `20260716095300_revoke_rls_auto_enable_execute` migration; no applied migration was modified.
 - **TEST-006**: Focused helper tests prove exact canonical patterns for all four modes and lossless fallback for every existing pattern that is not a quoted literal with optional builder anchors.
 - **TEST-007**: Focused Server Action tests prove submitted raw `pattern` fields are ignored, unsupported modes fail validation, and only server-built RE2 patterns reach insert or update calls.
 - **TEST-008**: Component tests prove add and edit Sheets expose the correct operator/value state, including `Matches regex` for Merchant and Note, and friendly summaries replace raw canonical patterns.

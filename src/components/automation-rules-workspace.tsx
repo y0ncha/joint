@@ -120,6 +120,15 @@ export function applyReorderedConditionRows(
   return reordered.map((row, index) => ({ ...row, condition: conditions[index]! }));
 }
 
+export function removeConditionRow(previous: AutomationConditionRow[], index: number): AutomationConditionRow[] {
+  return previous.length === 1
+    ? previous
+    : applyReorderedConditionRows(
+        previous,
+        previous.filter((_, rowIndex) => rowIndex !== index),
+      );
+}
+
 export function AutomationRuleForm({
   destinations,
   onSaved,
@@ -212,17 +221,7 @@ export function AutomationRuleForm({
     setConditionRows((current) => current.map((row, conditionIndex) => (conditionIndex === index ? { ...row, condition: next } : row)));
   };
   const removeCondition = (index: number) => {
-    setConditionRows((current) =>
-      current.length === 1
-        ? current
-        : current
-            .filter((_, conditionIndex) => conditionIndex !== index)
-            .map((row, conditionIndex) =>
-              conditionIndex === 0
-                ? { ...row, condition: { ...row.condition, connector: undefined } }
-                : { ...row, condition: { ...row.condition, connector: row.condition.connector ?? "and" } },
-            ),
-    );
+    setConditionRows((current) => removeConditionRow(current, index));
   };
   const addCondition = () => {
     setConditionRows((current) => [
