@@ -40,6 +40,10 @@ The implementation source of truth is `src/app/globals.css`. Use semantic CSS to
 
 Color must reinforce meaning rather than carry it alone. Text, values, labels, or icons must communicate the same meaning without color.
 
+### Analytics chart colors
+
+Bills & Groceries uses stable presentation colors that do not follow a browser accent or saved category color. Bills uses the color-blind-safe Paul Tol muted nine-color qualitative set; Year-over-year uses one blue with reduced opacity for the previous period; Groceries uses green for Main run, blue for Top-ups, and green intensity for its daily heatmap. Saved category colors remain for category UI, such as pills and pickers.
+
 ### Personal accent color
 
 Each browser selects its accent from the fixed `react-color` CirclePicker preset palette. The preference is stored locally as `joint-accent`; it is not shared household data. The selected accent may change primary actions, neutral emphasis, chart steps, focus rings, and active navigation. It must not change positive, negative, expense, or destructive meaning. Accent selection does not offer a custom hex input.

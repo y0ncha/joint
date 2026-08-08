@@ -365,16 +365,15 @@ it("renders Groceries by day as a total-spend heatmap", () => {
   expect(markup).not.toContain("Stacked daily groceries chart");
 });
 
-it("renders saved Groceries colors, missing-data guidance, and exact daily values", () => {
+it("renders the analytics palette, missing-data guidance, and exact daily values", () => {
   const markup = renderToStaticMarkup(
     <BillsGroceriesDashboard data={liveData as never} billIds={["rent"]} billId="rent" period="rolling" />,
   );
 
-  expect(markup).toContain("--color-mainRun: #234567");
-  expect(markup).toContain("--color-topUps: #345678");
-  expect(markup).toContain("color-mix(in oklab, #654321 100%, transparent)");
-  expect(markup).toContain("#8cbfba");
-  expect(markup).toContain("#9bb2d6");
+  expect(markup).toContain("--color-mainRun: var(--analytics-groceries-main-run)");
+  expect(markup).toContain("--color-topUps: var(--analytics-groceries-top-ups)");
+  expect(markup).toContain("color-mix(in oklab, var(--analytics-groceries-heatmap) 100%, transparent)");
+  expect(markup).toContain("var(--analytics-bill-1)");
   expect(markup).toContain("No previous-year data");
   expect(markup).toContain("Set a monthly groceries budget in Settings.");
   expect(markup).toContain("2026-07-01: ₪0.00");
@@ -392,12 +391,22 @@ it("uses nine distinct presentation colors and a two-row legend for Bills series
 
   const markup = renderToStaticMarkup(<BillsGroceriesDashboard data={data} billIds={["bill-0"]} billId="bill-0" period="rolling" />);
 
-  for (const color of ["#8cbfba", "#9bb2d6", "#bba5ce", "#d8b58d", "#d3a5b9", "#a5b7c0", "#c1c78e", "#96bdb6", "#c7a697"]) {
+  for (const color of [
+    "var(--analytics-bill-1)",
+    "var(--analytics-bill-2)",
+    "var(--analytics-bill-3)",
+    "var(--analytics-bill-4)",
+    "var(--analytics-bill-5)",
+    "var(--analytics-bill-6)",
+    "var(--analytics-bill-7)",
+    "var(--analytics-bill-8)",
+    "var(--analytics-bill-9)",
+  ]) {
     expect(markup).toContain(color);
   }
 });
 
-it("uses the Groceries category palette with white active-day labels and light idle cells", () => {
+it("uses the Groceries analytics heatmap palette with white active-day labels and light idle cells", () => {
   const markup = renderToStaticMarkup(
     <BillsGroceriesDashboard
       data={
@@ -415,7 +424,7 @@ it("uses the Groceries category palette with white active-day labels and light i
     />,
   );
 
-  expect(markup).toContain("color-mix(in oklab, #ccebef 100%, transparent)");
+  expect(markup).toContain("color-mix(in oklab, var(--analytics-groceries-heatmap) 100%, transparent)");
   expect(markup).toContain("text-white");
   expect(markup).toContain("bg-card text-muted-foreground");
 });
