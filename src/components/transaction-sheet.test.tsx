@@ -337,6 +337,28 @@ it("submits a direct Other category without a subcategory", () => {
   expect(markup).toContain('type="hidden" name="subcategoryId" value=""');
 });
 
+it("does not restore a direct category after changing transaction type away and back", () => {
+  const directCategories = [
+    { id: "other-expense", name: "Other", kind: "expense" as const, color: "#d5d5c4", systemKey: "other_expense" },
+    { id: "other-income", name: "Other", kind: "income" as const, color: "#d5d5c4", systemKey: "other_income" },
+  ];
+
+  mocks.stateIndex = 0;
+  renderToStaticMarkup(<TransactionSheet directCategories={directCategories} members={[]} />);
+  mocks.categoryChange?.("category:other-expense");
+  mocks.kindChange?.("income");
+
+  mocks.stateIndex = 0;
+  renderToStaticMarkup(<TransactionSheet directCategories={directCategories} members={[]} />);
+  mocks.kindChange?.("expense");
+
+  mocks.stateIndex = 0;
+  const markup = renderToStaticMarkup(<TransactionSheet directCategories={directCategories} members={[]} />);
+
+  expect(markup).toContain('type="hidden" name="categoryId" value=""');
+  expect(markup).toContain('aria-label="Categories">Uncategorized</button>');
+});
+
 it("renders edit mode with saved transaction values and deletion inside the sheet", () => {
   const markup = renderToStaticMarkup(
     <TransactionSheet

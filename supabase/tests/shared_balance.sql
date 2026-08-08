@@ -2123,7 +2123,7 @@ select extensions.lives_ok(
   'a household member can persist independent condition connectors'
 );
 
-select extensions.throws_like(
+select extensions.lives_ok(
   $$
     insert into public.automation_rules (household_id, action, pattern, conditions, replacement, position)
     values (
@@ -2147,12 +2147,14 @@ select extensions.throws_like(
       'normalize_merchant',
       '__conditions__',
       '{"logic":"and","conditions":[{"field":"note","operator":"advanced","value":"(weekly|monthly)"}]}'::jsonb,
-      'Invalid note rule',
+      'Recurring purchase',
       3
-    )
+    );
+    delete from public.automation_rules
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and pattern = '__conditions__';
   $$,
-  '%Automation text condition is invalid%',
-  'advanced patterns are limited to legacy merchant conditions'
+  'advanced patterns are accepted for Note conditions'
 );
 
 select extensions.lives_ok(

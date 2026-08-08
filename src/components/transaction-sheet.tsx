@@ -361,6 +361,7 @@ export function TransactionSheet({
                 value={kind}
                 onValueChange={(value) => {
                   setKind(value as typeof kind);
+                  setCategoryId("");
                   setSubcategoryId("");
                   setBillingPeriod(undefined);
                 }}

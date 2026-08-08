@@ -114,9 +114,15 @@ export type AutomationConditionRow = {
   condition: AutomationCondition;
 };
 
-export function applyReorderedConditionRows(reordered: AutomationConditionRow[]): AutomationConditionRow[] {
-  const conditions = normalizeConditionConnectors(reordered.map((row) => row.condition));
-  return reordered.map((row, index) => ({ ...row, condition: conditions[index]! }));
+export function applyReorderedConditionRows(
+  previous: AutomationConditionRow[],
+  reordered: AutomationConditionRow[],
+): AutomationConditionRow[] {
+  const connectors = previous.slice(1).map((row) => row.condition.connector ?? "and");
+  return reordered.map((row, index) => ({
+    ...row,
+    condition: index === 0 ? { ...row.condition, connector: undefined } : { ...row.condition, connector: connectors[index - 1] ?? "and" },
+  }));
 }
 
 export function AutomationRuleForm({
@@ -283,7 +289,7 @@ export function AutomationRuleForm({
           <FieldGroup className="gap-3">
             <DragDropProvider
               onDragEnd={(event) => {
-                setConditionRows((current) => applyReorderedConditionRows(move(current, event)));
+                setConditionRows((current) => applyReorderedConditionRows(current, move(current, event)));
               }}
             >
               {conditionRows.map(({ condition, id }, index) => {

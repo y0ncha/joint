@@ -356,22 +356,38 @@ it("keeps operators with their conditions and normalizes a new first condition",
   ]);
 });
 
-it("moves stable row identities with their condition and normalizes the first row", () => {
+it("moves stable row identities while preserving connector positions", () => {
   if (!workspaceModule?.applyReorderedConditionRows) {
     throw new Error("applyReorderedConditionRows is unavailable.");
   }
 
-  const reordered = workspaceModule.applyReorderedConditionRows([
+  const previous = [
+    { id: "first", condition: { field: "merchant" as const, operator: "contains" as const, value: "first" } },
     {
       id: "second",
-      condition: { connector: "or" as const, field: "merchant" as const, operator: "contains" as const, value: "second" },
+      condition: { connector: "and" as const, field: "amount" as const, operator: "greater_than" as const, value: 100 },
+    },
+    {
+      id: "third",
+      condition: { connector: "or" as const, field: "note" as const, operator: "contains" as const, value: "weekly" },
+    },
+  ];
+  const reordered = workspaceModule.applyReorderedConditionRows(previous, [
+    {
+      id: "third",
+      condition: { connector: "or" as const, field: "note" as const, operator: "contains" as const, value: "weekly" },
     },
     { id: "first", condition: { field: "merchant" as const, operator: "contains" as const, value: "first" } },
+    {
+      id: "second",
+      condition: { connector: "and" as const, field: "amount" as const, operator: "greater_than" as const, value: 100 },
+    },
   ]);
 
   expect(reordered).toEqual([
-    { id: "second", condition: { field: "merchant", operator: "contains", value: "second", connector: undefined } },
+    { id: "third", condition: { field: "note", operator: "contains", value: "weekly", connector: undefined } },
     { id: "first", condition: { field: "merchant", operator: "contains", value: "first", connector: "and" } },
+    { id: "second", condition: { field: "amount", operator: "greater_than", value: 100, connector: "or" } },
   ]);
 });
 
