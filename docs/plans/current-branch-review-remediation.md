@@ -4,13 +4,13 @@ version: 1.0
 date_created: 2026-08-08
 last_updated: 2026-08-08
 owner: Joint maintainers
-status: "In progress"
+status: "Complete"
 tags: [bug, refactor, architecture, automation, transactions, analytics, supabase]
 ---
 
 # Current Branch Correctness and Architecture Remediation
 
-![Status: In progress](https://img.shields.io/badge/status-In_progress-yellow)
+![Status: Complete](https://img.shields.io/badge/status-Complete-brightgreen)
 
 Correct the verified current-branch defects, then deepen the automation-condition, transaction-draft, and Bills & Groceries navigation modules without changing persisted shapes, routes, financial semantics, or the approved UI.
 
@@ -86,12 +86,12 @@ TASK-005 is blocked only on disposable local pgTAP: a fresh `supabase start` fai
 | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ---------- |
 | TASK-021 | Inline test-only animation and legend constants where still single-use, remove exact implementation-value assertions, and record the verified net line reduction.                                                                   | Complete          | 2026-08-08 |
 | TASK-022 | Confirm `supabase/.temp/project-ref` equals `magcvzqnwrwxkhtsfspg`, obtain writer and mutation approval, then run linked history, dry-run, push, history recheck, catalog verification, advisors, and type regeneration.            | Complete          | 2026-08-08 |
-| TASK-023 | Run authenticated browser workflows for Note regex create/edit/preview, mixed-connector pointer and keyboard reorder, transaction kind round-trip, and Bills & Groceries data/presentation navigation at desktop and mobile widths. | Partial           | 2026-08-08 |
+| TASK-023 | Run authenticated browser workflows for Note regex create/edit/preview, mixed-connector pointer and keyboard reorder, transaction kind round-trip, and Bills & Groceries data/presentation navigation at desktop and mobile widths. | Complete          | 2026-08-08 |
 | TASK-024 | Run full Vitest, ESLint, TypeScript, Prettier check, pgTAP, migration lint, generated-type comparison, and `git diff --check`; do not run `bun run build`.                                                                          | Complete          | 2026-08-08 |
-| TASK-025 | Update durable architecture documentation, reconcile Tasks 015–016 in the merchant plan with actual evidence, and mark this source plan complete only after every required check passes.                                            | Partial           | 2026-08-08 |
+| TASK-025 | Update durable architecture documentation, reconcile Tasks 015–016 in the merchant plan with actual evidence, and mark this source plan complete only after every required check passes.                                            | Complete          | 2026-08-08 |
 | TASK-026 | Perform a final read-only review of the complete range; if the mandated delegated reviewer model remains unavailable, report the review gap without substituting another model.                                                     | Complete with gap | 2026-08-08 |
 
-TASK-021 removes 10 net lines: two production lines and eight test lines. With explicit approval and exclusive-writer confirmation, TASK-022 rechecked `joint-dev` (`magcvzqnwrwxkhtsfspg`) history before and after a clean dry run and applied `20260808084054_add_automation_delete_transaction_action` and `20260808092908_allow_note_regex_automation_conditions`; catalog checks confirmed Note `advanced` conditions and the action constraint, public generated types matched, and public/private lint was clean. TASK-023 has authenticated desktop/mobile proof for unsaved Note regex editing, pointer and keyboard mixed-connector reorder, the direct-category kind round-trip, native-history back/forward, data navigation, repeated parameters, and unchanged responsive bounds. The visual-validation runtime is currently broken, so persisted Note-regex create/edit/preview proof remains outstanding. TASK-024 has 463 passing Vitest tests, clean ESLint, TypeScript, Prettier, whitespace, public/private migration lint, hosted pgTAP, and an exact public generated-type comparison. A disposable local database replay remains blocked by the pre-existing `20260716095300_revoke_rls_auto_enable_execute` migration, which revokes a function introduced only by a later migration; no applied migration was modified. TASK-026 completed a read-only review, but the mandated `gpt-5.6-luna`/`xhigh` reviewer is unavailable in this environment and was not substituted.
+TASK-021 removes 10 net lines: two production lines and eight test lines. With explicit approval and exclusive-writer confirmation, TASK-022 rechecked `joint-dev` (`magcvzqnwrwxkhtsfspg`) history before and after a clean dry run and applied `20260808084054_add_automation_delete_transaction_action` and `20260808092908_allow_note_regex_automation_conditions`; catalog checks confirmed Note `advanced` conditions and the action constraint, public generated types matched, and public/private lint was clean. TASK-023 has authenticated desktop/mobile proof for pointer and keyboard mixed-connector reorder, the direct-category kind round-trip, native-history back/forward, data navigation, repeated parameters, and unchanged responsive bounds. After restarting the development server, an authenticated `joint-dev` Note-regex rule was created, reopened and edited, reflected in the zero-transaction preview state, and deleted. TASK-024 has 463 passing Vitest tests, clean ESLint, TypeScript, Prettier, whitespace, public/private migration lint, hosted pgTAP, and an exact public generated-type comparison. A disposable local database replay remains blocked by the pre-existing `20260716095300_revoke_rls_auto_enable_execute` migration, which revokes a function introduced only by a later migration; no applied migration was modified. TASK-026 completed a read-only review, but the mandated `gpt-5.6-luna`/`xhigh` reviewer is unavailable in this environment and was not substituted.
 
 ## 3. Alternatives
 
