@@ -66,7 +66,17 @@ function formatMonthName(month: string) {
 
 const heatmapStrengths = [0, 25, 45, 70, 100] as const;
 const chartMargin = { top: 24, right: 8, bottom: 32, left: 8 };
-const billsChartColors = ["#8cbfba", "#9bb2d6", "#bba5ce", "#d8b58d", "#d3a5b9", "#a5b7c0", "#c1c78e", "#96bdb6", "#c7a697"] as const;
+const billsChartColors = [
+  "var(--analytics-bill-1)",
+  "var(--analytics-bill-2)",
+  "var(--analytics-bill-3)",
+  "var(--analytics-bill-4)",
+  "var(--analytics-bill-5)",
+  "var(--analytics-bill-6)",
+  "var(--analytics-bill-7)",
+  "var(--analytics-bill-8)",
+  "var(--analytics-bill-9)",
+] as const;
 export function stackedBarRadius(stack: number[], segmentIndex: number) {
   return stack[segmentIndex] > 0 && stack.slice(segmentIndex + 1).every((value) => value === 0) ? ([3, 3, 0, 0] as const) : 0;
 }
@@ -349,18 +359,14 @@ function BillsGroceriesCharts({
   const groceryMonthlyTableData = groceryMonthlyData.filter((month) => month.mainRun + month.topUps > 0);
   const mainRun = data.groceries.subcategories.mainRun;
   const topUps = data.groceries.subcategories.topUps;
-  const groceryColor = data.groceries.category?.color ?? "var(--chart-1)";
+  const groceryColor = "var(--analytics-groceries-heatmap)";
   const groceryChartConfig = {
-    mainRun: { label: mainRun?.name ?? "Main run", color: mainRun?.color ?? "var(--chart-2)" },
-    topUps: { label: topUps?.name ?? "Top-ups", color: topUps?.color ?? "var(--chart-3)" },
+    mainRun: { label: mainRun?.name ?? "Main run", color: "var(--analytics-groceries-main-run)" },
+    topUps: { label: topUps?.name ?? "Top-ups", color: "var(--analytics-groceries-top-ups)" },
     budget: { label: "Monthly budget", color: "var(--color-muted-foreground)" },
   } satisfies ChartConfig;
   const groceryBudgetAgorot = data.groceries.monthly.budgetAgorot;
   const yearOverYearBillDetails = chartBills.find((bill) => bill.value === yearOverYearBill) ?? chartBills[0];
-  const yearOverYearBillIndex = Math.max(
-    0,
-    chartBills.findIndex((bill) => bill.value === yearOverYearBill),
-  );
   const yearOverYearData = alignBillYearOverYear(data.months, data.bills.monthly, yearOverYearBill).map(
     ({ month, currentAgorot, previousAgorot }) => ({
       month,
@@ -373,11 +379,11 @@ function BillsGroceriesCharts({
   const yearOverYearChartConfig = {
     current: {
       label: `${yearOverYearBillDetails?.label ?? "Bills"} · current year`,
-      color: yearOverYearBillDetails?.color ?? "var(--chart-1)",
+      color: "var(--analytics-year-over-year)",
     },
     previous: {
       label: `${yearOverYearBillDetails?.label ?? "Bills"} · previous year`,
-      color: billsChartColors[(yearOverYearBillIndex + 1) % billsChartColors.length],
+      color: "var(--analytics-year-over-year)",
     },
   } satisfies ChartConfig;
   const dailyData = data.groceries.daily
