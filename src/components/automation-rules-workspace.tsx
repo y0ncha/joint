@@ -5,6 +5,7 @@ import { DragDropProvider } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
 import {
   type ComponentProps,
+  createElement,
   Fragment,
   type ReactNode,
   useActionState,
@@ -15,7 +16,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { Ellipsis, GripVertical, Pencil, Plus, Trash2, WandSparkles } from "lucide-react";
+import { ArrowRight, Ellipsis, GripVertical, Pencil, Plus, Trash2, WandSparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -54,6 +55,7 @@ import {
   compatibilityPattern,
   conditionConnectorOptions,
   connectorForCondition,
+  conditionDisplayLabel,
   decodeAutomationConditions,
   describeConditionGroup,
   groupFromLegacyPattern,
@@ -69,7 +71,7 @@ import {
 } from "@/lib/automation-conditions";
 import { categoryIcon } from "@/lib/category-icons";
 import type { AutomationDestination, MerchantAutomationPreview, MerchantAutomationRule } from "@/lib/merchant-automations";
-import { describeMerchantPattern } from "@/lib/merchant-pattern";
+import { decodeMerchantPattern, describeMerchantPattern } from "@/lib/merchant-pattern";
 import { cn } from "@/lib/utils";
 
 function actionLabel(action: MerchantAutomationRule["action"]) {
@@ -94,6 +96,39 @@ function selectedDestination(rule: MerchantAutomationRule | undefined) {
 
 function ruleConditionSummary(rule: MerchantAutomationRule) {
   return rule.conditions ? describeConditionGroup(rule.conditions) : describeMerchantPattern(rule.pattern);
+}
+
+function ConditionSummaryLabel({ condition }: { condition: AutomationCondition }) {
+  if (condition.field !== "amount" && condition.operator === "advanced") {
+    return (
+      <>
+        {condition.field === "merchant" ? "Merchant" : "Note"} Matches{" "}
+        <code className="rounded bg-muted/60 px-1 font-mono">{condition.value}</code>
+      </>
+    );
+  }
+  return conditionDisplayLabel(condition);
+}
+
+function RuleConditionSummary({ rule }: { rule: MerchantAutomationRule }) {
+  if (!rule.conditions) {
+    const decoded = decodeMerchantPattern(rule.pattern);
+    return decoded.mode === "advanced" ? (
+      <>
+        Merchant Matches <code className="rounded bg-muted/60 px-1 font-mono">{decoded.value}</code>
+      </>
+    ) : (
+      ruleConditionSummary(rule)
+    );
+  }
+  return rule.conditions.conditions.map((condition, index) => (
+    <Fragment key={`${condition.field}-${index}`}>
+      {index > 0 ? (
+        <span className="mx-1 text-muted-foreground/60">{` ${connectorForCondition(rule.conditions!, index)?.toUpperCase()} `}</span>
+      ) : null}
+      <ConditionSummaryLabel condition={condition} />
+    </Fragment>
+  ));
 }
 
 function RuleDeleteDialog({
@@ -500,13 +535,11 @@ function SortableRule({
   canReorder,
   destinations,
   index,
-  priority,
   rule,
 }: {
   canReorder: boolean;
   destinations: AutomationDestination[];
   index: number;
-  priority: number;
   rule: MerchantAutomationRule;
 }) {
   const label = ruleLabel(rule);
@@ -517,28 +550,25 @@ function SortableRule({
   const [editOpen, setEditOpen] = useState(false);
   const [editSheetContent, setEditSheetContent] = useState<HTMLElement | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
-  const toggleFormRef = useRef<HTMLFormElement>(null);
-  const mobileToggleFormRef = useRef<HTMLFormElement>(null);
-  const [toggleState, toggleAction, togglePending] = useActionState<ActionResult | null, FormData>(
-    async () => setAutomationRuleEnabled(rule.id, !rule.enabled),
-    null,
-  );
+  const [enabled, setEnabled] = useOptimistic(rule.enabled, (_current, nextEnabled: boolean) => nextEnabled);
+  const [togglePending, startToggling] = useTransition();
   const [deleteState, deleteAction, deletePending] = useActionState<ActionResult | null, FormData>(
     async () => deleteAutomationRule(rule.id),
     null,
   );
 
   useEffect(() => {
-    if (toggleState?.status === "success")
-      toast.success(toggleState.data?.enabled === "true" ? "Rule enabled" : "Rule disabled", {
-        id: `automation-toggle-${rule.id}`,
-      });
-    if (toggleState?.status === "error") toast.error(toggleState.formError, { id: `automation-toggle-${rule.id}` });
-  }, [rule.id, toggleState]);
-  useEffect(() => {
     if (deleteState?.status === "success") toast.success("Rule deleted", { id: `automation-delete-${rule.id}` });
     if (deleteState?.status === "error") toast.error(deleteState.formError, { id: `automation-delete-${rule.id}` });
   }, [deleteState, rule.id]);
+  const toggleRule = (nextEnabled: boolean) => {
+    startToggling(async () => {
+      setEnabled(nextEnabled);
+      const result = await setAutomationRuleEnabled(rule.id, nextEnabled);
+      if (result.status === "error") toast.error(result.formError, { id: `automation-toggle-${rule.id}` });
+      else toast.success(nextEnabled ? "Rule enabled" : "Rule disabled", { id: `automation-toggle-${rule.id}` });
+    });
+  };
 
   return (
     <Sheet open={editOpen} onOpenChange={setEditOpen}>
@@ -546,7 +576,7 @@ function SortableRule({
         ref={ref}
         className={cn(
           "flex min-h-14 flex-wrap items-center gap-2 rounded-xl border border-border/70 px-2 py-2 sm:flex-nowrap",
-          !rule.enabled && "border-border/40 bg-muted/20",
+          !enabled && "border-border/40 bg-muted/20",
           isDragging && "opacity-60",
         )}
       >
@@ -555,49 +585,48 @@ function SortableRule({
           type="button"
           variant="ghost"
           size="icon"
-          className={cn("hidden size-11 cursor-grab touch-none active:cursor-grabbing sm:inline-flex", !rule.enabled && "opacity-60")}
+          className={cn(
+            "hidden size-11 cursor-grab touch-none text-muted-foreground active:cursor-grabbing sm:inline-flex",
+            !enabled && "opacity-60",
+          )}
           aria-label={`Reorder ${label} rule`}
           aria-describedby="automation-sort-instructions"
           disabled={!canReorder}
         >
           <GripVertical aria-hidden="true" />
         </Button>
-        <div className="hidden items-center gap-1 sm:flex">
+        <div className="order-last ml-auto hidden items-center gap-1 sm:flex">
           <SheetTrigger asChild>
             <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={`Edit ${label} rule`}>
               <Pencil aria-hidden="true" />
             </Button>
           </SheetTrigger>
-          <form ref={toggleFormRef} action={toggleAction} className="translate-y-0.5">
-            <Switch
-              checked={rule.enabled}
-              disabled={togglePending}
-              aria-label={`${rule.enabled ? "Disable" : "Enable"} ${label} rule`}
-              className="h-6 w-11"
-              onCheckedChange={() => toggleFormRef.current?.requestSubmit()}
-            />
-          </form>
+          <Switch
+            checked={enabled}
+            disabled={togglePending}
+            aria-label={`${enabled ? "Disable" : "Enable"} ${label} rule`}
+            className="h-6 w-11 translate-y-0.5"
+            onCheckedChange={toggleRule}
+          />
         </div>
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <span
-            aria-label={`${label} priority ${priority}`}
-            className={cn("w-5 text-sm text-muted-foreground", !rule.enabled && "opacity-60")}
-          >
-            {priority}
+          <span className={cn("min-w-0", !enabled && "opacity-60")}>
+            <span className="block truncate text-sm text-muted-foreground">
+              <RuleConditionSummary rule={rule} />
+            </span>
           </span>
-          <span className={cn("min-w-0 flex-1", !rule.enabled && "opacity-60")}>
-            <span className="block truncate text-sm text-muted-foreground">{ruleConditionSummary(rule)}</span>
-          </span>
+          <ArrowRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
           {rule.action === "assign_category" ? (
-            <Badge className={cn("max-w-64 truncate", !rule.enabled && "opacity-60")} variant="secondary">
-              {destination?.label ?? "Missing destination"}
+            <Badge className={cn("max-w-64 truncate", !enabled && "opacity-60")} variant="secondary">
+              {createElement(categoryIcon(destination?.icon), { "aria-hidden": true, "data-icon": "inline-start" })}
+              {destination?.pickerLabel ?? destination?.label ?? "Missing destination"}
             </Badge>
           ) : rule.action === "normalize_merchant" ? (
-            <span className={cn("shrink-0 text-sm font-medium", !rule.enabled && "opacity-60")}>
+            <span className={cn("shrink-0 text-sm font-medium text-muted-foreground", !enabled && "opacity-60")}>
               “{rule.replacement ?? "Missing replacement"}”
             </span>
           ) : (
-            <span className={cn("shrink-0 text-sm font-medium text-destructive", !rule.enabled && "opacity-60")}>Delete</span>
+            <span className={cn("shrink-0 text-sm font-medium text-destructive", !enabled && "opacity-60")}>Delete</span>
           )}
         </div>
         <SheetContent
@@ -665,20 +694,16 @@ function SortableRule({
                   <GripVertical data-icon="inline-start" aria-hidden="true" />
                   Reorder rule
                 </Button>
-                <form
-                  ref={mobileToggleFormRef}
-                  action={toggleAction}
-                  className="flex min-h-11 items-center justify-between rounded-lg border border-border px-3"
-                >
-                  <span className="text-sm">{rule.enabled ? "Disable rule" : "Enable rule"}</span>
+                <div className="flex min-h-11 items-center justify-between rounded-lg border border-border px-3">
+                  <span className="text-sm">{enabled ? "Disable rule" : "Enable rule"}</span>
                   <Switch
-                    checked={rule.enabled}
+                    checked={enabled}
                     disabled={togglePending}
-                    aria-label={`${rule.enabled ? "Disable" : "Enable"} ${label} rule`}
+                    aria-label={`${enabled ? "Disable" : "Enable"} ${label} rule`}
                     className="h-6 w-11"
-                    onCheckedChange={() => mobileToggleFormRef.current?.requestSubmit()}
+                    onCheckedChange={toggleRule}
                   />
-                </form>
+                </div>
               </div>
             </SheetContent>
           </Sheet>
@@ -813,13 +838,6 @@ export function AutomationRulesWorkspace({
   const [reordering, startReordering] = useTransition();
   const completeRuleList = count === orderedRules.length;
   const canReorder = completeRuleList && orderedRules.length > 1 && !reordering;
-  const actionPriorities = new Map<MerchantAutomationRule["action"], number>();
-  const priorityByRuleId = new Map<string, number>();
-  orderedRules.forEach((rule) => {
-    const priority = (actionPriorities.get(rule.action) ?? 0) + 1;
-    actionPriorities.set(rule.action, priority);
-    priorityByRuleId.set(rule.id, priority);
-  });
   return (
     <WorkspaceShell
       title="Automations"
@@ -880,14 +898,7 @@ export function AutomationRulesWorkspace({
             <CardContent className="flex flex-col gap-3">
               {orderedRules.length > 0 ? (
                 orderedRules.map((rule, index) => (
-                  <SortableRule
-                    key={rule.id}
-                    canReorder={canReorder}
-                    destinations={destinations}
-                    index={index}
-                    priority={priorityByRuleId.get(rule.id) ?? 0}
-                    rule={rule}
-                  />
+                  <SortableRule key={rule.id} canReorder={canReorder} destinations={destinations} index={index} rule={rule} />
                 ))
               ) : (
                 <div className="flex min-h-24 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
