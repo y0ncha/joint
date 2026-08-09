@@ -850,10 +850,7 @@ function AutomationPreviewList({
   onApply: (changeId: string) => void;
 }) {
   return (
-    <ul
-      className="flex min-w-0 w-full max-h-[min(50dvh,28rem)] flex-col gap-3 overflow-y-auto overscroll-contain pr-1"
-      aria-label={label}
-    >
+    <ul className="flex min-w-0 w-full max-h-[min(50dvh,28rem)] flex-col gap-3 overflow-y-auto overscroll-contain pr-1" aria-label={label}>
       {changes.map((change) => (
         <li
           key={change.id}
