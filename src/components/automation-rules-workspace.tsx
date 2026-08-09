@@ -680,36 +680,55 @@ function SortableRule({
           </span>
           <MoveRight aria-hidden="true" className="size-4 shrink-0 text-primary" />
           {rule.action === "assign_category" ? (
-            <Badge className={cn("max-w-64 truncate", !enabled && "opacity-60")} variant="secondary">
+            <Badge variant="outline" color={destination?.color} className={cn("max-w-64 truncate", !enabled && "opacity-60")}>
               <CategoryIcon name={destination?.icon} data-icon="inline-start" />
               {destination?.pickerLabel ?? destination?.label ?? "Missing destination"}
             </Badge>
-            <span className={cn("min-w-0 flex-1", !rule.enabled && "opacity-60")}>
-              <span className="block truncate text-sm text-muted-foreground">
-                {ruleConditionSummary(rule)} → {outcome}
-              </span>
-            </span>
-            {rule.action === "assign_category" ? (
-              <Badge
-                variant="outline"
-                color={destination?.color}
-                className={cn("max-w-full truncate", !rule.enabled && "opacity-60")}
-              >
-                {DestinationIcon ? <DestinationIcon aria-hidden="true" /> : null}
-                {destination?.label ?? "Missing destination"}
-              </Badge>
-            ) : null}
-          </button>
-        </SheetTrigger>
-        <div className="ml-auto flex items-center gap-1">
-          <div className="hidden items-center gap-1 sm:flex">
-            <form ref={toggleFormRef} action={toggleAction} className="translate-y-0.5">
-              <Switch
-                checked={rule.enabled}
-                disabled={togglePending}
-                aria-label={`${rule.enabled ? "Disable" : "Enable"} ${label} rule`}
-                className="h-6 w-11"
-                onCheckedChange={() => toggleFormRef.current?.requestSubmit()}
+          ) : rule.action === "normalize_merchant" ? (
+            <Badge className={cn("max-w-64 truncate bg-muted/50", !enabled && "opacity-60")} variant="outline">
+              {rule.replacement ?? "Missing replacement"}
+            </Badge>
+          ) : (
+            <Badge className={cn("border-destructive/30", !enabled && "opacity-60")} variant="destructive">
+              Delete
+            </Badge>
+          )}
+        </div>
+        <SheetContent
+          ref={setEditSheetContent}
+          side="right"
+          className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto overscroll-contain border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl data-[side=right]:md:w-[36rem] data-[side=right]:md:max-w-[calc(100vw-2rem)]"
+        >
+          <SheetHeader className="p-6">
+            <SheetTitle className="text-xl">Edit rule</SheetTitle>
+            <SheetDescription>Update this merchant rule without changing its priority.</SheetDescription>
+          </SheetHeader>
+          <div className="flex flex-col gap-3 px-6 pb-6">
+            <AutomationRuleForm
+              destinations={destinations}
+              onBeforeSave={onBeforeSave}
+              popoverContainer={editSheetContent}
+              rule={rule}
+              onSaved={() => {
+                setEditOpen(false);
+                onSaved?.();
+              }}
+            />
+            <div className="flex justify-end">
+              <RuleDeleteDialog
+                deleteAction={deleteAction}
+                deletePending={deletePending}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-11 text-destructive"
+                    aria-label={`Delete ${label} rule`}
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                }
               />
             </div>
           </div>
