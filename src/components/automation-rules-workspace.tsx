@@ -80,10 +80,6 @@ function actionLabel(action: MerchantAutomationRule["action"]) {
   return "Delete transaction";
 }
 
-function ruleLabel(rule: MerchantAutomationRule) {
-  return actionLabel(rule.action);
-}
-
 function destinationValue(destination: AutomationDestination) {
   return destination.categoryId ? `category:${destination.categoryId}` : `subcategory:${destination.subcategoryId}`;
 }
@@ -542,7 +538,7 @@ function SortableRule({
   index: number;
   rule: MerchantAutomationRule;
 }) {
-  const label = ruleLabel(rule);
+  const label = actionLabel(rule.action);
   const destination = destinations.find(
     (option) => option.categoryId === (rule.categoryId ?? null) && option.subcategoryId === (rule.subcategoryId ?? null),
   );
