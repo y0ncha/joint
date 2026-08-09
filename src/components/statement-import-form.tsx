@@ -44,7 +44,13 @@ export function StatementImportForm() {
   }
 
   return (
-    <form action={formAction} onSubmit={(event) => (submittedFormData.current = new FormData(event.currentTarget))}>
+    <form
+      action={formAction}
+      onSubmit={(event) => {
+        submittedFormData.current = new FormData(event.currentTarget);
+        setDismissedDuplicatePreview("");
+      }}
+    >
       <FieldGroup>
         <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.statement)}>
           <label

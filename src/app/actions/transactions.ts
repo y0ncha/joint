@@ -54,7 +54,11 @@ async function servicePeriodsFor(
   return { service_period_start: servicePeriodStart, service_period_end: servicePeriodEnd };
 }
 
-async function duplicatePreviewFor(household: Awaited<ReturnType<typeof requireCurrentHousehold>>, candidates: DuplicateCandidate[]) {
+async function duplicatePreviewFor(
+  household: Awaited<ReturnType<typeof requireCurrentHousehold>>,
+  candidates: DuplicateCandidate[],
+  snapshot: unknown = candidates,
+) {
   const occurredOn = [...new Set(candidates.map((candidate) => candidate.occurredOn))];
   const { data, error } = await household.supabase
     .from("transactions")
@@ -71,7 +75,12 @@ async function duplicatePreviewFor(household: Awaited<ReturnType<typeof requireC
       occurredOn: transaction.occurred_on,
       merchant: transaction.merchant,
     })),
+    snapshot,
   );
+}
+
+function duplicateFormSnapshot(input: FormData) {
+  return [...input.entries()].filter(([key]) => key !== "duplicateFingerprint");
 }
 
 function duplicateConfirmation(input: FormData, preview: Awaited<ReturnType<typeof duplicatePreviewFor>>) {
@@ -134,7 +143,7 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
   } satisfies DuplicateCandidate;
   let preview;
   try {
-    preview = await duplicatePreviewFor(household, [candidate]);
+    preview = await duplicatePreviewFor(household, [candidate], duplicateFormSnapshot(input));
   } catch {
     return { status: "error", formError: "Unable to save the transaction. Please try again.", fieldErrors: {} };
   }

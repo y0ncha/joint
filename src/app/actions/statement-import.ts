@@ -23,7 +23,11 @@ function hexDigest(bytes: ArrayBuffer) {
     .then((digest) => Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join(""));
 }
 
-async function duplicatePreviewFor(household: Awaited<ReturnType<typeof requireCurrentHousehold>>, candidates: DuplicateCandidate[]) {
+async function duplicatePreviewFor(
+  household: Awaited<ReturnType<typeof requireCurrentHousehold>>,
+  candidates: DuplicateCandidate[],
+  snapshot: unknown = candidates,
+) {
   const occurredOn = [...new Set(candidates.map((candidate) => candidate.occurredOn))];
   const { data, error } = await household.supabase
     .from("transactions")
@@ -40,6 +44,7 @@ async function duplicatePreviewFor(household: Awaited<ReturnType<typeof requireC
       occurredOn: transaction.occurred_on,
       merchant: transaction.merchant,
     })),
+    snapshot,
   );
 }
 
@@ -129,6 +134,7 @@ export async function importStatement(_previousState: ActionResult | null, formD
         occurredOn: row.occurred_on,
         merchant: row.merchant,
       })),
+      rows,
     );
   } catch {
     return { status: "error", formError: IMPORT_ERROR, fieldErrors: {} };

@@ -147,6 +147,33 @@ describe("transaction actions", () => {
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 
+  it("keeps the existing manual match after confirming its preview", async () => {
+    configureContextClient({
+      duplicates: [{ id: "existing", kind: "expense", amount: 50, occurred_on: "2026-07-14", merchant: "Groceries" }],
+    });
+    const input = transactionForm({ merchant: "Groceries" });
+    const preview = await transactionsModule.createTransaction(input);
+    if (preview.status !== "confirmation_required") throw new Error("Expected duplicate preview");
+    input.set("duplicateFingerprint", preview.duplicatePreview.fingerprint);
+
+    await expect(transactionsModule.createTransaction(input)).resolves.toEqual({ status: "success", data: { skippedDuplicateCount: "1" } });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("rejects a stale manual duplicate preview", async () => {
+    configureContextClient({
+      duplicates: [{ id: "existing", kind: "expense", amount: 50, occurred_on: "2026-07-14", merchant: "Groceries" }],
+    });
+
+    await expect(
+      transactionsModule.createTransaction(transactionForm({ merchant: "Groceries", duplicateFingerprint: "stale" })),
+    ).resolves.toMatchObject({
+      status: "error",
+      formError: expect.stringContaining("stale"),
+    });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
   it.each(["", undefined])("requires a subcategory for manual creates when it is %s", async (subcategoryId) => {
     configureContextClient();
     const input = transactionForm();

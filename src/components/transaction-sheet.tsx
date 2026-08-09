@@ -128,7 +128,14 @@ export function TransactionSheet({
     null,
   );
   useEffect(() => {
-    if (state?.status === "success") toast.success(isEditing ? "Transaction updated" : "Transaction added", { id: "transaction-save" });
+    if (state?.status === "success") {
+      toast.success(
+        state.data?.skippedDuplicateCount ? "Existing transaction kept" : isEditing ? "Transaction updated" : "Transaction added",
+        {
+          id: "transaction-save",
+        },
+      );
+    }
     if (state?.status === "error") toast.error(state.formError, { id: "transaction-save" });
   }, [isEditing, state]);
   const selectableSubcategories = useMemo(() => subcategories.filter((subcategory) => subcategory.kind === kind), [subcategories, kind]);
@@ -190,7 +197,10 @@ export function TransactionSheet({
         </SheetHeader>
         <form
           action={formAction}
-          onSubmit={(event) => (submittedFormData.current = new FormData(event.currentTarget))}
+          onSubmit={(event) => {
+            submittedFormData.current = new FormData(event.currentTarget);
+            setDismissedDuplicatePreview("");
+          }}
           className="px-6 pb-6"
         >
           <FieldGroup>

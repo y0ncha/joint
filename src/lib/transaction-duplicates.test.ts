@@ -37,8 +37,8 @@ it("changes the fingerprint when the submitted candidate snapshot changes", () =
 it("uses the same existing match regardless of database row order", () => {
   const candidate = [{ id: "incoming", kind: "expense" as const, amount: 24.9, occurredOn: "2026-08-14", merchant: "Super Pharm" }];
   const duplicates = [
-    { id: "z", kind: "expense" as const, amount: 24.9, occurredOn: "2026-08-14", merchant: "Super Pharm" },
     { id: "a", kind: "expense" as const, amount: 24.9, occurredOn: "2026-08-14", merchant: "Super Pharm" },
+    { id: "z", kind: "expense" as const, amount: 24.9, occurredOn: "2026-08-14", merchant: "Super Pharm" },
   ];
 
   expect(previewTransactionDuplicates(candidate, duplicates)).toEqual([{ candidateId: "incoming", existingId: "a" }]);

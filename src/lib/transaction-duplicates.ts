@@ -28,22 +28,27 @@ export function previewTransactionDuplicates(
   existing: readonly ExistingTransaction[],
 ): DuplicateMatch[] {
   const existingIdsByKey = new Map<string, string>();
-  for (const transaction of existing) existingIdsByKey.set(transactionKey(transaction), transaction.id);
+  for (const transaction of existing) {
+    const key = transactionKey(transaction);
+    const current = existingIdsByKey.get(key);
+    if (!current || transaction.id.localeCompare(current) < 0) existingIdsByKey.set(key, transaction.id);
+  }
   return candidates.flatMap((candidate) => {
     const existingId = existingIdsByKey.get(transactionKey(candidate));
     return existingId ? [{ candidateId: candidate.id, existingId }] : [];
   });
 }
 
-export function fingerprintDuplicatePreview(matches: readonly DuplicateMatch[]) {
+export function fingerprintDuplicatePreview(matches: readonly DuplicateMatch[], snapshot: unknown = null) {
   return createHash("sha256")
-    .update(JSON.stringify([...matches].sort((left, right) => left.candidateId.localeCompare(right.candidateId))))
+    .update(JSON.stringify({ matches: [...matches].sort((left, right) => left.candidateId.localeCompare(right.candidateId)), snapshot }))
     .digest("hex");
 }
 
 export function transactionDuplicatePreview(
   candidates: readonly DuplicateCandidate[],
   existing: readonly ExistingTransaction[],
+  snapshot: unknown = candidates,
 ): DuplicatePreview {
   const candidatesById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
   const existingById = new Map(existing.map((transaction) => [transaction.id, transaction]));
@@ -55,6 +60,7 @@ export function transactionDuplicatePreview(
   return {
     fingerprint: fingerprintDuplicatePreview(
       matches.map(({ candidate, existing: matchedTransaction }) => ({ candidateId: candidate.id, existingId: matchedTransaction.id })),
+      snapshot,
     ),
     matches,
   };

@@ -165,6 +165,26 @@ describe("statement import action", () => {
     expect(mocks.transactionInsert).not.toHaveBeenCalled();
   });
 
+  it("keeps existing import matches and inserts the remaining rows in one batch after confirmation", async () => {
+    mocks.duplicateTransactionRows.mockReturnValue({
+      in: vi.fn().mockResolvedValue({
+        data: [{ id: "existing", kind: "expense", amount: 12.34, occurred_on: "2026-07-04", merchant: "Corner Market" }],
+        error: null,
+      }),
+    });
+    const input = formData(statementFile());
+    const preview = await actions.importStatement(null, input);
+    if (preview.status !== "confirmation_required") throw new Error("Expected duplicate preview");
+    input.set("duplicateFingerprint", preview.duplicatePreview.fingerprint);
+
+    await expect(actions.importStatement(null, input)).resolves.toMatchObject({
+      status: "success",
+      data: { importedRowCount: "1", skippedDuplicateCount: "1" },
+    });
+    expect(mocks.transactionInsert).toHaveBeenCalledTimes(1);
+    expect(mocks.transactionInsert).toHaveBeenCalledWith([expect.objectContaining({ import_row_number: 9 })]);
+  });
+
   it("accepts a missing current-user card mapping and leaves matching rows unassigned", async () => {
     mocks.cardMappingsEq.mockResolvedValue({ data: [], error: null });
 
