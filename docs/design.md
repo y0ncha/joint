@@ -84,6 +84,13 @@ Each browser selects its accent from the fixed `react-color` CirclePicker preset
 - Popovers, menus, calendars, and selects use the fully opaque, neutral `popover` surface.
 - Hover elevation is limited to a subtle one-pixel translation or small shadow change. Static information cards do not need to move.
 
+## Installable app
+
+- Installation uses browser-native install affordances; Joint does not add a custom install prompt, banner, button, or onboarding step.
+- An installed Joint launches in a standalone presentation while preserving the same responsive layout, navigation, and accessibility contracts as the browser experience.
+- Installed-app identity uses the existing Joint mark and the existing warm peach-to-blue canvas; do not introduce alternate branding or a separate visual system.
+- The installable MVP has no notifications, notification permission prompts, notification settings, or notification UI.
+
 ## Components and composition
 
 Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primitives, and Tailwind CSS semantic tokens. Generate component source with the shadcn CLI and treat it as project-owned code.
