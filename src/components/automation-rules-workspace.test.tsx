@@ -105,6 +105,25 @@ vi.mock("@/components/ui/sheet", () => ({
   SheetTitle: ({ children }: { children: ReactNode }) => children,
   SheetTrigger: ({ children }: { children: ReactNode }) => <div data-sheet-trigger>{children}</div>,
 }));
+vi.mock("@/components/ui/alert-dialog", () => ({
+  AlertDialog: ({ children }: { children: ReactNode }) => <div data-alert-dialog>{children}</div>,
+  AlertDialogAction: ({ children, variant, ...props }: { children: ReactNode; variant?: string } & React.ComponentProps<"button">) => (
+    <button data-variant={variant} {...props}>
+      {children}
+    </button>
+  ),
+  AlertDialogCancel: ({ children, variant, ...props }: { children: ReactNode; variant?: string } & React.ComponentProps<"button">) => (
+    <button data-variant={variant} {...props}>
+      {children}
+    </button>
+  ),
+  AlertDialogContent: ({ children }: { children: ReactNode }) => <div role="alertdialog">{children}</div>,
+  AlertDialogDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
+  AlertDialogFooter: ({ children }: { children: ReactNode }) => <footer>{children}</footer>,
+  AlertDialogHeader: ({ children }: { children: ReactNode }) => <header>{children}</header>,
+  AlertDialogTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
+  AlertDialogTrigger: ({ children }: { children: ReactNode }) => <div data-alert-dialog-trigger>{children}</div>,
+}));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const workspaceModule = await import("./automation-rules-workspace").catch(() => null);
@@ -243,7 +262,6 @@ it("renders ordered atomic automation rules with conflict guidance", () => {
   expect(markup).toContain("Normalize merchant");
   expect(markup).toContain("Assign category");
   expect(markup).toContain("Aroma");
-  expect(markup).toContain("Expense → Food → Cafe");
   expect(markup).toContain("Cafe");
   expect(markup).toContain("lucide-utensils");
   expect(markup).toContain('aria-label="Add rule"');
@@ -252,13 +270,15 @@ it("renders ordered atomic automation rules with conflict guidance", () => {
   expect(markup).toMatch(/class="[^"]*text-muted-foreground[^"]*"[^>]*aria-label="Reorder Normalize merchant rule"/);
   expect(markup).toContain('aria-label="Edit Normalize merchant rule"');
   expect(markup).toContain('aria-label="Disable Normalize merchant rule"');
-  expect(markup).toContain("Each row is one existing transaction that would change. Review the details and apply rows individually.");
-  expect(markup).toContain('aria-label="Automation preview"');
-  expect(markup).toContain('aria-label="Apply preview for ארומה"');
+  expect(markup).toMatch(/flex min-h-14[^\"]*hover:bg-foreground\/2/);
+  expect(markup).not.toMatch(/type="button"[^>]*>Review 1 existing change<\/button>/);
+  expect(markup).not.toContain("Each row is one existing transaction that would change");
+  expect(markup).not.toContain('aria-label="Automation preview"');
+  expect(markup).not.toContain('aria-label="Apply preview for ארומה"');
   expect(markup).toContain("Merchant:");
   expect(markup).toContain("Destination:");
   expect(markup).toContain("Uncategorized → Expense → Food → Cafe");
-  expect(markup).toContain("Affects 1 existing transaction.");
+  expect(markup).not.toContain("Affects 1 existing transaction.");
   expect(markup).toContain("ארומה → Aroma");
   expect(markup).not.toContain("1 existing transaction would change");
   expect(markup).not.toContain("1 priority conflict resolved by rule order");
@@ -805,8 +825,8 @@ it("updates a rule switch before the server revalidation completes", () => {
   expect(markup).toContain('aria-checked="false"');
 });
 
-it("submits the reviewed preview fingerprint through the atomic apply action", async () => {
-  if (!workspaceModule?.ApplyPreviewControl) throw new Error("ApplyPreviewControl is unavailable.");
+it("submits the complete reviewed preview through the atomic apply action", async () => {
+  if (!workspaceModule?.AutomationPreviewDialog) throw new Error("AutomationPreviewDialog is unavailable.");
   const changes = [
     {
       id: "11111111-1111-4111-8111-111111111111",
@@ -833,19 +853,59 @@ it("submits the reviewed preview fingerprint through the atomic apply action", a
   ];
 
   const markup = renderToStaticMarkup(
-    <workspaceModule.ApplyPreviewControl
-      change={changes[0]}
+    <workspaceModule.AutomationPreviewDialog
       destinations={[]}
-      disabled
+      onOpenChange={vi.fn()}
+      open
       preview={{ changes, conflicts: [], fingerprint: "preview-fingerprint", ruleSet }}
+      rules={[]}
     />,
   );
-  expect(markup).not.toContain(">Apply<");
-  expect(markup).toContain('data-variant="ghost"');
-  expect(markup).toContain('data-size="icon"');
-  expect(markup).toContain('aria-label="Apply preview for shop"');
-  expect(markup).toContain('disabled=""');
+  expect(markup).toContain("Apply 1 change");
+  expect(markup).toContain("Review 1 existing change");
+  expect(markup).toContain("Merchant:");
+  expect(markup).not.toContain("Affects 1 existing transaction.");
 
   await mocks.actionReducers[0](null, new FormData());
-  expect(mocks.applyAutomationResults).toHaveBeenCalledWith("preview-fingerprint", changes[0].id);
+  expect(mocks.applyAutomationResults).toHaveBeenCalledWith("preview-fingerprint");
+});
+
+it("marks a mixed update and deletion batch as destructive", () => {
+  if (!workspaceModule?.AutomationPreviewDialog) throw new Error("AutomationPreviewDialog is unavailable.");
+  const changes = [
+    {
+      id: "11111111-1111-4111-8111-111111111111",
+      merchant: "Shop",
+      category_id: null,
+      subcategory_id: null,
+      expected_updated_at: "2026-08-07T10:00:00Z",
+      expected_merchant: "shop",
+      expected_category_id: null,
+      expected_subcategory_id: null,
+    },
+    {
+      id: "44444444-4444-4444-8444-444444444444",
+      merchant: "",
+      category_id: null,
+      subcategory_id: null,
+      expected_updated_at: "2026-08-07T11:00:00Z",
+      expected_merchant: "duplicate",
+      expected_category_id: null,
+      expected_subcategory_id: null,
+      delete_transaction: true as const,
+    },
+  ];
+  const markup = renderToStaticMarkup(
+    <workspaceModule.AutomationPreviewDialog
+      destinations={[]}
+      onOpenChange={vi.fn()}
+      open
+      preview={{ changes, conflicts: [], fingerprint: "preview-fingerprint", ruleSet: [] }}
+      rules={[]}
+    />,
+  );
+
+  expect(markup).toContain("Apply 2 changes");
+  expect(markup).toContain('data-variant="destructive"');
+  expect(markup).toContain("This transaction will be permanently deleted.");
 });

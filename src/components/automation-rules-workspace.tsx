@@ -174,11 +174,13 @@ export function removeConditionRow(previous: AutomationConditionRow[], index: nu
 
 export function AutomationRuleForm({
   destinations,
+  onBeforeSave,
   onSaved,
   popoverContainer,
   rule,
 }: {
   destinations: AutomationDestination[];
+  onBeforeSave?: () => void;
   onSaved?: () => void;
   popoverContainer?: HTMLElement | null;
   rule?: MerchantAutomationRule;
@@ -279,7 +281,7 @@ export function AutomationRuleForm({
   };
 
   return (
-    <form action={formAction} noValidate>
+    <form action={formAction} noValidate onSubmit={onBeforeSave}>
       <FieldGroup>
         <input name="action" type="hidden" value={action} />
         <input name="categoryId" type="hidden" value={destinationOption?.categoryId ?? ""} />
@@ -529,11 +531,15 @@ function SortableRule({
   canReorder,
   destinations,
   index,
+  onBeforeSave,
+  onSaved,
   rule,
 }: {
   canReorder: boolean;
   destinations: AutomationDestination[];
   index: number;
+  onBeforeSave?: () => void;
+  onSaved?: () => void;
   rule: MerchantAutomationRule;
 }) {
   const label = actionLabel(rule.action);
@@ -569,7 +575,7 @@ function SortableRule({
       <div
         ref={ref}
         className={cn(
-          "flex min-h-14 flex-wrap items-center gap-2 rounded-xl border border-border/70 px-2 py-2 transition-[background-color,border-color,box-shadow] hover:border-border hover:bg-muted/40 hover:shadow-sm sm:flex-nowrap",
+          "flex min-h-14 flex-wrap items-center gap-2 rounded-xl border border-border/70 px-2 py-2 transition-[background-color,border-color,box-shadow] hover:border-border hover:bg-foreground/2 hover:shadow-sm sm:flex-nowrap",
           enabled ? "bg-card" : "border-border/40 bg-muted/20",
           isDragging && "opacity-60",
         )}
@@ -637,9 +643,13 @@ function SortableRule({
           <div className="flex flex-col gap-3 px-6 pb-6">
             <AutomationRuleForm
               destinations={destinations}
+              onBeforeSave={onBeforeSave}
               popoverContainer={editSheetContent}
               rule={rule}
-              onSaved={() => setEditOpen(false)}
+              onSaved={() => {
+                setEditOpen(false);
+                onSaved?.();
+              }}
             />
             <div className="flex justify-end">
               <RuleDeleteDialog
@@ -721,7 +731,6 @@ function AutomationPreviewChangeSummary({
       <>
         <p className="truncate font-medium">Delete transaction: {change.expected_merchant}</p>
         <p className="text-sm text-muted-foreground">This transaction will be permanently deleted.</p>
-        <p className="text-sm text-muted-foreground">Affects 1 existing transaction.</p>
       </>
     );
   }
@@ -751,109 +760,100 @@ function AutomationPreviewChangeSummary({
           {destinationLabel(change.category_id, change.subcategory_id)}
         </p>
       ) : null}
-      <p className="text-sm text-muted-foreground">Affects 1 existing transaction.</p>
     </>
   );
 }
 
 function AutomationPreviewList({
   changes,
-  className,
   destinations,
-  disabled = false,
   label,
-  preview,
 }: {
   changes: MerchantAutomationPreview["changes"];
-  className?: string;
   destinations: AutomationDestination[];
-  disabled?: boolean;
   label: string;
-  preview: MerchantAutomationPreview;
 }) {
-  if (changes.length === 0) {
-    return (
-      <p role="status" className="text-sm text-muted-foreground">
-        No existing transactions would change.
-      </p>
-    );
-  }
-
   return (
-    <ul className={cn("flex w-full flex-col gap-2", className)} aria-label={label}>
+    <ul className="flex min-w-0 w-full flex-col gap-2" aria-label={label}>
       {changes.map((change) => (
-        <li
-          key={change.id}
-          className="flex min-h-14 items-center gap-3 rounded-xl border border-border/70 bg-card px-4 py-3 transition-[background-color,border-color,box-shadow] hover:border-border hover:bg-muted/40 hover:shadow-sm"
-        >
-          <div className="min-w-0 flex-1">
-            <AutomationPreviewChangeSummary change={change} destinations={destinations} />
-          </div>
-          <ApplyPreviewControl change={change} destinations={destinations} disabled={disabled} preview={preview} />
+        <li key={change.id} className="min-w-0 rounded-xl border border-border/70 bg-card px-4 py-3">
+          <AutomationPreviewChangeSummary change={change} destinations={destinations} />
         </li>
       ))}
     </ul>
   );
 }
 
-export function ApplyPreviewControl({
-  change,
+export function AutomationPreviewDialog({
   destinations,
-  disabled = false,
+  onOpenChange,
+  open,
   preview,
+  rules,
 }: {
-  change: MerchantAutomationPreview["changes"][number];
   destinations: AutomationDestination[];
-  disabled?: boolean;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
   preview: MerchantAutomationPreview;
+  rules: MerchantAutomationRule[];
 }) {
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
-    async () => applyAutomationResults(preview.fingerprint, change.id),
+    async () => applyAutomationResults(preview.fingerprint),
     null,
   );
+  const changeCount = preview.changes.length;
+  const hasDeletion = preview.changes.some((change) => change.delete_transaction);
 
   useEffect(() => {
     if (state?.status === "success") {
-      toast.success("Automation change applied", { id: `automation-apply-${change.id}` });
+      toast.success(`${changeCount} automation ${changeCount === 1 ? "change" : "changes"} applied`, { id: "automation-apply" });
+      onOpenChange(false);
     } else if (state?.status === "error") {
-      toast.error(state.formError, { id: `automation-apply-${change.id}` });
+      toast.error(state.formError, { id: "automation-apply" });
     }
-  }, [change.id, state]);
+  }, [changeCount, onOpenChange, state]);
 
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-11 shrink-0"
-          aria-label={`Apply preview for ${change.expected_merchant}`}
-          disabled={disabled || isPending}
-        >
-          <WandSparkles aria-hidden="true" />
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent className="max-w-lg">
-        <AlertDialogHeader>
-          <AlertDialogTitle>Apply this automation change?</AlertDialogTitle>
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="min-w-0 w-[calc(100vw-2rem)] !max-w-2xl max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto overscroll-contain">
+        <AlertDialogHeader className="min-w-0 w-full">
+          <AlertDialogTitle>
+            Review {changeCount} existing {changeCount === 1 ? "change" : "changes"}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            {change.delete_transaction
-              ? "This will permanently delete the existing transaction."
-              : "This will update the existing transaction with the previewed changes."}{" "}
-            This cannot be undone here.
+            Applying this batch updates existing transactions. New transactions already use the current rules. This cannot be undone here.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AutomationPreviewChangeSummary change={change} destinations={destinations} />
+        <AutomationPreviewList changes={preview.changes} destinations={destinations} label="Existing transaction changes" />
+        {preview.conflicts.length > 0 ? (
+          <ul aria-label="Priority conflicts" className="flex min-w-0 flex-col gap-2">
+            {preview.conflicts.map((conflict) => {
+              const winner = rules.find((rule) => rule.id === conflict.winnerId);
+              const shadowed = conflict.shadowedRuleIds
+                .map((id) => rules.find((rule) => rule.id === id))
+                .filter((rule): rule is MerchantAutomationRule => Boolean(rule));
+              return (
+                <li
+                  key={`${conflict.action}:${conflict.winnerId}:${conflict.shadowedRuleIds.join(",")}`}
+                  className="text-sm text-muted-foreground"
+                >
+                  {actionLabel(conflict.action)}: {winner ? ruleConditionSummary(winner) : "Higher-priority rule"} wins over{" "}
+                  {shadowed.map(ruleConditionSummary).join(", ") || "lower-priority rules"} for {conflict.transactionCount}{" "}
+                  {conflict.transactionCount === 1 ? "transaction" : "transactions"}.
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
         {state?.status === "error" ? <FieldError aria-live="polite">{state.formError}</FieldError> : null}
-        <AlertDialogFooter>
+        <AlertDialogFooter className="min-w-0 flex-wrap">
           <AlertDialogCancel className="min-h-11" disabled={isPending}>
-            Cancel
+            Not now
           </AlertDialogCancel>
           <form action={formAction}>
-            <AlertDialogAction type="submit" className="min-h-11" disabled={isPending}>
-              Apply change
-            </AlertDialogAction>
+            <Button type="submit" variant={hasDeletion ? "destructive" : "default"} className="min-h-11" disabled={isPending}>
+              Apply {changeCount} {changeCount === 1 ? "change" : "changes"}
+            </Button>
           </form>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -874,10 +874,24 @@ export function AutomationRulesWorkspace({
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const [addSheetContent, setAddSheetContent] = useState<HTMLElement | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewRequestedFrom, setPreviewRequestedFrom] = useState<string | null>(null);
   const [orderedRules, setOrderedRules] = useOptimistic(rules, (_current, next: MerchantAutomationRule[]) => next);
   const [reordering, startReordering] = useTransition();
   const completeRuleList = count === orderedRules.length;
   const canReorder = completeRuleList && orderedRules.length > 1 && !reordering;
+  const canReview = completeRuleList && preview.changes.length > 0;
+  const requestPreviewBeforeSave = () => setPreviewRequestedFrom(preview.fingerprint);
+
+  useEffect(() => {
+    if (!previewRequestedFrom || preview.fingerprint === previewRequestedFrom) return;
+    const frame = requestAnimationFrame(() => {
+      setPreviewRequestedFrom(null);
+      if (canReview) setPreviewOpen(true);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [canReview, preview.fingerprint, previewRequestedFrom]);
+
   return (
     <WorkspaceShell
       title="Automations"
@@ -896,10 +910,17 @@ export function AutomationRulesWorkspace({
           >
             <SheetHeader className="p-6">
               <SheetTitle className="text-xl">Add rule</SheetTitle>
-              <SheetDescription>Create one merchant normalization or category rule.</SheetDescription>
+              <SheetDescription>Create one normalization, category, or deletion rule.</SheetDescription>
             </SheetHeader>
             <div className="px-6 pb-6">
-              <AutomationRuleForm destinations={destinations} popoverContainer={addSheetContent} onSaved={() => setAddOpen(false)} />
+              <AutomationRuleForm
+                destinations={destinations}
+                onBeforeSave={requestPreviewBeforeSave}
+                popoverContainer={addSheetContent}
+                onSaved={() => {
+                  setAddOpen(false);
+                }}
+              />
             </div>
           </SheetContent>
         </Sheet>
@@ -911,7 +932,7 @@ export function AutomationRulesWorkspace({
         </p>
         {!completeRuleList ? (
           <p role="status" className="text-sm text-muted-foreground">
-            Showing {orderedRules.length} of {count} rules. Reordering and bulk preview require the complete list.
+            Showing {orderedRules.length} of {count} rules. Reordering and review require the complete list.
           </p>
         ) : null}
         <DragDropProvider
@@ -935,10 +956,26 @@ export function AutomationRulesWorkspace({
               <CardTitle>All rules</CardTitle>
               <CardDescription>Drag rules into one shared order. Priority is evaluated separately for each action.</CardDescription>
             </CardHeader>
+            {canReview ? (
+              <AutomationPreviewDialog
+                destinations={destinations}
+                onOpenChange={setPreviewOpen}
+                open={previewOpen}
+                preview={preview}
+                rules={orderedRules}
+              />
+            ) : null}
             <CardContent className="flex flex-col gap-3">
               {orderedRules.length > 0 ? (
                 orderedRules.map((rule, index) => (
-                  <SortableRule key={rule.id} canReorder={canReorder} destinations={destinations} index={index} rule={rule} />
+                  <SortableRule
+                    key={rule.id}
+                    canReorder={canReorder}
+                    destinations={destinations}
+                    index={index}
+                    onBeforeSave={requestPreviewBeforeSave}
+                    rule={rule}
+                  />
                 ))
               ) : (
                 <div className="flex min-h-24 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
@@ -950,43 +987,6 @@ export function AutomationRulesWorkspace({
           </Card>
         </DragDropProvider>
       </div>
-      <Card className="mt-5 border-white/50 bg-card/90">
-        <CardHeader>
-          <CardTitle>Preview</CardTitle>
-          <CardDescription>
-            Each row is one existing transaction that would change. Review the details and apply rows individually.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <AutomationPreviewList
-            changes={preview.changes}
-            destinations={destinations}
-            disabled={!completeRuleList || reordering}
-            label="Automation preview"
-            preview={preview}
-          />
-          {preview.conflicts.length > 0 ? (
-            <ul aria-label="Priority conflicts" className="flex flex-col gap-2">
-              {preview.conflicts.map((conflict) => {
-                const winner = orderedRules.find((rule) => rule.id === conflict.winnerId);
-                const shadowed = conflict.shadowedRuleIds
-                  .map((id) => orderedRules.find((rule) => rule.id === id))
-                  .filter((rule): rule is MerchantAutomationRule => Boolean(rule));
-                return (
-                  <li
-                    key={`${conflict.action}:${conflict.winnerId}:${conflict.shadowedRuleIds.join(",")}`}
-                    className="text-sm text-muted-foreground"
-                  >
-                    {actionLabel(conflict.action)}: {winner ? ruleConditionSummary(winner) : "Higher-priority rule"} wins over{" "}
-                    {shadowed.map(ruleConditionSummary).join(", ") || "lower-priority rules"} for {conflict.transactionCount}{" "}
-                    {conflict.transactionCount === 1 ? "transaction" : "transactions"}.
-                  </li>
-                );
-              })}
-            </ul>
-          ) : null}
-        </CardContent>
-      </Card>
     </WorkspaceShell>
   );
 }

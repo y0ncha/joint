@@ -217,24 +217,14 @@ export async function reorderAutomationRules(orderedRuleIds: string[]): Promise<
   return { status: "success" };
 }
 
-export async function applyAutomationResults(fingerprint: string, changeId: string): Promise<ActionResult> {
-  const parsedChangeId = z.string().uuid().safeParse(changeId);
-  if (!parsedChangeId.success) {
-    return {
-      status: "error",
-      formError: "This automation preview is stale. Refresh it before applying changes.",
-      fieldErrors: {},
-    };
-  }
-
+export async function applyAutomationResults(fingerprint: string): Promise<ActionResult> {
   let preview;
   try {
     ({ preview } = await getMerchantAutomationRulesPage());
   } catch {
     return { status: "error", formError: "Unable to apply automation changes. Please try again.", fieldErrors: {} };
   }
-  const change = preview.changes.find((previewChange) => previewChange.id === parsedChangeId.data);
-  if (!preview.changes.length || preview.fingerprint !== fingerprint || !change) {
+  if (!preview.changes.length || preview.fingerprint !== fingerprint) {
     return {
       status: "error",
       formError: "This automation preview is stale. Refresh it before applying changes.",
@@ -245,7 +235,7 @@ export async function applyAutomationResults(fingerprint: string, changeId: stri
   const household = await requireCurrentHousehold();
   const { error } = await household.supabase.rpc("apply_automation_results", {
     target_household_id: household.householdId,
-    changes: [change],
+    changes: preview.changes,
     expected_rule_set: preview.ruleSet,
   });
   if (error?.message?.includes("Automation preview is stale")) {
