@@ -60,6 +60,15 @@ export const amountConditionOperatorOptions = [
   { value: "less_than_or_equal" as const, label: "At most" },
 ];
 
+const amountConditionOperatorSymbols: Record<AutomationConditionAmountOperator, string> = {
+  equals: "=",
+  not_equals: "≠",
+  greater_than: ">",
+  greater_than_or_equal: "≥",
+  less_than: "<",
+  less_than_or_equal: "≤",
+};
+
 export const legacyConditionGroup = (pattern: string): AutomationConditionGroup => ({
   logic: "and",
   conditions: [{ field: "merchant", operator: "advanced", value: pattern.trim() }],
@@ -168,13 +177,12 @@ export function compatibilityPattern(group: AutomationConditionGroup) {
 }
 
 export function conditionDisplayLabel(condition: AutomationCondition) {
+  if (condition.field === "amount") return `Amount ${amountConditionOperatorSymbols[condition.operator]} ${condition.value}`;
   const fieldLabel = condition.field === "merchant" ? "Merchant" : condition.field === "note" ? "Note" : "Amount";
   const operatorLabel =
-    condition.field === "amount"
-      ? amountConditionOperatorOptions.find((option) => option.value === condition.operator)?.label
-      : condition.operator === "advanced"
-        ? "Matches regex"
-        : textConditionOperatorOptions.find((option) => option.value === condition.operator)?.label;
+    condition.operator === "advanced"
+      ? "Matches regex"
+      : textConditionOperatorOptions.find((option) => option.value === condition.operator)?.label;
   return `${fieldLabel} ${operatorLabel ?? condition.operator} “${condition.value}”`;
 }
 
