@@ -47,6 +47,17 @@ const previewChanges = [
     expected_subcategory_id: null,
   },
 ];
+const secondPreviewChange = {
+  id: "44444444-4444-4444-8444-444444444444",
+  merchant: "Other Shop",
+  category_id: null,
+  subcategory_id: null,
+  expected_updated_at: "2026-08-07T11:00:00Z",
+  expected_merchant: "Other old shop",
+  expected_category_id: null,
+  expected_subcategory_id: null,
+  delete_transaction: true as const,
+};
 const automationPreview = { changes: previewChanges, conflicts: [], fingerprint: "current-fingerprint", ruleSet };
 
 function formData(values: Record<string, string>) {
@@ -429,6 +440,42 @@ describe("merchant automation actions", () => {
     expect(mocks.rpc).toHaveBeenCalledWith("apply_automation_results", {
       target_household_id: "household-id",
       changes: previewChanges,
+      expected_rule_set: ruleSet,
+    });
+  });
+
+  it("applies one server-derived preview change through the same atomic RPC", async () => {
+    configureActionClient();
+    mocks.getMerchantAutomationRulesPage.mockResolvedValue({
+      count: 1,
+      rules: [],
+      destinations: [],
+      preview: { ...automationPreview, changes: [...previewChanges, secondPreviewChange], fingerprint: "multi-fingerprint" },
+    });
+
+    await expect(actions.applyAutomationResult("multi-fingerprint", secondPreviewChange.id)).resolves.toEqual({ status: "success" });
+    expect(mocks.rpc).toHaveBeenCalledWith("apply_automation_results", {
+      target_household_id: "household-id",
+      changes: [secondPreviewChange],
+      expected_rule_set: ruleSet,
+    });
+  });
+
+  it("applies the complete server-derived preview in one atomic batch", async () => {
+    configureActionClient();
+    mocks.getMerchantAutomationRulesPage.mockResolvedValue({
+      count: 1,
+      rules: [],
+      destinations: [],
+      preview: { ...automationPreview, changes: [...previewChanges, secondPreviewChange], fingerprint: "multi-fingerprint" },
+    });
+
+    await expect(actions.applyAutomationResults("multi-fingerprint")).resolves.toEqual({
+      status: "success",
+    });
+    expect(mocks.rpc).toHaveBeenCalledWith("apply_automation_results", {
+      target_household_id: "household-id",
+      changes: [...previewChanges, secondPreviewChange],
       expected_rule_set: ruleSet,
     });
   });

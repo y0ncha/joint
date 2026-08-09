@@ -130,11 +130,12 @@ it("renders the desktop rail with navigation and a plain profile avatar", () => 
   expect(desktopRail).toContain('aria-label="Primary navigation"');
   expect(desktopRail).toContain('href="/"');
   expect(desktopRail).toContain('href="/transactions"');
-  expect(desktopRail).not.toContain('href="/categories"');
+  expect(desktopRail).toContain('href="/categories"');
+  expect(desktopRail).toContain('href="/automations"');
   expect(desktopRail).toContain('href="/settings"');
 });
 
-it("renders Bills & Groceries between Transactions and Settings in both primary navigations", () => {
+it("renders Categories and Automations in the desktop navigation only", () => {
   const markup = renderToStaticMarkup(
     <WorkspaceShell title="Bills & Groceries">
       <p>Content</p>
@@ -143,13 +144,14 @@ it("renders Bills & Groceries between Transactions and Settings in both primary 
   const navigations = [...markup.matchAll(/<nav\b[\s\S]*?<\/nav>/g)].map(([navigation]) => navigation);
 
   expect(navigations).toHaveLength(2);
-  for (const navigation of navigations) {
-    expect(navigation).toMatch(/href="\/transactions"[\s\S]*href="\/bills-groceries"[\s\S]*href="\/settings"/);
-    expect(navigation).not.toContain('href="/categories"');
-    expect(navigation).toContain('href="/bills-groceries"');
-    expect(navigation).toContain('aria-label="Bills &amp; Groceries"');
-    expect(navigation).toMatch(/<a[^>]*class="[^"]*size-11[^>]*href="\/bills-groceries"/);
-  }
+  expect(navigations[0]).toMatch(
+    /href="\/transactions"[\s\S]*href="\/bills-groceries"[\s\S]*href="\/categories"[\s\S]*href="\/automations"[\s\S]*href="\/settings"/,
+  );
+  expect(navigations[1]).toMatch(/href="\/transactions"[\s\S]*href="\/bills-groceries"[\s\S]*href="\/settings"/);
+  expect(navigations[1]).not.toContain('href="/categories"');
+  expect(navigations[1]).not.toContain('href="/automations"');
+  expect(navigations[0]).toContain('aria-label="Bills &amp; Groceries"');
+  expect(navigations[0]).toMatch(/<a[^>]*class="[^"]*size-11[^>]*href="\/bills-groceries"/);
 
   expect(navigations[1]).not.toContain("Bills &amp; Groceries</span>");
 });
@@ -166,7 +168,7 @@ it("marks Bills & Groceries active for its route and nested paths", () => {
   expect(markup.match(/aria-current="page"[\s\S]*?href="\/bills-groceries"/g)).toHaveLength(2);
 });
 
-it("marks Settings active for Categories", () => {
+it("marks Categories active for its route", () => {
   currentPathname.value = "/categories";
 
   const markup = renderToStaticMarkup(
@@ -175,7 +177,7 @@ it("marks Settings active for Categories", () => {
     </WorkspaceShell>,
   );
 
-  expect(markup.match(/aria-current="page"[\s\S]*?href="\/settings"/g)).toHaveLength(2);
+  expect(markup.match(/aria-current="page"[\s\S]*?href="\/categories"/g)).toHaveLength(1);
 });
 
 it("makes the workspace frame full-bleed on mobile", () => {

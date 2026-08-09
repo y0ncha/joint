@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
-import { LayoutDashboard, PieChart, Settings, WalletCards, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, PieChart, Settings, Tags, WalletCards, WandSparkles, type LucideIcon } from "lucide-react";
 
 import { BrandMark } from "@/components/brand-mark";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -18,6 +18,15 @@ const navigation = [
   ["/settings", "Settings", Settings],
 ] as const;
 
+const sidebarNavigation = [
+  ["/", "Overview", LayoutDashboard],
+  ["/transactions", "Transactions", WalletCards],
+  ["/bills-groceries", "Bills & Groceries", PieChart],
+  ["/categories", "Categories", Tags],
+  ["/automations", "Automations", WandSparkles],
+  ["/settings", "Settings", Settings],
+] as const;
+
 type BrowserSupabaseClient = ReturnType<typeof createBrowserSupabaseClient>;
 type ProfileClient = {
   auth: Pick<BrowserSupabaseClient["auth"], "getClaims">;
@@ -25,7 +34,7 @@ type ProfileClient = {
 };
 
 function isActivePath(pathname: string, href: string) {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href) || (href === "/settings" && pathname.startsWith("/categories"));
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 
 export async function loadVerifiedProfileName(client: ProfileClient) {
@@ -103,7 +112,7 @@ export function WorkspaceShell({
         <aside className="hidden w-[92px] shrink-0 flex-col items-center border-r border-white/35 bg-white/28 px-0 pt-6 pb-6 backdrop-blur-xl md:flex lg:pt-8 lg:pb-8">
           <BrandMark size={44} />
           <nav aria-label="Primary navigation" className="mt-10 flex flex-col gap-3">
-            {navigation.map(([href, label, Icon]) => (
+            {sidebarNavigation.map(([href, label, Icon]) => (
               <NavigationItem key={href} href={href} label={label} icon={Icon} />
             ))}
           </nav>
