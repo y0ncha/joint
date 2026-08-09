@@ -229,6 +229,9 @@ it("renders ordered atomic automation rules with conflict guidance", () => {
   expect(markup).toContain("Assign category");
   expect(markup).toContain("Aroma");
   expect(markup).toContain("Expense → Food → Cafe");
+  expect(markup).toContain("background-color:#dcece3");
+  expect(markup).toContain("lucide-utensils");
+  expect(markup).toMatch(/<button(?=[^>]*data-variant="ghost")(?=[^>]*aria-label="Add rule")[^>]*><span[^>]*bg-primary\/90[^>]*>/);
   expect(markup).toContain('aria-label="Add rule"');
   expect(markup).not.toContain(">Add rule<");
   expect(markup).toContain('aria-label="Reorder Normalize merchant rule"');

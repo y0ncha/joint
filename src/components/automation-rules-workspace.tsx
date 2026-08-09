@@ -578,6 +578,7 @@ function SortableRule({
   const destination = destinations.find(
     (option) => option.categoryId === (rule.categoryId ?? null) && option.subcategoryId === (rule.subcategoryId ?? null),
   );
+  const DestinationIcon = destination ? categoryIcon(destination.icon ?? "tag") : null;
   const outcome = ruleOutcome(rule, destination);
   const { ref, handleRef, isDragging } = useSortable({ id: rule.id, index, disabled: !canReorder });
   const [editOpen, setEditOpen] = useState(false);
@@ -649,7 +650,12 @@ function SortableRule({
               </span>
             </span>
             {rule.action === "assign_category" ? (
-              <Badge className={cn("max-w-full truncate", !rule.enabled && "opacity-60")} variant="secondary">
+              <Badge
+                variant="outline"
+                color={destination?.color}
+                className={cn("max-w-full truncate", !rule.enabled && "opacity-60")}
+              >
+                {DestinationIcon ? <DestinationIcon aria-hidden="true" /> : null}
                 {destination?.label ?? "Missing destination"}
               </Badge>
             ) : null}
@@ -892,8 +898,10 @@ export function AutomationRulesWorkspace({
       actions={
         <Sheet open={addOpen} onOpenChange={setAddOpen}>
           <SheetTrigger asChild>
-            <Button aria-label="Add rule" size="icon" className="size-11 rounded-full">
-              <Plus aria-hidden="true" />
+            <Button size="icon" variant="ghost" className="size-11 rounded-full text-primary" aria-label="Add rule">
+              <span className="flex size-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-sm">
+                <Plus aria-hidden="true" />
+              </span>
             </Button>
           </SheetTrigger>
           <SheetContent
