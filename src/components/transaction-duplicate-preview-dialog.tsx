@@ -48,9 +48,7 @@ export function TransactionDuplicatePreviewDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] data-[size=default]:sm:max-w-5xl">
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            {preview.matches.length} possible duplicate{preview.matches.length === 1 ? "" : "s"}
-          </AlertDialogTitle>
+          <AlertDialogTitle>Dedupe</AlertDialogTitle>
           <AlertDialogDescription className="sr-only">Review duplicate transactions.</AlertDialogDescription>
         </AlertDialogHeader>
         <FieldGroup
@@ -64,7 +62,7 @@ export function TransactionDuplicatePreviewDialog({
               <Field
                 key={candidate.id}
                 orientation="horizontal"
-                className="items-center rounded-xl border border-border bg-white/60 p-4 text-sm"
+                className="items-center rounded-xl border border-border bg-white/60 p-4 text-sm transition-[background-color,border-color,box-shadow] hover:border-border hover:bg-foreground/2 hover:shadow-sm"
               >
                 <Checkbox
                   id={id}
@@ -86,8 +84,8 @@ export function TransactionDuplicatePreviewDialog({
           })}
         </FieldGroup>
         <AlertDialogFooter>
-          <p className="mr-auto text-sm text-muted-foreground">Unchecked transactions will be imported.</p>
-          <AlertDialogCancel>Back to Edit</AlertDialogCancel>
+          <p className="mr-auto self-center text-sm text-muted-foreground">Unchecked transactions will be imported.</p>
+          <AlertDialogCancel className="hover:bg-foreground/10">Back to Edit</AlertDialogCancel>
           <AlertDialogAction onClick={() => onConfirm([...discardedDuplicateIds])}>
             {discardedCount ? `Discard ${discardedCount}` : "Import all"}
           </AlertDialogAction>

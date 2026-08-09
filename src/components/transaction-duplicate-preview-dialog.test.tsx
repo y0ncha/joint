@@ -35,7 +35,7 @@ it("offers edit and discard actions for a duplicate", () => {
     />,
   );
 
-  expect(markup).toContain("1 possible duplicate");
+  expect(markup).toContain("Dedupe");
   expect(markup).toContain("Super Pharm");
   expect(markup).toContain("bg-white/60");
   expect(markup).not.toContain("Incoming");

@@ -1009,7 +1009,7 @@ it("renders quiet individual and all-preview apply actions", async () => {
     />,
   );
   expect(markup).toContain("Preview");
-  expect(markup).toContain("p-6");
+  expect(markup).toContain("bg-white/60");
   expect(markup).toContain("lucide-move-right");
   expect(markup).toContain('aria-label="Close preview"');
   expect(markup).toContain("Apply all 1");
