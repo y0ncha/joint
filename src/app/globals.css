@@ -187,13 +187,13 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
-    background: var(--canvas-gradient);
-    background-attachment: fixed;
+    @apply text-foreground;
     min-height: 100vh;
   }
   html {
-    @apply font-sans;
+    @apply bg-background font-sans;
+    background-image: var(--canvas-gradient);
+    background-attachment: fixed;
   }
 
   input[data-slot="input"]:-webkit-autofill,
