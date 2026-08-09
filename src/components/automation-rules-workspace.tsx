@@ -5,7 +5,6 @@ import { DragDropProvider } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
 import {
   type ComponentProps,
-  createElement,
   Fragment,
   type ReactNode,
   useActionState,
@@ -29,6 +28,7 @@ import {
 } from "@/app/actions/merchant-automations";
 import type { ActionResult } from "@/app/actions/result";
 import { PillSelect } from "@/components/pill-select";
+import { CategoryIcon } from "@/components/category-icon-picker";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -78,10 +78,6 @@ function actionLabel(action: MerchantAutomationRule["action"]) {
   if (action === "normalize_merchant") return "Normalize merchant";
   if (action === "assign_category") return "Assign category";
   return "Delete transaction";
-}
-
-function ruleLabel(rule: MerchantAutomationRule) {
-  return actionLabel(rule.action);
 }
 
 function destinationValue(destination: AutomationDestination) {
@@ -542,7 +538,7 @@ function SortableRule({
   index: number;
   rule: MerchantAutomationRule;
 }) {
-  const label = ruleLabel(rule);
+  const label = actionLabel(rule.action);
   const destination = destinations.find(
     (option) => option.categoryId === (rule.categoryId ?? null) && option.subcategoryId === (rule.subcategoryId ?? null),
   );
@@ -618,7 +614,7 @@ function SortableRule({
           <ArrowRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
           {rule.action === "assign_category" ? (
             <Badge className={cn("max-w-64 truncate", !enabled && "opacity-60")} variant="secondary">
-              {createElement(categoryIcon(destination?.icon), { "aria-hidden": true, "data-icon": "inline-start" })}
+              <CategoryIcon name={destination?.icon} data-icon="inline-start" />
               {destination?.pickerLabel ?? destination?.label ?? "Missing destination"}
             </Badge>
           ) : rule.action === "normalize_merchant" ? (
