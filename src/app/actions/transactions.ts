@@ -155,7 +155,7 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
   }
   if (confirmation.skippedIds.has(candidate.id)) return { status: "success", data: { skippedDuplicateCount: "1" } };
 
-  const { error } = await household.supabase.from("transactions").insert({
+  const transactionValues = {
     household_id: household.householdId,
     created_by: household.userId,
     paid_by: parsed.data.paidBy,
@@ -167,7 +167,29 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
     note: parsed.data.note,
     ...(parsed.data.merchant === undefined ? {} : { merchant: automated.merchant }),
     ...servicePeriods,
-  });
+  };
+
+  const { error } = parsed.data.recurrenceCadence
+    ? await (
+        household.supabase as unknown as {
+          rpc: (name: "create_recurring_transaction_schedule", params: Record<string, unknown>) => Promise<{ error: unknown }>;
+        }
+      ).rpc("create_recurring_transaction_schedule", {
+        target_household_id: household.householdId,
+        target_paid_by: parsed.data.paidBy,
+        target_kind: parsed.data.kind,
+        target_amount: parsed.data.amount,
+        target_occurred_on: parsed.data.occurredOn,
+        target_merchant: automated.merchant,
+        target_note: parsed.data.note,
+        target_category_id: automated.categoryId,
+        target_subcategory_id: automated.subcategoryId,
+        target_service_period_start: servicePeriods.service_period_start,
+        target_service_period_end: servicePeriods.service_period_end,
+        target_cadence: parsed.data.recurrenceCadence,
+        target_interval_count: parsed.data.recurrenceInterval,
+      })
+    : await household.supabase.from("transactions").insert(transactionValues);
 
   if (error) {
     return { status: "error", formError: "Unable to save the transaction. Please try again.", fieldErrors: {} };

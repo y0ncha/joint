@@ -4,10 +4,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getDashboardData: vi.fn(),
   ledgerKeys: [] as string[],
+  listSchedules: vi.fn(),
   push: vi.fn(),
 }));
 
 vi.mock("@/lib/dashboard-data", () => ({ getDashboardData: mocks.getDashboardData }));
+vi.mock("@/lib/supabase/server", () => ({
+  createServerSupabaseClient: () => ({
+    from: () => ({
+      select: () => ({ order: mocks.listSchedules }),
+    }),
+  }),
+}));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/transactions",
   useRouter: () => ({ push: mocks.push }),
@@ -29,6 +37,7 @@ describe("Transactions page", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.ledgerKeys.length = 0;
+    mocks.listSchedules.mockResolvedValue({ data: [] });
     mocks.getDashboardData.mockResolvedValue({
       categories: [{ id: "food", name: "Food", kind: "expense", archivedAt: null }],
       subcategories: [

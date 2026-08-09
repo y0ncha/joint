@@ -897,7 +897,7 @@ export function AutomationPreviewDialog({
       const result = await applyAutomationResult(preview.fingerprint, changeId);
       if (result.status === "success") {
         toast.success("1 automation change applied", { id: "automation-apply" });
-      } else {
+      } else if (result.status === "error") {
         toast.error(result.formError, { id: "automation-apply" });
       }
     });

@@ -99,6 +99,7 @@ The complete visual and interaction contract remains in [`docs/design.md`](desig
 | [`financial-model.md`](architecture/financial-model.md)                         | Household-owned finance data, accounting invariants, balances, and monthly reporting.        |
 | [`operator-owner-provisioning.md`](architecture/operator-owner-provisioning.md) | Operator-only creation of a future owner's household, owner membership, and opening balance. |
 | [`settings-persistence.md`](architecture/settings-persistence.md)               | Atomic current-settings save, RLS/privilege boundaries, and generated RPC typing.            |
+| [`recurring-transactions.md`](architecture/recurring-transactions.md)           | Schedule templates, cron generation, idempotency, and credential boundary.                   |
 
 ## Adding architecture documentation
 

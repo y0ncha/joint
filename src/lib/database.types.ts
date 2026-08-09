@@ -287,6 +287,108 @@ export type Database = {
         }
         Relationships: []
       }
+      recurring_transaction_schedules: {
+        Row: {
+          amount: number
+          anchor_date: string
+          cadence: Database["public"]["Enums"]["recurring_schedule_cadence"]
+          category_id: string | null
+          created_at: string
+          created_by: string
+          enabled: boolean
+          household_id: string
+          id: string
+          interval_count: number
+          kind: Database["public"]["Enums"]["transaction_kind"]
+          merchant: string
+          next_occurrence_index: number
+          next_occurs_on: string
+          note: string
+          paid_by: string | null
+          paused_reason: string | null
+          subcategory_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          anchor_date: string
+          cadence: Database["public"]["Enums"]["recurring_schedule_cadence"]
+          category_id?: string | null
+          created_at?: string
+          created_by: string
+          enabled?: boolean
+          household_id: string
+          id?: string
+          interval_count?: number
+          kind: Database["public"]["Enums"]["transaction_kind"]
+          merchant?: string
+          next_occurrence_index?: number
+          next_occurs_on: string
+          note?: string
+          paid_by?: string | null
+          paused_reason?: string | null
+          subcategory_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          anchor_date?: string
+          cadence?: Database["public"]["Enums"]["recurring_schedule_cadence"]
+          category_id?: string | null
+          created_at?: string
+          created_by?: string
+          enabled?: boolean
+          household_id?: string
+          id?: string
+          interval_count?: number
+          kind?: Database["public"]["Enums"]["transaction_kind"]
+          merchant?: string
+          next_occurrence_index?: number
+          next_occurs_on?: string
+          note?: string
+          paid_by?: string | null
+          paused_reason?: string | null
+          subcategory_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_transaction_schedule_household_id_subcategory_id_fkey"
+            columns: ["household_id", "subcategory_id"]
+            isOneToOne: false
+            referencedRelation: "subcategories"
+            referencedColumns: ["household_id", "id"]
+          },
+          {
+            foreignKeyName: "recurring_transaction_schedules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transaction_schedules_household_id_category_id_fkey"
+            columns: ["household_id", "category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["household_id", "id"]
+          },
+          {
+            foreignKeyName: "recurring_transaction_schedules_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transaction_schedules_paid_by_fkey"
+            columns: ["paid_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subcategories: {
         Row: {
           archived_at: string | null
@@ -356,6 +458,8 @@ export type Database = {
           note: string
           occurred_on: string
           paid_by: string | null
+          recurring_schedule_id: string | null
+          scheduled_for: string | null
           service_period_end: string | null
           service_period_start: string | null
           source: Database["public"]["Enums"]["transaction_source"]
@@ -376,6 +480,8 @@ export type Database = {
           note?: string
           occurred_on: string
           paid_by?: string | null
+          recurring_schedule_id?: string | null
+          scheduled_for?: string | null
           service_period_end?: string | null
           service_period_start?: string | null
           source?: Database["public"]["Enums"]["transaction_source"]
@@ -396,6 +502,8 @@ export type Database = {
           note?: string
           occurred_on?: string
           paid_by?: string | null
+          recurring_schedule_id?: string | null
+          scheduled_for?: string | null
           service_period_end?: string | null
           service_period_start?: string | null
           source?: Database["public"]["Enums"]["transaction_source"]
@@ -438,6 +546,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "transactions_recurring_schedule_id_fkey"
+            columns: ["recurring_schedule_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_transaction_schedules"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -462,6 +577,24 @@ export type Database = {
         }
         Returns: string
       }
+      create_recurring_transaction_schedule: {
+        Args: {
+          target_amount: number
+          target_cadence: Database["public"]["Enums"]["recurring_schedule_cadence"]
+          target_category_id: string
+          target_household_id: string
+          target_interval_count: number
+          target_kind: Database["public"]["Enums"]["transaction_kind"]
+          target_merchant: string
+          target_note: string
+          target_occurred_on: string
+          target_paid_by: string
+          target_service_period_end: string
+          target_service_period_start: string
+          target_subcategory_id: string
+        }
+        Returns: string
+      }
       is_household_member: {
         Args: { target_household_id: string }
         Returns: boolean
@@ -469,6 +602,10 @@ export type Database = {
       is_household_owner: {
         Args: { target_household_id: string }
         Returns: boolean
+      }
+      process_due_recurring_transaction_schedules: {
+        Args: { target_today?: string }
+        Returns: number
       }
       reorder_automation_rules: {
         Args: { ordered_rule_ids: string[]; target_household_id: string }
@@ -502,6 +639,11 @@ export type Database = {
     Enums: {
       category_kind: "income" | "expense"
       household_role: "owner" | "member"
+      recurring_schedule_cadence:
+        | "weekly"
+        | "monthly"
+        | "custom_weekly"
+        | "custom_monthly"
       transaction_kind: "income" | "expense"
       transaction_source: "manual" | "statement_import"
     }
@@ -633,6 +775,12 @@ export const Constants = {
     Enums: {
       category_kind: ["income", "expense"],
       household_role: ["owner", "member"],
+      recurring_schedule_cadence: [
+        "weekly",
+        "monthly",
+        "custom_weekly",
+        "custom_monthly",
+      ],
       transaction_kind: ["income", "expense"],
       transaction_source: ["manual", "statement_import"],
     },

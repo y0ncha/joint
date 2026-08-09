@@ -25,6 +25,7 @@ import { PillSelect } from "@/components/pill-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TransactionDuplicatePreviewDialog } from "@/components/transaction-duplicate-preview-dialog";
 import { categoryIcon } from "@/lib/category-icons";
 import type { ReportTransaction } from "@/lib/financial-report";
@@ -108,6 +109,8 @@ export function TransactionSheet({
   const [sheetContent, setSheetContent] = useState<HTMLDivElement | null>(null);
   const submittedFormData = useRef<FormData | null>(null);
   const [dismissedDuplicatePreview, setDismissedDuplicatePreview] = useState("");
+  const [recurrenceCadence, setRecurrenceCadence] = useState<"" | "weekly" | "monthly" | "custom_weekly" | "custom_monthly">("");
+  const [recurrenceInterval, setRecurrenceInterval] = useState("1");
   const [draft, dispatchDraft] = useReducer(
     transactionDraftReducer,
     {
@@ -211,6 +214,12 @@ export function TransactionSheet({
             <input name="paidBy" type="hidden" value={draftFields.paidBy} />
             <input name="servicePeriodStart" type="hidden" value={draftFields.servicePeriodStart} />
             <input name="servicePeriodEnd" type="hidden" value={draftFields.servicePeriodEnd} />
+            <input name="recurrenceCadence" type="hidden" value={recurrenceCadence} />
+            <input
+              name="recurrenceInterval"
+              type="hidden"
+              value={recurrenceCadence ? (recurrenceCadence.startsWith("custom_") ? recurrenceInterval : "1") : ""}
+            />
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.amount)}>
               <FieldLabel htmlFor="amount">Amount</FieldLabel>
               <Input
@@ -420,6 +429,48 @@ export function TransactionSheet({
                 ]}
               />
             </Field>
+            {!isEditing ? (
+              <Field>
+                <FieldLabel>Repeat</FieldLabel>
+                <ToggleGroup
+                  type="single"
+                  value={recurrenceCadence}
+                  onValueChange={(value) => setRecurrenceCadence(value as typeof recurrenceCadence)}
+                  variant="outline"
+                  className="justify-start"
+                >
+                  <ToggleGroupItem value="weekly">Weekly</ToggleGroupItem>
+                  <ToggleGroupItem value="monthly">Monthly</ToggleGroupItem>
+                  <ToggleGroupItem value="custom_weekly">Custom</ToggleGroupItem>
+                </ToggleGroup>
+                {recurrenceCadence.startsWith("custom_") ? (
+                  <FieldGroup className="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
+                    <Field>
+                      <FieldLabel htmlFor="recurrence-interval" className="sr-only">
+                        Repeat every
+                      </FieldLabel>
+                      <Input
+                        id="recurrence-interval"
+                        inputMode="numeric"
+                        min="1"
+                        type="number"
+                        value={recurrenceInterval}
+                        onChange={(event) => setRecurrenceInterval(event.target.value)}
+                      />
+                    </Field>
+                    <ToggleGroup
+                      type="single"
+                      value={recurrenceCadence}
+                      onValueChange={(value) => setRecurrenceCadence(value as typeof recurrenceCadence)}
+                      variant="outline"
+                    >
+                      <ToggleGroupItem value="custom_weekly">Weeks</ToggleGroupItem>
+                      <ToggleGroupItem value="custom_monthly">Months</ToggleGroupItem>
+                    </ToggleGroup>
+                  </FieldGroup>
+                ) : null}
+              </Field>
+            ) : null}
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.note)}>
               <FieldLabel htmlFor="note">Note</FieldLabel>
               <Textarea

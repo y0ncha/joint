@@ -3,6 +3,7 @@ import { LedgerControls, type LedgerFilterKind, type LedgerSort } from "@/compon
 import { StatementImportForm } from "@/components/statement-import-form";
 import { TransactionLedger } from "@/components/transaction-ledger";
 import { TransactionSheet } from "@/components/transaction-sheet";
+import { RecurringScheduleList, type RecurringScheduleRow } from "@/components/recurring-schedule-list";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { getDashboardData } from "@/lib/dashboard-data";
 import { currentMonth, formatDateRange, getValidDateRange } from "@/lib/date-range";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 function selectedValues(value: string | undefined) {
   return value?.split(",").filter(Boolean) ?? [];
@@ -47,6 +49,15 @@ export default async function TransactionsPage({
   const filterKind: LedgerFilterKind = filter === "income" || filter === "expense" ? filter : "all";
   const ledgerSort: LedgerSort = sort === "date-asc" || sort === "amount-desc" || sort === "amount-asc" ? sort : "date-desc";
   const data = await getDashboardData(month);
+  const scheduleClient = (await createServerSupabaseClient()) as unknown as {
+    from: (table: "recurring_transaction_schedules") => {
+      select: (columns: string) => { order: (column: string) => Promise<{ data: RecurringScheduleRow[] | null }> };
+    };
+  };
+  const { data: schedules } = await scheduleClient
+    .from("recurring_transaction_schedules")
+    .select("id, amount, cadence, enabled, merchant, next_occurs_on, note, interval_count")
+    .order("next_occurs_on");
   const selectedCategoryIds = selectedValues(selectedCategories).filter(
     (id) => id === "uncategorized" || data.categories.some((category) => category.id === id),
   );
@@ -122,6 +133,7 @@ export default async function TransactionsPage({
           />
         </CardContent>
       </Card>
+      <RecurringScheduleList schedules={schedules ?? []} />
     </WorkspaceShell>
   );
 }

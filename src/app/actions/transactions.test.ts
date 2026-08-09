@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   duplicateTransactions: vi.fn(),
   subcategorySelect: vi.fn(),
   getMerchantAutomationRules: vi.fn(),
+  rpc: vi.fn(),
 }));
 
 vi.mock("@/lib/household", () => ({ requireCurrentHousehold: mocks.requireCurrentHousehold }));
@@ -106,6 +107,14 @@ describe("transaction actions", () => {
       role: "member",
     });
     mocks.getMerchantAutomationRules.mockResolvedValue([]);
+    mocks.rpc.mockResolvedValue({ error: null });
+    mocks.requireCurrentHousehold.mockResolvedValue({
+      status: "member",
+      supabase: { from: mocks.from, rpc: mocks.rpc },
+      userId: "member-id",
+      householdId: "household-id",
+      role: "member",
+    });
   });
 
   it("creates an account-free transaction through verified request membership", async () => {
@@ -131,6 +140,22 @@ describe("transaction actions", () => {
     expect(mocks.from).not.toHaveBeenCalledWith("accounts");
     expect(payerEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.revalidatePath).toHaveBeenCalledTimes(4);
+  });
+
+  it("creates a schedule atomically when recurrence is configured", async () => {
+    configureContextClient();
+
+    await expect(
+      transactionsModule.createTransaction(transactionForm({ recurrenceCadence: "monthly", recurrenceInterval: "1" })),
+    ).resolves.toEqual({
+      status: "success",
+    });
+
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "create_recurring_transaction_schedule",
+      expect.objectContaining({ target_cadence: "monthly", target_interval_count: 1, target_occurred_on: "2026-07-14" }),
+    );
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
 
   it("returns a duplicate preview before inserting a matching manual transaction", async () => {
