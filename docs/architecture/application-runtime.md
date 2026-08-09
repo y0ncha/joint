@@ -24,7 +24,7 @@ Next.js runs the application boundary; Supabase remains the persistence and fina
 ## Installation metadata and online-only operation
 
 - The committed `public/brand/favicon.png` and existing brand source artwork in `public/brand/` are static, unauthenticated installation artwork. They contain no session or household financial data.
-- `src/app/manifest.ts`, the generated PWA icons in `public/brand/`, and `src/app/apple-icon.png` remain planned until their implementation tasks. Once added, they will be static, unauthenticated installation metadata and assets that describe Joint's identity and presentation only.
+- `src/app/manifest.ts`, the generated PWA icons in `public/brand/`, and `src/app/apple-icon.png` are static, unauthenticated installation metadata and assets that describe Joint's identity and presentation only.
 - An installed launch follows the same runtime boundary as a browser launch: the browser requests `/`, Next.js runs the existing session and protected-route flow, Supabase remains the persistence boundary, and RLS remains the final row-authorization boundary.
 - Joint remains online-only and does not register a service worker. A service worker must not cache authenticated pages, Supabase responses, or household financial data; any future offline behavior requires a separate approved security and runtime contract.
 - Installation metadata does not move rendering, queries, mutations, authentication, or authorization into the browser.
