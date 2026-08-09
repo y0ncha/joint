@@ -1,5 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ searchParams: new URLSearchParams() }));
+
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => mocks.searchParams,
+}));
 
 import { getLedgerShortcutAction, TransactionLedger } from "./transaction-ledger";
 
@@ -15,6 +21,10 @@ type ImportedLedgerTransaction = {
   createdAt: string;
   paidBy: null;
 };
+
+afterEach(() => {
+  mocks.searchParams = new URLSearchParams();
+});
 
 it("maps ledger shortcuts only when transactions are selected", () => {
   expect(getLedgerShortcutAction("Delete", 1)).toBe("confirm-delete");
@@ -319,4 +329,38 @@ it("filters, sorts, and exposes selection controls without making rows editable"
   expect(markup).not.toContain("Expense");
   expect(markup.indexOf("Large income")).toBeLessThan(markup.indexOf("Small income"));
   expect(markup).toContain('aria-label="Edit Large income transaction"');
+});
+
+it("applies URL filter changes without new server-provided filter props", () => {
+  mocks.searchParams = new URLSearchParams("filter=expense&paidBy=them");
+  const markup = renderToStaticMarkup(
+    <TransactionLedger
+      members={[]}
+      transactions={[
+        {
+          id: "matching-expense",
+          kind: "expense",
+          amount: 20,
+          occurredOn: "2026-07-15",
+          subcategoryId: null,
+          note: "Matching expense",
+          createdAt: "2026-07-15T08:00:00Z",
+          paidBy: "them",
+        },
+        {
+          id: "other-expense",
+          kind: "expense",
+          amount: 30,
+          occurredOn: "2026-07-14",
+          subcategoryId: null,
+          note: "Other expense",
+          createdAt: "2026-07-14T08:00:00Z",
+          paidBy: "you",
+        },
+      ]}
+    />,
+  );
+
+  expect(markup).toContain("Matching expense");
+  expect(markup).not.toContain("Other expense");
 });

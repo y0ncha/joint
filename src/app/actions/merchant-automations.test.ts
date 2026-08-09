@@ -47,6 +47,16 @@ const previewChanges = [
     expected_subcategory_id: null,
   },
 ];
+const secondPreviewChange = {
+  id: "44444444-4444-4444-8444-444444444444",
+  merchant: "Other Shop",
+  category_id: null,
+  subcategory_id: null,
+  expected_updated_at: "2026-08-07T11:00:00Z",
+  expected_merchant: "Other old shop",
+  expected_category_id: null,
+  expected_subcategory_id: null,
+};
 const automationPreview = { changes: previewChanges, conflicts: [], fingerprint: "current-fingerprint", ruleSet };
 
 function formData(values: Record<string, string>) {
@@ -412,7 +422,7 @@ describe("merchant automation actions", () => {
   it("rejects a confirmed application when its fingerprint does not match the server preview", async () => {
     configureActionClient();
 
-    await expect(actions.applyAutomationResults("stale-fingerprint")).resolves.toEqual({
+    await expect(actions.applyAutomationResults("stale-fingerprint", previewChanges[0].id)).resolves.toEqual({
       status: "error",
       formError: "This automation preview is stale. Refresh it before applying changes.",
       fieldErrors: {},
@@ -423,12 +433,31 @@ describe("merchant automation actions", () => {
   it("applies the server-derived preview through the atomic RPC", async () => {
     configureActionClient();
 
-    await expect(actions.applyAutomationResults("current-fingerprint")).resolves.toEqual({
+    await expect(actions.applyAutomationResults("current-fingerprint", previewChanges[0].id)).resolves.toEqual({
       status: "success",
     });
     expect(mocks.rpc).toHaveBeenCalledWith("apply_automation_results", {
       target_household_id: "household-id",
       changes: previewChanges,
+      expected_rule_set: ruleSet,
+    });
+  });
+
+  it("applies only the selected server-derived preview change", async () => {
+    configureActionClient();
+    mocks.getMerchantAutomationRulesPage.mockResolvedValue({
+      count: 1,
+      rules: [],
+      destinations: [],
+      preview: { ...automationPreview, changes: [...previewChanges, secondPreviewChange], fingerprint: "multi-fingerprint" },
+    });
+
+    await expect(actions.applyAutomationResults("multi-fingerprint", secondPreviewChange.id)).resolves.toEqual({
+      status: "success",
+    });
+    expect(mocks.rpc).toHaveBeenCalledWith("apply_automation_results", {
+      target_household_id: "household-id",
+      changes: [secondPreviewChange],
       expected_rule_set: ruleSet,
     });
   });
@@ -442,7 +471,7 @@ describe("merchant automation actions", () => {
       preview: { ...automationPreview, changes: [] },
     });
 
-    await expect(actions.applyAutomationResults("current-fingerprint")).resolves.toEqual({
+    await expect(actions.applyAutomationResults("current-fingerprint", previewChanges[0].id)).resolves.toEqual({
       status: "error",
       formError: "This automation preview is stale. Refresh it before applying changes.",
       fieldErrors: {},
@@ -454,7 +483,7 @@ describe("merchant automation actions", () => {
     configureActionClient();
     mocks.getMerchantAutomationRulesPage.mockRejectedValue(new Error("Database unavailable"));
 
-    await expect(actions.applyAutomationResults("current-fingerprint")).resolves.toEqual({
+    await expect(actions.applyAutomationResults("current-fingerprint", previewChanges[0].id)).resolves.toEqual({
       status: "error",
       formError: "Unable to apply automation changes. Please try again.",
       fieldErrors: {},
@@ -466,7 +495,7 @@ describe("merchant automation actions", () => {
   it("returns a safe stale-preview error from the atomic RPC", async () => {
     configureActionClient();
     mocks.rpc.mockResolvedValue({ data: null, error: { message: "Automation preview is stale" } });
-    await expect(actions.applyAutomationResults("current-fingerprint")).resolves.toEqual({
+    await expect(actions.applyAutomationResults("current-fingerprint", previewChanges[0].id)).resolves.toEqual({
       status: "error",
       formError: "This automation preview is stale. Refresh it before applying changes.",
       fieldErrors: {},
@@ -478,7 +507,7 @@ describe("merchant automation actions", () => {
     configureActionClient();
     mocks.rpc.mockResolvedValue({ data: null, error: { message: "Database unavailable" } });
 
-    await expect(actions.applyAutomationResults("current-fingerprint")).resolves.toEqual({
+    await expect(actions.applyAutomationResults("current-fingerprint", previewChanges[0].id)).resolves.toEqual({
       status: "error",
       formError: "Unable to apply automation changes. Please try again.",
       fieldErrors: {},

@@ -55,7 +55,6 @@ import {
   compatibilityPattern,
   conditionConnectorOptions,
   connectorForCondition,
-  conditionDisplayLabel,
   decodeAutomationConditions,
   describeConditionGroup,
   groupFromLegacyPattern,
@@ -95,33 +94,32 @@ function ruleConditionSummary(rule: MerchantAutomationRule) {
 }
 
 function ConditionSummaryLabel({ condition }: { condition: AutomationCondition }) {
-  if (condition.field !== "amount" && condition.operator === "advanced") {
-    return (
-      <>
-        {condition.field === "merchant" ? "Merchant" : "Note"} Matches{" "}
-        <code className="rounded bg-muted/60 px-1 font-mono">{condition.value}</code>
-      </>
-    );
-  }
-  return conditionDisplayLabel(condition);
+  const fieldLabel = condition.field === "merchant" ? "Merchant" : condition.field === "note" ? "Note" : "Amount";
+  const operatorLabel =
+    condition.field === "amount"
+      ? amountConditionOperatorOptions.find((option) => option.value === condition.operator)?.label
+      : condition.operator === "advanced"
+        ? "Matches regex"
+        : textConditionOperatorOptions.find((option) => option.value === condition.operator)?.label;
+
+  return (
+    <>
+      {fieldLabel} {operatorLabel ?? condition.operator}{" "}
+      <Badge variant="outline" className="normal-case bg-muted/50">
+        {condition.value}
+      </Badge>
+    </>
+  );
 }
 
 function RuleConditionSummary({ rule }: { rule: MerchantAutomationRule }) {
   if (!rule.conditions) {
     const decoded = decodeMerchantPattern(rule.pattern);
-    return decoded.mode === "advanced" ? (
-      <>
-        Merchant Matches <code className="rounded bg-muted/60 px-1 font-mono">{decoded.value}</code>
-      </>
-    ) : (
-      ruleConditionSummary(rule)
-    );
+    return <ConditionSummaryLabel condition={{ field: "merchant", operator: decoded.mode, value: decoded.value }} />;
   }
   return rule.conditions.conditions.map((condition, index) => (
     <Fragment key={`${condition.field}-${index}`}>
-      {index > 0 ? (
-        <span className="mx-1 text-muted-foreground/60">{` ${connectorForCondition(rule.conditions!, index)?.toUpperCase()} `}</span>
-      ) : null}
+      {index > 0 ? <span className="mx-1 text-primary">{` ${connectorForCondition(rule.conditions!, index)?.toUpperCase()} `}</span> : null}
       <ConditionSummaryLabel condition={condition} />
     </Fragment>
   ));
@@ -571,7 +569,7 @@ function SortableRule({
       <div
         ref={ref}
         className={cn(
-          "flex min-h-14 flex-wrap items-center gap-2 rounded-xl border border-border/70 px-2 py-2 sm:flex-nowrap",
+          "flex min-h-14 flex-wrap items-center gap-2 rounded-xl border border-border/70 px-2 py-2 transition-[background-color,border-color,box-shadow] hover:border-border hover:bg-muted/40 hover:shadow-sm sm:flex-nowrap",
           enabled ? "bg-card" : "border-border/40 bg-muted/20",
           isDragging && "opacity-60",
         )}
@@ -607,7 +605,7 @@ function SortableRule({
         </div>
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <span className={cn("min-w-0", !enabled && "opacity-60")}>
-            <span className="block truncate text-sm text-muted-foreground">
+            <span className="block truncate text-sm text-foreground">
               <RuleConditionSummary rule={rule} />
             </span>
           </span>
@@ -618,11 +616,13 @@ function SortableRule({
               {destination?.pickerLabel ?? destination?.label ?? "Missing destination"}
             </Badge>
           ) : rule.action === "normalize_merchant" ? (
-            <span className={cn("shrink-0 text-sm font-medium text-muted-foreground", !enabled && "opacity-60")}>
-              “{rule.replacement ?? "Missing replacement"}”
-            </span>
+            <Badge className={cn("max-w-64 truncate bg-muted/50", !enabled && "opacity-60")} variant="outline">
+              {rule.replacement ?? "Missing replacement"}
+            </Badge>
           ) : (
-            <span className={cn("shrink-0 text-sm font-medium text-destructive", !enabled && "opacity-60")}>Delete</span>
+            <Badge className={cn("border-destructive/30", !enabled && "opacity-60")} variant="destructive">
+              Delete
+            </Badge>
           )}
         </div>
         <SheetContent
@@ -709,16 +709,67 @@ function SortableRule({
   );
 }
 
+function AutomationPreviewChangeSummary({
+  change,
+  destinations,
+}: {
+  change: MerchantAutomationPreview["changes"][number];
+  destinations: AutomationDestination[];
+}) {
+  if (change.delete_transaction) {
+    return (
+      <>
+        <p className="truncate font-medium">Delete transaction: {change.expected_merchant}</p>
+        <p className="text-sm text-muted-foreground">This transaction will be permanently deleted.</p>
+        <p className="text-sm text-muted-foreground">Affects 1 existing transaction.</p>
+      </>
+    );
+  }
+
+  const merchantChanged = change.expected_merchant !== change.merchant;
+  const destinationChanged = change.expected_category_id !== change.category_id || change.expected_subcategory_id !== change.subcategory_id;
+  const destinationLabel = (categoryId: string | null, subcategoryId: string | null) => {
+    if (!categoryId && !subcategoryId) return "Uncategorized";
+    return (
+      destinations.find((option) => option.categoryId === categoryId && option.subcategoryId === subcategoryId)?.label ??
+      "Existing destination"
+    );
+  };
+
+  return (
+    <>
+      {merchantChanged ? (
+        <p className="truncate font-medium">
+          <span className="text-muted-foreground">Merchant:</span> {change.expected_merchant} → {change.merchant}
+        </p>
+      ) : null}
+      {destinationChanged ? (
+        <p className="truncate font-medium">
+          <span className="text-muted-foreground">Destination:</span>{" "}
+          {destinationLabel(change.expected_category_id, change.expected_subcategory_id)}
+          {" → "}
+          {destinationLabel(change.category_id, change.subcategory_id)}
+        </p>
+      ) : null}
+      <p className="text-sm text-muted-foreground">Affects 1 existing transaction.</p>
+    </>
+  );
+}
+
 function AutomationPreviewList({
   changes,
   className,
   destinations,
+  disabled = false,
   label,
+  preview,
 }: {
   changes: MerchantAutomationPreview["changes"];
   className?: string;
   destinations: AutomationDestination[];
+  disabled?: boolean;
   label: string;
+  preview: MerchantAutomationPreview;
 }) {
   if (changes.length === 0) {
     return (
@@ -729,78 +780,71 @@ function AutomationPreviewList({
   }
 
   return (
-    <ul className={cn("flex flex-col gap-2", className)} aria-label={label}>
-      {changes.map((change) => {
-        if (change.delete_transaction) {
-          return (
-            <li key={change.id} className="rounded-lg border border-destructive/30 p-3">
-              <p className="font-medium">Delete “{change.expected_merchant}”</p>
-              <p className="text-sm text-muted-foreground">This transaction will be permanently deleted.</p>
-            </li>
-          );
-        }
-        const destination = destinations.find(
-          (option) => option.categoryId === change.category_id && option.subcategoryId === change.subcategory_id,
-        );
-        return (
-          <li key={change.id} className="rounded-lg border border-border/70 p-3">
-            <p className="font-medium">
-              {change.expected_merchant} → {change.merchant}
-            </p>
-            {destination ? <p className="text-sm text-muted-foreground">Destination: {destination.label}</p> : null}
-          </li>
-        );
-      })}
+    <ul className={cn("flex w-full flex-col gap-2", className)} aria-label={label}>
+      {changes.map((change) => (
+        <li
+          key={change.id}
+          className="flex min-h-14 items-center gap-3 rounded-xl border border-border/70 bg-card px-4 py-3 transition-[background-color,border-color,box-shadow] hover:border-border hover:bg-muted/40 hover:shadow-sm"
+        >
+          <div className="min-w-0 flex-1">
+            <AutomationPreviewChangeSummary change={change} destinations={destinations} />
+          </div>
+          <ApplyPreviewControl change={change} destinations={destinations} disabled={disabled} preview={preview} />
+        </li>
+      ))}
     </ul>
   );
 }
 
 export function ApplyPreviewControl({
+  change,
   destinations,
   disabled = false,
   preview,
 }: {
+  change: MerchantAutomationPreview["changes"][number];
   destinations: AutomationDestination[];
   disabled?: boolean;
   preview: MerchantAutomationPreview;
 }) {
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
-    async () => applyAutomationResults(preview.fingerprint),
+    async () => applyAutomationResults(preview.fingerprint, change.id),
     null,
   );
 
   useEffect(() => {
     if (state?.status === "success") {
-      toast.success("Automation changes applied", { id: "automation-apply" });
+      toast.success("Automation change applied", { id: `automation-apply-${change.id}` });
     } else if (state?.status === "error") {
-      toast.error(state.formError, { id: "automation-apply" });
+      toast.error(state.formError, { id: `automation-apply-${change.id}` });
     }
-  }, [state]);
+  }, [change.id, state]);
 
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button type="button" variant="outline" className="min-h-11" disabled={disabled || preview.changes.length === 0}>
-          Apply
-          <WandSparkles data-icon="inline-end" aria-hidden="true" />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-11 shrink-0"
+          aria-label={`Apply preview for ${change.expected_merchant}`}
+          disabled={disabled || isPending}
+        >
+          <WandSparkles aria-hidden="true" />
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent className="max-w-lg">
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            Apply {preview.changes.length} automation {preview.changes.length === 1 ? "change" : "changes"}?
-          </AlertDialogTitle>
+          <AlertDialogTitle>Apply this automation change?</AlertDialogTitle>
           <AlertDialogDescription>
-            Review the preview below. Applying updates or permanently deletes these existing transactions atomically and cannot be undone
-            here.
+            {change.delete_transaction
+              ? "This will permanently delete the existing transaction."
+              : "This will update the existing transaction with the previewed changes."}{" "}
+            This cannot be undone here.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AutomationPreviewList
-          changes={preview.changes}
-          className="max-h-64 overflow-y-auto"
-          destinations={destinations}
-          label="Existing transaction changes"
-        />
+        <AutomationPreviewChangeSummary change={change} destinations={destinations} />
         {state?.status === "error" ? <FieldError aria-live="polite">{state.formError}</FieldError> : null}
         <AlertDialogFooter>
           <AlertDialogCancel className="min-h-11" disabled={isPending}>
@@ -808,7 +852,7 @@ export function ApplyPreviewControl({
           </AlertDialogCancel>
           <form action={formAction}>
             <AlertDialogAction type="submit" className="min-h-11" disabled={isPending}>
-              Apply changes
+              Apply change
             </AlertDialogAction>
           </form>
         </AlertDialogFooter>
@@ -908,13 +952,19 @@ export function AutomationRulesWorkspace({
       </div>
       <Card className="mt-5 border-white/50 bg-card/90">
         <CardHeader>
-          <CardTitle>Existing transactions</CardTitle>
+          <CardTitle>Preview</CardTitle>
+          <CardDescription>
+            Each row is one existing transaction that would change. Review the details and apply rows individually.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <AutomationPreviewList changes={preview.changes} destinations={destinations} label="Existing transaction preview" />
-            <ApplyPreviewControl destinations={destinations} disabled={!completeRuleList || reordering} preview={preview} />
-          </div>
+          <AutomationPreviewList
+            changes={preview.changes}
+            destinations={destinations}
+            disabled={!completeRuleList || reordering}
+            label="Automation preview"
+            preview={preview}
+          />
           {preview.conflicts.length > 0 ? (
             <ul aria-label="Priority conflicts" className="flex flex-col gap-2">
               {preview.conflicts.map((conflict) => {

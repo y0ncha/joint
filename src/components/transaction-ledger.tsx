@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
 import { Pencil, Trash2 } from "lucide-react";
 
 import { deleteTransactions } from "@/app/actions/transactions";
@@ -21,9 +22,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { LedgerFilterKind, LedgerSort } from "@/components/ledger-controls";
 import type { ReportTransaction } from "@/lib/financial-report";
 import type { DateRange } from "@/lib/date-range";
+import { readLedgerFilterState, type LedgerFilterKind, type LedgerSort } from "@/lib/ledger-filters";
 
 const currency = new Intl.NumberFormat("en-IL", { style: "currency", currency: "ILS" });
 const date = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
@@ -72,6 +73,20 @@ export function TransactionLedger({
   paidByIds?: string[];
   sort?: LedgerSort;
 }) {
+  const searchParams = useSearchParams();
+  const [activeState, setActiveState] = useState(() => readLedgerFilterState(searchParams, { categoryIds, filterKind, paidByIds, sort }));
+  const { categoryIds: activeCategoryIds, filterKind: activeFilterKind, paidByIds: activePaidByIds, sort: activeSort } = activeState;
+  useEffect(() => {
+    const sync = () =>
+      setActiveState(readLedgerFilterState(new URLSearchParams(window.location.search), { categoryIds, filterKind, paidByIds, sort }));
+    window.addEventListener("ledger-filter-change", sync);
+    window.addEventListener("popstate", sync);
+    sync();
+    return () => {
+      window.removeEventListener("ledger-filter-change", sync);
+      window.removeEventListener("popstate", sync);
+    };
+  }, [categoryIds, filterKind, paidByIds, sort]);
   const subcategoriesById = new Map(subcategories.map((subcategory) => [subcategory.id, subcategory]));
   const directCategoriesById = new Map(directCategories.map((category) => [category.id, category]));
   const memberNames = new Map(members.map((member) => [member.id, member]));
@@ -90,21 +105,21 @@ export function TransactionLedger({
 
   const visibleTransactions = transactions
     .filter((transaction) => !dateRange || (transaction.occurredOn >= dateRange.from && transaction.occurredOn <= dateRange.to))
-    .filter((transaction) => filterKind === "all" || transaction.kind === filterKind)
+    .filter((transaction) => activeFilterKind === "all" || transaction.kind === activeFilterKind)
     .filter(
       (transaction) =>
-        categoryIds.length === 0 ||
-        categoryIds.includes(
+        activeCategoryIds.length === 0 ||
+        activeCategoryIds.includes(
           transaction.categoryId ?? subcategoriesById.get(transaction.subcategoryId ?? "")?.categoryId ?? "uncategorized",
         ),
     )
-    .filter((transaction) => paidByIds.length === 0 || paidByIds.includes(transaction.paidBy ?? "unassigned"))
+    .filter((transaction) => activePaidByIds.length === 0 || activePaidByIds.includes(transaction.paidBy ?? "unassigned"))
     .sort((left, right) =>
-      sort === "date-asc"
+      activeSort === "date-asc"
         ? left.occurredOn.localeCompare(right.occurredOn) || left.createdAt.localeCompare(right.createdAt)
-        : sort === "amount-desc"
+        : activeSort === "amount-desc"
           ? right.amount - left.amount
-          : sort === "amount-asc"
+          : activeSort === "amount-asc"
             ? left.amount - right.amount
             : right.occurredOn.localeCompare(left.occurredOn) || right.createdAt.localeCompare(left.createdAt),
     );

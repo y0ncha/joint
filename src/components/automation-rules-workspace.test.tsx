@@ -252,20 +252,27 @@ it("renders ordered atomic automation rules with conflict guidance", () => {
   expect(markup).toMatch(/class="[^"]*text-muted-foreground[^"]*"[^>]*aria-label="Reorder Normalize merchant rule"/);
   expect(markup).toContain('aria-label="Edit Normalize merchant rule"');
   expect(markup).toContain('aria-label="Disable Normalize merchant rule"');
-  expect(markup).toContain('aria-label="Existing transaction preview"');
+  expect(markup).toContain("Each row is one existing transaction that would change. Review the details and apply rows individually.");
+  expect(markup).toContain('aria-label="Automation preview"');
+  expect(markup).toContain('aria-label="Apply preview for ארומה"');
+  expect(markup).toContain("Merchant:");
+  expect(markup).toContain("Destination:");
+  expect(markup).toContain("Uncategorized → Expense → Food → Cafe");
+  expect(markup).toContain("Affects 1 existing transaction.");
   expect(markup).toContain("ארומה → Aroma");
   expect(markup).not.toContain("1 existing transaction would change");
   expect(markup).not.toContain("1 priority conflict resolved by rule order");
-  expect(markup).toContain("Contains “ארומה”");
-  expect(markup).toContain("“Aroma”");
-  expect(markup).toContain('class="shrink-0 text-sm font-medium text-muted-foreground"');
+  expect(markup).toContain("Contains");
+  expect(markup).toContain(">Aroma</span>");
+  expect(markup).toMatch(/class="[^"]*max-w-64 truncate bg-muted\/50[^"]*"[^>]*>Aroma<\/span>/);
+  expect(markup).toContain('data-variant="outline"');
+  expect(markup).toContain("bg-muted/50");
   expect(markup).toContain("Expense → Food → Cafe");
-  expect(markup).toContain("Matches regex “אר.*”");
-  expect(markup).toContain("<code");
-  expect(markup).toContain(">אר.*</code>");
-  expect(markup).toContain("“Aroma Israel”");
+  expect(markup).toContain("Matches regex");
+  expect(markup).toContain('data-variant="outline"');
+  expect(markup).toContain("אר.*");
+  expect(markup).toContain(">Aroma Israel</span>");
   expect(markup).toContain("Contains “ארומה” wins over Matches regex “אר.*” for 1 transaction.");
-  expect(markup).toContain(">Apply<");
 });
 
 it("keeps one persisted rule order while showing action-local priorities", () => {
@@ -301,8 +308,8 @@ it("keeps one persisted rule order while showing action-local priorities", () =>
   expect(markup.indexOf('aria-label="Edit Normalize merchant rule"')).toBeLessThan(
     markup.indexOf('aria-label="Disable Normalize merchant rule"'),
   );
-  expect(markup.indexOf("Contains “shop”")).toBeLessThan(markup.indexOf("Contains “cafe”"));
-  expect(markup.indexOf("Contains “old shop”")).toBeLessThan(markup.indexOf("Contains “cafe”"));
+  expect(markup.indexOf(">shop</span>")).toBeLessThan(markup.indexOf(">cafe</span>"));
+  expect(markup.indexOf(">old shop</span>")).toBeLessThan(markup.indexOf(">cafe</span>"));
 });
 
 it("renders concise outcomes for normalization and deletion rules", () => {
@@ -324,7 +331,7 @@ it("renders concise outcomes for normalization and deletion rules", () => {
   expect(markup).toContain("lucide-arrow-right");
   expect(markup).toContain(">Delete</span>");
   expect(markup).not.toContain('class="min-w-0 flex-1"><span class="block truncate text-sm text-muted-foreground"');
-  expect(markup).toContain('class="min-w-0"><span class="block truncate text-sm text-muted-foreground"');
+  expect(markup).toContain('class="min-w-0"><span class="block truncate text-sm text-foreground"');
 });
 
 it("uses the transaction-style grouped picker for automation destinations", () => {
@@ -481,8 +488,9 @@ it("mutes connectors in rule condition summaries", () => {
     />,
   );
 
-  expect(markup).toMatch(/class="mx-1 text-muted-foreground\/60"> AND <\/span>/);
-  expect(markup).toContain("Note Matches <code");
+  expect(markup).toMatch(/class="mx-1 text-primary"> AND <\/span>/);
+  expect(markup).toContain("Note Matches regex");
+  expect(markup).toContain("%3%");
 });
 
 it("renders each connector between its adjacent conditions", () => {
@@ -826,16 +834,18 @@ it("submits the reviewed preview fingerprint through the atomic apply action", a
 
   const markup = renderToStaticMarkup(
     <workspaceModule.ApplyPreviewControl
+      change={changes[0]}
       destinations={[]}
       disabled
       preview={{ changes, conflicts: [], fingerprint: "preview-fingerprint", ruleSet }}
     />,
   );
-  expect(markup).toContain(">Apply<");
-  expect(markup).not.toContain("Review and apply");
-  expect(markup).toMatch(/>Apply<svg(?=[^>]*data-icon="inline-end")/);
+  expect(markup).not.toContain(">Apply<");
+  expect(markup).toContain('data-variant="ghost"');
+  expect(markup).toContain('data-size="icon"');
+  expect(markup).toContain('aria-label="Apply preview for shop"');
   expect(markup).toContain('disabled=""');
 
   await mocks.actionReducers[0](null, new FormData());
-  expect(mocks.applyAutomationResults).toHaveBeenCalledWith("preview-fingerprint");
+  expect(mocks.applyAutomationResults).toHaveBeenCalledWith("preview-fingerprint", changes[0].id);
 });

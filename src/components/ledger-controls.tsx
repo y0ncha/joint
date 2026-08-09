@@ -1,8 +1,8 @@
 "use client";
 
 import { ChevronDown, Settings2 } from "lucide-react";
-import { useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,9 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { readLedgerFilterState, type LedgerFilterKind, type LedgerSort } from "@/lib/ledger-filters";
 
-export type LedgerFilterKind = "all" | "income" | "expense";
-export type LedgerSort = "date-desc" | "date-asc" | "amount-desc" | "amount-asc";
+export type { LedgerFilterKind, LedgerSort } from "@/lib/ledger-filters";
 
 const typeOptions = [
   { value: "income", label: "Income", className: "border-positive/20 bg-positive/10 text-positive" },
@@ -51,10 +51,22 @@ export function LedgerControls({
   sort: LedgerSort;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [categoryQuery, setCategoryQuery] = useState("");
+  const [activeState, setActiveState] = useState(() => readLedgerFilterState(searchParams, { categoryIds, filterKind, paidByIds, sort }));
+  const { categoryIds: activeCategoryIds, filterKind: activeFilterKind, paidByIds: activePaidByIds, sort: activeSort } = activeState;
+  useEffect(() => {
+    const sync = () =>
+      setActiveState(readLedgerFilterState(new URLSearchParams(window.location.search), { categoryIds, filterKind, paidByIds, sort }));
+    window.addEventListener("ledger-filter-change", sync);
+    window.addEventListener("popstate", sync);
+    sync();
+    return () => {
+      window.removeEventListener("ledger-filter-change", sync);
+      window.removeEventListener("popstate", sync);
+    };
+  }, [categoryIds, filterKind, paidByIds, sort]);
   const visibleCategories = useMemo(
     () =>
       categories
@@ -62,16 +74,17 @@ export function LedgerControls({
         .sort((left, right) => left.name.localeCompare(right.name)),
     [categories, categoryQuery],
   );
-  const selectedCategories = categories.filter((category) => categoryIds.includes(category.id));
-  const allCategoriesSelected = categoryIds.length === categories.length + 1 && categoryIds.includes("uncategorized");
-  const selectedPayers = members.filter((member) => paidByIds.includes(member.id));
+  const selectedCategories = categories.filter((category) => activeCategoryIds.includes(category.id));
+  const allCategoriesSelected = activeCategoryIds.length === categories.length + 1 && activeCategoryIds.includes("uncategorized");
+  const selectedPayers = members.filter((member) => activePaidByIds.includes(member.id));
+  const allPayersSelected = activePaidByIds.length === members.length + 1 && activePaidByIds.includes("unassigned");
 
   function update(next: Partial<{ categoryIds: string[]; filterKind: LedgerFilterKind; paidByIds: string[]; sort: LedgerSort }>) {
     const params = new URLSearchParams(searchParams);
-    const nextFilterKind = next.filterKind ?? filterKind;
-    const nextSort = next.sort ?? sort;
-    const nextCategoryIds = next.categoryIds ?? categoryIds;
-    const nextPaidByIds = next.paidByIds ?? paidByIds;
+    const nextFilterKind = next.filterKind ?? activeFilterKind;
+    const nextSort = next.sort ?? activeSort;
+    const nextCategoryIds = next.categoryIds ?? activeCategoryIds;
+    const nextPaidByIds = next.paidByIds ?? activePaidByIds;
     if (!params.has("from")) params.set("month", month);
     if (importRequested) params.set("import", "1");
     if (nextFilterKind !== "all") params.set("filter", nextFilterKind);
@@ -82,7 +95,8 @@ export function LedgerControls({
     else params.delete("categories");
     if (nextPaidByIds.length) params.set("paidBy", nextPaidByIds.join(","));
     else params.delete("paidBy");
-    router.push(`${pathname}?${params}`);
+    window.history.pushState(window.history.state, "", `${pathname}?${params}`);
+    window.dispatchEvent(new Event("ledger-filter-change"));
   }
 
   function toggle(values: string[], value: string) {
@@ -112,11 +126,11 @@ export function LedgerControls({
                 <Button
                   type="button"
                   variant="outline"
-                  className="min-h-11 h-auto w-full justify-between gap-2 py-2 text-left"
+                  className="min-h-11 h-auto w-full justify-between gap-2 rounded-xl py-2 text-left"
                   aria-label="Filter transaction types"
                   aria-labelledby="ledger-type-label"
                 >
-                  {filterKind === "all" ? (
+                  {activeFilterKind === "all" ? (
                     <span className="text-muted-foreground">All transactions</span>
                   ) : (
                     (() => {
@@ -132,15 +146,15 @@ export function LedgerControls({
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-(--radix-popover-trigger-width) p-2">
-                <FieldSet>
+                <FieldSet className="mx-0.5 mb-2">
                   <FieldLegend className="sr-only">Transaction type options</FieldLegend>
                   {typeOptions.map((option) => (
                     <Field key={option.value} orientation="horizontal">
                       <Checkbox
-                        className="size-3 min-h-11 min-w-11"
+                        className="size-4"
                         id={`ledger-type-${option.value}`}
-                        checked={filterKind === "all" || filterKind === option.value}
-                        onCheckedChange={() => update({ filterKind: getNextLedgerFilterKind(filterKind, option.value) })}
+                        checked={activeFilterKind === "all" || activeFilterKind === option.value}
+                        onCheckedChange={() => update({ filterKind: getNextLedgerFilterKind(activeFilterKind, option.value) })}
                       />
                       <FieldLabel htmlFor={`ledger-type-${option.value}`}>
                         <Badge variant="outline" className={option.className}>
@@ -166,7 +180,7 @@ export function LedgerControls({
                 <Button
                   type="button"
                   variant="outline"
-                  className="min-h-11 h-auto w-full justify-between gap-2 py-2 text-left"
+                  className="min-h-11 h-auto w-full justify-between gap-2 rounded-xl py-2 text-left"
                   aria-label="Filter categories"
                   aria-labelledby="ledger-category-label"
                   onKeyDown={(event) => {
@@ -206,15 +220,15 @@ export function LedgerControls({
                   value={categoryQuery}
                   onChange={(event) => setCategoryQuery(event.target.value)}
                 />
-                <FieldSet className="max-h-56 overflow-y-auto">
+                <FieldSet className="mx-0.5 mb-2 max-h-56 overflow-y-auto">
                   <FieldLegend className="sr-only">Category options</FieldLegend>
                   {visibleCategories.map((category) => (
                     <Field key={category.id} orientation="horizontal">
                       <Checkbox
-                        className="size-3 min-h-11 min-w-11"
+                        className="size-4"
                         id={`ledger-category-${category.id}`}
-                        checked={categoryIds.includes(category.id)}
-                        onCheckedChange={() => update({ categoryIds: toggle(categoryIds, category.id) })}
+                        checked={activeCategoryIds.includes(category.id)}
+                        onCheckedChange={() => update({ categoryIds: toggle(activeCategoryIds, category.id) })}
                       />
                       <FieldLabel htmlFor={`ledger-category-${category.id}`}>
                         <Badge variant="outline" color={category.color} className="max-w-full truncate">
@@ -225,10 +239,10 @@ export function LedgerControls({
                   ))}
                   <Field orientation="horizontal">
                     <Checkbox
-                      className="size-3 min-h-11 min-w-11"
+                      className="size-4"
                       id="ledger-category-uncategorized"
-                      checked={categoryIds.includes("uncategorized")}
-                      onCheckedChange={() => update({ categoryIds: toggle(categoryIds, "uncategorized") })}
+                      checked={activeCategoryIds.includes("uncategorized")}
+                      onCheckedChange={() => update({ categoryIds: toggle(activeCategoryIds, "uncategorized") })}
                     />
                     <FieldLabel htmlFor="ledger-category-uncategorized">
                       <Badge variant="outline" className="border-muted-foreground/20 bg-muted text-muted-foreground">
@@ -250,36 +264,41 @@ export function LedgerControls({
                 <Button
                   type="button"
                   variant="outline"
-                  className="min-h-11 h-auto w-full justify-between gap-2 py-2 text-left"
+                  className="min-h-11 h-auto w-full justify-between gap-2 rounded-xl py-2 text-left"
                   aria-label="Filter payers"
                   aria-labelledby="ledger-payer-label"
                 >
                   <span className="flex min-w-0 flex-1 flex-wrap gap-1">
-                    {selectedPayers.map((member) => (
-                      <Badge key={member.id} variant="outline" color={member.color} className="max-w-full truncate">
-                        {member.label}
-                      </Badge>
-                    ))}
-                    {paidByIds.includes("unassigned") ? (
-                      <Badge variant="outline" className="border-muted-foreground/20 bg-muted text-muted-foreground">
-                        Unassigned
-                      </Badge>
-                    ) : null}
-                    {paidByIds.length === 0 ? <span className="text-muted-foreground">All payers</span> : null}
+                    {activePaidByIds.length === 0 || allPayersSelected ? (
+                      <span className="text-muted-foreground">All payers</span>
+                    ) : (
+                      <>
+                        {selectedPayers.map((member) => (
+                          <Badge key={member.id} variant="outline" color={member.color} className="max-w-full truncate">
+                            {member.label}
+                          </Badge>
+                        ))}
+                        {activePaidByIds.includes("unassigned") ? (
+                          <Badge variant="outline" className="border-muted-foreground/20 bg-muted text-muted-foreground">
+                            Unassigned
+                          </Badge>
+                        ) : null}
+                      </>
+                    )}
                   </span>
                   <ChevronDown data-icon="inline-end" aria-hidden="true" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-(--radix-popover-trigger-width) p-2">
-                <FieldSet>
+                <FieldSet className="mx-0.5 mb-2">
                   <FieldLegend className="sr-only">Payer options</FieldLegend>
                   {members.map((member) => (
                     <Field key={member.id} orientation="horizontal">
                       <Checkbox
-                        className="size-3 min-h-11 min-w-11"
+                        className="size-4"
                         id={`ledger-member-${member.id}`}
-                        checked={paidByIds.includes(member.id)}
-                        onCheckedChange={() => update({ paidByIds: toggle(paidByIds, member.id) })}
+                        checked={activePaidByIds.includes(member.id)}
+                        onCheckedChange={() => update({ paidByIds: toggle(activePaidByIds, member.id) })}
                       />
                       <FieldLabel htmlFor={`ledger-member-${member.id}`}>
                         <Badge variant="outline" color={member.color} className="max-w-full truncate">
@@ -290,10 +309,10 @@ export function LedgerControls({
                   ))}
                   <Field orientation="horizontal">
                     <Checkbox
-                      className="size-3 min-h-11 min-w-11"
+                      className="size-4"
                       id="ledger-member-unassigned"
-                      checked={paidByIds.includes("unassigned")}
-                      onCheckedChange={() => update({ paidByIds: toggle(paidByIds, "unassigned") })}
+                      checked={activePaidByIds.includes("unassigned")}
+                      onCheckedChange={() => update({ paidByIds: toggle(activePaidByIds, "unassigned") })}
                     />
                     <FieldLabel htmlFor="ledger-member-unassigned">
                       <Badge variant="outline" className="border-muted-foreground/20 bg-muted text-muted-foreground">
@@ -307,8 +326,8 @@ export function LedgerControls({
           </Field>
           <Field>
             <FieldLabel htmlFor="ledger-sort">Sort by</FieldLabel>
-            <Select value={sort} onValueChange={(value) => update({ sort: value as LedgerSort })}>
-              <SelectTrigger id="ledger-sort" aria-label="Sort by" className="min-h-11 w-full">
+            <Select value={activeSort} onValueChange={(value) => update({ sort: value as LedgerSort })}>
+              <SelectTrigger id="ledger-sort" aria-label="Sort by" className="h-11 w-full rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

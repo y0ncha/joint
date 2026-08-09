@@ -48,8 +48,8 @@ it("renders the type filter as a multiselect and Sort by control", () => {
   expect(markup).toContain('id="ledger-type-expense"');
   for (const id of ["ledger-type-income", "ledger-category-uncategorized", "ledger-member-unassigned"]) {
     const control = markup.match(new RegExp(`<button[^>]*id="${id}"[^>]*>`))?.[0];
-    expect(control).toContain("size-3");
-    expect(control).toContain("min-h-11");
+    expect(control).toContain("size-4");
+    expect(control).not.toContain("min-h-11");
   }
   expect(markup).toContain("bg-negative/10");
   expect(markup).toContain("bg-positive/10");
@@ -57,7 +57,7 @@ it("renders the type filter as a multiselect and Sort by control", () => {
   expect(markup).not.toContain('aria-label="Search payers"');
   expect(markup).toContain("Sort by");
   expect(markup).toContain('aria-label="Sort by"');
-  expect(markup.match(/<button[^>]*id="ledger-sort"[^>]*>/)?.[0]).toContain("min-h-11");
+  expect(markup.match(/<button[^>]*id="ledger-sort"[^>]*>/)?.[0]).toContain("h-11");
   expect(markup).toContain('data-variant="default"');
 });
 
