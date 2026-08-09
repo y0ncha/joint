@@ -217,38 +217,44 @@ export async function reorderAutomationRules(orderedRuleIds: string[]): Promise<
   return { status: "success" };
 }
 
-export async function applyAutomationResults(fingerprint: string): Promise<ActionResult> {
+function staleAutomationPreview(): ActionResult {
+  return {
+    status: "error",
+    formError: "This automation preview is stale. Refresh it before applying changes.",
+    fieldErrors: {},
+  };
+}
+
+async function applyAutomationPreview(fingerprint: string, changeId?: string): Promise<ActionResult> {
   let preview;
   try {
     ({ preview } = await getMerchantAutomationRulesPage());
   } catch {
     return { status: "error", formError: "Unable to apply automation changes. Please try again.", fieldErrors: {} };
   }
-  if (!preview.changes.length || preview.fingerprint !== fingerprint) {
-    return {
-      status: "error",
-      formError: "This automation preview is stale. Refresh it before applying changes.",
-      fieldErrors: {},
-    };
-  }
+  const changes = changeId ? preview.changes.filter((change) => change.id === changeId) : preview.changes;
+  if (!changes.length || preview.fingerprint !== fingerprint) return staleAutomationPreview();
 
   const household = await requireCurrentHousehold();
   const { error } = await household.supabase.rpc("apply_automation_results", {
     target_household_id: household.householdId,
-    changes: preview.changes,
+    changes,
     expected_rule_set: preview.ruleSet,
   });
-  if (error?.message?.includes("Automation preview is stale")) {
-    return {
-      status: "error",
-      formError: "This automation preview is stale. Refresh it before applying changes.",
-      fieldErrors: {},
-    };
-  }
+  if (error?.message?.includes("Automation preview is stale")) return staleAutomationPreview();
   if (error) return { status: "error", formError: "Unable to apply automation changes. Please try again.", fieldErrors: {} };
   revalidatePath("/");
   revalidatePath("/transactions");
   revalidatePath("/categories");
   revalidateAutomations();
   return { status: "success" };
+}
+
+export async function applyAutomationResults(fingerprint: string): Promise<ActionResult> {
+  return applyAutomationPreview(fingerprint);
+}
+
+export async function applyAutomationResult(fingerprint: string, changeId: string): Promise<ActionResult> {
+  if (!z.string().uuid().safeParse(changeId).success) return staleAutomationPreview();
+  return applyAutomationPreview(fingerprint, changeId);
 }

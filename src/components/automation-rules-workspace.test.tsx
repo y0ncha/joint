@@ -5,6 +5,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   actionState: null as null | { status: "error"; formError: string; fieldErrors: Record<string, string> },
   actionReducers: [] as Array<(state: unknown, formData: FormData) => unknown>,
+  applyAutomationResult: vi.fn(),
   applyAutomationResults: vi.fn(),
   createAutomationRule: vi.fn(),
   dragEndHandlers: [] as Array<(event: unknown) => void>,
@@ -64,6 +65,7 @@ vi.mock("react", async (importOriginal) => {
   };
 });
 vi.mock("@/app/actions/merchant-automations", () => ({
+  applyAutomationResult: mocks.applyAutomationResult,
   applyAutomationResults: mocks.applyAutomationResults,
   createAutomationRule: mocks.createAutomationRule,
   deleteAutomationRule: vi.fn(),
@@ -128,7 +130,11 @@ vi.mock("@/components/ui/alert-dialog", () => ({
       {children}
     </button>
   ),
-  AlertDialogContent: ({ children }: { children: ReactNode }) => <div role="alertdialog">{children}</div>,
+  AlertDialogContent: ({ children, ...props }: { children: ReactNode } & React.ComponentProps<"div">) => (
+    <div role="alertdialog" {...props}>
+      {children}
+    </div>
+  ),
   AlertDialogDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
   AlertDialogFooter: ({ children }: { children: ReactNode }) => <footer>{children}</footer>,
   AlertDialogHeader: ({ children }: { children: ReactNode }) => <header>{children}</header>,
@@ -287,11 +293,13 @@ it("renders ordered atomic automation rules with conflict guidance", () => {
   expect(markup).not.toContain("Each row is one existing transaction that would change");
   expect(markup).not.toContain('aria-label="Automation preview"');
   expect(markup).not.toContain('aria-label="Apply preview for ארומה"');
-  expect(markup).toContain("Merchant:");
-  expect(markup).toContain("Destination:");
-  expect(markup).toContain("Uncategorized → Expense → Food → Cafe");
+  expect(markup).not.toContain("Merchant:");
+  expect(markup).not.toContain("Destination:");
+  expect(markup).toContain("Uncategorized");
+  expect(markup).toContain("lucide-move-right");
   expect(markup).not.toContain("Affects 1 existing transaction.");
-  expect(markup).toContain("ארומה → Aroma");
+  expect(markup).toContain("ארומה");
+  expect(markup).toContain("Aroma");
   expect(markup).not.toContain("1 existing transaction would change");
   expect(markup).not.toContain("1 priority conflict resolved by rule order");
   expect(markup).toContain("Contains");
@@ -299,7 +307,8 @@ it("renders ordered atomic automation rules with conflict guidance", () => {
   expect(markup).toMatch(/class="[^"]*max-w-64 truncate bg-muted\/50[^"]*"[^>]*>Aroma<\/span>/);
   expect(markup).toContain('data-variant="outline"');
   expect(markup).toContain("bg-muted/50");
-  expect(markup).toContain("Expense → Food → Cafe");
+  expect(markup).toContain("Food");
+  expect(markup).toContain("Cafe");
   expect(markup).toContain("Matches regex");
   expect(markup).toContain('data-variant="outline"');
   expect(markup).toContain("אר.*");
@@ -360,7 +369,7 @@ it("renders concise outcomes for normalization and deletion rules", () => {
   );
 
   expect(markup).not.toContain("Missing destination");
-  expect(markup).toContain("lucide-arrow-right");
+  expect(markup).toContain("lucide-move-right");
   expect(markup).toContain(">Delete</span>");
   expect(markup).not.toContain('class="min-w-0 flex-1"><span class="block truncate text-sm text-muted-foreground"');
   expect(markup).toContain('class="min-w-0"><span class="block truncate text-sm text-foreground"');
@@ -490,7 +499,8 @@ it("keeps a labelled review action available for an existing preview", () => {
   );
 
   expect(markup).toContain('aria-label="Review changes"');
-  expect(markup).toContain("lucide-diff");
+  expect(markup).toContain("lucide-clipboard-check");
+  expect(markup).toMatch(/data-variant="ghost"(?=[^>]*data-size="icon")(?=[^>]*aria-label="Review changes")/);
   expect(markup.indexOf('aria-label="Configure rule view"')).toBeLessThan(markup.indexOf('aria-label="Review changes"'));
 });
 
@@ -554,7 +564,7 @@ it("renders a compact connector before each condition after the first", () => {
   expect(markup).toContain('type="number"');
 });
 
-it("mutes connectors in rule condition summaries", () => {
+it("emphasizes connectors in rule condition summaries", () => {
   if (!workspaceModule?.AutomationRulesWorkspace) throw new Error("AutomationRulesWorkspace is unavailable.");
 
   const markup = renderToStaticMarkup(
@@ -581,7 +591,7 @@ it("mutes connectors in rule condition summaries", () => {
     />,
   );
 
-  expect(markup).toMatch(/class="mx-1 text-primary"> AND <\/span>/);
+  expect(markup).toMatch(/class="mx-1 font-semibold text-primary"> AND <\/span>/);
   expect(markup).toContain("Note Matches regex");
   expect(markup).toContain("%3%");
 });
@@ -960,7 +970,7 @@ it("updates a rule switch before the server revalidation completes", () => {
   expect(markup).toContain('aria-checked="false"');
 });
 
-it("submits the complete reviewed preview through the atomic apply action", async () => {
+it("renders quiet individual and all-preview apply actions", async () => {
   if (!workspaceModule?.AutomationPreviewDialog) throw new Error("AutomationPreviewDialog is unavailable.");
   const changes = [
     {
@@ -996,16 +1006,20 @@ it("submits the complete reviewed preview through the atomic apply action", asyn
       rules={[]}
     />,
   );
-  expect(markup).toContain("Apply 1 change");
-  expect(markup).toContain("Review 1 existing change");
-  expect(markup).toContain("Merchant:");
-  expect(markup).not.toContain("Affects 1 existing transaction.");
+  expect(markup).toContain("Preview");
+  expect(markup).toContain("p-6");
+  expect(markup).toContain("lucide-move-right");
+  expect(markup).toContain('aria-label="Close preview"');
+  expect(markup).toContain("Apply all 1");
+  expect(markup).toContain('aria-label="Apply change for shop"');
+  expect(markup).not.toContain(">Apply<");
+  expect(markup).not.toContain("Not now");
 
   await mocks.actionReducers[0](null, new FormData());
   expect(mocks.applyAutomationResults).toHaveBeenCalledWith("preview-fingerprint");
 });
 
-it("marks a mixed update and deletion batch as destructive", () => {
+it("keeps deletion in the same preview row style", () => {
   if (!workspaceModule?.AutomationPreviewDialog) throw new Error("AutomationPreviewDialog is unavailable.");
   const changes = [
     {
@@ -1040,7 +1054,7 @@ it("marks a mixed update and deletion batch as destructive", () => {
     />,
   );
 
-  expect(markup).toContain("Apply 2 changes");
-  expect(markup).toContain('data-variant="destructive"');
-  expect(markup).toContain("This transaction will be permanently deleted.");
+  expect(markup).toContain("Apply all 2");
+  expect(markup).not.toContain('data-variant="destructive"');
+  expect(markup).toContain("Delete permanently");
 });

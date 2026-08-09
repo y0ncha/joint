@@ -444,6 +444,23 @@ describe("merchant automation actions", () => {
     });
   });
 
+  it("applies one server-derived preview change through the same atomic RPC", async () => {
+    configureActionClient();
+    mocks.getMerchantAutomationRulesPage.mockResolvedValue({
+      count: 1,
+      rules: [],
+      destinations: [],
+      preview: { ...automationPreview, changes: [...previewChanges, secondPreviewChange], fingerprint: "multi-fingerprint" },
+    });
+
+    await expect(actions.applyAutomationResult("multi-fingerprint", secondPreviewChange.id)).resolves.toEqual({ status: "success" });
+    expect(mocks.rpc).toHaveBeenCalledWith("apply_automation_results", {
+      target_household_id: "household-id",
+      changes: [secondPreviewChange],
+      expected_rule_set: ruleSet,
+    });
+  });
+
   it("applies the complete server-derived preview in one atomic batch", async () => {
     configureActionClient();
     mocks.getMerchantAutomationRulesPage.mockResolvedValue({

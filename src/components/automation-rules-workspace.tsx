@@ -15,10 +15,11 @@ import {
   useState,
   useTransition,
 } from "react";
-import { ArrowRight, Diff, Ellipsis, GripVertical, Pencil, Plus, Settings2, Trash2, WandSparkles } from "lucide-react";
+import { Check, ClipboardCheck, Ellipsis, GripVertical, MoveRight, Pencil, Plus, Settings2, Trash2, WandSparkles, X } from "lucide-react";
 import { toast } from "sonner";
 
 import {
+  applyAutomationResult,
   applyAutomationResults,
   createAutomationRule,
   deleteAutomationRule,
@@ -130,7 +131,9 @@ function RuleConditionSummary({ rule }: { rule: MerchantAutomationRule }) {
   }
   return rule.conditions.conditions.map((condition, index) => (
     <Fragment key={`${condition.field}-${index}`}>
-      {index > 0 ? <span className="mx-1 text-primary">{` ${connectorForCondition(rule.conditions!, index)?.toUpperCase()} `}</span> : null}
+      {index > 0 ? (
+        <span className="mx-1 font-semibold text-primary">{` ${connectorForCondition(rule.conditions!, index)?.toUpperCase()} `}</span>
+      ) : null}
       <ConditionSummaryLabel condition={condition} />
     </Fragment>
   ));
@@ -675,7 +678,7 @@ function SortableRule({
               <RuleConditionSummary rule={rule} />
             </span>
           </span>
-          <ArrowRight aria-hidden="true" className="size-4 shrink-0 text-primary" />
+          <MoveRight aria-hidden="true" className="size-4 shrink-0 text-primary" />
           {rule.action === "assign_category" ? (
             <Badge className={cn("max-w-64 truncate", !enabled && "opacity-60")} variant="secondary">
               <CategoryIcon name={destination?.icon} data-icon="inline-start" />
@@ -786,11 +789,19 @@ function AutomationPreviewChangeSummary({
   change: MerchantAutomationPreview["changes"][number];
   destinations: AutomationDestination[];
 }) {
+  const renderDestinationPath = (label: string) =>
+    label.split(" → ").map((segment, index) => (
+      <Fragment key={`${segment}-${index}`}>
+        {index > 0 ? <MoveRight aria-hidden="true" className="mx-1 inline-block size-4 align-[-0.2em] text-primary" /> : null}
+        {segment}
+      </Fragment>
+    ));
+
   if (change.delete_transaction) {
     return (
       <>
-        <p className="truncate font-medium">Delete transaction: {change.expected_merchant}</p>
-        <p className="text-sm text-muted-foreground">This transaction will be permanently deleted.</p>
+        <p className="truncate text-xs text-muted-foreground">{change.expected_merchant}</p>
+        <p className="truncate text-sm font-medium">Delete permanently</p>
       </>
     );
   }
@@ -807,17 +818,18 @@ function AutomationPreviewChangeSummary({
 
   return (
     <>
+      <p className="truncate text-xs text-muted-foreground">{change.expected_merchant}</p>
       {merchantChanged ? (
-        <p className="truncate font-medium">
-          <span className="text-muted-foreground">Merchant:</span> {change.expected_merchant} → {change.merchant}
+        <p className="truncate text-sm font-medium">
+          {change.expected_merchant} <MoveRight aria-hidden="true" className="mx-1 inline-block size-4 align-[-0.2em] text-primary" />{" "}
+          {change.merchant}
         </p>
       ) : null}
       {destinationChanged ? (
-        <p className="truncate font-medium">
-          <span className="text-muted-foreground">Destination:</span>{" "}
-          {destinationLabel(change.expected_category_id, change.expected_subcategory_id)}
-          {" → "}
-          {destinationLabel(change.category_id, change.subcategory_id)}
+        <p className="truncate text-sm font-medium">
+          {renderDestinationPath(destinationLabel(change.expected_category_id, change.expected_subcategory_id))}
+          <MoveRight aria-hidden="true" className="mx-1 inline-block size-4 align-[-0.2em] text-primary" />
+          {renderDestinationPath(destinationLabel(change.category_id, change.subcategory_id))}
         </p>
       ) : null}
     </>
@@ -827,17 +839,34 @@ function AutomationPreviewChangeSummary({
 function AutomationPreviewList({
   changes,
   destinations,
+  isPending,
   label,
+  onApply,
 }: {
   changes: MerchantAutomationPreview["changes"];
   destinations: AutomationDestination[];
+  isPending: boolean;
   label: string;
+  onApply: (changeId: string) => void;
 }) {
   return (
-    <ul className="flex min-w-0 w-full flex-col gap-2" aria-label={label}>
+    <ul className="flex min-w-0 w-full flex-col" aria-label={label}>
       {changes.map((change) => (
-        <li key={change.id} className="min-w-0 rounded-xl border border-border/70 bg-card px-4 py-3">
-          <AutomationPreviewChangeSummary change={change} destinations={destinations} />
+        <li key={change.id} className="flex min-w-0 items-center gap-3 border-b border-border/70 py-3 first:border-t">
+          <div className="min-w-0 flex-1">
+            <AutomationPreviewChangeSummary change={change} destinations={destinations} />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="size-11 shrink-0"
+            aria-label={`Apply change for ${change.expected_merchant}`}
+            disabled={isPending}
+            onClick={() => onApply(change.id)}
+          >
+            <Check aria-hidden="true" />
+          </Button>
         </li>
       ))}
     </ul>
@@ -861,8 +890,18 @@ export function AutomationPreviewDialog({
     async () => applyAutomationResults(preview.fingerprint),
     null,
   );
+  const [isApplyingChange, startApplyingChange] = useTransition();
   const changeCount = preview.changes.length;
-  const hasDeletion = preview.changes.some((change) => change.delete_transaction);
+  const applyChange = (changeId: string) => {
+    startApplyingChange(async () => {
+      const result = await applyAutomationResult(preview.fingerprint, changeId);
+      if (result.status === "success") {
+        toast.success("1 automation change applied", { id: "automation-apply" });
+      } else {
+        toast.error(result.formError, { id: "automation-apply" });
+      }
+    });
+  };
 
   useEffect(() => {
     if (state?.status === "success") {
@@ -875,16 +914,27 @@ export function AutomationPreviewDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="min-w-0 w-[calc(100vw-2rem)] !max-w-2xl max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto overscroll-contain">
+      <AlertDialogContent className="min-w-0 w-[calc(100vw-2rem)] !max-w-xl max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto overscroll-contain p-6">
         <AlertDialogHeader className="min-w-0 w-full">
-          <AlertDialogTitle>
-            Review {changeCount} existing {changeCount === 1 ? "change" : "changes"}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            Applying this batch updates existing transactions. New transactions already use the current rules. This cannot be undone here.
-          </AlertDialogDescription>
+          <AlertDialogTitle className="text-xl">Preview</AlertDialogTitle>
+          <AlertDialogDescription className="sr-only">Review and apply existing transaction changes.</AlertDialogDescription>
         </AlertDialogHeader>
-        <AutomationPreviewList changes={preview.changes} destinations={destinations} label="Existing transaction changes" />
+        <AlertDialogCancel
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="absolute top-4 right-4 size-11 opacity-60"
+          aria-label="Close preview"
+        >
+          <X aria-hidden="true" />
+        </AlertDialogCancel>
+        <AutomationPreviewList
+          changes={preview.changes}
+          destinations={destinations}
+          isPending={isPending || isApplyingChange}
+          label="Existing transaction changes"
+          onApply={applyChange}
+        />
         {preview.conflicts.length > 0 ? (
           <ul aria-label="Priority conflicts" className="flex min-w-0 flex-col gap-2">
             {preview.conflicts.map((conflict) => {
@@ -906,16 +956,12 @@ export function AutomationPreviewDialog({
           </ul>
         ) : null}
         {state?.status === "error" ? <FieldError aria-live="polite">{state.formError}</FieldError> : null}
-        <AlertDialogFooter className="min-w-0 flex-wrap">
-          <AlertDialogCancel className="min-h-11" disabled={isPending}>
-            Not now
-          </AlertDialogCancel>
-          <form action={formAction}>
-            <Button type="submit" variant={hasDeletion ? "destructive" : "default"} className="min-h-11" disabled={isPending}>
-              Apply {changeCount} {changeCount === 1 ? "change" : "changes"}
-            </Button>
-          </form>
-        </AlertDialogFooter>
+        <form action={formAction} className="flex justify-end">
+          <Button type="submit" className="min-h-11" disabled={isPending || isApplyingChange}>
+            <Check data-icon="inline-start" aria-hidden="true" />
+            Apply all {changeCount}
+          </Button>
+        </form>
       </AlertDialogContent>
     </AlertDialog>
   );
@@ -1107,8 +1153,15 @@ export function AutomationRulesWorkspace({
                   onGroupChange={setRuleGroup}
                 />
                 {canReview ? (
-                  <Button type="button" variant="outline" size="icon" className="size-11" aria-label="Review changes" onClick={() => setPreviewOpen(true)}>
-                    <Diff aria-hidden="true" />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-11"
+                    aria-label="Review changes"
+                    onClick={() => setPreviewOpen(true)}
+                  >
+                    <ClipboardCheck aria-hidden="true" />
                   </Button>
                 ) : null}
               </CardAction>
