@@ -90,7 +90,7 @@ vi.mock("@/components/ui/sheet", () => ({
   SheetDescription: ({ children }: { children: ReactNode }) => children,
   SheetHeader: ({ children }: { children: ReactNode }) => children,
   SheetTitle: ({ children }: { children: ReactNode }) => children,
-  SheetTrigger: ({ children }: { children: ReactNode }) => children,
+  SheetTrigger: ({ children }: { children: ReactNode }) => <div data-sheet-trigger>{children}</div>,
 }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
@@ -222,7 +222,7 @@ it("renders ordered atomic automation rules with conflict guidance", () => {
     : "";
 
   expect(markup).toContain("Automations");
-  expect(markup).toContain(
+  expect(markup).not.toContain(
     "Rules share one order. For each action, the first enabled matching rule wins; different actions run independently.",
   );
   expect(markup).toContain("Normalize merchant");
@@ -238,11 +238,13 @@ it("renders ordered atomic automation rules with conflict guidance", () => {
   expect(markup).toContain("ארומה → Aroma");
   expect(markup).not.toContain("1 existing transaction would change");
   expect(markup).not.toContain("1 priority conflict resolved by rule order");
-  expect(markup).toContain("Contains “ארומה” → Rename merchant to “Aroma”");
-  expect(markup).toContain("Contains “ארומה” → Assign category “Expense → Food → Cafe”");
-  expect(markup).toContain("Matches regex “אר.*” → Rename merchant to “Aroma Israel”");
+  expect(markup).toContain("Contains “ארומה”");
+  expect(markup).toContain("“Aroma”");
+  expect(markup).toContain("Expense → Food → Cafe");
+  expect(markup).toContain("Matches regex “אר.*”");
+  expect(markup).toContain("“Aroma Israel”");
   expect(markup).toContain("Contains “ארומה” wins over Matches regex “אר.*” for 1 transaction.");
-  expect(markup).toContain("Review and apply");
+  expect(markup).toContain(">Apply<");
 });
 
 it("keeps one persisted rule order while showing action-local priorities", () => {
@@ -268,20 +270,20 @@ it("keeps one persisted rule order while showing action-local priorities", () =>
     />,
   );
 
-  expect(markup).toContain("Automation rules");
-  expect(markup).toContain(
+  expect(markup).not.toContain("Automation rules");
+  expect(markup).not.toContain(
     "Rules share one order. For each action, the first enabled matching rule wins; different actions run independently.",
   );
-  expect(markup).toContain(">Normalize merchant</span>");
-  expect(markup).toContain(">Assign category</span>");
   expect(markup).not.toContain("No transaction deletion rules yet.");
   expect(markup.match(/role="switch"/g)).toHaveLength(3);
   expect(markup).toContain('aria-label="Normalize merchant priority 1"');
   expect(markup).toContain('aria-label="Normalize merchant priority 2"');
-  expect(markup.indexOf("Contains “shop” → Rename merchant to “Shop”")).toBeLessThan(markup.indexOf("Contains “cafe” → Assign category "));
-  expect(markup.indexOf("Contains “old shop” → Rename merchant to “Old Shop”")).toBeLessThan(
-    markup.indexOf("Contains “cafe” → Assign category "),
+  expect(markup).toMatch(/data-sheet-trigger="true"><button(?=[^>]*data-slot="button")(?=[^>]*aria-label="Edit Normalize merchant rule")/);
+  expect(markup.indexOf('aria-label="Edit Normalize merchant rule"')).toBeLessThan(
+    markup.indexOf('aria-label="Disable Normalize merchant rule"'),
   );
+  expect(markup.indexOf("Contains “shop”")).toBeLessThan(markup.indexOf("Contains “cafe”"));
+  expect(markup.indexOf("Contains “old shop”")).toBeLessThan(markup.indexOf("Contains “cafe”"));
 });
 
 it("omits destination pills for normalization and deletion rules", () => {
@@ -349,14 +351,13 @@ it("uses the transaction-style grouped picker for automation destinations", () =
   );
 });
 
-it("renders a default merchant match builder with a 44px regex option", () => {
+it("renders a default merchant match builder without condition drag handles", () => {
   const markup = renderRuleForm();
 
   expect(markup).toContain("Delete transaction");
   expect(markup).toContain("Merchant match");
   expect(markup).toContain("Merchant text");
-  expect(markup).toContain('aria-label="Reorder condition 1"');
-  expect(markup).toContain("motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-out motion-reduce:transition-none");
+  expect(markup).not.toContain('aria-label="Reorder condition');
   expect(markup).not.toContain("Merchant pattern");
   expect(markup).toMatch(/<input(?=[^>]*name="matchMode")(?=[^>]*value="contains")[^>]*>/);
   expect(markup).toMatch(/<input(?=[^>]*name="matchValue")(?=[^>]*class="h-11")[^>]*>/);
@@ -430,7 +431,7 @@ it("renders a compact connector before each condition after the first", () => {
   expect(markup).toContain('type="number"');
 });
 
-it("renders each connector after the preceding condition so a promoted first row does not jump", () => {
+it("renders each connector between its adjacent conditions", () => {
   const markup = renderRuleForm({
     rule: {
       id: "connector-position-rule",
@@ -449,45 +450,10 @@ it("renders each connector after the preceding condition so a promoted first row
     },
   });
 
-  expect(markup.indexOf('aria-label="Reorder condition 1"')).toBeLessThan(markup.indexOf('aria-label="Condition 2 connector"'));
-  expect(markup.indexOf('aria-label="Condition 2 connector"')).toBeLessThan(markup.indexOf('aria-label="Reorder condition 2"'));
+  expect(markup.indexOf('data-condition-row="1"')).toBeLessThan(markup.indexOf('aria-label="Condition 2 connector"'));
+  expect(markup.indexOf('aria-label="Condition 2 connector"')).toBeLessThan(markup.indexOf('data-condition-row="2"'));
   expect(markup).toContain('data-condition-row="1"');
   expect(markup).toContain('data-connector-after-condition="1"');
-});
-
-it("moves stable row identities while preserving connector positions", () => {
-  if (!workspaceModule?.applyReorderedConditionRows) {
-    throw new Error("applyReorderedConditionRows is unavailable.");
-  }
-
-  const previous = [
-    { id: "first", condition: { field: "merchant" as const, operator: "contains" as const, value: "first" } },
-    {
-      id: "second",
-      condition: { connector: "and" as const, field: "amount" as const, operator: "greater_than" as const, value: 100 },
-    },
-    {
-      id: "third",
-      condition: { connector: "or" as const, field: "note" as const, operator: "contains" as const, value: "weekly" },
-    },
-  ];
-  const reordered = workspaceModule.applyReorderedConditionRows(previous, [
-    {
-      id: "third",
-      condition: { connector: "or" as const, field: "note" as const, operator: "contains" as const, value: "weekly" },
-    },
-    { id: "first", condition: { field: "merchant" as const, operator: "contains" as const, value: "first" } },
-    {
-      id: "second",
-      condition: { connector: "and" as const, field: "amount" as const, operator: "greater_than" as const, value: 100 },
-    },
-  ]);
-
-  expect(reordered).toEqual([
-    { id: "third", condition: { field: "note", operator: "contains", value: "weekly", connector: undefined } },
-    { id: "first", condition: { field: "merchant", operator: "contains", value: "first", connector: "and" } },
-    { id: "second", condition: { field: "amount", operator: "greater_than", value: 100, connector: "or" } },
-  ]);
 });
 
 it("removes a condition while preserving connector positions", () => {
@@ -789,7 +755,9 @@ it("submits the reviewed preview fingerprint through the atomic apply action", a
       preview={{ changes, conflicts: [], fingerprint: "preview-fingerprint", ruleSet }}
     />,
   );
-  expect(markup).toContain("Review and apply");
+  expect(markup).toContain(">Apply<");
+  expect(markup).not.toContain("Review and apply");
+  expect(markup).toMatch(/>Apply<svg(?=[^>]*data-icon="inline-end")/);
   expect(markup).toContain('disabled=""');
 
   await mocks.actionReducers[0](null, new FormData());

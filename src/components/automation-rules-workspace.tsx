@@ -5,6 +5,7 @@ import { DragDropProvider } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
 import {
   type ComponentProps,
+  Fragment,
   type ReactNode,
   useActionState,
   useEffect,
@@ -14,7 +15,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { Ellipsis, GripVertical, Plus, Trash2, WandSparkles } from "lucide-react";
+import { Ellipsis, GripVertical, Pencil, Plus, Trash2, WandSparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -91,12 +92,6 @@ function selectedDestination(rule: MerchantAutomationRule | undefined) {
   return "";
 }
 
-function ruleOutcome(rule: MerchantAutomationRule, destination: AutomationDestination | undefined) {
-  if (rule.action === "normalize_merchant") return `Rename merchant to “${rule.replacement ?? "Missing replacement"}”`;
-  if (rule.action === "assign_category") return `Assign category “${destination?.label ?? "Missing destination"}”`;
-  return "Delete matching transactions after preview and confirmation";
-}
-
 function ruleConditionSummary(rule: MerchantAutomationRule) {
   return rule.conditions ? describeConditionGroup(rule.conditions) : describeMerchantPattern(rule.pattern);
 }
@@ -133,47 +128,19 @@ function RuleDeleteDialog({
   );
 }
 
-function SortableCondition({
-  children,
-  id,
-  index,
-}: {
-  children: (sortable: ReturnType<typeof useSortable>) => ReactNode;
-  id: string;
-  index: number;
-}) {
-  return children(
-    useSortable({
-      id,
-      index,
-      transition: { duration: 420, easing: "cubic-bezier(0.22, 1, 0.36, 1)", idle: true },
-    }),
-  );
-}
-
 export type AutomationConditionRow = {
   id: string;
   condition: AutomationCondition;
 };
 
-export function applyReorderedConditionRows(
-  previous: AutomationConditionRow[],
-  reordered: AutomationConditionRow[],
-): AutomationConditionRow[] {
+export function removeConditionRow(previous: AutomationConditionRow[], index: number): AutomationConditionRow[] {
+  if (previous.length === 1) return previous;
+  const remaining = previous.filter((_, rowIndex) => rowIndex !== index);
   const conditions = preserveConditionConnectorPositions(
     previous.map((row) => row.condition),
-    reordered.map((row) => row.condition),
+    remaining.map((row) => row.condition),
   );
-  return reordered.map((row, index) => ({ ...row, condition: conditions[index]! }));
-}
-
-export function removeConditionRow(previous: AutomationConditionRow[], index: number): AutomationConditionRow[] {
-  return previous.length === 1
-    ? previous
-    : applyReorderedConditionRows(
-        previous,
-        previous.filter((_, rowIndex) => rowIndex !== index),
-      );
+  return remaining.map((row, rowIndex) => ({ ...row, condition: conditions[rowIndex]! }));
 }
 
 export function AutomationRuleForm({
@@ -330,174 +297,142 @@ export function AutomationRuleForm({
           <FieldLegend>Conditions</FieldLegend>
           <FieldDescription>Choose what a transaction must match before this action runs.</FieldDescription>
           <FieldGroup className="gap-3">
-            <DragDropProvider
-              onDragEnd={(event) => {
-                setConditionRows((current) => applyReorderedConditionRows(current, move(current, event)));
-              }}
-            >
-              {conditionRows.map(({ condition, id }, index) => {
-                const isMerchant = condition.field === "merchant";
-                const isAmount = condition.field === "amount";
-                const inputId = `${formId}-condition-${index}`;
-                const nextCondition = conditionRows[index + 1]?.condition;
-                const nextInputId = `${formId}-condition-${index + 1}`;
-                const conditionRowClassName =
-                  "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[auto_minmax(7rem,0.8fr)_minmax(8rem,1fr)_minmax(0,1fr)_auto]";
-                return (
-                  <SortableCondition key={id} id={id} index={index}>
-                    {({ ref, handleRef, isDragging }) => (
-                      <>
-                        <div
-                          ref={ref}
-                          data-condition-row={index + 1}
-                          className={cn(
-                            "motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-out motion-reduce:transition-none",
-                            isDragging && "opacity-60",
-                          )}
-                        >
-                          <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.conditions)}>
-                            <div className={conditionRowClassName}>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="size-11 shrink-0"
-                                ref={handleRef}
-                                aria-label={`Reorder condition ${index + 1}`}
-                              >
-                                <GripVertical aria-hidden="true" />
-                              </Button>
-                              <div className="min-w-0">
-                                <FieldLabel className="sr-only" htmlFor={`${inputId}-field`}>
-                                  Condition {index + 1} field
-                                </FieldLabel>
-                                <Select
-                                  value={condition.field}
-                                  onValueChange={(value) => changeField(index, value as AutomationConditionField)}
-                                >
-                                  <SelectTrigger id={`${inputId}-field`} size="lg" className="w-full rounded-xl">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectGroup>
-                                      {textConditionFieldOptions.map((option) => (
-                                        <SelectItem key={option.value} className="min-h-11" value={option.value}>
-                                          {option.label}
-                                        </SelectItem>
-                                      ))}
-                                      <SelectItem className="min-h-11" value="amount">
-                                        Amount
-                                      </SelectItem>
-                                    </SelectGroup>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="min-w-0">
-                                <FieldLabel className="sr-only" htmlFor={`${inputId}-operator`}>
-                                  {index === 0 && isMerchant ? "Merchant match" : "Match operator"}
-                                </FieldLabel>
-                                <Select value={condition.operator} onValueChange={(value) => updateOperator(index, value)}>
-                                  <SelectTrigger
-                                    id={index === 0 && isMerchant ? `${formId}-match-mode` : `${inputId}-operator`}
-                                    size="lg"
-                                    className="w-full rounded-xl"
-                                  >
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectGroup>
-                                      {(isAmount ? amountConditionOperatorOptions : textConditionOperatorOptions).map((option) => (
-                                        <SelectItem key={option.value} className="min-h-11" value={option.value}>
-                                          {option.label}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectGroup>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="min-w-0">
-                                <FieldLabel className="sr-only" htmlFor={inputId}>
-                                  {index === 0 && isMerchant ? "Merchant text" : isAmount ? "Amount value" : "Text value"}
-                                </FieldLabel>
-                                <Input
-                                  ref={(element) => {
-                                    conditionInputRefs.current[index] = element;
-                                    if (index === 0 && isMerchant) merchantTextRef.current = element;
-                                  }}
-                                  id={inputId}
-                                  name={index === 0 && isMerchant ? "matchValue" : `condition-${index}-value`}
-                                  type={isAmount ? "number" : "text"}
-                                  inputMode={isAmount ? "decimal" : undefined}
-                                  min={isAmount ? 0 : undefined}
-                                  step={isAmount ? "0.01" : undefined}
-                                  value={String(condition.value)}
-                                  onChange={(event) => updateValue(index, isAmount ? Number(event.target.value) : event.target.value)}
-                                  maxLength={isAmount ? undefined : condition.field === "merchant" ? 200 : 500}
-                                  autoComplete="off"
-                                  className="h-11"
-                                  aria-label={`${condition.field === "merchant" ? "Merchant" : condition.field === "note" ? "Note" : "Amount"} value`}
-                                  aria-invalid={
-                                    state?.status === "error" && Boolean(state.fieldErrors.conditions || state.fieldErrors.pattern)
-                                  }
-                                />
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="size-11 shrink-0"
-                                aria-label={`Remove condition ${index + 1}`}
-                                onClick={() => removeCondition(index)}
-                                disabled={conditionRows.length === 1}
-                              >
-                                <Trash2 aria-hidden="true" />
-                              </Button>
-                            </div>
-                            {state?.status === "error" && index === 0 ? (
-                              <FieldError>{state.fieldErrors.conditions ?? state.fieldErrors.pattern}</FieldError>
-                            ) : null}
-                          </Field>
+            {conditionRows.map(({ condition, id }, index) => {
+              const isMerchant = condition.field === "merchant";
+              const isAmount = condition.field === "amount";
+              const inputId = `${formId}-condition-${index}`;
+              const nextCondition = conditionRows[index + 1]?.condition;
+              const nextInputId = `${formId}-condition-${index + 1}`;
+              const conditionRowClassName =
+                "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[minmax(7rem,0.8fr)_minmax(8rem,1fr)_minmax(0,1fr)_auto]";
+              return (
+                <Fragment key={id}>
+                  <div data-condition-row={index + 1}>
+                    <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.conditions)}>
+                      <div className={conditionRowClassName}>
+                        <div className="min-w-0">
+                          <FieldLabel className="sr-only" htmlFor={`${inputId}-field`}>
+                            Condition {index + 1} field
+                          </FieldLabel>
+                          <Select value={condition.field} onValueChange={(value) => changeField(index, value as AutomationConditionField)}>
+                            <SelectTrigger id={`${inputId}-field`} size="lg" className="w-full rounded-xl">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                {textConditionFieldOptions.map((option) => (
+                                  <SelectItem key={option.value} className="min-h-11" value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                                <SelectItem className="min-h-11" value="amount">
+                                  Amount
+                                </SelectItem>
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
                         </div>
-                        {nextCondition ? (
-                          <div
-                            data-connector-after-condition={index + 1}
-                            className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 py-1"
-                          >
-                            <Separator className="min-w-0 bg-primary/20" />
-                            <FieldLabel className="sr-only" htmlFor={`${nextInputId}-connector`}>
-                              Condition {index + 2} connector
-                            </FieldLabel>
-                            <Select
-                              value={nextCondition.connector ?? "and"}
-                              onValueChange={(value) => updateConnector(index + 1, value as AutomationConditionConnector)}
+                        <div className="min-w-0">
+                          <FieldLabel className="sr-only" htmlFor={`${inputId}-operator`}>
+                            {index === 0 && isMerchant ? "Merchant match" : "Match operator"}
+                          </FieldLabel>
+                          <Select value={condition.operator} onValueChange={(value) => updateOperator(index, value)}>
+                            <SelectTrigger
+                              id={index === 0 && isMerchant ? `${formId}-match-mode` : `${inputId}-operator`}
+                              size="lg"
+                              className="w-full rounded-xl"
                             >
-                              <SelectTrigger
-                                id={`${nextInputId}-connector`}
-                                size="sm"
-                                aria-label={`Condition ${index + 2} connector`}
-                                className="w-20 rounded-full border-primary/30 bg-primary/10 px-2 text-primary hover:bg-primary/15"
-                              >
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectGroup>
-                                  {conditionConnectorOptions.map((option) => (
-                                    <SelectItem key={option.value} className="min-h-11" value={option.value}>
-                                      {option.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectGroup>
-                              </SelectContent>
-                            </Select>
-                            <Separator className="min-w-0 bg-primary/20" />
-                          </div>
-                        ) : null}
-                      </>
-                    )}
-                  </SortableCondition>
-                );
-              })}
-            </DragDropProvider>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                {(isAmount ? amountConditionOperatorOptions : textConditionOperatorOptions).map((option) => (
+                                  <SelectItem key={option.value} className="min-h-11" value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="min-w-0">
+                          <FieldLabel className="sr-only" htmlFor={inputId}>
+                            {index === 0 && isMerchant ? "Merchant text" : isAmount ? "Amount value" : "Text value"}
+                          </FieldLabel>
+                          <Input
+                            ref={(element) => {
+                              conditionInputRefs.current[index] = element;
+                              if (index === 0 && isMerchant) merchantTextRef.current = element;
+                            }}
+                            id={inputId}
+                            name={index === 0 && isMerchant ? "matchValue" : `condition-${index}-value`}
+                            type={isAmount ? "number" : "text"}
+                            inputMode={isAmount ? "decimal" : undefined}
+                            min={isAmount ? 0 : undefined}
+                            step={isAmount ? "0.01" : undefined}
+                            value={String(condition.value)}
+                            onChange={(event) => updateValue(index, isAmount ? Number(event.target.value) : event.target.value)}
+                            maxLength={isAmount ? undefined : condition.field === "merchant" ? 200 : 500}
+                            autoComplete="off"
+                            className="h-11"
+                            aria-label={`${condition.field === "merchant" ? "Merchant" : condition.field === "note" ? "Note" : "Amount"} value`}
+                            aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.conditions || state.fieldErrors.pattern)}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-11 shrink-0"
+                          aria-label={`Remove condition ${index + 1}`}
+                          onClick={() => removeCondition(index)}
+                          disabled={conditionRows.length === 1}
+                        >
+                          <Trash2 aria-hidden="true" />
+                        </Button>
+                      </div>
+                      {state?.status === "error" && index === 0 ? (
+                        <FieldError>{state.fieldErrors.conditions ?? state.fieldErrors.pattern}</FieldError>
+                      ) : null}
+                    </Field>
+                  </div>
+                  {nextCondition ? (
+                    <div
+                      data-connector-after-condition={index + 1}
+                      className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 py-1"
+                    >
+                      <Separator className="min-w-0 bg-primary/20" />
+                      <FieldLabel className="sr-only" htmlFor={`${nextInputId}-connector`}>
+                        Condition {index + 2} connector
+                      </FieldLabel>
+                      <Select
+                        value={nextCondition.connector ?? "and"}
+                        onValueChange={(value) => updateConnector(index + 1, value as AutomationConditionConnector)}
+                      >
+                        <SelectTrigger
+                          id={`${nextInputId}-connector`}
+                          size="sm"
+                          aria-label={`Condition ${index + 2} connector`}
+                          className="w-20 rounded-full border-primary/30 bg-primary/10 px-2 text-primary hover:bg-primary/15"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            {conditionConnectorOptions.map((option) => (
+                              <SelectItem key={option.value} className="min-h-11" value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <Separator className="min-w-0 bg-primary/20" />
+                    </div>
+                  ) : null}
+                </Fragment>
+              );
+            })}
           </FieldGroup>
           <Button
             type="button"
@@ -578,7 +513,6 @@ function SortableRule({
   const destination = destinations.find(
     (option) => option.categoryId === (rule.categoryId ?? null) && option.subcategoryId === (rule.subcategoryId ?? null),
   );
-  const outcome = ruleOutcome(rule, destination);
   const { ref, handleRef, isDragging } = useSortable({ id: rule.id, index, disabled: !canReorder });
   const [editOpen, setEditOpen] = useState(false);
   const [editSheetContent, setEditSheetContent] = useState<HTMLElement | null>(null);
@@ -628,80 +562,80 @@ function SortableRule({
         >
           <GripVertical aria-hidden="true" />
         </Button>
-        <SheetTrigger asChild>
-          <button
-            type="button"
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-            aria-label={`Edit ${label} rule`}
+        <div className="hidden items-center gap-1 sm:flex">
+          <SheetTrigger asChild>
+            <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={`Edit ${label} rule`}>
+              <Pencil aria-hidden="true" />
+            </Button>
+          </SheetTrigger>
+          <form ref={toggleFormRef} action={toggleAction} className="translate-y-0.5">
+            <Switch
+              checked={rule.enabled}
+              disabled={togglePending}
+              aria-label={`${rule.enabled ? "Disable" : "Enable"} ${label} rule`}
+              className="h-6 w-11"
+              onCheckedChange={() => toggleFormRef.current?.requestSubmit()}
+            />
+          </form>
+        </div>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span
+            aria-label={`${label} priority ${priority}`}
+            className={cn("w-5 text-sm text-muted-foreground", !rule.enabled && "opacity-60")}
           >
-            <span
-              aria-label={`${label} priority ${priority}`}
-              className={cn("w-5 text-sm text-muted-foreground", !rule.enabled && "opacity-60")}
-            >
-              {priority}
-            </span>
-            <Badge variant="outline" className={cn("shrink-0", !rule.enabled && "opacity-60")}>
-              {label}
+            {priority}
+          </span>
+          <span className={cn("min-w-0 flex-1", !rule.enabled && "opacity-60")}>
+            <span className="block truncate text-sm text-muted-foreground">{ruleConditionSummary(rule)}</span>
+          </span>
+          {rule.action === "assign_category" ? (
+            <Badge className={cn("max-w-64 truncate", !rule.enabled && "opacity-60")} variant="secondary">
+              {destination?.label ?? "Missing destination"}
             </Badge>
-            <span className={cn("min-w-0 flex-1", !rule.enabled && "opacity-60")}>
-              <span className="block truncate text-sm text-muted-foreground">
-                {ruleConditionSummary(rule)} → {outcome}
-              </span>
+          ) : rule.action === "normalize_merchant" ? (
+            <span className={cn("shrink-0 text-sm font-medium", !rule.enabled && "opacity-60")}>
+              “{rule.replacement ?? "Missing replacement"}”
             </span>
-            {rule.action === "assign_category" ? (
-              <Badge className={cn("max-w-full truncate", !rule.enabled && "opacity-60")} variant="secondary">
-                {destination?.label ?? "Missing destination"}
-              </Badge>
-            ) : null}
-          </button>
-        </SheetTrigger>
-        <div className="ml-auto flex items-center gap-1">
-          <div className="hidden items-center gap-1 sm:flex">
-            <form ref={toggleFormRef} action={toggleAction} className="translate-y-0.5">
-              <Switch
-                checked={rule.enabled}
-                disabled={togglePending}
-                aria-label={`${rule.enabled ? "Disable" : "Enable"} ${label} rule`}
-                className="h-6 w-11"
-                onCheckedChange={() => toggleFormRef.current?.requestSubmit()}
+          ) : (
+            <span className={cn("shrink-0 text-sm font-medium text-destructive", !rule.enabled && "opacity-60")}>Delete</span>
+          )}
+        </div>
+        <SheetContent
+          ref={setEditSheetContent}
+          side="right"
+          className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto overscroll-contain border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl data-[side=right]:md:w-[36rem] data-[side=right]:md:max-w-[calc(100vw-2rem)]"
+        >
+          <SheetHeader className="p-6">
+            <SheetTitle className="text-xl">Edit rule</SheetTitle>
+            <SheetDescription>Update this merchant rule without changing its priority.</SheetDescription>
+          </SheetHeader>
+          <div className="flex flex-col gap-3 px-6 pb-6">
+            <AutomationRuleForm
+              destinations={destinations}
+              popoverContainer={editSheetContent}
+              rule={rule}
+              onSaved={() => setEditOpen(false)}
+            />
+            <div className="flex justify-end">
+              <RuleDeleteDialog
+                deleteAction={deleteAction}
+                deletePending={deletePending}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-11 text-destructive"
+                    aria-label={`Delete ${label} rule`}
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                }
               />
-            </form>
-            <SheetContent
-              ref={setEditSheetContent}
-              side="right"
-              className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto overscroll-contain border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl data-[side=right]:md:w-[36rem] data-[side=right]:md:max-w-[calc(100vw-2rem)]"
-            >
-              <SheetHeader className="p-6">
-                <SheetTitle className="text-xl">Edit rule</SheetTitle>
-                <SheetDescription>Update this merchant rule without changing its priority.</SheetDescription>
-              </SheetHeader>
-              <div className="flex flex-col gap-3 px-6 pb-6">
-                <AutomationRuleForm
-                  destinations={destinations}
-                  popoverContainer={editSheetContent}
-                  rule={rule}
-                  onSaved={() => setEditOpen(false)}
-                />
-                <div className="flex justify-end">
-                  <RuleDeleteDialog
-                    deleteAction={deleteAction}
-                    deletePending={deletePending}
-                    trigger={
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-11 text-destructive"
-                        aria-label={`Delete ${label} rule`}
-                      >
-                        <Trash2 aria-hidden="true" />
-                      </Button>
-                    }
-                  />
-                </div>
-              </div>
-            </SheetContent>
+            </div>
           </div>
+        </SheetContent>
+        <div className="ml-auto flex items-center gap-1">
           <Sheet open={actionsOpen} onOpenChange={setActionsOpen}>
             <SheetTrigger asChild>
               <Button type="button" variant="ghost" size="icon" className="size-11 sm:hidden" aria-label={`More actions for ${label} rule`}>
@@ -826,7 +760,8 @@ export function ApplyPreviewControl({
     <AlertDialog>
       <AlertDialogTrigger asChild>
         <Button type="button" variant="outline" className="min-h-11" disabled={disabled || preview.changes.length === 0}>
-          Review and apply
+          Apply
+          <WandSparkles data-icon="inline-end" aria-hidden="true" />
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent className="max-w-lg">
@@ -913,13 +848,6 @@ export function AutomationRulesWorkspace({
       }
     >
       <div className="mt-6 flex flex-col gap-4">
-        <div className="px-1">
-          <h2 className="text-base font-medium">Automation rules</h2>
-          <p className="text-sm text-muted-foreground">
-            Rules share one order. For each action, the first enabled matching rule wins; different actions run independently. Preview
-            changes before applying them to existing transactions.
-          </p>
-        </div>
         <p id="automation-sort-instructions" className="sr-only">
           Press Space or Enter to pick up a rule, use the arrow keys to move it, then press Space or Enter to drop it.
         </p>
