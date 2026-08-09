@@ -194,7 +194,7 @@ export default async function SettingsPage() {
                   </Link>
                 </Button>
               </SettingsRow>
-              <SettingsRow icon={ShoppingBasket} label="Groceries budget" description="Leave blank to hide the chart threshold.">
+              <SettingsRow icon={ShoppingBasket} label="Groceries budget">
                 <GroceriesBudgetSettingsControl budget={householdRecord?.groceries_monthly_budget ?? null} />
               </SettingsRow>
               {household.role === "owner" && partnerState ? (

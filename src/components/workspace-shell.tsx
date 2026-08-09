@@ -75,7 +75,7 @@ function NavigationItem({ href, label, icon: Icon }: { href: string; label: stri
       href={href}
       prefetch
       className={cn(
-        "flex size-11 items-center justify-center rounded-2xl transition-colors duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+        "flex size-11 touch-manipulation items-center justify-center rounded-2xl transition-colors duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-white/65 hover:text-foreground",
       )}
     >
@@ -113,7 +113,7 @@ export function WorkspaceShell({
         </aside>
         <section
           className={cn(
-            "min-w-0 flex-1 animate-in fade-in-0 p-4 pb-[calc(9rem+env(safe-area-inset-bottom))] duration-150 ease-out sm:p-6 sm:pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-6 lg:p-8",
+            "min-w-0 flex-1 animate-in fade-in-0 p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(9rem+env(safe-area-inset-bottom))] duration-150 ease-out sm:p-6 sm:pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-6 lg:p-8",
             opaqueContent && "bg-white/50 backdrop-blur-sm",
           )}
         >

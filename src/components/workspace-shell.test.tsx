@@ -191,6 +191,17 @@ it("makes the workspace frame full-bleed on mobile", () => {
   expect(markup).toContain("lg:min-h-[calc(100vh-4rem)]");
 });
 
+it("uses iPhone safe areas for the top content and bottom navigation", () => {
+  const markup = renderToStaticMarkup(
+    <WorkspaceShell title="Settings">
+      <p>Content</p>
+    </WorkspaceShell>,
+  );
+
+  expect(markup).toContain("pt-[calc(1rem+env(safe-area-inset-top))]");
+  expect(markup).toContain("bottom-[calc(0.75rem+env(safe-area-inset-bottom))]");
+});
+
 it("keeps workspace chrome visible around BillsGroceries detail content", () => {
   const markup = renderToStaticMarkup(
     <WorkspaceShell title="Groceries by day" description="Daily spending">

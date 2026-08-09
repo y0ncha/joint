@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -11,7 +12,15 @@ vi.mock("next/font/google", () => ({
 }));
 vi.mock("@vercel/analytics/next", () => ({ Analytics: () => null }));
 
-import RootLayout from "./layout";
+import RootLayout, { metadata, viewport } from "./layout";
+
+it("uses a translucent status bar for the mobile canvas", () => {
+  expect((metadata as Metadata).appleWebApp).toMatchObject({
+    capable: true,
+    statusBarStyle: "black-translucent",
+  });
+  expect(viewport).toMatchObject({ themeColor: "#f6d4b8", viewportFit: "cover" });
+});
 
 it.each([
   ["#123456", "#123456"],
