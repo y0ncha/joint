@@ -83,3 +83,11 @@ export const transactionSchema = z
       context.addIssue({ code: "custom", path: ["servicePeriodEnd"], message: "Use 366 days or fewer." });
     }
   });
+
+export const recurringScheduleSchema = z.object({
+  amount: amountSchema,
+  merchant: z.string().trim().max(200, "Use 200 characters or fewer."),
+  note: noteSchema,
+  cadence: z.enum(["weekly", "monthly", "custom_weekly", "custom_monthly"]),
+  intervalCount: z.coerce.number().int("Use a whole number.").positive("Use an interval greater than zero."),
+});

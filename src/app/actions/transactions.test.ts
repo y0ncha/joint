@@ -43,12 +43,27 @@ function transactionForm(overrides: Record<string, string> = {}) {
 }
 
 function configureContextClient({
-  duplicates = [] as Array<{ id: string; kind: "income" | "expense"; amount: number; occurred_on: string; merchant: string }>,
+  duplicates = [] as Array<{
+    id: string;
+    kind: "income" | "expense";
+    amount: number;
+    occurred_on: string;
+    merchant: string;
+    recurring_schedule_id?: string | null;
+  }>,
   payer = { user_id: "partner-id" },
   transactionError = null,
   existingTransaction = { source: "manual" },
   subcategory = { categories: { system_key: null } },
 }: {
+  duplicates?: Array<{
+    id: string;
+    kind: "income" | "expense";
+    amount: number;
+    occurred_on: string;
+    merchant: string;
+    recurring_schedule_id?: string | null;
+  }>;
   payer?: { user_id: string } | null;
   transactionError?: unknown;
   existingTransaction?: { source: "manual" | "statement_import" } | null;
@@ -183,6 +198,52 @@ describe("transaction actions", () => {
 
     await expect(transactionsModule.createTransaction(input)).resolves.toEqual({ status: "success", data: { skippedDuplicateCount: "1" } });
     expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("creates future schedule occurrences after confirming a duplicate recurring first entry", async () => {
+    configureContextClient({
+      duplicates: [{ id: "existing", kind: "expense", amount: 50, occurred_on: "2026-07-14", merchant: "Groceries" }],
+    });
+    const input = transactionForm({ merchant: "Groceries", recurrenceCadence: "monthly", recurrenceInterval: "1" });
+    const preview = await transactionsModule.createTransaction(input);
+    if (preview.status !== "confirmation_required") throw new Error("Expected duplicate preview");
+    input.set("duplicateFingerprint", preview.duplicatePreview.fingerprint);
+
+    await expect(transactionsModule.createTransaction(input)).resolves.toEqual({ status: "success", data: { skippedDuplicateCount: "1" } });
+
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "create_recurring_transaction_schedule_after_duplicate",
+      expect.objectContaining({
+        target_cadence: "monthly",
+        target_existing_transaction_id: "existing",
+        target_interval_count: 1,
+        target_occurred_on: "2026-07-14",
+      }),
+    );
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("does not create a second schedule when the confirmed duplicate already belongs to one", async () => {
+    configureContextClient({
+      duplicates: [
+        {
+          id: "existing",
+          kind: "expense",
+          amount: 50,
+          occurred_on: "2026-07-14",
+          merchant: "Groceries",
+          recurring_schedule_id: "schedule-id",
+        },
+      ],
+    });
+    const input = transactionForm({ merchant: "Groceries", recurrenceCadence: "monthly", recurrenceInterval: "1" });
+    const preview = await transactionsModule.createTransaction(input);
+    if (preview.status !== "confirmation_required") throw new Error("Expected duplicate preview");
+    input.set("duplicateFingerprint", preview.duplicatePreview.fingerprint);
+
+    await expect(transactionsModule.createTransaction(input)).resolves.toEqual({ status: "success", data: { skippedDuplicateCount: "1" } });
+
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("rejects a stale manual duplicate preview", async () => {

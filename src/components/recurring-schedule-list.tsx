@@ -1,7 +1,23 @@
+"use client";
+
+import { useTransition } from "react";
+import { toast } from "sonner";
+
 import { deleteRecurringTransactionSchedule, pauseRecurringTransactionSchedule } from "@/app/actions/recurring-transactions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RecurringScheduleEditForm } from "@/components/recurring-schedule-edit-form";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 export type RecurringScheduleRow = {
@@ -16,6 +32,7 @@ export type RecurringScheduleRow = {
 };
 
 export function RecurringScheduleList({ schedules }: { schedules: RecurringScheduleRow[] }) {
+  const [isPending, startTransition] = useTransition();
   if (!schedules.length) return null;
   return (
     <Card className="mt-4 border-white/50 bg-card/90">
@@ -32,8 +49,15 @@ export function RecurringScheduleList({ schedules }: { schedules: RecurringSched
               </p>
             </div>
             <div className="flex gap-2">
-              <form action={pauseRecurringTransactionSchedule.bind(null, schedule.id, !schedule.enabled)}>
-                <Button type="submit" variant="outline">
+              <form
+                action={() =>
+                  startTransition(async () => {
+                    const result = await pauseRecurringTransactionSchedule(schedule.id, !schedule.enabled);
+                    if (result.status === "error") toast.error(result.formError, { id: `schedule-${schedule.id}` });
+                  })
+                }
+              >
+                <Button disabled={isPending} type="submit" variant="outline">
                   {schedule.enabled ? "Pause" : "Resume"}
                 </Button>
               </form>
@@ -53,11 +77,34 @@ export function RecurringScheduleList({ schedules }: { schedules: RecurringSched
                   </div>
                 </SheetContent>
               </Sheet>
-              <form action={deleteRecurringTransactionSchedule.bind(null, schedule.id)}>
-                <Button type="submit" variant="ghost">
-                  Delete
-                </Button>
-              </form>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="ghost" className="text-destructive">
+                    Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this recurring schedule?</AlertDialogTitle>
+                    <AlertDialogDescription>Future transactions will stop. Existing ledger entries stay unchanged.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <form
+                      action={() =>
+                        startTransition(async () => {
+                          const result = await deleteRecurringTransactionSchedule(schedule.id);
+                          if (result.status === "error") toast.error(result.formError, { id: `schedule-${schedule.id}` });
+                        })
+                      }
+                    >
+                      <AlertDialogAction disabled={isPending} type="submit" variant="destructive">
+                        Delete schedule
+                      </AlertDialogAction>
+                    </form>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         ))}

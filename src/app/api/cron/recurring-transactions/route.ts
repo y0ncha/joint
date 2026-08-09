@@ -4,7 +4,8 @@ import { NextResponse } from "next/server";
 import type { Database } from "@/lib/database.types";
 
 export async function GET(request: Request) {
-  if (request.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
@@ -13,11 +14,7 @@ export async function GET(request: Request) {
   if (!url || !serviceRoleKey) return new NextResponse("Server configuration is missing.", { status: 500 });
 
   const supabase = createClient<Database>(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
-  const { error } = await (
-    supabase as unknown as {
-      rpc: (name: "process_due_recurring_transaction_schedules", args: Record<string, never>) => Promise<{ error: unknown }>;
-    }
-  ).rpc("process_due_recurring_transaction_schedules", {});
+  const { error } = await supabase.rpc("process_due_recurring_transaction_schedules", {});
   if (error) return new NextResponse("Unable to process recurring transactions.", { status: 500 });
   return NextResponse.json({ ok: true });
 }

@@ -3,7 +3,7 @@ import { LedgerControls, type LedgerFilterKind, type LedgerSort } from "@/compon
 import { StatementImportForm } from "@/components/statement-import-form";
 import { TransactionLedger } from "@/components/transaction-ledger";
 import { TransactionSheet } from "@/components/transaction-sheet";
-import { RecurringScheduleList, type RecurringScheduleRow } from "@/components/recurring-schedule-list";
+import { RecurringScheduleList } from "@/components/recurring-schedule-list";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -49,12 +49,9 @@ export default async function TransactionsPage({
   const filterKind: LedgerFilterKind = filter === "income" || filter === "expense" ? filter : "all";
   const ledgerSort: LedgerSort = sort === "date-asc" || sort === "amount-desc" || sort === "amount-asc" ? sort : "date-desc";
   const data = await getDashboardData(month);
-  const scheduleClient = (await createServerSupabaseClient()) as unknown as {
-    from: (table: "recurring_transaction_schedules") => {
-      select: (columns: string) => { order: (column: string) => Promise<{ data: RecurringScheduleRow[] | null }> };
-    };
-  };
-  const { data: schedules } = await scheduleClient
+  const { data: schedules } = await (
+    await createServerSupabaseClient()
+  )
     .from("recurring_transaction_schedules")
     .select("id, amount, cadence, enabled, merchant, next_occurs_on, note, interval_count")
     .order("next_occurs_on");

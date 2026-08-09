@@ -2,64 +2,44 @@
 
 import { revalidatePath } from "next/cache";
 
+import { validationError, type ActionResult } from "@/app/actions/result";
 import { requireCurrentHousehold } from "@/lib/household";
+import { recurringScheduleSchema } from "@/lib/validation";
 
-type ScheduleClient = {
-  from: (table: "recurring_transaction_schedules") => {
-    update: (values: {
-      enabled?: boolean;
-      paused_reason?: string | null;
-      amount?: number;
-      merchant?: string;
-      note?: string;
-      cadence?: string;
-      interval_count?: number;
-    }) => {
-      eq: (column: string, value: string) => { eq: (column: string, value: string) => Promise<{ error: unknown }> };
-    };
-    delete: () => { eq: (column: string, value: string) => { eq: (column: string, value: string) => Promise<{ error: unknown }> } };
-  };
-};
+const SAVE_ERROR = "Unable to save the recurring schedule. Please try again.";
 
-export async function pauseRecurringTransactionSchedule(scheduleId: string, enabled: boolean) {
+export async function pauseRecurringTransactionSchedule(scheduleId: string, enabled: boolean): Promise<ActionResult> {
   const household = await requireCurrentHousehold();
-  const { error } = await (household.supabase as unknown as ScheduleClient)
-    .from("recurring_transaction_schedules")
-    .update({ enabled, paused_reason: enabled ? null : "Paused by a household member." })
-    .eq("id", scheduleId)
-    .eq("household_id", household.householdId);
-  if (!error) revalidatePath("/transactions");
+  const { error } = await household.supabase.rpc("set_recurring_transaction_schedule_enabled", {
+    target_enabled: enabled,
+    target_schedule_id: scheduleId,
+  });
+  if (error) return { status: "error", formError: SAVE_ERROR, fieldErrors: {} };
+  revalidatePath("/transactions");
+  return { status: "success" };
 }
 
-export async function deleteRecurringTransactionSchedule(scheduleId: string) {
+export async function deleteRecurringTransactionSchedule(scheduleId: string): Promise<ActionResult> {
   const household = await requireCurrentHousehold();
-  const { error } = await (household.supabase as unknown as ScheduleClient)
-    .from("recurring_transaction_schedules")
-    .delete()
-    .eq("id", scheduleId)
-    .eq("household_id", household.householdId);
-  if (!error) revalidatePath("/transactions");
+  const { error } = await household.supabase.rpc("delete_recurring_transaction_schedule", { target_schedule_id: scheduleId });
+  if (error) return { status: "error", formError: "Unable to delete the recurring schedule. Please try again.", fieldErrors: {} };
+  revalidatePath("/transactions");
+  return { status: "success" };
 }
 
-export async function updateRecurringTransactionSchedule(scheduleId: string, input: FormData) {
-  const amount = Number(input.get("amount"));
-  const merchant = String(input.get("merchant") ?? "").trim();
-  const note = String(input.get("note") ?? "").trim();
-  const cadence = String(input.get("cadence"));
-  const intervalCount = Number(input.get("intervalCount"));
-  if (
-    !Number.isFinite(amount) ||
-    amount <= 0 ||
-    !Number.isInteger(intervalCount) ||
-    intervalCount < 1 ||
-    !["weekly", "monthly", "custom_weekly", "custom_monthly"].includes(cadence)
-  )
-    return;
+export async function updateRecurringTransactionSchedule(scheduleId: string, input: FormData): Promise<ActionResult> {
+  const parsed = recurringScheduleSchema.safeParse(Object.fromEntries(input));
+  if (!parsed.success) return validationError(parsed.error.issues);
   const household = await requireCurrentHousehold();
-  const { error } = await (household.supabase as unknown as ScheduleClient)
-    .from("recurring_transaction_schedules")
-    .update({ amount, merchant, note, cadence, interval_count: intervalCount })
-    .eq("id", scheduleId)
-    .eq("household_id", household.householdId);
-  if (!error) revalidatePath("/transactions");
+  const { error } = await household.supabase.rpc("update_recurring_transaction_schedule", {
+    target_amount: parsed.data.amount,
+    target_cadence: parsed.data.cadence,
+    target_interval_count: parsed.data.intervalCount,
+    target_merchant: parsed.data.merchant,
+    target_note: parsed.data.note,
+    target_schedule_id: scheduleId,
+  });
+  if (error) return { status: "error", formError: SAVE_ERROR, fieldErrors: {} };
+  revalidatePath("/transactions");
+  return { status: "success" };
 }

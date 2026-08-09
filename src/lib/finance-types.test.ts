@@ -41,6 +41,8 @@ it("maps BillsGroceries system keys and Bills service periods", () => {
       source: "manual",
       created_at: "2026-07-30T00:00:00Z",
       paid_by: null,
+      recurring_schedule_id: null,
+      scheduled_for: null,
       import_file_hash: null,
       import_row_number: null,
       created_by: "member-id",

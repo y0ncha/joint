@@ -21,6 +21,7 @@ export type Database = {
           conditions: Json | null
           created_at: string
           enabled: boolean
+          first_occurrence_transaction_id: string | null
           household_id: string
           id: string
           pattern: string
@@ -35,6 +36,7 @@ export type Database = {
           conditions?: Json | null
           created_at?: string
           enabled?: boolean
+          first_occurrence_transaction_id?: string | null
           household_id: string
           id?: string
           pattern: string
@@ -49,6 +51,7 @@ export type Database = {
           conditions?: Json | null
           created_at?: string
           enabled?: boolean
+          first_occurrence_transaction_id?: string | null
           household_id?: string
           id?: string
           pattern?: string
@@ -296,6 +299,7 @@ export type Database = {
           created_at: string
           created_by: string
           enabled: boolean
+          first_occurrence_transaction_id: string | null
           household_id: string
           id: string
           interval_count: number
@@ -317,6 +321,7 @@ export type Database = {
           created_at?: string
           created_by: string
           enabled?: boolean
+          first_occurrence_transaction_id?: string | null
           household_id: string
           id?: string
           interval_count?: number
@@ -338,6 +343,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           enabled?: boolean
+          first_occurrence_transaction_id?: string | null
           household_id?: string
           id?: string
           interval_count?: number
@@ -364,6 +370,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transaction_schedules_first_occurrence_transaction_id_fkey"
+            columns: ["first_occurrence_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
           {
@@ -581,19 +594,42 @@ export type Database = {
         Args: {
           target_amount: number
           target_cadence: Database["public"]["Enums"]["recurring_schedule_cadence"]
-          target_category_id: string
+          target_category_id: string | null
           target_household_id: string
           target_interval_count: number
           target_kind: Database["public"]["Enums"]["transaction_kind"]
           target_merchant: string
           target_note: string
           target_occurred_on: string
-          target_paid_by: string
-          target_service_period_end: string
-          target_service_period_start: string
-          target_subcategory_id: string
+          target_paid_by: string | null
+          target_service_period_end: string | null
+          target_service_period_start: string | null
+          target_subcategory_id: string | null
         }
         Returns: string
+      }
+      create_recurring_transaction_schedule_after_duplicate: {
+        Args: {
+          target_amount: number
+          target_cadence: Database["public"]["Enums"]["recurring_schedule_cadence"]
+          target_category_id: string | null
+          target_existing_transaction_id: string
+          target_household_id: string
+          target_interval_count: number
+          target_kind: Database["public"]["Enums"]["transaction_kind"]
+          target_merchant: string
+          target_note: string
+          target_occurred_on: string
+          target_paid_by: string | null
+          target_service_period_end: string | null
+          target_service_period_start: string | null
+          target_subcategory_id: string | null
+        }
+        Returns: string
+      }
+      delete_recurring_transaction_schedule: {
+        Args: { target_schedule_id: string }
+        Returns: undefined
       }
       is_household_member: {
         Args: { target_household_id: string }
@@ -606,6 +642,21 @@ export type Database = {
       process_due_recurring_transaction_schedules: {
         Args: { target_today?: string }
         Returns: number
+      }
+      set_recurring_transaction_schedule_enabled: {
+        Args: { target_enabled: boolean; target_schedule_id: string }
+        Returns: undefined
+      }
+      update_recurring_transaction_schedule: {
+        Args: {
+          target_amount: number
+          target_cadence: Database["public"]["Enums"]["recurring_schedule_cadence"]
+          target_interval_count: number
+          target_merchant: string
+          target_note: string
+          target_schedule_id: string
+        }
+        Returns: undefined
       }
       reorder_automation_rules: {
         Args: { ordered_rule_ids: string[]; target_household_id: string }
