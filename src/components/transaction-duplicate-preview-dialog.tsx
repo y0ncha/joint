@@ -87,7 +87,7 @@ export function TransactionDuplicatePreviewDialog({
         </FieldGroup>
         <AlertDialogFooter>
           <p className="mr-auto text-sm text-muted-foreground">Unchecked transactions will be imported.</p>
-          <AlertDialogCancel>Edit</AlertDialogCancel>
+          <AlertDialogCancel>Back to Edit</AlertDialogCancel>
           <AlertDialogAction onClick={() => onConfirm([...discardedDuplicateIds])}>
             {discardedCount ? `Discard ${discardedCount}` : "Import all"}
           </AlertDialogAction>
