@@ -15,7 +15,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { ArrowRight, Ellipsis, GripVertical, Pencil, Plus, Trash2, WandSparkles } from "lucide-react";
+import { ArrowRight, Ellipsis, GripVertical, Pencil, Plus, Settings2, Trash2, WandSparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -42,13 +42,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import {
   amountConditionOperatorOptions,
@@ -77,6 +78,16 @@ function actionLabel(action: MerchantAutomationRule["action"]) {
   if (action === "normalize_merchant") return "Normalize merchant";
   if (action === "assign_category") return "Assign category";
   return "Delete transaction";
+}
+
+type AutomationRuleFilter = "all" | "enabled" | "disabled";
+type AutomationRuleGroup = "list" | "action";
+
+const ruleActionOrder: MerchantAutomationRule["action"][] = ["normalize_merchant", "assign_category", "delete_transaction"];
+
+export function getVisibleAutomationRules(rules: MerchantAutomationRule[], filter: AutomationRuleFilter) {
+  if (filter === "all") return rules;
+  return rules.filter((rule) => rule.enabled === (filter === "enabled"));
 }
 
 function destinationValue(destination: AutomationDestination) {
@@ -861,6 +872,84 @@ export function AutomationPreviewDialog({
   );
 }
 
+function AutomationRuleViewConfig({
+  filter,
+  group,
+  onFilterChange,
+  onGroupChange,
+}: {
+  filter: AutomationRuleFilter;
+  group: AutomationRuleGroup;
+  onFilterChange: (filter: AutomationRuleFilter) => void;
+  onGroupChange: (group: AutomationRuleGroup) => void;
+}) {
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button type="button" size="icon" variant="ghost" className="size-11" aria-label="Configure rule view">
+          <Settings2 aria-hidden="true" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent
+        side="right"
+        className="inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg"
+      >
+        <SheetHeader className="p-6">
+          <SheetTitle className="text-xl">Rule view</SheetTitle>
+          <SheetDescription>Filter visible rules and group them without changing their saved priority.</SheetDescription>
+        </SheetHeader>
+        <FieldGroup className="px-6 pb-6">
+          <Field>
+            <FieldLabel>Status</FieldLabel>
+            <ToggleGroup
+              type="single"
+              value={filter}
+              onValueChange={(value) => {
+                if (value) onFilterChange(value as AutomationRuleFilter);
+              }}
+              variant="outline"
+              spacing={0}
+              className="w-full"
+              aria-label="Filter rules by status"
+            >
+              <ToggleGroupItem value="all" className="min-h-11 flex-1">
+                All
+              </ToggleGroupItem>
+              <ToggleGroupItem value="enabled" className="min-h-11 flex-1">
+                Enabled
+              </ToggleGroupItem>
+              <ToggleGroupItem value="disabled" className="min-h-11 flex-1">
+                Disabled
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </Field>
+          <Field>
+            <FieldLabel>Group by</FieldLabel>
+            <ToggleGroup
+              type="single"
+              value={group}
+              onValueChange={(value) => {
+                if (value) onGroupChange(value as AutomationRuleGroup);
+              }}
+              variant="outline"
+              spacing={0}
+              className="w-full"
+              aria-label="Group visible rules"
+            >
+              <ToggleGroupItem value="list" className="min-h-11 flex-1">
+                List
+              </ToggleGroupItem>
+              <ToggleGroupItem value="action" className="min-h-11 flex-1">
+                Action
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </Field>
+        </FieldGroup>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 export function AutomationRulesWorkspace({
   count,
   destinations,
@@ -876,10 +965,13 @@ export function AutomationRulesWorkspace({
   const [addSheetContent, setAddSheetContent] = useState<HTMLElement | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewRequestedFrom, setPreviewRequestedFrom] = useState<string | null>(null);
+  const [ruleFilter, setRuleFilter] = useState<AutomationRuleFilter>("all");
+  const [ruleGroup, setRuleGroup] = useState<AutomationRuleGroup>("list");
   const [orderedRules, setOrderedRules] = useOptimistic(rules, (_current, next: MerchantAutomationRule[]) => next);
   const [reordering, startReordering] = useTransition();
   const completeRuleList = count === orderedRules.length;
-  const canReorder = completeRuleList && orderedRules.length > 1 && !reordering;
+  const visibleRules = getVisibleAutomationRules(orderedRules, ruleFilter);
+  const canReorder = completeRuleList && ruleFilter === "all" && ruleGroup === "list" && orderedRules.length > 1 && !reordering;
   const canReview = completeRuleList && preview.changes.length > 0;
   const requestPreviewBeforeSave = () => setPreviewRequestedFrom(preview.fingerprint);
 
@@ -954,7 +1046,18 @@ export function AutomationRulesWorkspace({
           <Card className="border-white/50 bg-card/90">
             <CardHeader>
               <CardTitle>All rules</CardTitle>
-              <CardDescription>Drag rules into one shared order. Priority is evaluated separately for each action.</CardDescription>
+              <CardDescription>
+                Drag rules into one shared order. Priority is evaluated separately for each action.
+                {canReorder ? null : " Clear view controls to reorder."}
+              </CardDescription>
+              <CardAction>
+                <AutomationRuleViewConfig
+                  filter={ruleFilter}
+                  group={ruleGroup}
+                  onFilterChange={setRuleFilter}
+                  onGroupChange={setRuleGroup}
+                />
+              </CardAction>
             </CardHeader>
             {canReview ? (
               <AutomationPreviewDialog
@@ -966,22 +1069,51 @@ export function AutomationRulesWorkspace({
               />
             ) : null}
             <CardContent className="flex flex-col gap-3">
-              {orderedRules.length > 0 ? (
-                orderedRules.map((rule, index) => (
-                  <SortableRule
-                    key={rule.id}
-                    canReorder={canReorder}
-                    destinations={destinations}
-                    index={index}
-                    onBeforeSave={requestPreviewBeforeSave}
-                    rule={rule}
-                  />
-                ))
-              ) : (
+              {orderedRules.length === 0 ? (
                 <div className="flex min-h-24 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
                   <WandSparkles aria-hidden="true" />
                   <p>No automation rules yet.</p>
                 </div>
+              ) : visibleRules.length === 0 ? (
+                <p role="status" className="py-6 text-center text-sm text-muted-foreground">
+                  No rules match these view settings.
+                </p>
+              ) : ruleGroup === "action" ? (
+                ruleActionOrder.map((action) => {
+                  const groupedRules = visibleRules.filter((rule) => rule.action === action);
+                  if (!groupedRules.length) return null;
+                  return (
+                    <section key={action} aria-label={`${actionLabel(action)} rules`} className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2 px-1">
+                        <h3 className="font-medium">{actionLabel(action)}</h3>
+                        <span className="text-sm tabular-nums text-muted-foreground">
+                          {groupedRules.length} {groupedRules.length === 1 ? "rule" : "rules"}
+                        </span>
+                      </div>
+                      {groupedRules.map((rule) => (
+                        <SortableRule
+                          key={rule.id}
+                          canReorder={canReorder}
+                          destinations={destinations}
+                          index={orderedRules.findIndex((orderedRule) => orderedRule.id === rule.id)}
+                          onBeforeSave={requestPreviewBeforeSave}
+                          rule={rule}
+                        />
+                      ))}
+                    </section>
+                  );
+                })
+              ) : (
+                visibleRules.map((rule) => (
+                  <SortableRule
+                    key={rule.id}
+                    canReorder={canReorder}
+                    destinations={destinations}
+                    index={orderedRules.findIndex((orderedRule) => orderedRule.id === rule.id)}
+                    onBeforeSave={requestPreviewBeforeSave}
+                    rule={rule}
+                  />
+                ))
               )}
             </CardContent>
           </Card>

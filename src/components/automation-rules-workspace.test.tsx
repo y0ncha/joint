@@ -673,7 +673,35 @@ it("renders add and edit rule forms in right-side sheets", () => {
     />,
   );
 
-  expect(mocks.sheetSides).toEqual(["right", "right", "right"]);
+  expect(mocks.sheetSides).toEqual(["right", "right", "right", "right"]);
+});
+
+it("configures the visible rule list by status and action grouping", () => {
+  if (!workspaceModule?.AutomationRulesWorkspace || !workspaceModule?.getVisibleAutomationRules) {
+    throw new Error("Automation rule view controls are unavailable.");
+  }
+  const rules = [
+    { id: "enabled", action: "normalize_merchant" as const, pattern: "shop", replacement: "Shop", enabled: true, position: 0 },
+    { id: "disabled", action: "assign_category" as const, pattern: "old shop", enabled: false, position: 1 },
+  ];
+  mocks.renderSheetContent = true;
+
+  const markup = renderToStaticMarkup(
+    <workspaceModule.AutomationRulesWorkspace
+      count={2}
+      destinations={[]}
+      preview={{ changes: [], conflicts: [], fingerprint: "preview-fingerprint", ruleSet: [] }}
+      rules={rules}
+    />,
+  );
+
+  expect(markup).toContain('aria-label="Configure rule view"');
+  expect(markup).toContain("Rule view");
+  expect(markup).toContain("Filter visible rules and group them without changing their saved priority.");
+  expect(markup).toContain("Status");
+  expect(markup).toContain("Group by");
+  expect(workspaceModule.getVisibleAutomationRules(rules, "enabled").map((rule) => rule.id)).toEqual(["enabled"]);
+  expect(workspaceModule.getVisibleAutomationRules(rules, "disabled").map((rule) => rule.id)).toEqual(["disabled"]);
 });
 
 it("keeps secondary rule actions in the mobile actions sheet", () => {
