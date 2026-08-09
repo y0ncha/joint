@@ -572,7 +572,7 @@ function SortableRule({
         ref={ref}
         className={cn(
           "flex min-h-14 flex-wrap items-center gap-2 rounded-xl border border-border/70 px-2 py-2 sm:flex-nowrap",
-          !enabled && "border-border/40 bg-muted/20",
+          enabled ? "bg-card" : "border-border/40 bg-muted/20",
           isDragging && "opacity-60",
         )}
       >
@@ -591,9 +591,9 @@ function SortableRule({
         >
           <GripVertical aria-hidden="true" />
         </Button>
-        <div className="order-last ml-auto hidden items-center gap-1 sm:flex">
+        <div className="order-last ml-auto hidden items-center justify-end gap-0.5 sm:flex">
           <SheetTrigger asChild>
-            <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={`Edit ${label} rule`}>
+            <Button type="button" variant="ghost" size="icon" className="size-11 -translate-x-1" aria-label={`Edit ${label} rule`}>
               <Pencil aria-hidden="true" />
             </Button>
           </SheetTrigger>
@@ -601,7 +601,7 @@ function SortableRule({
             checked={enabled}
             disabled={togglePending}
             aria-label={`${enabled ? "Disable" : "Enable"} ${label} rule`}
-            className="h-6 w-11 translate-y-0.5"
+            className="h-6 w-11"
             onCheckedChange={toggleRule}
           />
         </div>
@@ -611,7 +611,7 @@ function SortableRule({
               <RuleConditionSummary rule={rule} />
             </span>
           </span>
-          <ArrowRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+          <ArrowRight aria-hidden="true" className="size-4 shrink-0 text-primary" />
           {rule.action === "assign_category" ? (
             <Badge className={cn("max-w-64 truncate", !enabled && "opacity-60")} variant="secondary">
               <CategoryIcon name={destination?.icon} data-icon="inline-start" />
