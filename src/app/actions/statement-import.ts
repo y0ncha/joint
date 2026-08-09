@@ -6,6 +6,7 @@ import type { ActionResult } from "@/app/actions/result";
 import { getIsoMonthRange } from "@/lib/date-range";
 import { requireCurrentHousehold } from "@/lib/household";
 import { evaluateMerchantAutomations, getMerchantAutomationRules } from "@/lib/merchant-automations";
+import { transactionDuplicatePreview, type DuplicateCandidate } from "@/lib/transaction-duplicates";
 import { parseStatementFile } from "@/lib/statement-import";
 
 const MAX_FILE_BYTES = 1_048_576;
@@ -20,6 +21,31 @@ function hexDigest(bytes: ArrayBuffer) {
   return crypto.subtle
     .digest("SHA-256", bytes)
     .then((digest) => Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join(""));
+}
+
+async function duplicatePreviewFor(
+  household: Awaited<ReturnType<typeof requireCurrentHousehold>>,
+  candidates: DuplicateCandidate[],
+  snapshot: unknown = candidates,
+) {
+  const occurredOn = [...new Set(candidates.map((candidate) => candidate.occurredOn))];
+  const { data, error } = await household.supabase
+    .from("transactions")
+    .select("id, kind, amount, occurred_on, merchant")
+    .eq("household_id", household.householdId)
+    .in("occurred_on", occurredOn);
+  if (error) throw new Error("Unable to load duplicate preview.");
+  return transactionDuplicatePreview(
+    candidates,
+    (data ?? []).map((transaction) => ({
+      id: transaction.id,
+      kind: transaction.kind,
+      amount: Number(transaction.amount),
+      occurredOn: transaction.occurred_on,
+      merchant: transaction.merchant,
+    })),
+    snapshot,
+  );
 }
 
 export async function importStatement(_previousState: ActionResult | null, formData: FormData): Promise<ActionResult> {
@@ -97,25 +123,58 @@ export async function importStatement(_previousState: ActionResult | null, formD
       import_row_number: row.importRowNumber,
     };
   });
-  const { error: insertError } = await household.supabase.from("transactions").insert(rows);
+  let preview;
+  try {
+    preview = await duplicatePreviewFor(
+      household,
+      rows.map((row) => ({
+        id: String(row.import_row_number),
+        kind: row.kind,
+        amount: row.amount,
+        occurredOn: row.occurred_on,
+        merchant: row.merchant,
+      })),
+      rows,
+    );
+  } catch {
+    return { status: "error", formError: IMPORT_ERROR, fieldErrors: {} };
+  }
+  const fingerprint = formData.get("duplicateFingerprint");
+  if (preview.matches.length && fingerprint !== preview.fingerprint) {
+    if (fingerprint)
+      return {
+        status: "error",
+        formError: "This duplicate preview is stale. Import again to review the current matches.",
+        fieldErrors: {},
+      };
+    return { status: "confirmation_required", duplicatePreview: preview };
+  }
+  if (!preview.matches.length && fingerprint) {
+    return { status: "error", formError: "This duplicate preview is stale. Import again to review the current matches.", fieldErrors: {} };
+  }
+  const skippedIds = new Set(preview.matches.map(({ candidate }) => candidate.id));
+  const rowsToInsert = rows.filter((row) => !skippedIds.has(String(row.import_row_number)));
+  const { error: insertError } = rowsToInsert.length ? await household.supabase.from("transactions").insert(rowsToInsert) : { error: null };
 
   if (insertError) return { status: "error", formError: IMPORT_ERROR, fieldErrors: {} };
 
   for (const path of ["/", "/transactions", "/categories"]) revalidatePath(path);
 
-  const incomeTotal = parsedStatement.rows.filter((row) => row.kind === "income").reduce((total, row) => total + row.amount, 0);
-  const expenseTotal = parsedStatement.rows.filter((row) => row.kind === "expense").reduce((total, row) => total + row.amount, 0);
-  const dates = parsedStatement.rows.map((row) => row.occurredOn).sort();
+  const importedRows = rowsToInsert.map((row) => ({ kind: row.kind, amount: row.amount, occurredOn: row.occurred_on }));
+  const incomeTotal = importedRows.filter((row) => row.kind === "income").reduce((total, row) => total + row.amount, 0);
+  const expenseTotal = importedRows.filter((row) => row.kind === "expense").reduce((total, row) => total + row.amount, 0);
+  const dates = importedRows.map((row) => row.occurredOn).sort();
 
   return {
     status: "success",
     data: {
-      importedRowCount: String(rows.length),
+      importedRowCount: String(rowsToInsert.length),
+      ...(skippedIds.size ? { skippedDuplicateCount: String(skippedIds.size) } : {}),
       skippedZeroCount: String(parsedStatement.skippedZeroCount),
       incomeTotal: incomeTotal.toFixed(2),
       expenseTotal: expenseTotal.toFixed(2),
-      earliestOccurredOn: dates[0],
-      latestOccurredOn: dates.at(-1)!,
+      earliestOccurredOn: dates[0] ?? "",
+      latestOccurredOn: dates.at(-1) ?? "",
     },
   };
 }

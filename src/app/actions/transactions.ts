@@ -6,6 +6,7 @@ import { validationError, type ActionResult } from "@/app/actions/result";
 import { getIsoMonthRange } from "@/lib/date-range";
 import { requireCurrentHousehold } from "@/lib/household";
 import { evaluateMerchantAutomations, getMerchantAutomationRules } from "@/lib/merchant-automations";
+import { transactionDuplicatePreview, type DuplicateCandidate } from "@/lib/transaction-duplicates";
 import { transactionSchema } from "@/lib/validation";
 
 async function validatePaidBy(
@@ -53,6 +54,45 @@ async function servicePeriodsFor(
   return { service_period_start: servicePeriodStart, service_period_end: servicePeriodEnd };
 }
 
+async function duplicatePreviewFor(
+  household: Awaited<ReturnType<typeof requireCurrentHousehold>>,
+  candidates: DuplicateCandidate[],
+  snapshot: unknown = candidates,
+) {
+  const occurredOn = [...new Set(candidates.map((candidate) => candidate.occurredOn))];
+  const { data, error } = await household.supabase
+    .from("transactions")
+    .select("id, kind, amount, occurred_on, merchant")
+    .eq("household_id", household.householdId)
+    .in("occurred_on", occurredOn);
+  if (error) throw new Error("Unable to load duplicate preview.");
+  return transactionDuplicatePreview(
+    candidates,
+    (data ?? []).map((transaction) => ({
+      id: transaction.id,
+      kind: transaction.kind,
+      amount: Number(transaction.amount),
+      occurredOn: transaction.occurred_on,
+      merchant: transaction.merchant,
+    })),
+    snapshot,
+  );
+}
+
+function duplicateFormSnapshot(input: FormData) {
+  return [...input.entries()].filter(([key]) => key !== "duplicateFingerprint");
+}
+
+function duplicateConfirmation(input: FormData, preview: Awaited<ReturnType<typeof duplicatePreviewFor>>) {
+  const fingerprint = input.get("duplicateFingerprint");
+  if (!preview.matches.length && !fingerprint) return { confirmed: true as const, skippedIds: new Set<string>() };
+  if (typeof fingerprint === "string" && fingerprint === preview.fingerprint) {
+    return { confirmed: true as const, skippedIds: new Set(preview.matches.map(({ candidate }) => candidate.id)) };
+  }
+  if (fingerprint) return { confirmed: false as const, stale: true as const };
+  return { confirmed: false as const, stale: false as const };
+}
+
 export async function createTransaction(input: FormData): Promise<ActionResult> {
   const parsed = transactionSchema.safeParse(Object.fromEntries(input));
   if (!parsed.success) {
@@ -94,6 +134,26 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
       fieldErrors: { paidBy: "Choose a household member." },
     };
   }
+  const candidate = {
+    id: "manual",
+    kind: parsed.data.kind,
+    amount: parsed.data.amount,
+    occurredOn: parsed.data.occurredOn,
+    merchant: automated.merchant,
+  } satisfies DuplicateCandidate;
+  let preview;
+  try {
+    preview = await duplicatePreviewFor(household, [candidate], duplicateFormSnapshot(input));
+  } catch {
+    return { status: "error", formError: "Unable to save the transaction. Please try again.", fieldErrors: {} };
+  }
+  const confirmation = duplicateConfirmation(input, preview);
+  if (!confirmation.confirmed) {
+    if (confirmation.stale)
+      return { status: "error", formError: "This duplicate preview is stale. Save again to review the current matches.", fieldErrors: {} };
+    return { status: "confirmation_required", duplicatePreview: preview };
+  }
+  if (confirmation.skippedIds.has(candidate.id)) return { status: "success", data: { skippedDuplicateCount: "1" } };
 
   const { error } = await household.supabase.from("transactions").insert({
     household_id: household.householdId,

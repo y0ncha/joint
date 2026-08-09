@@ -4,13 +4,13 @@ version: 1.0
 date_created: 2026-08-09
 last_updated: 2026-08-09
 owner: Joint
-status: Planned
+status: Complete
 tags: [feature, pwa, nextjs, vercel]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: Complete](https://img.shields.io/badge/status-Complete-brightgreen)
 
 This plan adds the native Next.js manifest and install icons required to install Joint from an HTTPS deployment while preserving its existing online-only authenticated runtime.
 
@@ -36,33 +36,37 @@ This plan adds the native Next.js manifest and install icons required to install
 
 - **GOAL-001**: Define the online-only installation contract and executable manifest acceptance test.
 
-| Task     | Description                                                                                                                                                                                                                                                                                           | Status  | Date |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
-| TASK-001 | Update `docs/design.md` with an installable-app section that requires browser-native installation, standalone presentation, the existing Joint mark and warm canvas, and no custom install or notification UI; verify the text preserves the current responsive and accessibility contracts.          | Planned |      |
-| TASK-002 | Update `docs/architecture/application-runtime.md` to identify `src/app/manifest.ts` and committed icons as static installation metadata and to prohibit service-worker caching of authenticated or financial responses; verify the browser, Next.js, Supabase, and RLS boundaries remain unchanged.   | Planned |      |
-| TASK-003 | Add `src/app/manifest.test.ts` that imports `manifest`, asserts the exact REQ-002 object and icon declarations, and checks that every declared icon path resolves to a committed file; run the focused test and require failure because `src/app/manifest.ts` and the install icons do not yet exist. | Planned |      |
+| Task     | Description                                                                                                                                                                                                                                                                                           | Status   | Date       |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| TASK-001 | Update `docs/design.md` with an installable-app section that requires browser-native installation, standalone presentation, the existing Joint mark and warm canvas, and no custom install or notification UI; verify the text preserves the current responsive and accessibility contracts.          | Complete | 2026-08-09 |
+| TASK-002 | Update `docs/architecture/application-runtime.md` to identify `src/app/manifest.ts` and committed icons as static installation metadata and to prohibit service-worker caching of authenticated or financial responses; verify the browser, Next.js, Supabase, and RLS boundaries remain unchanged.   | Complete | 2026-08-09 |
+| TASK-003 | Add `src/app/manifest.test.ts` that imports `manifest`, asserts the exact REQ-002 object and icon declarations, and checks that every declared icon path resolves to a committed file; run the focused test and require failure because `src/app/manifest.ts` and the install icons do not yet exist. | Complete | 2026-08-09 |
 
 ### Implementation Phase 2
 
 - **GOAL-002**: Add the minimum native Next.js installation metadata and approved icon assets after GOAL-001 completes.
 
-| Task     | Description                                                                                                                                                                                                                                                                                                           | Status  | Date |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
-| TASK-004 | Add `src/app/manifest.ts` exporting `manifest(): MetadataRoute.Manifest` with the exact REQ-002 values and `/brand/pwa-192.png` and `/brand/pwa-512.png` icon entries; verify `src/app/manifest.test.ts` passes without changing `next.config.ts`.                                                                    | Planned |      |
-| TASK-005 | Generate `public/brand/pwa-192.png`, `public/brand/pwa-512.png`, and `src/app/apple-icon.png` at 192x192, 512x512, and 180x180 respectively from `public/brand/favicon.png`; verify intrinsic dimensions with `sips -g pixelWidth -g pixelHeight` and visually confirm the Joint mark remains centered and unclipped. | Planned |      |
+| Task     | Description                                                                                                                                                                                                                                                                                                                                                            | Status   | Date       |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| TASK-004 | Add `src/app/manifest.ts` exporting `manifest(): MetadataRoute.Manifest` with the exact REQ-002 values and `/brand/pwa-192.png` and `/brand/pwa-512.png` icon entries; verify `src/app/manifest.test.ts` advances past the manifest assertion and fails only because the TASK-005 icon files do not yet exist, without changing `next.config.ts`.                      | Complete | 2026-08-09 |
+| TASK-005 | Generate `public/brand/pwa-192.png`, `public/brand/pwa-512.png`, and `src/app/apple-icon.png` at 192x192, 512x512, and 180x180 respectively from `public/brand/favicon.png`; verify intrinsic dimensions with `sips -g pixelWidth -g pixelHeight` and visually confirm the Joint mark remains centered and unclipped; then require `src/app/manifest.test.ts` to pass. | Complete | 2026-08-09 |
 
 ### Implementation Phase 3
 
 - **GOAL-003**: Prove install metadata, browser behavior, and regression boundaries after GOAL-002 completes.
 
-| Task     | Description                                                                                                                                                                                                                                                                 | Status  | Date |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
-| TASK-006 | Run `bun run test src/app/manifest.test.ts src/app/layout.test.tsx` and require the manifest contract, icon existence, Apple web-app metadata, theme color, and viewport-fit assertions to pass.                                                                            | Planned |      |
-| TASK-007 | Run Joint locally with `bun run dev`, inspect `/manifest.webmanifest` in a Chromium browser, and verify the name, standalone display, colors, 192px and 512px icons, native install eligibility, installed launch through `/`, and absence of a controlling service worker. | Planned |      |
-| TASK-008 | Run `bun run lint`, `bun run test`, `bun run format:check`, and `git diff --check`; require all checks to pass and confirm `package.json`, `bun.lock`, `next.config.ts`, Supabase files, deployment files, and application UI remain unchanged.                             | Planned |      |
-| TASK-009 | Review the final diff against REQ-001 through REQ-005, SEC-001 through SEC-002, and CON-001 through CON-004; report local evidence and the remaining need for installation proof on an authorized HTTPS deployment without pushing, deploying, or changing hosted state.    | Planned |      |
+| Task     | Description                                                                                                                                                                                                                                                                 | Status   | Date       |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| TASK-006 | Run `bun run test src/app/manifest.test.ts src/app/layout.test.tsx` and require the manifest contract, icon existence, Apple web-app metadata, theme color, and viewport-fit assertions to pass.                                                                            | Complete | 2026-08-09 |
+| TASK-007 | Run Joint locally with `bun run dev`, inspect `/manifest.webmanifest` in a Chromium browser, and verify the name, standalone display, colors, 192px and 512px icons, native install eligibility, installed launch through `/`, and absence of a controlling service worker. | Deferred | 2026-08-09 |
+| TASK-008 | Run `bun run lint`, `bun run test`, `bun run format:check`, and `git diff --check`; require all checks to pass and confirm `package.json`, `bun.lock`, `next.config.ts`, Supabase files, deployment files, and application UI remain unchanged.                             | Complete | 2026-08-09 |
+| TASK-009 | Review the final diff against REQ-001 through REQ-005, SEC-001 through SEC-002, and CON-001 through CON-004; report local evidence and the remaining need for installation proof on an authorized HTTPS deployment without pushing, deploying, or changing hosted state.    | Complete | 2026-08-09 |
 
 ## 3. Alternatives
+
+### Verification note (2026-08-09)
+
+TASK-007's manifest endpoint was manually confirmed in Safari with the required name, standalone display, colors, and icon declarations. Browser-native install eligibility, installed launch, and controlling-service-worker state remain an accepted follow-up for an accessible Chromium session or authorized HTTPS deployment.
 
 - **ALT-001**: Add Serwist, `next-pwa`, or another service-worker package. Rejected because installation does not require offline support and authenticated financial caching adds dependency, invalidation, privacy, and stale-data risk.
 - **ALT-002**: Install the third-party Vercel PWA Marketplace integration. Rejected because native App Router manifest support covers the approved scope without a paid integration or external configuration.
