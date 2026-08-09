@@ -489,7 +489,9 @@ it("keeps a labelled review action available for an existing preview", () => {
     />,
   );
 
-  expect(markup).toContain("Review changes");
+  expect(markup).toContain('aria-label="Review changes"');
+  expect(markup).toContain("lucide-diff");
+  expect(markup.indexOf('aria-label="Configure rule view"')).toBeLessThan(markup.indexOf('aria-label="Review changes"'));
 });
 
 it("renders legacy condition groups as per-row connectors for merchant, note, and numeric amount without an editor enable toggle", () => {

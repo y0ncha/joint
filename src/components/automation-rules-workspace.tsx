@@ -15,7 +15,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { ArrowRight, Ellipsis, GripVertical, Pencil, Plus, Settings2, Trash2, WandSparkles } from "lucide-react";
+import { ArrowRight, Diff, Ellipsis, GripVertical, Pencil, Plus, Settings2, Trash2, WandSparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -1100,17 +1100,17 @@ export function AutomationRulesWorkspace({
                 {canReorder ? null : " Clear view controls to reorder."}
               </CardDescription>
               <CardAction className="flex items-center gap-1">
-                {canReview ? (
-                  <Button type="button" variant="outline" className="min-h-11 rounded-xl" onClick={() => setPreviewOpen(true)}>
-                    Review changes
-                  </Button>
-                ) : null}
                 <AutomationRuleViewConfig
                   filter={ruleFilter}
                   group={ruleGroup}
                   onFilterChange={setRuleFilter}
                   onGroupChange={setRuleGroup}
                 />
+                {canReview ? (
+                  <Button type="button" variant="outline" size="icon" className="size-11" aria-label="Review changes" onClick={() => setPreviewOpen(true)}>
+                    <Diff aria-hidden="true" />
+                  </Button>
+                ) : null}
               </CardAction>
             </CardHeader>
             {canReview ? (
