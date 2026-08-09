@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   transactionIn: vi.fn(),
   revalidatePath: vi.fn(),
   select: vi.fn(),
+  duplicateTransactions: vi.fn(),
   subcategorySelect: vi.fn(),
   getMerchantAutomationRules: vi.fn(),
 }));
@@ -41,6 +42,7 @@ function transactionForm(overrides: Record<string, string> = {}) {
 }
 
 function configureContextClient({
+  duplicates = [] as Array<{ id: string; kind: "income" | "expense"; amount: number; occurred_on: string; merchant: string }>,
   payer = { user_id: "partner-id" },
   transactionError = null,
   existingTransaction = { source: "manual" },
@@ -61,6 +63,7 @@ function configureContextClient({
   const sourceMaybeSingle = vi.fn().mockResolvedValue({ data: existingTransaction, error: null });
   const sourceEqHousehold = vi.fn().mockReturnValue({ maybeSingle: sourceMaybeSingle });
   const sourceEqId = vi.fn().mockReturnValue({ eq: sourceEqHousehold });
+  const duplicateHouseholdEq = vi.fn().mockReturnValue({ in: mocks.duplicateTransactions });
   const subcategoryMaybeSingle = vi.fn().mockResolvedValue({ data: subcategory, error: null });
   const subcategoryEqHousehold = vi.fn().mockReturnValue({ maybeSingle: subcategoryMaybeSingle });
   const subcategoryEqId = vi.fn().mockReturnValue({ eq: subcategoryEqHousehold });
@@ -68,6 +71,7 @@ function configureContextClient({
   mocks.insert.mockResolvedValue({ error: transactionError });
   mocks.update.mockReturnValue({ eq: transactionEqId });
   mocks.delete.mockReturnValue({ eq: transactionEqId, in: transactionIn });
+  mocks.duplicateTransactions.mockResolvedValue({ data: duplicates, error: null });
   mocks.from.mockImplementation((table: string) => {
     if (table === "household_members") return { select: payerSelect };
     if (table === "transactions") return { insert: mocks.insert, update: mocks.update, delete: mocks.delete, select: mocks.select };
@@ -75,7 +79,7 @@ function configureContextClient({
     throw new Error(`Unexpected table: ${table}`);
   });
 
-  mocks.select.mockReturnValue({ eq: sourceEqId });
+  mocks.select.mockImplementation((columns: string) => (columns === "source" ? { eq: sourceEqId } : { eq: duplicateHouseholdEq }));
   mocks.subcategorySelect.mockReturnValue({ eq: subcategoryEqId });
 
   return {
@@ -87,6 +91,7 @@ function configureContextClient({
     transactionEqHousehold,
     transactionEqId,
     transactionIn,
+    duplicateHouseholdEq,
   };
 }
 
@@ -126,6 +131,20 @@ describe("transaction actions", () => {
     expect(mocks.from).not.toHaveBeenCalledWith("accounts");
     expect(payerEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.revalidatePath).toHaveBeenCalledTimes(4);
+  });
+
+  it("returns a duplicate preview before inserting a matching manual transaction", async () => {
+    configureContextClient({
+      duplicates: [{ id: "existing", kind: "expense", amount: 50, occurred_on: "2026-07-14", merchant: " groceries " }],
+    });
+
+    await expect(transactionsModule.createTransaction(transactionForm({ merchant: "Groceries" }))).resolves.toMatchObject({
+      status: "confirmation_required",
+      duplicatePreview: expect.objectContaining({
+        matches: [expect.objectContaining({ existing: expect.objectContaining({ id: "existing" }) })],
+      }),
+    });
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
 
   it.each(["", undefined])("requires a subcategory for manual creates when it is %s", async (subcategoryId) => {

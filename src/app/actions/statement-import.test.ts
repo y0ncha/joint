@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   duplicateHashEq: vi.fn(),
   cardMappingsEq: vi.fn(),
   getMerchantAutomationRules: vi.fn(),
+  duplicateTransactionRows: vi.fn(),
 }));
 
 vi.mock("@/lib/household", () => ({ requireCurrentHousehold: mocks.requireCurrentHousehold }));
@@ -79,7 +80,9 @@ describe("statement import action", () => {
     mocks.from.mockImplementation((table: string) => {
       if (table === "transactions") {
         return {
-          select: vi.fn().mockReturnValue({ eq: mocks.duplicateHashHouseholdEq }),
+          select: vi.fn((columns: string) =>
+            columns === "id" ? { eq: mocks.duplicateHashHouseholdEq } : { eq: mocks.duplicateTransactionRows },
+          ),
           insert: mocks.transactionInsert,
         };
       }
@@ -88,6 +91,7 @@ describe("statement import action", () => {
     });
     mocks.duplicateHashHouseholdEq.mockReturnValue({ eq: mocks.duplicateHashEq });
     mocks.duplicateHashEq.mockReturnValue({ limit: mocks.duplicateHashLimit });
+    mocks.duplicateTransactionRows.mockReturnValue({ in: vi.fn().mockResolvedValue({ data: [], error: null }) });
   });
 
   it("imports mapped and unknown cards in one normalized unassigned-safe batch", async () => {
@@ -142,6 +146,23 @@ describe("statement import action", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/categories");
+  });
+
+  it("returns a duplicate preview before inserting matching import rows", async () => {
+    mocks.duplicateTransactionRows.mockReturnValue({
+      in: vi.fn().mockResolvedValue({
+        data: [{ id: "existing", kind: "expense", amount: 12.34, occurred_on: "2026-07-04", merchant: "Corner Market" }],
+        error: null,
+      }),
+    });
+
+    await expect(actions.importStatement(null, formData(statementFile()))).resolves.toMatchObject({
+      status: "confirmation_required",
+      duplicatePreview: expect.objectContaining({
+        matches: [expect.objectContaining({ candidate: expect.objectContaining({ id: "8" }) })],
+      }),
+    });
+    expect(mocks.transactionInsert).not.toHaveBeenCalled();
   });
 
   it("accepts a missing current-user card mapping and leaves matching rows unassigned", async () => {

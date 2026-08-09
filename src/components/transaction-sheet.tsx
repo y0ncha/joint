@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useReducer, useState, type ReactNode } from "react";
+import { startTransition, useActionState, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { CalendarRange, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -25,6 +25,7 @@ import { PillSelect } from "@/components/pill-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { TransactionDuplicatePreviewDialog } from "@/components/transaction-duplicate-preview-dialog";
 import { categoryIcon } from "@/lib/category-icons";
 import type { ReportTransaction } from "@/lib/financial-report";
 import {
@@ -105,6 +106,8 @@ export function TransactionSheet({
   const initialSubcategoryId = transaction?.subcategoryId ?? "";
   const initialSubcategory = subcategories.find((subcategory) => subcategory.id === initialSubcategoryId);
   const [sheetContent, setSheetContent] = useState<HTMLDivElement | null>(null);
+  const submittedFormData = useRef<FormData | null>(null);
+  const [dismissedDuplicatePreview, setDismissedDuplicatePreview] = useState("");
   const [draft, dispatchDraft] = useReducer(
     transactionDraftReducer,
     {
@@ -152,6 +155,17 @@ export function TransactionSheet({
     defaultPaidBy: currentUserId || members[0]?.id || "",
   });
   const shouldRenderDefaultTrigger = !isEditing && open === undefined && onOpenChange === undefined;
+  const duplicatePreview = state?.status === "confirmation_required" ? state.duplicatePreview : null;
+  const duplicatePreviewOpen = Boolean(duplicatePreview && dismissedDuplicatePreview !== duplicatePreview.fingerprint);
+
+  function confirmDuplicates() {
+    if (!duplicatePreview || !submittedFormData.current) return;
+    const confirmed = new FormData();
+    submittedFormData.current.forEach((value, key) => confirmed.append(key, value));
+    confirmed.set("duplicateFingerprint", duplicatePreview.fingerprint);
+    setDismissedDuplicatePreview(duplicatePreview.fingerprint);
+    startTransition(() => formAction(confirmed));
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -174,7 +188,11 @@ export function TransactionSheet({
           <SheetTitle className="text-xl">{isEditing ? "Edit transaction" : "Add transaction"}</SheetTitle>
           <SheetDescription>{isEditing ? "Update or remove this shared ledger entry." : "Log shared household money."}</SheetDescription>
         </SheetHeader>
-        <form action={formAction} className="px-6 pb-6">
+        <form
+          action={formAction}
+          onSubmit={(event) => (submittedFormData.current = new FormData(event.currentTarget))}
+          className="px-6 pb-6"
+        >
           <FieldGroup>
             <input name="kind" type="hidden" value={draftFields.kind} />
             <input name="occurredOn" type="hidden" value={draftFields.occurredOn} />
@@ -437,6 +455,14 @@ export function TransactionSheet({
               </AlertDialogContent>
             </AlertDialog>
           </div>
+        ) : null}
+        {duplicatePreview ? (
+          <TransactionDuplicatePreviewDialog
+            onConfirm={confirmDuplicates}
+            onOpenChange={(nextOpen) => !nextOpen && setDismissedDuplicatePreview(duplicatePreview.fingerprint)}
+            open={duplicatePreviewOpen}
+            preview={duplicatePreview}
+          />
         ) : null}
       </SheetContent>
     </Sheet>
