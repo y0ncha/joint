@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { readLedgerFilterState, type LedgerFilterKind, type LedgerSort } from "@/lib/ledger-filters";
+import { defaultLedgerFilterState, readLedgerFilterState, type LedgerFilterKind, type LedgerSort } from "@/lib/ledger-filters";
 
 export type { LedgerFilterKind, LedgerSort } from "@/lib/ledger-filters";
 
@@ -57,16 +57,14 @@ export function LedgerControls({
   const [activeState, setActiveState] = useState(() => readLedgerFilterState(searchParams, { categoryIds, filterKind, paidByIds, sort }));
   const { categoryIds: activeCategoryIds, filterKind: activeFilterKind, paidByIds: activePaidByIds, sort: activeSort } = activeState;
   useEffect(() => {
-    const sync = () =>
-      setActiveState(readLedgerFilterState(new URLSearchParams(window.location.search), { categoryIds, filterKind, paidByIds, sort }));
+    const sync = () => setActiveState(readLedgerFilterState(new URLSearchParams(window.location.search), defaultLedgerFilterState));
     window.addEventListener("ledger-filter-change", sync);
     window.addEventListener("popstate", sync);
-    sync();
     return () => {
       window.removeEventListener("ledger-filter-change", sync);
       window.removeEventListener("popstate", sync);
     };
-  }, [categoryIds, filterKind, paidByIds, sort]);
+  }, []);
   const visibleCategories = useMemo(
     () =>
       categories
@@ -75,7 +73,8 @@ export function LedgerControls({
     [categories, categoryQuery],
   );
   const selectedCategories = categories.filter((category) => activeCategoryIds.includes(category.id));
-  const allCategoriesSelected = activeCategoryIds.length === categories.length + 1 && activeCategoryIds.includes("uncategorized");
+  const allCategoriesSelected =
+    activeCategoryIds.length === 0 || (activeCategoryIds.length === categories.length + 1 && activeCategoryIds.includes("uncategorized"));
   const selectedPayers = members.filter((member) => activePaidByIds.includes(member.id));
   const allPayersSelected = activePaidByIds.length === members.length + 1 && activePaidByIds.includes("unassigned");
 
@@ -200,7 +199,7 @@ export function LedgerControls({
                             {category.name}
                           </Badge>
                         ))}
-                        {categoryIds.includes("uncategorized") ? (
+                        {activeCategoryIds.includes("uncategorized") ? (
                           <Badge variant="outline" className="border-muted-foreground/20 bg-muted text-muted-foreground">
                             Uncategorized
                           </Badge>

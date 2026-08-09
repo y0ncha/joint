@@ -24,7 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ReportTransaction } from "@/lib/financial-report";
 import type { DateRange } from "@/lib/date-range";
-import { readLedgerFilterState, type LedgerFilterKind, type LedgerSort } from "@/lib/ledger-filters";
+import { defaultLedgerFilterState, readLedgerFilterState, type LedgerFilterKind, type LedgerSort } from "@/lib/ledger-filters";
 
 const currency = new Intl.NumberFormat("en-IL", { style: "currency", currency: "ILS" });
 const date = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
@@ -77,16 +77,14 @@ export function TransactionLedger({
   const [activeState, setActiveState] = useState(() => readLedgerFilterState(searchParams, { categoryIds, filterKind, paidByIds, sort }));
   const { categoryIds: activeCategoryIds, filterKind: activeFilterKind, paidByIds: activePaidByIds, sort: activeSort } = activeState;
   useEffect(() => {
-    const sync = () =>
-      setActiveState(readLedgerFilterState(new URLSearchParams(window.location.search), { categoryIds, filterKind, paidByIds, sort }));
+    const sync = () => setActiveState(readLedgerFilterState(new URLSearchParams(window.location.search), defaultLedgerFilterState));
     window.addEventListener("ledger-filter-change", sync);
     window.addEventListener("popstate", sync);
-    sync();
     return () => {
       window.removeEventListener("ledger-filter-change", sync);
       window.removeEventListener("popstate", sync);
     };
-  }, [categoryIds, filterKind, paidByIds, sort]);
+  }, []);
   const subcategoriesById = new Map(subcategories.map((subcategory) => [subcategory.id, subcategory]));
   const directCategoriesById = new Map(directCategories.map((category) => [category.id, category]));
   const memberNames = new Map(members.map((member) => [member.id, member]));

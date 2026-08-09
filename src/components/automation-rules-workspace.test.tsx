@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   actionReducers: [] as Array<(state: unknown, formData: FormData) => unknown>,
   applyAutomationResults: vi.fn(),
   createAutomationRule: vi.fn(),
+  dragEndHandlers: [] as Array<(event: unknown) => void>,
   focus: vi.fn(),
   inputChanges: {} as Record<string, ChangeEventHandler<HTMLInputElement> | undefined>,
   matchValueChange: undefined as ChangeEventHandler<HTMLInputElement> | undefined,
@@ -21,6 +22,16 @@ const mocks = vi.hoisted(() => ({
   switches: [] as Array<{ checked: boolean; onCheckedChange?: (checked: boolean) => void }>,
   updateAutomationRule: vi.fn(),
   useFocusableRef: false,
+}));
+
+vi.mock("@dnd-kit/react", () => ({
+  DragDropProvider: ({ children, onDragEnd }: { children: ReactNode; onDragEnd?: (event: unknown) => void }) => {
+    if (onDragEnd) mocks.dragEndHandlers.push(onDragEnd);
+    return children;
+  },
+}));
+vi.mock("@dnd-kit/react/sortable", () => ({
+  useSortable: () => ({ handleRef: () => {}, isDragging: false, ref: () => {} }),
 }));
 
 vi.mock("react", async (importOriginal) => {
@@ -187,6 +198,7 @@ beforeEach(() => {
   mocks.useFocusableRef = false;
   mocks.applyAutomationResults.mockResolvedValue({ status: "success" });
   mocks.createAutomationRule.mockResolvedValue({ status: "success" });
+  mocks.dragEndHandlers.length = 0;
   mocks.setAutomationRuleEnabled.mockResolvedValue({ status: "success", data: { enabled: "false" } });
   mocks.updateAutomationRule.mockResolvedValue({ status: "success" });
 });
@@ -401,13 +413,18 @@ it("uses the transaction-style grouped picker for automation destinations", () =
   );
 });
 
-it("renders a default merchant match builder without condition drag handles", () => {
+it("renders a default merchant match builder with an accessible condition drag handle", () => {
   const markup = renderRuleForm();
 
   expect(markup).toContain("Delete transaction");
   expect(markup).toContain("Merchant match");
   expect(markup).toContain("Merchant text");
-  expect(markup).not.toContain('aria-label="Reorder condition');
+  expect(markup).toContain('aria-label="Reorder condition 1"');
+  expect(markup).toContain("grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto]");
+  expect(markup).toContain("sm:grid-cols-[auto_minmax(7rem,0.8fr)_minmax(8rem,1fr)_minmax(0,1fr)_auto]");
+  const dragHandle = markup.match(/<button(?=[^>]*aria-label="Reorder condition 1")[^>]*>/)?.[0];
+  expect(dragHandle).toContain("row-span-2");
+  expect(dragHandle).toContain("sm:row-auto");
   expect(markup).not.toContain("Merchant pattern");
   expect(markup).toMatch(/<input(?=[^>]*name="matchMode")(?=[^>]*value="contains")[^>]*>/);
   expect(markup).toMatch(/<input(?=[^>]*name="matchValue")(?=[^>]*class="h-11")[^>]*>/);
@@ -419,6 +436,60 @@ it("renders a default merchant match builder without condition drag handles", ()
   expect(markup).toContain('class="min-h-11" data-select-item="starts_with">Starts with');
   expect(markup).toContain('class="min-h-11" data-select-item="ends_with">Ends with');
   expect(markup).toContain('class="min-h-11" data-select-item="advanced">Matches regex');
+});
+
+it("caps the condition builder at eight rows", () => {
+  const markup = renderRuleForm({
+    rule: {
+      id: "eight-condition-rule",
+      action: "assign_category",
+      pattern: "__conditions__",
+      conditions: {
+        conditions: Array.from({ length: 8 }, (_, index) => ({
+          ...(index === 0 ? {} : { connector: "and" as const }),
+          field: "merchant" as const,
+          operator: "contains" as const,
+          value: `merchant-${index}`,
+        })),
+      },
+      enabled: true,
+      position: 0,
+    },
+  });
+
+  expect(markup).toContain('data-condition-row="8"');
+  expect(markup).toMatch(/<button(?=[^>]*disabled="")[\s\S]*?>[\s\S]*?Add condition<\/button>/);
+});
+
+it("keeps a labelled review action available for an existing preview", () => {
+  if (!workspaceModule?.AutomationRulesWorkspace) throw new Error("AutomationRulesWorkspace is unavailable.");
+
+  const markup = renderToStaticMarkup(
+    <workspaceModule.AutomationRulesWorkspace
+      count={1}
+      destinations={[]}
+      preview={{
+        changes: [
+          {
+            id: "transaction-1",
+            merchant: "Shop",
+            category_id: null,
+            subcategory_id: null,
+            expected_updated_at: "2026-08-09T00:00:00Z",
+            expected_merchant: "Shop",
+            expected_category_id: null,
+            expected_subcategory_id: null,
+          },
+        ],
+        conflicts: [],
+        fingerprint: "preview-fingerprint",
+        ruleSet: [],
+      }}
+      rules={[{ id: "rule-id", action: "normalize_merchant", pattern: "shop", replacement: "Store", enabled: true, position: 0 }]}
+    />,
+  );
+
+  expect(markup).toContain("Review changes");
 });
 
 it("renders legacy condition groups as per-row connectors for merchant, note, and numeric amount without an editor enable toggle", () => {
@@ -559,6 +630,40 @@ it("removes a condition while preserving connector positions", () => {
     { id: "first", condition: { field: "merchant", operator: "contains", value: "first", connector: undefined } },
     { id: "third", condition: { field: "note", operator: "contains", value: "weekly", connector: "and" } },
   ]);
+});
+
+it("reorders conditions while preserving connector slots", () => {
+  const rule = {
+    id: "reorder-condition-rule",
+    action: "assign_category" as const,
+    pattern: "__conditions__",
+    conditions: {
+      conditions: [
+        { field: "merchant" as const, operator: "contains" as const, value: "first" },
+        { connector: "and" as const, field: "amount" as const, operator: "greater_than" as const, value: 100 },
+        { connector: "or" as const, field: "note" as const, operator: "contains" as const, value: "third" },
+      ],
+    },
+    categoryId: null,
+    subcategoryId: "cafe-id",
+    enabled: true,
+    position: 0,
+  };
+
+  renderRuleForm({ rule });
+  mocks.dragEndHandlers[0]?.({
+    operation: { canceled: false, source: { id: "condition-2" }, target: { id: "condition-0" } },
+  });
+  const markup = renderRuleForm({ preserveState: true, rule });
+  const serialized = markup.match(/<input(?=[^>]*name="conditions")[^>]*value="([^"]*)"/)?.[1];
+
+  expect(JSON.parse(serialized?.replaceAll("&quot;", '"') ?? "null")).toEqual({
+    conditions: [
+      { field: "note", operator: "contains", value: "third" },
+      { connector: "and", field: "merchant", operator: "contains", value: "first" },
+      { connector: "or", field: "amount", operator: "greater_than", value: 100 },
+    ],
+  });
 });
 
 it("updates only the value for the condition being edited", () => {

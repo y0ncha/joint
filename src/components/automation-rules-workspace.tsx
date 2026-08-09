@@ -173,6 +173,23 @@ export type AutomationConditionRow = {
   condition: AutomationCondition;
 };
 
+function SortableConditionRow({
+  children,
+  id,
+  index,
+}: {
+  children: (sortable: { handleRef: (element: HTMLButtonElement | null) => void; isDragging: boolean }) => ReactNode;
+  id: string;
+  index: number;
+}) {
+  const { handleRef, isDragging, ref } = useSortable({ id, index });
+  return (
+    <div ref={ref} data-condition-row={index + 1} className={cn(isDragging && "opacity-60")}>
+      {children({ handleRef, isDragging })}
+    </div>
+  );
+}
+
 export function removeConditionRow(previous: AutomationConditionRow[], index: number): AutomationConditionRow[] {
   if (previous.length === 1) return previous;
   const remaining = previous.filter((_, rowIndex) => rowIndex !== index);
@@ -338,149 +355,181 @@ export function AutomationRuleForm({
         <FieldSet>
           <FieldLegend>Conditions</FieldLegend>
           <FieldDescription>Choose what a transaction must match before this action runs.</FieldDescription>
-          <FieldGroup className="gap-3">
-            {conditionRows.map(({ condition, id }, index) => {
-              const isMerchant = condition.field === "merchant";
-              const isAmount = condition.field === "amount";
-              const inputId = `${formId}-condition-${index}`;
-              const nextCondition = conditionRows[index + 1]?.condition;
-              const nextInputId = `${formId}-condition-${index + 1}`;
-              const conditionRowClassName =
-                "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[minmax(7rem,0.8fr)_minmax(8rem,1fr)_minmax(0,1fr)_auto]";
-              return (
-                <Fragment key={id}>
-                  <div data-condition-row={index + 1}>
-                    <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.conditions)}>
-                      <div className={conditionRowClassName}>
-                        <div className="min-w-0">
-                          <FieldLabel className="sr-only" htmlFor={`${inputId}-field`}>
-                            Condition {index + 1} field
-                          </FieldLabel>
-                          <Select value={condition.field} onValueChange={(value) => changeField(index, value as AutomationConditionField)}>
-                            <SelectTrigger id={`${inputId}-field`} size="lg" className="w-full rounded-xl">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectGroup>
-                                {textConditionFieldOptions.map((option) => (
-                                  <SelectItem key={option.value} className="min-h-11" value={option.value}>
-                                    {option.label}
-                                  </SelectItem>
-                                ))}
-                                <SelectItem className="min-h-11" value="amount">
-                                  Amount
-                                </SelectItem>
-                              </SelectGroup>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="min-w-0">
-                          <FieldLabel className="sr-only" htmlFor={`${inputId}-operator`}>
-                            {index === 0 && isMerchant ? "Merchant match" : "Match operator"}
-                          </FieldLabel>
-                          <Select value={condition.operator} onValueChange={(value) => updateOperator(index, value)}>
-                            <SelectTrigger
-                              id={index === 0 && isMerchant ? `${formId}-match-mode` : `${inputId}-operator`}
-                              size="lg"
-                              className="w-full rounded-xl"
+          <DragDropProvider
+            onDragEnd={(event) => {
+              setConditionRows((previous) => {
+                const reordered = move(previous, event);
+                if (reordered.every((row, index) => row.id === previous[index]?.id)) return previous;
+                const conditions = preserveConditionConnectorPositions(
+                  previous.map((row) => row.condition),
+                  reordered.map((row) => row.condition),
+                );
+                return reordered.map((row, index) => ({ ...row, condition: conditions[index]! }));
+              });
+            }}
+          >
+            <FieldGroup className="gap-3">
+              {conditionRows.map(({ condition, id }, index) => {
+                const isMerchant = condition.field === "merchant";
+                const isAmount = condition.field === "amount";
+                const inputId = `${formId}-condition-${index}`;
+                const nextCondition = conditionRows[index + 1]?.condition;
+                const nextInputId = `${formId}-condition-${index + 1}`;
+                const conditionRowClassName =
+                  "grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[auto_minmax(7rem,0.8fr)_minmax(8rem,1fr)_minmax(0,1fr)_auto]";
+                return (
+                  <SortableConditionRow key={id} id={id} index={index}>
+                    {({ handleRef, isDragging }) => (
+                      <>
+                        <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.conditions)}>
+                          <div className={cn(conditionRowClassName, isDragging && "opacity-60")}>
+                            <Button
+                              ref={handleRef}
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="row-span-2 size-11 shrink-0 cursor-grab touch-none self-center text-muted-foreground active:cursor-grabbing sm:row-auto"
+                              aria-label={`Reorder condition ${index + 1}`}
                             >
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectGroup>
-                                {(isAmount ? amountConditionOperatorOptions : textConditionOperatorOptions).map((option) => (
-                                  <SelectItem key={option.value} className="min-h-11" value={option.value}>
-                                    {option.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectGroup>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="min-w-0">
-                          <FieldLabel className="sr-only" htmlFor={inputId}>
-                            {index === 0 && isMerchant ? "Merchant text" : isAmount ? "Amount value" : "Text value"}
-                          </FieldLabel>
-                          <Input
-                            ref={(element) => {
-                              conditionInputRefs.current[index] = element;
-                              if (index === 0 && isMerchant) merchantTextRef.current = element;
-                            }}
-                            id={inputId}
-                            name={index === 0 && isMerchant ? "matchValue" : `condition-${index}-value`}
-                            type={isAmount ? "number" : "text"}
-                            inputMode={isAmount ? "decimal" : undefined}
-                            min={isAmount ? 0 : undefined}
-                            step={isAmount ? "0.01" : undefined}
-                            value={String(condition.value)}
-                            onChange={(event) => updateValue(index, isAmount ? Number(event.target.value) : event.target.value)}
-                            maxLength={isAmount ? undefined : condition.field === "merchant" ? 200 : 500}
-                            autoComplete="off"
-                            className="h-11"
-                            aria-label={`${condition.field === "merchant" ? "Merchant" : condition.field === "note" ? "Note" : "Amount"} value`}
-                            aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.conditions || state.fieldErrors.pattern)}
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-11 shrink-0"
-                          aria-label={`Remove condition ${index + 1}`}
-                          onClick={() => removeCondition(index)}
-                          disabled={conditionRows.length === 1}
-                        >
-                          <Trash2 aria-hidden="true" />
-                        </Button>
-                      </div>
-                      {state?.status === "error" && index === 0 ? (
-                        <FieldError>{state.fieldErrors.conditions ?? state.fieldErrors.pattern}</FieldError>
-                      ) : null}
-                    </Field>
-                  </div>
-                  {nextCondition ? (
-                    <div
-                      data-connector-after-condition={index + 1}
-                      className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 py-1"
-                    >
-                      <Separator className="min-w-0 bg-primary/20" />
-                      <FieldLabel className="sr-only" htmlFor={`${nextInputId}-connector`}>
-                        Condition {index + 2} connector
-                      </FieldLabel>
-                      <Select
-                        value={nextCondition.connector ?? "and"}
-                        onValueChange={(value) => updateConnector(index + 1, value as AutomationConditionConnector)}
-                      >
-                        <SelectTrigger
-                          id={`${nextInputId}-connector`}
-                          size="sm"
-                          aria-label={`Condition ${index + 2} connector`}
-                          className="w-20 rounded-full border-primary/30 bg-primary/10 px-2 text-primary hover:bg-primary/15"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            {conditionConnectorOptions.map((option) => (
-                              <SelectItem key={option.value} className="min-h-11" value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                      <Separator className="min-w-0 bg-primary/20" />
-                    </div>
-                  ) : null}
-                </Fragment>
-              );
-            })}
-          </FieldGroup>
+                              <GripVertical aria-hidden="true" />
+                            </Button>
+                            <div className="col-span-2 min-w-0 sm:col-span-1">
+                              <FieldLabel className="sr-only" htmlFor={`${inputId}-field`}>
+                                Condition {index + 1} field
+                              </FieldLabel>
+                              <Select
+                                value={condition.field}
+                                onValueChange={(value) => changeField(index, value as AutomationConditionField)}
+                              >
+                                <SelectTrigger id={`${inputId}-field`} size="lg" className="w-full rounded-xl">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectGroup>
+                                    {textConditionFieldOptions.map((option) => (
+                                      <SelectItem key={option.value} className="min-h-11" value={option.value}>
+                                        {option.label}
+                                      </SelectItem>
+                                    ))}
+                                    <SelectItem className="min-h-11" value="amount">
+                                      Amount
+                                    </SelectItem>
+                                  </SelectGroup>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="min-w-0">
+                              <FieldLabel className="sr-only" htmlFor={`${inputId}-operator`}>
+                                {index === 0 && isMerchant ? "Merchant match" : "Match operator"}
+                              </FieldLabel>
+                              <Select value={condition.operator} onValueChange={(value) => updateOperator(index, value)}>
+                                <SelectTrigger
+                                  id={index === 0 && isMerchant ? `${formId}-match-mode` : `${inputId}-operator`}
+                                  size="lg"
+                                  className="w-full rounded-xl"
+                                >
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectGroup>
+                                    {(isAmount ? amountConditionOperatorOptions : textConditionOperatorOptions).map((option) => (
+                                      <SelectItem key={option.value} className="min-h-11" value={option.value}>
+                                        {option.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectGroup>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="min-w-0">
+                              <FieldLabel className="sr-only" htmlFor={inputId}>
+                                {index === 0 && isMerchant ? "Merchant text" : isAmount ? "Amount value" : "Text value"}
+                              </FieldLabel>
+                              <Input
+                                ref={(element) => {
+                                  conditionInputRefs.current[index] = element;
+                                  if (index === 0 && isMerchant) merchantTextRef.current = element;
+                                }}
+                                id={inputId}
+                                name={index === 0 && isMerchant ? "matchValue" : `condition-${index}-value`}
+                                type={isAmount ? "number" : "text"}
+                                inputMode={isAmount ? "decimal" : undefined}
+                                min={isAmount ? 0 : undefined}
+                                step={isAmount ? "0.01" : undefined}
+                                value={String(condition.value)}
+                                onChange={(event) => updateValue(index, isAmount ? Number(event.target.value) : event.target.value)}
+                                maxLength={isAmount ? undefined : condition.field === "merchant" ? 200 : 500}
+                                autoComplete="off"
+                                className="h-11"
+                                aria-label={`${condition.field === "merchant" ? "Merchant" : condition.field === "note" ? "Note" : "Amount"} value`}
+                                aria-invalid={
+                                  state?.status === "error" && Boolean(state.fieldErrors.conditions || state.fieldErrors.pattern)
+                                }
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="col-start-4 row-span-2 row-start-1 size-11 shrink-0 self-center sm:col-auto sm:row-auto"
+                              aria-label={`Remove condition ${index + 1}`}
+                              onClick={() => removeCondition(index)}
+                              disabled={conditionRows.length === 1}
+                            >
+                              <Trash2 aria-hidden="true" />
+                            </Button>
+                          </div>
+                          {state?.status === "error" && index === 0 ? (
+                            <FieldError>{state.fieldErrors.conditions ?? state.fieldErrors.pattern}</FieldError>
+                          ) : null}
+                        </Field>
+                        {nextCondition ? (
+                          <div
+                            data-connector-after-condition={index + 1}
+                            className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 py-1"
+                          >
+                            <Separator className="min-w-0 bg-primary/20" />
+                            <FieldLabel className="sr-only" htmlFor={`${nextInputId}-connector`}>
+                              Condition {index + 2} connector
+                            </FieldLabel>
+                            <Select
+                              value={nextCondition.connector ?? "and"}
+                              onValueChange={(value) => updateConnector(index + 1, value as AutomationConditionConnector)}
+                            >
+                              <SelectTrigger
+                                id={`${nextInputId}-connector`}
+                                size="sm"
+                                aria-label={`Condition ${index + 2} connector`}
+                                className="min-h-11 w-20 rounded-full border-primary/30 bg-primary/10 px-2 text-primary hover:bg-primary/15"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectGroup>
+                                  {conditionConnectorOptions.map((option) => (
+                                    <SelectItem key={option.value} className="min-h-11" value={option.value}>
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                            <Separator className="min-w-0 bg-primary/20" />
+                          </div>
+                        ) : null}
+                      </>
+                    )}
+                  </SortableConditionRow>
+                );
+              })}
+            </FieldGroup>
+          </DragDropProvider>
           <Button
             type="button"
             variant="ghost"
             className="min-h-11 w-fit rounded-xl text-primary hover:text-primary"
             onClick={addCondition}
+            disabled={conditionRows.length >= 8}
           >
             <Plus data-icon="inline-start" />
             Add condition
@@ -1050,7 +1099,12 @@ export function AutomationRulesWorkspace({
                 Drag rules into one shared order. Priority is evaluated separately for each action.
                 {canReorder ? null : " Clear view controls to reorder."}
               </CardDescription>
-              <CardAction>
+              <CardAction className="flex items-center gap-1">
+                {canReview ? (
+                  <Button type="button" variant="outline" className="min-h-11 rounded-xl" onClick={() => setPreviewOpen(true)}>
+                    Review changes
+                  </Button>
+                ) : null}
                 <AutomationRuleViewConfig
                   filter={ruleFilter}
                   group={ruleGroup}

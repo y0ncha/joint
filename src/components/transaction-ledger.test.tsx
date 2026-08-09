@@ -3,6 +3,35 @@ import { afterEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ searchParams: new URLSearchParams() }));
 
+const hooks = vi.hoisted(() => ({
+  effects: [] as Array<() => void | (() => void)>,
+  enabled: false,
+  state: [] as unknown[],
+  stateIndex: 0,
+}));
+
+vi.mock("react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react")>();
+  return {
+    ...actual,
+    useEffect: (effect: () => void | (() => void), dependencies: readonly unknown[]) => {
+      if (!hooks.enabled) return actual.useEffect(effect, dependencies);
+      hooks.effects.push(effect);
+    },
+    useState: (initialState: unknown | (() => unknown)) => {
+      if (!hooks.enabled) return actual.useState(initialState);
+      const index = hooks.stateIndex++;
+      if (!(index in hooks.state)) hooks.state[index] = typeof initialState === "function" ? initialState() : initialState;
+      return [
+        hooks.state[index],
+        (nextState: unknown | ((current: unknown) => unknown)) => {
+          hooks.state[index] = typeof nextState === "function" ? nextState(hooks.state[index]) : nextState;
+        },
+      ];
+    },
+  };
+});
+
 vi.mock("next/navigation", () => ({
   useSearchParams: () => mocks.searchParams,
 }));
@@ -24,6 +53,62 @@ type ImportedLedgerTransaction = {
 
 afterEach(() => {
   mocks.searchParams = new URLSearchParams();
+  hooks.effects = [];
+  hooks.enabled = false;
+  hooks.state = [];
+  hooks.stateIndex = 0;
+  vi.unstubAllGlobals();
+});
+
+it("keeps server filters through hydration, then defaults cleared URL filters on popstate", () => {
+  const eventTarget = Object.assign(new EventTarget(), { location: { search: "" } });
+  vi.stubGlobal("window", eventTarget);
+  hooks.enabled = true;
+  const props = {
+    filterKind: "income" as const,
+    members: [],
+    transactions: [
+      {
+        id: "income",
+        kind: "income" as const,
+        amount: 100,
+        occurredOn: "2026-07-15",
+        subcategoryId: null,
+        note: "Server income",
+        createdAt: "2026-07-15T08:00:00Z",
+        paidBy: null,
+      },
+      {
+        id: "expense",
+        kind: "expense" as const,
+        amount: 50,
+        occurredOn: "2026-07-14",
+        subcategoryId: null,
+        note: "Default expense",
+        createdAt: "2026-07-14T08:00:00Z",
+        paidBy: null,
+      },
+    ],
+  };
+
+  hooks.stateIndex = 0;
+  hooks.effects = [];
+  renderToStaticMarkup(<TransactionLedger {...props} />);
+  const cleanup = hooks.effects[0]!();
+  hooks.stateIndex = 0;
+  hooks.effects = [];
+  const hydratedMarkup = renderToStaticMarkup(<TransactionLedger {...props} />);
+
+  expect(hydratedMarkup).toContain("Server income");
+  expect(hydratedMarkup).not.toContain("Default expense");
+
+  eventTarget.dispatchEvent(new Event("popstate"));
+  hooks.stateIndex = 0;
+  hooks.effects = [];
+  const clearedMarkup = renderToStaticMarkup(<TransactionLedger {...props} />);
+  expect(clearedMarkup).toContain("Server income");
+  expect(clearedMarkup).toContain("Default expense");
+  cleanup?.();
 });
 
 it("maps ledger shortcuts only when transactions are selected", () => {

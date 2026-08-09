@@ -13,6 +13,13 @@ type SearchParamsLike = {
   has(name: string): boolean;
 };
 
+export const defaultLedgerFilterState: LedgerFilterState = {
+  categoryIds: [],
+  filterKind: "all",
+  paidByIds: [],
+  sort: "date-desc",
+};
+
 function values(searchParams: SearchParamsLike, name: string, fallback: string[]) {
   return searchParams.has(name) ? (searchParams.get(name)?.split(",").filter(Boolean) ?? []) : fallback;
 }
