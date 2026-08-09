@@ -108,7 +108,11 @@ export function confirmTransactionDuplicatePreview(input: FormData, preview: Dup
     const candidateIds = new Set(preview.matches.map(({ candidate }) => candidate.id));
     return {
       confirmed: true as const,
-      skippedIds: new Set(input.getAll("discardDuplicateId").filter((candidateId) => candidateIds.has(candidateId))),
+      skippedIds: new Set(
+        input
+          .getAll("discardDuplicateId")
+          .filter((candidateId): candidateId is string => typeof candidateId === "string" && candidateIds.has(candidateId)),
+      ),
     };
   }
   return { confirmed: false as const, stale: Boolean(fingerprint) };
