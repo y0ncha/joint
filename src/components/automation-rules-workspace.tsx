@@ -5,7 +5,6 @@ import { DragDropProvider } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
 import {
   type ComponentProps,
-  createElement,
   Fragment,
   type ReactNode,
   useActionState,
@@ -29,6 +28,7 @@ import {
 } from "@/app/actions/merchant-automations";
 import type { ActionResult } from "@/app/actions/result";
 import { PillSelect } from "@/components/pill-select";
+import { CategoryIcon } from "@/components/category-icon-picker";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -618,7 +618,7 @@ function SortableRule({
           <ArrowRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
           {rule.action === "assign_category" ? (
             <Badge className={cn("max-w-64 truncate", !enabled && "opacity-60")} variant="secondary">
-              {createElement(categoryIcon(destination?.icon), { "aria-hidden": true, "data-icon": "inline-start" })}
+              <CategoryIcon name={destination?.icon} data-icon="inline-start" />
               {destination?.pickerLabel ?? destination?.label ?? "Missing destination"}
             </Badge>
           ) : rule.action === "normalize_merchant" ? (
