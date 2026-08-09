@@ -4,13 +4,13 @@ version: 1.0
 date_created: 2026-08-09
 last_updated: 2026-08-09
 owner: Joint
-status: Planned
+status: Complete
 tags: [feature, pwa, nextjs, vercel]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: Complete](https://img.shields.io/badge/status-Complete-brightgreen)
 
 This plan adds the native Next.js manifest and install icons required to install Joint from an HTTPS deployment while preserving its existing online-only authenticated runtime.
 
