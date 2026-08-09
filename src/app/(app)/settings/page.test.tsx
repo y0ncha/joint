@@ -106,6 +106,8 @@ it("keeps the Household groceries budget inside the Settings form-owned workspac
   expect(markup).toContain("Household");
   expect(markup).toContain("Account");
   expect(markup).toContain("The Lovelaces");
+  expect(markup.indexOf(">Name</p>")).toBeLessThan(markup.indexOf(">Groceries budget</p>"));
+  expect(markup.indexOf(">Groceries budget</p>")).toBeLessThan(markup.indexOf(">Categories</p>"));
   expect(markup).toContain('href="/categories"');
   expect(markup).toContain('aria-label="Edit categories"');
   expect(markup).toContain('href="/automations"');

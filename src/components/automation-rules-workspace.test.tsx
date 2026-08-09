@@ -5,8 +5,10 @@ import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   actionState: null as null | { status: "error"; formError: string; fieldErrors: Record<string, string> },
   actionReducers: [] as Array<(state: unknown, formData: FormData) => unknown>,
+  applyAutomationResult: vi.fn(),
   applyAutomationResults: vi.fn(),
   createAutomationRule: vi.fn(),
+  dragEndHandlers: [] as Array<(event: unknown) => void>,
   focus: vi.fn(),
   inputChanges: {} as Record<string, ChangeEventHandler<HTMLInputElement> | undefined>,
   matchValueChange: undefined as ChangeEventHandler<HTMLInputElement> | undefined,
@@ -18,8 +20,19 @@ const mocks = vi.hoisted(() => ({
   sheetSides: [] as Array<string | undefined>,
   state: [] as unknown[],
   stateIndex: 0,
+  switches: [] as Array<{ checked: boolean; onCheckedChange?: (checked: boolean) => void }>,
   updateAutomationRule: vi.fn(),
   useFocusableRef: false,
+}));
+
+vi.mock("@dnd-kit/react", () => ({
+  DragDropProvider: ({ children, onDragEnd }: { children: ReactNode; onDragEnd?: (event: unknown) => void }) => {
+    if (onDragEnd) mocks.dragEndHandlers.push(onDragEnd);
+    return children;
+  },
+}));
+vi.mock("@dnd-kit/react/sortable", () => ({
+  useSortable: () => ({ handleRef: () => {}, isDragging: false, ref: () => {} }),
 }));
 
 vi.mock("react", async (importOriginal) => {
@@ -32,6 +45,11 @@ vi.mock("react", async (importOriginal) => {
     },
     useEffect: (effect: () => void, dependencies: readonly unknown[]) =>
       mocks.runEffects ? effect() : actual.useEffect(effect, dependencies),
+    useOptimistic: <T, U>(initialState: T, updateFn: (state: T, value: U) => T) => {
+      const index = mocks.stateIndex++;
+      if (!(index in mocks.state)) mocks.state[index] = initialState;
+      return [mocks.state[index] as T, (value: U) => (mocks.state[index] = updateFn(mocks.state[index] as T, value))] as const;
+    },
     useRef: (initialValue: unknown) => (mocks.useFocusableRef ? { current: { focus: mocks.focus } } : actual.useRef(initialValue)),
     useState: (initialState: unknown | (() => unknown)) => {
       const index = mocks.stateIndex++;
@@ -43,9 +61,11 @@ vi.mock("react", async (importOriginal) => {
         },
       ];
     },
+    useTransition: () => [false, (action: () => void | Promise<void>) => void action()] as const,
   };
 });
 vi.mock("@/app/actions/merchant-automations", () => ({
+  applyAutomationResult: mocks.applyAutomationResult,
   applyAutomationResults: mocks.applyAutomationResults,
   createAutomationRule: mocks.createAutomationRule,
   deleteAutomationRule: vi.fn(),
@@ -58,6 +78,12 @@ vi.mock("@/components/ui/input", () => ({
     if (props.name === "matchValue") mocks.matchValueChange = onChange;
     if (props.name) mocks.inputChanges[props.name] = onChange;
     return <input {...props} onChange={onChange} />;
+  },
+}));
+vi.mock("@/components/ui/switch", () => ({
+  Switch: ({ checked, onCheckedChange, ...props }: { checked: boolean; onCheckedChange?: (checked: boolean) => void }) => {
+    mocks.switches.push({ checked, onCheckedChange });
+    return <button {...props} aria-checked={checked} role="switch" type="button" />;
   },
 }));
 vi.mock("@/components/pill-select", () => ({
@@ -90,7 +116,30 @@ vi.mock("@/components/ui/sheet", () => ({
   SheetDescription: ({ children }: { children: ReactNode }) => children,
   SheetHeader: ({ children }: { children: ReactNode }) => children,
   SheetTitle: ({ children }: { children: ReactNode }) => children,
-  SheetTrigger: ({ children }: { children: ReactNode }) => children,
+  SheetTrigger: ({ children }: { children: ReactNode }) => <div data-sheet-trigger>{children}</div>,
+}));
+vi.mock("@/components/ui/alert-dialog", () => ({
+  AlertDialog: ({ children }: { children: ReactNode }) => <div data-alert-dialog>{children}</div>,
+  AlertDialogAction: ({ children, variant, ...props }: { children: ReactNode; variant?: string } & React.ComponentProps<"button">) => (
+    <button data-variant={variant} {...props}>
+      {children}
+    </button>
+  ),
+  AlertDialogCancel: ({ children, variant, ...props }: { children: ReactNode; variant?: string } & React.ComponentProps<"button">) => (
+    <button data-variant={variant} {...props}>
+      {children}
+    </button>
+  ),
+  AlertDialogContent: ({ children, ...props }: { children: ReactNode } & React.ComponentProps<"div">) => (
+    <div role="alertdialog" {...props}>
+      {children}
+    </div>
+  ),
+  AlertDialogDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
+  AlertDialogFooter: ({ children }: { children: ReactNode }) => <footer>{children}</footer>,
+  AlertDialogHeader: ({ children }: { children: ReactNode }) => <header>{children}</header>,
+  AlertDialogTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
+  AlertDialogTrigger: ({ children }: { children: ReactNode }) => <div data-alert-dialog-trigger>{children}</div>,
 }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
@@ -151,9 +200,11 @@ beforeEach(() => {
   mocks.sheetSides.length = 0;
   mocks.state = [];
   mocks.stateIndex = 0;
+  mocks.switches.length = 0;
   mocks.useFocusableRef = false;
   mocks.applyAutomationResults.mockResolvedValue({ status: "success" });
   mocks.createAutomationRule.mockResolvedValue({ status: "success" });
+  mocks.dragEndHandlers.length = 0;
   mocks.setAutomationRuleEnabled.mockResolvedValue({ status: "success", data: { enabled: "false" } });
   mocks.updateAutomationRule.mockResolvedValue({ status: "success" });
 });
@@ -168,6 +219,7 @@ it("renders ordered atomic automation rules with conflict guidance", () => {
               categoryId: null,
               subcategoryId: "cafe-id",
               label: "Expense → Food → Cafe",
+              pickerLabel: "Cafe",
               kind: "expense",
               color: "#dcece3",
               icon: "utensils",
@@ -222,12 +274,14 @@ it("renders ordered atomic automation rules with conflict guidance", () => {
     : "";
 
   expect(markup).toContain("Automations");
-  expect(markup).toContain(
+  expect(markup).not.toContain(
     "Rules share one order. For each action, the first enabled matching rule wins; different actions run independently.",
   );
   expect(markup).toContain("Normalize merchant");
   expect(markup).toContain("Assign category");
   expect(markup).toContain("Aroma");
+  expect(markup).toContain("Cafe");
+  expect(markup).toContain("lucide-utensils");
   expect(markup).toContain("Expense → Food → Cafe");
   expect(markup).toContain("background-color:#dcece3");
   expect(markup).toContain("lucide-utensils");
@@ -235,17 +289,35 @@ it("renders ordered atomic automation rules with conflict guidance", () => {
   expect(markup).toContain('aria-label="Add rule"');
   expect(markup).not.toContain(">Add rule<");
   expect(markup).toContain('aria-label="Reorder Normalize merchant rule"');
+  expect(markup).toMatch(/class="[^"]*text-muted-foreground[^"]*"[^>]*aria-label="Reorder Normalize merchant rule"/);
   expect(markup).toContain('aria-label="Edit Normalize merchant rule"');
   expect(markup).toContain('aria-label="Disable Normalize merchant rule"');
-  expect(markup).toContain('aria-label="Existing transaction preview"');
-  expect(markup).toContain("ארומה → Aroma");
+  expect(markup).toMatch(/flex min-h-14[^\"]*hover:bg-foreground\/2/);
+  expect(markup).not.toMatch(/type="button"[^>]*>Review 1 existing change<\/button>/);
+  expect(markup).not.toContain("Each row is one existing transaction that would change");
+  expect(markup).not.toContain('aria-label="Automation preview"');
+  expect(markup).not.toContain('aria-label="Apply preview for ארומה"');
+  expect(markup).not.toContain("Merchant:");
+  expect(markup).not.toContain("Destination:");
+  expect(markup).toContain("Uncategorized");
+  expect(markup).toContain("lucide-move-right");
+  expect(markup).not.toContain("Affects 1 existing transaction.");
+  expect(markup).toContain("ארומה");
+  expect(markup).toContain("Aroma");
   expect(markup).not.toContain("1 existing transaction would change");
   expect(markup).not.toContain("1 priority conflict resolved by rule order");
-  expect(markup).toContain("Contains “ארומה” → Rename merchant to “Aroma”");
-  expect(markup).toContain("Contains “ארומה” → Assign category “Expense → Food → Cafe”");
-  expect(markup).toContain("Matches regex “אר.*” → Rename merchant to “Aroma Israel”");
+  expect(markup).toContain("Contains");
+  expect(markup).toContain(">Aroma</span>");
+  expect(markup).toMatch(/class="[^"]*max-w-64 truncate bg-muted\/50[^"]*"[^>]*>Aroma<\/span>/);
+  expect(markup).toContain('data-variant="outline"');
+  expect(markup).toContain("bg-muted/50");
+  expect(markup).toContain("Food");
+  expect(markup).toContain("Cafe");
+  expect(markup).toContain("Matches regex");
+  expect(markup).toContain('data-variant="outline"');
+  expect(markup).toContain("אר.*");
+  expect(markup).toContain(">Aroma Israel</span>");
   expect(markup).toContain("Contains “ארומה” wins over Matches regex “אר.*” for 1 transaction.");
-  expect(markup).toContain("Review and apply");
 });
 
 it("keeps one persisted rule order while showing action-local priorities", () => {
@@ -271,23 +343,21 @@ it("keeps one persisted rule order while showing action-local priorities", () =>
     />,
   );
 
-  expect(markup).toContain("Automation rules");
-  expect(markup).toContain(
+  expect(markup).not.toContain("Automation rules");
+  expect(markup).not.toContain(
     "Rules share one order. For each action, the first enabled matching rule wins; different actions run independently.",
   );
-  expect(markup).toContain(">Normalize merchant</span>");
-  expect(markup).toContain(">Assign category</span>");
   expect(markup).not.toContain("No transaction deletion rules yet.");
   expect(markup.match(/role="switch"/g)).toHaveLength(3);
-  expect(markup).toContain('aria-label="Normalize merchant priority 1"');
-  expect(markup).toContain('aria-label="Normalize merchant priority 2"');
-  expect(markup.indexOf("Contains “shop” → Rename merchant to “Shop”")).toBeLessThan(markup.indexOf("Contains “cafe” → Assign category "));
-  expect(markup.indexOf("Contains “old shop” → Rename merchant to “Old Shop”")).toBeLessThan(
-    markup.indexOf("Contains “cafe” → Assign category "),
+  expect(markup).toMatch(/data-sheet-trigger="true"><button(?=[^>]*data-slot="button")(?=[^>]*aria-label="Edit Normalize merchant rule")/);
+  expect(markup.indexOf('aria-label="Edit Normalize merchant rule"')).toBeLessThan(
+    markup.indexOf('aria-label="Disable Normalize merchant rule"'),
   );
+  expect(markup.indexOf(">shop</span>")).toBeLessThan(markup.indexOf(">cafe</span>"));
+  expect(markup.indexOf(">old shop</span>")).toBeLessThan(markup.indexOf(">cafe</span>"));
 });
 
-it("omits destination pills for normalization and deletion rules", () => {
+it("renders concise outcomes for normalization and deletion rules", () => {
   if (!workspaceModule?.AutomationRulesWorkspace) throw new Error("AutomationRulesWorkspace is unavailable.");
 
   const markup = renderToStaticMarkup(
@@ -303,6 +373,10 @@ it("omits destination pills for normalization and deletion rules", () => {
   );
 
   expect(markup).not.toContain("Missing destination");
+  expect(markup).toContain("lucide-move-right");
+  expect(markup).toContain(">Delete</span>");
+  expect(markup).not.toContain('class="min-w-0 flex-1"><span class="block truncate text-sm text-muted-foreground"');
+  expect(markup).toContain('class="min-w-0"><span class="block truncate text-sm text-foreground"');
 });
 
 it("uses the transaction-style grouped picker for automation destinations", () => {
@@ -352,14 +426,18 @@ it("uses the transaction-style grouped picker for automation destinations", () =
   );
 });
 
-it("renders a default merchant match builder with a 44px regex option", () => {
+it("renders a default merchant match builder with an accessible condition drag handle", () => {
   const markup = renderRuleForm();
 
   expect(markup).toContain("Delete transaction");
   expect(markup).toContain("Merchant match");
   expect(markup).toContain("Merchant text");
   expect(markup).toContain('aria-label="Reorder condition 1"');
-  expect(markup).toContain("motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-out motion-reduce:transition-none");
+  expect(markup).toContain("grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto]");
+  expect(markup).toContain("sm:grid-cols-[auto_minmax(7rem,0.8fr)_minmax(8rem,1fr)_minmax(0,1fr)_auto]");
+  const dragHandle = markup.match(/<button(?=[^>]*aria-label="Reorder condition 1")[^>]*>/)?.[0];
+  expect(dragHandle).toContain("row-span-2");
+  expect(dragHandle).toContain("sm:row-auto");
   expect(markup).not.toContain("Merchant pattern");
   expect(markup).toMatch(/<input(?=[^>]*name="matchMode")(?=[^>]*value="contains")[^>]*>/);
   expect(markup).toMatch(/<input(?=[^>]*name="matchValue")(?=[^>]*class="h-11")[^>]*>/);
@@ -371,6 +449,63 @@ it("renders a default merchant match builder with a 44px regex option", () => {
   expect(markup).toContain('class="min-h-11" data-select-item="starts_with">Starts with');
   expect(markup).toContain('class="min-h-11" data-select-item="ends_with">Ends with');
   expect(markup).toContain('class="min-h-11" data-select-item="advanced">Matches regex');
+});
+
+it("caps the condition builder at eight rows", () => {
+  const markup = renderRuleForm({
+    rule: {
+      id: "eight-condition-rule",
+      action: "assign_category",
+      pattern: "__conditions__",
+      conditions: {
+        conditions: Array.from({ length: 8 }, (_, index) => ({
+          ...(index === 0 ? {} : { connector: "and" as const }),
+          field: "merchant" as const,
+          operator: "contains" as const,
+          value: `merchant-${index}`,
+        })),
+      },
+      enabled: true,
+      position: 0,
+    },
+  });
+
+  expect(markup).toContain('data-condition-row="8"');
+  expect(markup).toMatch(/<button(?=[^>]*disabled="")[\s\S]*?>[\s\S]*?Add condition<\/button>/);
+});
+
+it("keeps a labelled review action available for an existing preview", () => {
+  if (!workspaceModule?.AutomationRulesWorkspace) throw new Error("AutomationRulesWorkspace is unavailable.");
+
+  const markup = renderToStaticMarkup(
+    <workspaceModule.AutomationRulesWorkspace
+      count={1}
+      destinations={[]}
+      preview={{
+        changes: [
+          {
+            id: "transaction-1",
+            merchant: "Shop",
+            category_id: null,
+            subcategory_id: null,
+            expected_updated_at: "2026-08-09T00:00:00Z",
+            expected_merchant: "Shop",
+            expected_category_id: null,
+            expected_subcategory_id: null,
+          },
+        ],
+        conflicts: [],
+        fingerprint: "preview-fingerprint",
+        ruleSet: [],
+      }}
+      rules={[{ id: "rule-id", action: "normalize_merchant", pattern: "shop", replacement: "Store", enabled: true, position: 0 }]}
+    />,
+  );
+
+  expect(markup).toContain('aria-label="Review changes"');
+  expect(markup).toContain("lucide-clipboard-check");
+  expect(markup).toMatch(/data-variant="ghost"(?=[^>]*data-size="icon")(?=[^>]*aria-label="Review changes")/);
+  expect(markup.indexOf('aria-label="Configure rule view"')).toBeLessThan(markup.indexOf('aria-label="Review changes"'));
 });
 
 it("renders legacy condition groups as per-row connectors for merchant, note, and numeric amount without an editor enable toggle", () => {
@@ -433,7 +568,39 @@ it("renders a compact connector before each condition after the first", () => {
   expect(markup).toContain('type="number"');
 });
 
-it("renders each connector after the preceding condition so a promoted first row does not jump", () => {
+it("emphasizes connectors in rule condition summaries", () => {
+  if (!workspaceModule?.AutomationRulesWorkspace) throw new Error("AutomationRulesWorkspace is unavailable.");
+
+  const markup = renderToStaticMarkup(
+    <workspaceModule.AutomationRulesWorkspace
+      count={1}
+      destinations={[]}
+      preview={{ changes: [], conflicts: [], fingerprint: "preview-fingerprint", ruleSet: [] }}
+      rules={[
+        {
+          id: "connector-summary-rule",
+          action: "normalize_merchant",
+          pattern: "__conditions__",
+          conditions: {
+            conditions: [
+              { field: "merchant", operator: "contains", value: "Cafe" },
+              { connector: "and", field: "note", operator: "advanced", value: "%3%" },
+            ],
+          },
+          replacement: "Cafe",
+          enabled: true,
+          position: 0,
+        },
+      ]}
+    />,
+  );
+
+  expect(markup).toMatch(/class="mx-1 font-semibold text-primary"> AND <\/span>/);
+  expect(markup).toContain("Note Matches regex");
+  expect(markup).toContain("%3%");
+});
+
+it("renders each connector between its adjacent conditions", () => {
   const markup = renderRuleForm({
     rule: {
       id: "connector-position-rule",
@@ -452,45 +619,10 @@ it("renders each connector after the preceding condition so a promoted first row
     },
   });
 
-  expect(markup.indexOf('aria-label="Reorder condition 1"')).toBeLessThan(markup.indexOf('aria-label="Condition 2 connector"'));
-  expect(markup.indexOf('aria-label="Condition 2 connector"')).toBeLessThan(markup.indexOf('aria-label="Reorder condition 2"'));
+  expect(markup.indexOf('data-condition-row="1"')).toBeLessThan(markup.indexOf('aria-label="Condition 2 connector"'));
+  expect(markup.indexOf('aria-label="Condition 2 connector"')).toBeLessThan(markup.indexOf('data-condition-row="2"'));
   expect(markup).toContain('data-condition-row="1"');
   expect(markup).toContain('data-connector-after-condition="1"');
-});
-
-it("moves stable row identities while preserving connector positions", () => {
-  if (!workspaceModule?.applyReorderedConditionRows) {
-    throw new Error("applyReorderedConditionRows is unavailable.");
-  }
-
-  const previous = [
-    { id: "first", condition: { field: "merchant" as const, operator: "contains" as const, value: "first" } },
-    {
-      id: "second",
-      condition: { connector: "and" as const, field: "amount" as const, operator: "greater_than" as const, value: 100 },
-    },
-    {
-      id: "third",
-      condition: { connector: "or" as const, field: "note" as const, operator: "contains" as const, value: "weekly" },
-    },
-  ];
-  const reordered = workspaceModule.applyReorderedConditionRows(previous, [
-    {
-      id: "third",
-      condition: { connector: "or" as const, field: "note" as const, operator: "contains" as const, value: "weekly" },
-    },
-    { id: "first", condition: { field: "merchant" as const, operator: "contains" as const, value: "first" } },
-    {
-      id: "second",
-      condition: { connector: "and" as const, field: "amount" as const, operator: "greater_than" as const, value: 100 },
-    },
-  ]);
-
-  expect(reordered).toEqual([
-    { id: "third", condition: { field: "note", operator: "contains", value: "weekly", connector: undefined } },
-    { id: "first", condition: { field: "merchant", operator: "contains", value: "first", connector: "and" } },
-    { id: "second", condition: { field: "amount", operator: "greater_than", value: 100, connector: "or" } },
-  ]);
 });
 
 it("removes a condition while preserving connector positions", () => {
@@ -514,6 +646,40 @@ it("removes a condition while preserving connector positions", () => {
     { id: "first", condition: { field: "merchant", operator: "contains", value: "first", connector: undefined } },
     { id: "third", condition: { field: "note", operator: "contains", value: "weekly", connector: "and" } },
   ]);
+});
+
+it("reorders conditions while preserving connector slots", () => {
+  const rule = {
+    id: "reorder-condition-rule",
+    action: "assign_category" as const,
+    pattern: "__conditions__",
+    conditions: {
+      conditions: [
+        { field: "merchant" as const, operator: "contains" as const, value: "first" },
+        { connector: "and" as const, field: "amount" as const, operator: "greater_than" as const, value: 100 },
+        { connector: "or" as const, field: "note" as const, operator: "contains" as const, value: "third" },
+      ],
+    },
+    categoryId: null,
+    subcategoryId: "cafe-id",
+    enabled: true,
+    position: 0,
+  };
+
+  renderRuleForm({ rule });
+  mocks.dragEndHandlers[0]?.({
+    operation: { canceled: false, source: { id: "condition-2" }, target: { id: "condition-0" } },
+  });
+  const markup = renderRuleForm({ preserveState: true, rule });
+  const serialized = markup.match(/<input(?=[^>]*name="conditions")[^>]*value="([^"]*)"/)?.[1];
+
+  expect(JSON.parse(serialized?.replaceAll("&quot;", '"') ?? "null")).toEqual({
+    conditions: [
+      { field: "note", operator: "contains", value: "third" },
+      { connector: "and", field: "merchant", operator: "contains", value: "first" },
+      { connector: "or", field: "amount", operator: "greater_than", value: 100 },
+    ],
+  });
 });
 
 it("updates only the value for the condition being edited", () => {
@@ -628,7 +794,35 @@ it("renders add and edit rule forms in right-side sheets", () => {
     />,
   );
 
-  expect(mocks.sheetSides).toEqual(["right", "right", "right"]);
+  expect(mocks.sheetSides).toEqual(["right", "right", "right", "right"]);
+});
+
+it("configures the visible rule list by status and action grouping", () => {
+  if (!workspaceModule?.AutomationRulesWorkspace || !workspaceModule?.getVisibleAutomationRules) {
+    throw new Error("Automation rule view controls are unavailable.");
+  }
+  const rules = [
+    { id: "enabled", action: "normalize_merchant" as const, pattern: "shop", replacement: "Shop", enabled: true, position: 0 },
+    { id: "disabled", action: "assign_category" as const, pattern: "old shop", enabled: false, position: 1 },
+  ];
+  mocks.renderSheetContent = true;
+
+  const markup = renderToStaticMarkup(
+    <workspaceModule.AutomationRulesWorkspace
+      count={2}
+      destinations={[]}
+      preview={{ changes: [], conflicts: [], fingerprint: "preview-fingerprint", ruleSet: [] }}
+      rules={rules}
+    />,
+  );
+
+  expect(markup).toContain('aria-label="Configure rule view"');
+  expect(markup).toContain("Rule view");
+  expect(markup).toContain("Filter visible rules and group them without changing their saved priority.");
+  expect(markup).toContain("Status");
+  expect(markup).toContain("Group by");
+  expect(workspaceModule.getVisibleAutomationRules(rules, "enabled").map((rule) => rule.id)).toEqual(["enabled"]);
+  expect(workspaceModule.getVisibleAutomationRules(rules, "disabled").map((rule) => rule.id)).toEqual(["disabled"]);
 });
 
 it("keeps secondary rule actions in the mobile actions sheet", () => {
@@ -729,7 +923,7 @@ it("submits create and edit rule forms through the existing Server Actions", asy
   expect(mocks.updateAutomationRule).toHaveBeenCalledWith("rule-id", editData);
 });
 
-it("preserves the submitted toggle target for success feedback after revalidation", async () => {
+it("submits the switch target through the enable action", () => {
   if (!workspaceModule?.AutomationRulesWorkspace) throw new Error("AutomationRulesWorkspace is unavailable.");
   renderToStaticMarkup(
     <workspaceModule.AutomationRulesWorkspace
@@ -749,17 +943,39 @@ it("preserves the submitted toggle target for success feedback after revalidatio
     />,
   );
 
-  const toggleData = new FormData();
-  await expect(mocks.actionReducers[0](null, toggleData)).resolves.toEqual({
-    status: "success",
-    data: { enabled: "false" },
-  });
+  mocks.switches[0]?.onCheckedChange?.(false);
   expect(mocks.setAutomationRuleEnabled).toHaveBeenCalledWith("rule-id", false);
   expect(mocks.updateAutomationRule).not.toHaveBeenCalled();
 });
 
-it("submits the reviewed preview fingerprint through the atomic apply action", async () => {
-  if (!workspaceModule?.ApplyPreviewControl) throw new Error("ApplyPreviewControl is unavailable.");
+it("updates a rule switch before the server revalidation completes", () => {
+  if (!workspaceModule?.AutomationRulesWorkspace) throw new Error("AutomationRulesWorkspace is unavailable.");
+  renderToStaticMarkup(
+    <workspaceModule.AutomationRulesWorkspace
+      count={1}
+      destinations={[]}
+      preview={{ changes: [], conflicts: [], fingerprint: "preview-fingerprint", ruleSet: [] }}
+      rules={[{ id: "rule-id", action: "assign_category", pattern: "shop", enabled: true, position: 0 }]}
+    />,
+  );
+
+  mocks.switches[0]?.onCheckedChange?.(false);
+  mocks.stateIndex = 0;
+  mocks.switches.length = 0;
+  const markup = renderToStaticMarkup(
+    <workspaceModule.AutomationRulesWorkspace
+      count={1}
+      destinations={[]}
+      preview={{ changes: [], conflicts: [], fingerprint: "preview-fingerprint", ruleSet: [] }}
+      rules={[{ id: "rule-id", action: "assign_category", pattern: "shop", enabled: true, position: 0 }]}
+    />,
+  );
+
+  expect(markup).toContain('aria-checked="false"');
+});
+
+it("renders quiet individual and all-preview apply actions", async () => {
+  if (!workspaceModule?.AutomationPreviewDialog) throw new Error("AutomationPreviewDialog is unavailable.");
   const changes = [
     {
       id: "11111111-1111-4111-8111-111111111111",
@@ -786,15 +1002,63 @@ it("submits the reviewed preview fingerprint through the atomic apply action", a
   ];
 
   const markup = renderToStaticMarkup(
-    <workspaceModule.ApplyPreviewControl
+    <workspaceModule.AutomationPreviewDialog
       destinations={[]}
-      disabled
+      onOpenChange={vi.fn()}
+      open
       preview={{ changes, conflicts: [], fingerprint: "preview-fingerprint", ruleSet }}
+      rules={[]}
     />,
   );
-  expect(markup).toContain("Review and apply");
-  expect(markup).toContain('disabled=""');
+  expect(markup).toContain("Preview");
+  expect(markup).toContain("p-6");
+  expect(markup).toContain("lucide-move-right");
+  expect(markup).toContain('aria-label="Close preview"');
+  expect(markup).toContain("Apply all 1");
+  expect(markup).toContain('aria-label="Apply change for shop"');
+  expect(markup).not.toContain(">Apply<");
+  expect(markup).not.toContain("Not now");
 
   await mocks.actionReducers[0](null, new FormData());
   expect(mocks.applyAutomationResults).toHaveBeenCalledWith("preview-fingerprint");
+});
+
+it("keeps deletion in the same preview row style", () => {
+  if (!workspaceModule?.AutomationPreviewDialog) throw new Error("AutomationPreviewDialog is unavailable.");
+  const changes = [
+    {
+      id: "11111111-1111-4111-8111-111111111111",
+      merchant: "Shop",
+      category_id: null,
+      subcategory_id: null,
+      expected_updated_at: "2026-08-07T10:00:00Z",
+      expected_merchant: "shop",
+      expected_category_id: null,
+      expected_subcategory_id: null,
+    },
+    {
+      id: "44444444-4444-4444-8444-444444444444",
+      merchant: "",
+      category_id: null,
+      subcategory_id: null,
+      expected_updated_at: "2026-08-07T11:00:00Z",
+      expected_merchant: "duplicate",
+      expected_category_id: null,
+      expected_subcategory_id: null,
+      delete_transaction: true as const,
+    },
+  ];
+  const markup = renderToStaticMarkup(
+    <workspaceModule.AutomationPreviewDialog
+      destinations={[]}
+      onOpenChange={vi.fn()}
+      open
+      preview={{ changes, conflicts: [], fingerprint: "preview-fingerprint", ruleSet: [] }}
+      rules={[]}
+    />,
+  );
+
+  expect(markup).toContain("Apply all 2");
+  expect(markup).not.toContain('data-variant="destructive"');
+  expect(markup).toContain("Delete permanently");
 });

@@ -71,7 +71,7 @@ describe("automation condition groups", () => {
           { field: "amount", operator: "greater_than_or_equal", value: 100 },
         ],
       }),
-    ).toBe("Merchant Contains “Cafe” OR Amount At least “100”");
+    ).toBe("Merchant Contains “Cafe” OR Amount ≥ 100");
   });
 
   it("falls back to the lossless legacy merchant pattern", () => {

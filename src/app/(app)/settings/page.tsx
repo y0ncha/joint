@@ -180,6 +180,9 @@ export default async function SettingsPage() {
                   />
                 ) : null}
               </SettingsRow>
+              <SettingsRow icon={ShoppingBasket} label="Groceries budget">
+                <GroceriesBudgetSettingsControl budget={householdRecord?.groceries_monthly_budget ?? null} />
+              </SettingsRow>
               <SettingsRow icon={Tags} label="Categories" description="Manage categories & subcategories.">
                 <Button asChild variant="ghost" size="icon" className="size-11">
                   <Link href="/categories" aria-label="Edit categories">
@@ -193,9 +196,6 @@ export default async function SettingsPage() {
                     <Pencil data-icon="inline-start" aria-hidden="true" />
                   </Link>
                 </Button>
-              </SettingsRow>
-              <SettingsRow icon={ShoppingBasket} label="Groceries budget">
-                <GroceriesBudgetSettingsControl budget={householdRecord?.groceries_monthly_budget ?? null} />
               </SettingsRow>
               {household.role === "owner" && partnerState ? (
                 <SettingsRow icon={UsersRound} label="Members" description="Manage members.">
