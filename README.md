@@ -13,7 +13,7 @@
 
 Joint is deliberately small: one household, one opening balance, categories, and transactions. The balance is calculated as opening balance + income − expenses, and may be negative.
 
-It is not a bank connection or a personal-budgeting tool. Accounts, cards, transfers, recurring transactions, imports, attachments, and financial credentials are outside the MVP.
+It is not a bank connection or a personal-budgeting tool. Accounts, cards, transfers, imports, attachments, and financial credentials are outside the MVP. Optional recurring income and expense schedules create ledger entries automatically.
 
 ## How to use it
 

@@ -17,7 +17,7 @@ vi.mock("@/components/ui/alert-dialog", () => ({
 
 import { TransactionDuplicatePreviewDialog } from "./transaction-duplicate-preview-dialog";
 
-it("shows the incoming and existing transactions with a Keep existing confirmation", () => {
+it("offers edit and discard actions for a duplicate", () => {
   const markup = renderToStaticMarkup(
     <TransactionDuplicatePreviewDialog
       onConfirm={() => {}}
@@ -35,8 +35,12 @@ it("shows the incoming and existing transactions with a Keep existing confirmati
     />,
   );
 
-  expect(markup).toContain("Possible duplicates");
-  expect(markup).toContain("Incoming");
-  expect(markup).toContain("Existing");
-  expect(markup).toContain("Keep existing");
+  expect(markup).toContain("Dedupe");
+  expect(markup).toContain("Super Pharm");
+  expect(markup).toContain("bg-white/60");
+  expect(markup).not.toContain("Incoming");
+  expect(markup).not.toContain("Existing");
+  expect(markup).toContain("Back to Edit");
+  expect(markup).toContain("Discard");
+  expect(markup).not.toContain("Keep existing");
 });

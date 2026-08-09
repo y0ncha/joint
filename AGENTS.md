@@ -2,20 +2,28 @@
 
 ## Mission
 
-Joint is a calm shared household-money app for two people. The MVP accepts manual income and expenses only, against one shared household balance. Optimize for the shared household view, not separate personal budgeting.
+Joint is a calm shared household-money app for two people. Version 0.1.1 is deployed to production and contains real household data. It supports manual income and expenses against one shared household balance. Optimize for the shared household view, not separate personal budgeting.
+
+## Current product scope
+
+- Household access through Google OAuth, an owner-managed partner, and membership-scoped RLS.
+- One shared balance with categories, manual transactions, CSV/XLSX statement imports, recurring income and expense schedules, and merchant automations.
+- Bills & Groceries analytics and an installable PWA presentation.
+- Production data is real: do not deploy, push a migration, or mutate `joint-prod` without explicit user approval.
 
 ## Documentation index
 
 Read the sources relevant to the task before proposing or changing behavior:
 
-- `AGENTS.md` — contribution notes, engineering rules, and product invariants.
-- `README.md` — local setup, commands, environment variables, and project-local agent resources.
-- `docs/CONTRIBUTE.md` — contributor access, Supabase setup, checks, and review workflow.
-- `docs/design.md` — product intent, visual system, interaction behavior, accessibility, and responsive layout.
-- `docs/architecture.md` — technical system overview and index of durable mechanism documentation.
-- `docs/architecture/` — focused records for implemented architecture mechanisms; plans and delivery status do not belong here.
-- `docs/plans/` — approved or proposed implementation plans and their delivery status.
-  - `docs/roadmap.md` — directional post-MVP roadmap. It does not authorize implementation or expand the current MVP contract.
+| Source                 | Read it for                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `README.md`            | Local setup, commands, environment variables, and product overview.                                          |
+| `docs/CONTRIBUTE.md`   | Contributor access, Supabase workflow, checks, and review process.                                           |
+| `docs/design.md`       | Visual, interaction, accessibility, and responsive contracts.                                                |
+| `docs/architecture.md` | System overview and the index of durable mechanism records in `docs/architecture/`.                          |
+| `docs/plans/`          | Approved, active, and completed implementation plans; delivery status belongs here.                          |
+| `docs/roadmap.md`      | Directional product ideas only; it does not authorize implementation or change the current product contract. |
+| `CHANGELOG.md`         | Released changes.                                                                                            |
 
 When documents disagree, stop and resolve the conflict with the user. Do not silently choose one contract.
 
@@ -50,7 +58,7 @@ When documents disagree, stop and resolve the conflict with the user. Do not sil
 - Never manually apply, repair, link, reset, or pull `joint-prod`. Production schema changes run only through `.github/workflows/cd.yml`, which must migrate before deploying the application.
 - Apply RLS to every household-owned table. Household membership is the authorization boundary.
 - Keep development and production Supabase credentials separate. Never commit `.env.local`.
-- Pull requests run GitHub Actions lint/tests only; use hosted `joint-dev` for manual validation. Vercel's Git integration remains disabled, and GitHub Actions is the sole production release path: quality checks, ordered `joint-prod` migrations, then one Vercel production deployment. Production releases must serialize without cancellation. Vercel rollback does not roll back schema; database recovery is a forward fix or Supabase recovery. Confirm backup/PITR readiness in a separate production-readiness plan before real use or data entry.
+- Pull requests run GitHub Actions lint/tests only; use hosted `joint-dev` for manual validation. Vercel's Git integration remains disabled, and GitHub Actions is the sole production release path: quality checks, ordered `joint-prod` migrations, then one Vercel production deployment. Production releases must serialize without cancellation. Production contains real household data; Vercel rollback does not roll back schema, so database recovery is a forward fix or Supabase recovery.
 
 ## Financial invariants
 
@@ -58,7 +66,7 @@ When documents disagree, stop and resolve the conflict with the user. Do not sil
 - Joint has exactly one shared household balance: opening balance plus income minus expenses. The shared balance may be negative.
 - Income and expenses use categories.
 - Categories are household-owned, editable, and archivable.
-- Multiple accounts, credit-card debt, transfers, budgets, recurring transactions, imports, labels, attachments, financial credentials, card numbers, and audit history are outside the MVP unless a separately approved plan changes the contract.
+- Multiple accounts, credit-card debt, transfers, generalized budgets, labels, attachments, financial credentials, full card numbers, and audit history are outside the current product scope unless a separately approved plan changes the contract.
 - Never present static dashboard values as persisted data.
 
 ## UI and accessibility
@@ -71,7 +79,7 @@ When documents disagree, stop and resolve the conflict with the user. Do not sil
 
 ## Scope discipline
 
-- The directional roadmap does not authorize implementation or change the current MVP contract.
+- The directional roadmap does not authorize implementation or change the current product contract.
 - Do not add deferred features opportunistically while implementing an approved plan.
 - Do not claim live authentication, OAuth, RLS, or deployment behavior without verifying it in the relevant environment. Separate implemented code, local test evidence, and unverified provider behavior in status reports.
 - Work only on the branch selected by the user; do not create worktrees unless explicitly requested.

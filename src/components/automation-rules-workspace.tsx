@@ -850,9 +850,12 @@ function AutomationPreviewList({
   onApply: (changeId: string) => void;
 }) {
   return (
-    <ul className="flex min-w-0 w-full flex-col" aria-label={label}>
+    <ul className="flex min-w-0 w-full max-h-[min(50dvh,28rem)] flex-col gap-3 overflow-y-auto overscroll-contain pr-1" aria-label={label}>
       {changes.map((change) => (
-        <li key={change.id} className="flex min-w-0 items-center gap-3 border-b border-border/70 py-3 first:border-t">
+        <li
+          key={change.id}
+          className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-white/60 p-4 text-sm transition-[background-color,border-color,box-shadow] hover:border-border hover:bg-foreground/2 hover:shadow-sm"
+        >
           <div className="min-w-0 flex-1">
             <AutomationPreviewChangeSummary change={change} destinations={destinations} />
           </div>
@@ -897,7 +900,7 @@ export function AutomationPreviewDialog({
       const result = await applyAutomationResult(preview.fingerprint, changeId);
       if (result.status === "success") {
         toast.success("1 automation change applied", { id: "automation-apply" });
-      } else {
+      } else if (result.status === "error") {
         toast.error(result.formError, { id: "automation-apply" });
       }
     });
@@ -914,7 +917,7 @@ export function AutomationPreviewDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="min-w-0 w-[calc(100vw-2rem)] !max-w-xl max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto overscroll-contain p-6">
+      <AlertDialogContent className="min-w-0 w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] overflow-hidden sm:w-[calc(100vw-4rem)] data-[size=default]:sm:max-w-5xl">
         <AlertDialogHeader className="min-w-0 w-full">
           <AlertDialogTitle className="text-xl">Preview</AlertDialogTitle>
           <AlertDialogDescription className="sr-only">Review and apply existing transaction changes.</AlertDialogDescription>
@@ -956,12 +959,14 @@ export function AutomationPreviewDialog({
           </ul>
         ) : null}
         {state?.status === "error" ? <FieldError aria-live="polite">{state.formError}</FieldError> : null}
-        <form action={formAction} className="flex justify-end">
-          <Button type="submit" className="min-h-11" disabled={isPending || isApplyingChange}>
-            <Check data-icon="inline-start" aria-hidden="true" />
-            Apply all {changeCount}
-          </Button>
-        </form>
+        <AlertDialogFooter>
+          <form action={formAction} className="flex w-full justify-end">
+            <Button type="submit" className="min-h-11" disabled={isPending || isApplyingChange}>
+              <Check data-icon="inline-start" aria-hidden="true" />
+              Apply all {changeCount}
+            </Button>
+          </form>
+        </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );

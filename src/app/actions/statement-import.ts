@@ -6,7 +6,7 @@ import type { ActionResult } from "@/app/actions/result";
 import { getIsoMonthRange } from "@/lib/date-range";
 import { requireCurrentHousehold } from "@/lib/household";
 import { evaluateMerchantAutomations, getMerchantAutomationRules } from "@/lib/merchant-automations";
-import { transactionDuplicatePreview, type DuplicateCandidate } from "@/lib/transaction-duplicates";
+import { confirmTransactionDuplicatePreview, loadTransactionDuplicatePreview } from "@/lib/transaction-duplicates";
 import { parseStatementFile } from "@/lib/statement-import";
 
 const MAX_FILE_BYTES = 1_048_576;
@@ -21,31 +21,6 @@ function hexDigest(bytes: ArrayBuffer) {
   return crypto.subtle
     .digest("SHA-256", bytes)
     .then((digest) => Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join(""));
-}
-
-async function duplicatePreviewFor(
-  household: Awaited<ReturnType<typeof requireCurrentHousehold>>,
-  candidates: DuplicateCandidate[],
-  snapshot: unknown = candidates,
-) {
-  const occurredOn = [...new Set(candidates.map((candidate) => candidate.occurredOn))];
-  const { data, error } = await household.supabase
-    .from("transactions")
-    .select("id, kind, amount, occurred_on, merchant")
-    .eq("household_id", household.householdId)
-    .in("occurred_on", occurredOn);
-  if (error) throw new Error("Unable to load duplicate preview.");
-  return transactionDuplicatePreview(
-    candidates,
-    (data ?? []).map((transaction) => ({
-      id: transaction.id,
-      kind: transaction.kind,
-      amount: Number(transaction.amount),
-      occurredOn: transaction.occurred_on,
-      merchant: transaction.merchant,
-    })),
-    snapshot,
-  );
 }
 
 export async function importStatement(_previousState: ActionResult | null, formData: FormData): Promise<ActionResult> {
@@ -125,8 +100,9 @@ export async function importStatement(_previousState: ActionResult | null, formD
   });
   let preview;
   try {
-    preview = await duplicatePreviewFor(
-      household,
+    preview = await loadTransactionDuplicatePreview(
+      household.supabase,
+      household.householdId,
       rows.map((row) => ({
         id: String(row.import_row_number),
         kind: row.kind,
@@ -139,9 +115,9 @@ export async function importStatement(_previousState: ActionResult | null, formD
   } catch {
     return { status: "error", formError: IMPORT_ERROR, fieldErrors: {} };
   }
-  const fingerprint = formData.get("duplicateFingerprint");
-  if (preview.matches.length && fingerprint !== preview.fingerprint) {
-    if (fingerprint)
+  const confirmation = confirmTransactionDuplicatePreview(formData, preview);
+  if (!confirmation.confirmed) {
+    if (confirmation.stale)
       return {
         status: "error",
         formError: "This duplicate preview is stale. Import again to review the current matches.",
@@ -149,10 +125,7 @@ export async function importStatement(_previousState: ActionResult | null, formD
       };
     return { status: "confirmation_required", duplicatePreview: preview };
   }
-  if (!preview.matches.length && fingerprint) {
-    return { status: "error", formError: "This duplicate preview is stale. Import again to review the current matches.", fieldErrors: {} };
-  }
-  const skippedIds = new Set(preview.matches.map(({ candidate }) => candidate.id));
+  const skippedIds = confirmation.skippedIds;
   const rowsToInsert = rows.filter((row) => !skippedIds.has(String(row.import_row_number)));
   const { error: insertError } = rowsToInsert.length ? await household.supabase.from("transactions").insert(rowsToInsert) : { error: null };
 

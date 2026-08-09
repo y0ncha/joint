@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 
-import { fingerprintDuplicatePreview, previewTransactionDuplicates } from "./transaction-duplicates";
+import { confirmTransactionDuplicatePreview, fingerprintDuplicatePreview, previewTransactionDuplicates } from "./transaction-duplicates";
 
 const existing = [{ id: "existing", kind: "expense" as const, amount: 24.9, occurredOn: "2026-08-14", merchant: "Super Pharm" }];
 
@@ -42,4 +42,19 @@ it("uses the same existing match regardless of database row order", () => {
   ];
 
   expect(previewTransactionDuplicates(candidate, duplicates)).toEqual([{ candidateId: "incoming", existingId: "a" }]);
+});
+
+it("confirms only the selected incoming duplicates", () => {
+  const preview = {
+    fingerprint: "preview",
+    matches: [
+      { candidate: { ...existing[0], id: "first" }, existing: existing[0] },
+      { candidate: { ...existing[0], id: "second" }, existing: existing[0] },
+    ],
+  };
+  const input = new FormData();
+  input.set("duplicateFingerprint", preview.fingerprint);
+  input.append("discardDuplicateId", "second");
+
+  expect(confirmTransactionDuplicatePreview(input, preview).skippedIds).toEqual(new Set(["second"]));
 });

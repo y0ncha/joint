@@ -29,6 +29,17 @@ export const groceriesBudgetSchema = z.preprocess((value) => {
   return /^-?\d+(?:\.\d{1,2})?$/.test(trimmed) ? Number(trimmed) : Number.NaN;
 }, z.number().finite("Enter a finite amount.").positive("Enter an amount greater than zero.").lt(10_000_000_000, "Enter an amount below 10000000000.").refine(hasAtMostTwoDecimalPlaces, "Use no more than two decimal places.").nullable());
 const noteSchema = z.string().trim().max(500, "Use 500 characters or fewer.");
+const recurrenceCadenceSchema = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z
+    .enum(["weekly", "monthly", "custom_weekly", "custom_monthly"])
+    .nullish()
+    .transform((value) => value ?? null),
+);
+const recurrenceIntervalSchema = z.preprocess(
+  (value) => (value === "" || value === undefined || value === null ? null : value),
+  z.coerce.number().int("Use a whole number.").positive("Use an interval greater than zero.").nullable(),
+);
 const nameSchema = z.string().trim().min(1, "Enter a name.").max(80, "Use 80 characters or fewer.");
 export const categorySchema = z.object({
   name: nameSchema,
@@ -51,8 +62,16 @@ export const transactionSchema = z
     paidBy: optionalIdentifierSchema,
     merchant: z.string().trim().max(200, "Use 200 characters or fewer.").optional(),
     note: noteSchema,
+    recurrenceCadence: recurrenceCadenceSchema,
+    recurrenceInterval: recurrenceIntervalSchema,
   })
-  .superRefine(({ servicePeriodStart, servicePeriodEnd }, context) => {
+  .superRefine(({ servicePeriodStart, servicePeriodEnd, recurrenceCadence, recurrenceInterval }, context) => {
+    if (recurrenceCadence && !recurrenceInterval) {
+      context.addIssue({ code: "custom", path: ["recurrenceInterval"], message: "Choose an interval greater than zero." });
+    }
+    if (!recurrenceCadence && recurrenceInterval) {
+      context.addIssue({ code: "custom", path: ["recurrenceCadence"], message: "Choose a recurrence." });
+    }
     if (Boolean(servicePeriodStart) !== Boolean(servicePeriodEnd)) {
       context.addIssue({ code: "custom", path: ["servicePeriodEnd"], message: "Enter both service period dates." });
       return;
@@ -67,3 +86,11 @@ export const transactionSchema = z
       context.addIssue({ code: "custom", path: ["servicePeriodEnd"], message: "Use 366 days or fewer." });
     }
   });
+
+export const recurringScheduleSchema = z.object({
+  amount: amountSchema,
+  merchant: z.string().trim().max(200, "Use 200 characters or fewer."),
+  note: noteSchema,
+  cadence: z.enum(["weekly", "monthly", "custom_weekly", "custom_monthly"]),
+  intervalCount: z.coerce.number().int("Use a whole number.").positive("Use an interval greater than zero."),
+});

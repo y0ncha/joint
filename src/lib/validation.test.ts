@@ -29,6 +29,13 @@ describe("transactionSchema", () => {
     expect(transactionSchema.parse({ kind, ...validTransaction })).toMatchObject({ kind, amount: 12.34 });
   });
 
+  it("accepts the blank cadence submitted for no recurrence", () => {
+    expect(transactionSchema.parse({ kind: "expense", ...validTransaction, recurrenceCadence: "", recurrenceInterval: "" })).toMatchObject({
+      recurrenceCadence: null,
+      recurrenceInterval: null,
+    });
+  });
+
   it.each(["0.07", "0.29", "1.15"])("accepts the exact two-decimal transaction amount %s", (amount) => {
     expect(transactionSchema.parse({ kind: "expense", ...validTransaction, amount })).toMatchObject({ amount: Number(amount) });
   });

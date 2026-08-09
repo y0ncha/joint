@@ -6,7 +6,12 @@ import { validationError, type ActionResult } from "@/app/actions/result";
 import { getIsoMonthRange } from "@/lib/date-range";
 import { requireCurrentHousehold } from "@/lib/household";
 import { evaluateMerchantAutomations, getMerchantAutomationRules } from "@/lib/merchant-automations";
-import { transactionDuplicatePreview, type DuplicateCandidate } from "@/lib/transaction-duplicates";
+import {
+  confirmTransactionDuplicatePreview,
+  duplicateFormSnapshot,
+  loadTransactionDuplicatePreview,
+  type DuplicateCandidate,
+} from "@/lib/transaction-duplicates";
 import { transactionSchema } from "@/lib/validation";
 
 async function validatePaidBy(
@@ -52,45 +57,6 @@ async function servicePeriodsFor(
     return { status: "error", formError: "Check the form details.", fieldErrors: { servicePeriodEnd: "Choose a billing period." } };
   }
   return { service_period_start: servicePeriodStart, service_period_end: servicePeriodEnd };
-}
-
-async function duplicatePreviewFor(
-  household: Awaited<ReturnType<typeof requireCurrentHousehold>>,
-  candidates: DuplicateCandidate[],
-  snapshot: unknown = candidates,
-) {
-  const occurredOn = [...new Set(candidates.map((candidate) => candidate.occurredOn))];
-  const { data, error } = await household.supabase
-    .from("transactions")
-    .select("id, kind, amount, occurred_on, merchant")
-    .eq("household_id", household.householdId)
-    .in("occurred_on", occurredOn);
-  if (error) throw new Error("Unable to load duplicate preview.");
-  return transactionDuplicatePreview(
-    candidates,
-    (data ?? []).map((transaction) => ({
-      id: transaction.id,
-      kind: transaction.kind,
-      amount: Number(transaction.amount),
-      occurredOn: transaction.occurred_on,
-      merchant: transaction.merchant,
-    })),
-    snapshot,
-  );
-}
-
-function duplicateFormSnapshot(input: FormData) {
-  return [...input.entries()].filter(([key]) => key !== "duplicateFingerprint");
-}
-
-function duplicateConfirmation(input: FormData, preview: Awaited<ReturnType<typeof duplicatePreviewFor>>) {
-  const fingerprint = input.get("duplicateFingerprint");
-  if (!preview.matches.length && !fingerprint) return { confirmed: true as const, skippedIds: new Set<string>() };
-  if (typeof fingerprint === "string" && fingerprint === preview.fingerprint) {
-    return { confirmed: true as const, skippedIds: new Set(preview.matches.map(({ candidate }) => candidate.id)) };
-  }
-  if (fingerprint) return { confirmed: false as const, stale: true as const };
-  return { confirmed: false as const, stale: false as const };
 }
 
 export async function createTransaction(input: FormData): Promise<ActionResult> {
@@ -143,19 +109,53 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
   } satisfies DuplicateCandidate;
   let preview;
   try {
-    preview = await duplicatePreviewFor(household, [candidate], duplicateFormSnapshot(input));
+    preview = await loadTransactionDuplicatePreview(household.supabase, household.householdId, [candidate], duplicateFormSnapshot(input));
   } catch {
     return { status: "error", formError: "Unable to save the transaction. Please try again.", fieldErrors: {} };
   }
-  const confirmation = duplicateConfirmation(input, preview);
+  const confirmation = confirmTransactionDuplicatePreview(input, preview);
   if (!confirmation.confirmed) {
     if (confirmation.stale)
       return { status: "error", formError: "This duplicate preview is stale. Save again to review the current matches.", fieldErrors: {} };
     return { status: "confirmation_required", duplicatePreview: preview };
   }
-  if (confirmation.skippedIds.has(candidate.id)) return { status: "success", data: { skippedDuplicateCount: "1" } };
+  const recurringScheduleArgs =
+    parsed.data.recurrenceCadence && parsed.data.recurrenceInterval
+      ? {
+          target_household_id: household.householdId,
+          target_paid_by: parsed.data.paidBy,
+          target_kind: parsed.data.kind,
+          target_amount: parsed.data.amount,
+          target_occurred_on: parsed.data.occurredOn,
+          target_merchant: automated.merchant,
+          target_note: parsed.data.note,
+          target_category_id: automated.categoryId,
+          target_subcategory_id: automated.subcategoryId,
+          target_service_period_start: servicePeriods.service_period_start,
+          target_service_period_end: servicePeriods.service_period_end,
+          target_cadence: parsed.data.recurrenceCadence,
+          target_interval_count: parsed.data.recurrenceInterval,
+        }
+      : null;
+  if (confirmation.skippedIds.has(candidate.id)) {
+    const existingScheduleId = preview.matches.find(({ candidate: matchedCandidate }) => matchedCandidate.id === candidate.id)?.existing
+      .recurringScheduleId;
+    if (recurringScheduleArgs && !existingScheduleId) {
+      const existingTransactionId = preview.matches.find(({ candidate: matchedCandidate }) => matchedCandidate.id === candidate.id)
+        ?.existing.id;
+      if (!existingTransactionId)
+        return { status: "error", formError: "Unable to save the transaction. Please try again.", fieldErrors: {} };
+      const { error } = await household.supabase.rpc("create_recurring_transaction_schedule_after_duplicate", {
+        ...recurringScheduleArgs,
+        target_existing_transaction_id: existingTransactionId,
+      });
+      if (error) return { status: "error", formError: "Unable to save the transaction. Please try again.", fieldErrors: {} };
+      for (const path of ["/", "/transactions", "/categories", "/bills-groceries"]) revalidatePath(path);
+    }
+    return { status: "success", data: { skippedDuplicateCount: "1" } };
+  }
 
-  const { error } = await household.supabase.from("transactions").insert({
+  const transactionValues = {
     household_id: household.householdId,
     created_by: household.userId,
     paid_by: parsed.data.paidBy,
@@ -167,7 +167,11 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
     note: parsed.data.note,
     ...(parsed.data.merchant === undefined ? {} : { merchant: automated.merchant }),
     ...servicePeriods,
-  });
+  };
+
+  const { error } = recurringScheduleArgs
+    ? await household.supabase.rpc("create_recurring_transaction_schedule", recurringScheduleArgs)
+    : await household.supabase.from("transactions").insert(transactionValues);
 
   if (error) {
     return { status: "error", formError: "Unable to save the transaction. Please try again.", fieldErrors: {} };

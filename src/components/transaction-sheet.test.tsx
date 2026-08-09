@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   dateSelect: undefined as undefined | ((date: Date | undefined) => void),
   formAction: undefined as undefined | ((previousState: unknown, formData: FormData) => unknown),
   kindChange: undefined as undefined | ((value: string) => void),
+  recurrenceChange: undefined as undefined | ((value: string) => void),
   state: [] as unknown[],
   stateIndex: 0,
 }));
@@ -126,9 +127,9 @@ vi.mock("@/components/ui/alert-dialog", () => ({
 
 vi.mock("@/components/ui/select", () => ({
   Select: ({ children, onValueChange }: { children: ReactNode; onValueChange: (value: string) => void }) => {
-    mocks.kindChange = onValueChange;
+    mocks.recurrenceChange = onValueChange;
     return (
-      <button data-select="transaction-kind" type="button">
+      <button data-select="recurrence-cadence" type="button">
         {children}
       </button>
     );
@@ -202,6 +203,7 @@ beforeEach(() => {
   mocks.dateSelect = undefined;
   mocks.formAction = undefined;
   mocks.kindChange = undefined;
+  mocks.recurrenceChange = undefined;
   mocks.state = [];
   mocks.stateIndex = 0;
 });
@@ -305,6 +307,11 @@ it("renders the transaction composer with labelled core controls", () => {
   expect(markup).toContain('aria-label="Add transaction"');
   expect(markup).toContain('aria-label="Type"');
   expect(markup).toContain("Expense");
+  expect(markup).toContain('data-select="recurrence-cadence"');
+  expect(markup).toContain("None");
+  expect(markup).toContain("Weekly");
+  expect(markup).toContain("Monthly");
+  expect(markup).toContain("Custom");
   expect(markup).toContain("Paid by");
   expect(markup).toContain("Choose date");
   expect(markup.indexOf("Amount")).toBeLessThan(markup.indexOf("Category"));
@@ -313,6 +320,17 @@ it("renders the transaction composer with labelled core controls", () => {
   expect(markup.indexOf("Merchant")).toBeLessThan(markup.indexOf("Paid by"));
   expect(markup.indexOf("Paid by")).toBeLessThan(markup.indexOf('aria-label="Type"'));
   expect(markup.indexOf('aria-label="Type"')).toBeLessThan(markup.indexOf("Note"));
+});
+
+it("uses a dropdown for custom cadence units", () => {
+  renderSheet();
+  mocks.recurrenceChange?.("custom");
+  mocks.stateIndex = 0;
+  const markup = renderSheet();
+
+  expect(markup).toContain("Weeks");
+  expect(markup).toContain("Months");
+  expect(markup).not.toContain('role="radiogroup"');
 });
 
 it("starts new transactions Uncategorized and groups categories by parent", () => {
@@ -324,14 +342,11 @@ it("starts new transactions Uncategorized and groups categories by parent", () =
       expect.objectContaining({
         value: "",
         label: "Uncategorized",
-        description: "Choose automatically when you save.",
       }),
       expect.objectContaining({ label: "Electricity", section: { id: "bills", label: "Bills" } }),
     ]),
   );
-  expect(mocks.categoryOptions.filter((option) => option.description)).toEqual([
-    { value: "", label: "Uncategorized", description: "Choose automatically when you save." },
-  ]);
+  expect(mocks.categoryOptions.filter((option) => option.description)).toEqual([]);
   expect(markup).toContain('aria-label="Categories">Uncategorized</button>');
 });
 
@@ -453,9 +468,7 @@ it("keeps an imported transaction unassigned while allowing its category to be e
   expect(markup).toContain("Unassigned");
   expect(markup).toContain('type="hidden" name="subcategoryId" value=""');
   expect(markup).toContain('type="hidden" name="paidBy" value=""');
-  expect(mocks.categoryOptions).toContainEqual(
-    expect.objectContaining({ value: "", label: "Uncategorized", description: "Choose automatically when you save." }),
-  );
+  expect(mocks.categoryOptions).toContainEqual(expect.objectContaining({ value: "", label: "Uncategorized" }));
 });
 
 it("exposes only matching subcategories and clears the selection when the type changes", () => {
@@ -466,7 +479,7 @@ it("exposes only matching subcategories and clears the selection when the type c
 
   expect(markup).toContain('type="hidden" name="subcategoryId" value=""');
   expect(mocks.categoryOptions).toEqual([
-    { value: "", label: "Uncategorized", description: "Choose automatically when you save." },
+    { value: "", label: "Uncategorized" },
     expect.objectContaining({
       value: "salary",
       label: "Salary",

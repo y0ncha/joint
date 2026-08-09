@@ -19,15 +19,16 @@ household
 
 ## Data model and invariants
 
-| Record              | Implemented purpose                                                                                                                                                                                                                       |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `households`        | Shared container with a signed `opening_balance` and optional shared Groceries monthly threshold.                                                                                                                                         |
-| `household_members` | Household membership and `owner` or `member` role.                                                                                                                                                                                        |
-| `categories`        | Household-owned `income` or `expense` parent categories with a registered family color and icon.                                                                                                                                          |
-| `subcategories`     | Household-owned children with a persisted color from the parent category's database family palette and an optional icon override.                                                                                                         |
-| `member_cards`      | Optional household-scoped mapping of a member to one card's last four digits.                                                                                                                                                             |
-| `automation_rules`  | Household-owned, enabled or disabled normalization, category-assignment, and preview-confirmed deletion rules with one persisted order; each rule may use validated Merchant, Note, and Amount conditions with per-row AND/OR connectors. |
-| `transactions`      | Positive ILS amount, date, `income` or `expense` direction, creator, optional payer and `subcategory_id`, source, merchant, optional note, and optional Bills service period.                                                             |
+| Record                            | Implemented purpose                                                                                                                                                                                                                       |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `households`                      | Shared container with a signed `opening_balance` and optional shared Groceries monthly threshold.                                                                                                                                         |
+| `household_members`               | Household membership and `owner` or `member` role.                                                                                                                                                                                        |
+| `categories`                      | Household-owned `income` or `expense` parent categories with a registered family color and icon.                                                                                                                                          |
+| `subcategories`                   | Household-owned children with a persisted color from the parent category's database family palette and an optional icon override.                                                                                                         |
+| `member_cards`                    | Optional household-scoped mapping of a member to one card's last four digits.                                                                                                                                                             |
+| `automation_rules`                | Household-owned, enabled or disabled normalization, category-assignment, and preview-confirmed deletion rules with one persisted order; each rule may use validated Merchant, Note, and Amount conditions with per-row AND/OR connectors. |
+| `transactions`                    | Positive ILS amount, date, `income` or `expense` direction, creator, optional payer and `subcategory_id`, source, merchant, optional note, and optional Bills service period.                                                             |
+| `recurring_transaction_schedules` | Household-owned transaction templates with an immutable anchor and database-owned next-occurrence cursor.                                                                                                                                 |
 
 - The opening balance may be positive, zero, or negative.
 - Transaction amounts are positive ILS values with at most two decimal places; direction comes only from `kind`.
@@ -37,6 +38,7 @@ household
 - A non-null `paid_by` must identify a member of the same household. Imported transactions may be unassigned when their card has no household mapping.
 - Imported transactions retain their `statement_import` source, merchant, SHA-256 file hash, and source-row number. The hash and row number prevent retrying identical source bytes from duplicating rows within a household; source files are not stored.
 - Browser input never selects household ownership, transaction creator, or membership role.
+- A recurring schedule creates its first ledger entry immediately, then the protected cron creates later idempotent occurrences. A schedule whose category or subcategory is deleted is paused; historical ledger entries remain valid.
 
 ## Balance and reporting
 
@@ -108,5 +110,5 @@ Only Bills transactions may have an optional inclusive `service_period_start` an
 ## Non-goals
 
 - Merchant rules are the only implemented automatic categorization. There is no general event/action engine, arbitrary action payload, sequential rule pipeline, database-trigger matching, edit-time automation, scheduled recategorization, or configurable service-period inference; Bills assignments use the fixed calendar-month default.
-- No double-entry ledger, bank connection, financial credential, attachment, generalized budget, recurring transaction, manually maintained obligation, upcoming/overdue state, expected-versus-recorded analysis, or audit-history model is implemented. CSV/XLSX statement import is supported, but source files and full card details are never stored.
+- No double-entry ledger, bank connection, financial credential, attachment, generalized budget, manually maintained obligation, upcoming/overdue state, expected-versus-recorded analysis, or audit-history model is implemented. CSV/XLSX statement import is supported, but source files and full card details are never stored.
 - The directional roadmap does not change these invariants.
