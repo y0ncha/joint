@@ -40,7 +40,7 @@ it("offers edit and discard actions for a duplicate", () => {
   expect(markup).toContain("bg-white/60");
   expect(markup).not.toContain("Incoming");
   expect(markup).not.toContain("Existing");
-  expect(markup).toContain("Edit");
+  expect(markup).toContain("Back to Edit");
   expect(markup).toContain("Discard");
   expect(markup).not.toContain("Keep existing");
 });

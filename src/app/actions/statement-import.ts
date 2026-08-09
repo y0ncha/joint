@@ -6,7 +6,7 @@ import type { ActionResult } from "@/app/actions/result";
 import { getIsoMonthRange } from "@/lib/date-range";
 import { requireCurrentHousehold } from "@/lib/household";
 import { evaluateMerchantAutomations, getMerchantAutomationRules } from "@/lib/merchant-automations";
-import { loadTransactionDuplicatePreview } from "@/lib/transaction-duplicates";
+import { confirmTransactionDuplicatePreview, loadTransactionDuplicatePreview } from "@/lib/transaction-duplicates";
 import { parseStatementFile } from "@/lib/statement-import";
 
 const MAX_FILE_BYTES = 1_048_576;
@@ -115,9 +115,9 @@ export async function importStatement(_previousState: ActionResult | null, formD
   } catch {
     return { status: "error", formError: IMPORT_ERROR, fieldErrors: {} };
   }
-  const fingerprint = formData.get("duplicateFingerprint");
-  if (preview.matches.length && fingerprint !== preview.fingerprint) {
-    if (fingerprint)
+  const confirmation = confirmTransactionDuplicatePreview(formData, preview);
+  if (!confirmation.confirmed) {
+    if (confirmation.stale)
       return {
         status: "error",
         formError: "This duplicate preview is stale. Import again to review the current matches.",
@@ -125,10 +125,7 @@ export async function importStatement(_previousState: ActionResult | null, formD
       };
     return { status: "confirmation_required", duplicatePreview: preview };
   }
-  if (!preview.matches.length && fingerprint) {
-    return { status: "error", formError: "This duplicate preview is stale. Import again to review the current matches.", fieldErrors: {} };
-  }
-  const skippedIds = new Set(preview.matches.map(({ candidate }) => candidate.id));
+  const skippedIds = confirmation.skippedIds;
   const rowsToInsert = rows.filter((row) => !skippedIds.has(String(row.import_row_number)));
   const { error: insertError } = rowsToInsert.length ? await household.supabase.from("transactions").insert(rowsToInsert) : { error: null };
 

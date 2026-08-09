@@ -195,6 +195,7 @@ describe("transaction actions", () => {
     const preview = await transactionsModule.createTransaction(input);
     if (preview.status !== "confirmation_required") throw new Error("Expected duplicate preview");
     input.set("duplicateFingerprint", preview.duplicatePreview.fingerprint);
+    input.append("discardDuplicateId", "manual");
 
     await expect(transactionsModule.createTransaction(input)).resolves.toEqual({ status: "success", data: { skippedDuplicateCount: "1" } });
     expect(mocks.insert).not.toHaveBeenCalled();
@@ -208,6 +209,7 @@ describe("transaction actions", () => {
     const preview = await transactionsModule.createTransaction(input);
     if (preview.status !== "confirmation_required") throw new Error("Expected duplicate preview");
     input.set("duplicateFingerprint", preview.duplicatePreview.fingerprint);
+    input.append("discardDuplicateId", "manual");
 
     await expect(transactionsModule.createTransaction(input)).resolves.toEqual({ status: "success", data: { skippedDuplicateCount: "1" } });
 
@@ -240,6 +242,7 @@ describe("transaction actions", () => {
     const preview = await transactionsModule.createTransaction(input);
     if (preview.status !== "confirmation_required") throw new Error("Expected duplicate preview");
     input.set("duplicateFingerprint", preview.duplicatePreview.fingerprint);
+    input.append("discardDuplicateId", "manual");
 
     await expect(transactionsModule.createTransaction(input)).resolves.toEqual({ status: "success", data: { skippedDuplicateCount: "1" } });
 

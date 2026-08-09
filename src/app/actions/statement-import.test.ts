@@ -176,6 +176,7 @@ describe("statement import action", () => {
     const preview = await actions.importStatement(null, input);
     if (preview.status !== "confirmation_required") throw new Error("Expected duplicate preview");
     input.set("duplicateFingerprint", preview.duplicatePreview.fingerprint);
+    input.append("discardDuplicateId", "8");
 
     await expect(actions.importStatement(null, input)).resolves.toMatchObject({
       status: "success",

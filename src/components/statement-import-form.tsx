@@ -28,11 +28,12 @@ export function StatementImportForm() {
   const duplicatePreview = state?.status === "confirmation_required" ? state.duplicatePreview : null;
   const duplicatePreviewOpen = Boolean(duplicatePreview && dismissedDuplicatePreview !== duplicatePreview.fingerprint);
 
-  function confirmDuplicates() {
+  function confirmDuplicates(discardedDuplicateIds: string[]) {
     if (!duplicatePreview || !submittedFormData.current) return;
     const confirmed = new FormData();
     submittedFormData.current.forEach((value, key) => confirmed.append(key, value));
     confirmed.set("duplicateFingerprint", duplicatePreview.fingerprint);
+    discardedDuplicateIds.forEach((candidateId) => confirmed.append("discardDuplicateId", candidateId));
     setDismissedDuplicatePreview(duplicatePreview.fingerprint);
     startTransition(() => formAction(confirmed));
   }

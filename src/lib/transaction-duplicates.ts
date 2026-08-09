@@ -98,14 +98,18 @@ export async function loadTransactionDuplicatePreview(
 }
 
 export function duplicateFormSnapshot(input: FormData) {
-  return [...input.entries()].filter(([key]) => key !== "duplicateFingerprint");
+  return [...input.entries()].filter(([key]) => key !== "duplicateFingerprint" && key !== "discardDuplicateId");
 }
 
 export function confirmTransactionDuplicatePreview(input: FormData, preview: DuplicatePreview) {
   const fingerprint = input.get("duplicateFingerprint");
   if (!preview.matches.length && !fingerprint) return { confirmed: true as const, skippedIds: new Set<string>() };
   if (typeof fingerprint === "string" && fingerprint === preview.fingerprint) {
-    return { confirmed: true as const, skippedIds: new Set(preview.matches.map(({ candidate }) => candidate.id)) };
+    const candidateIds = new Set(preview.matches.map(({ candidate }) => candidate.id));
+    return {
+      confirmed: true as const,
+      skippedIds: new Set(input.getAll("discardDuplicateId").filter((candidateId) => candidateIds.has(candidateId))),
+    };
   }
   return { confirmed: false as const, stale: Boolean(fingerprint) };
 }
