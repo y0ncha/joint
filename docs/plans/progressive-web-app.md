@@ -58,15 +58,15 @@ This plan adds the native Next.js manifest and install icons required to install
 | Task     | Description                                                                                                                                                                                                                                                                 | Status  | Date |
 | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
 | TASK-006 | Run `bun run test src/app/manifest.test.ts src/app/layout.test.tsx` and require the manifest contract, icon existence, Apple web-app metadata, theme color, and viewport-fit assertions to pass.                                                                            | Complete | 2026-08-09 |
-| TASK-007 | Run Joint locally with `bun run dev`, inspect `/manifest.webmanifest` in a Chromium browser, and verify the name, standalone display, colors, 192px and 512px icons, native install eligibility, installed launch through `/`, and absence of a controlling service worker. | Blocked | 2026-08-09 |
-| TASK-008 | Run `bun run lint`, `bun run test`, `bun run format:check`, and `git diff --check`; require all checks to pass and confirm `package.json`, `bun.lock`, `next.config.ts`, Supabase files, deployment files, and application UI remain unchanged.                             | Planned |      |
+| TASK-007 | Run Joint locally with `bun run dev`, inspect `/manifest.webmanifest` in a Chromium browser, and verify the name, standalone display, colors, 192px and 512px icons, native install eligibility, installed launch through `/`, and absence of a controlling service worker. | Deferred | 2026-08-09 |
+| TASK-008 | Run `bun run lint`, `bun run test`, `bun run format:check`, and `git diff --check`; require all checks to pass and confirm `package.json`, `bun.lock`, `next.config.ts`, Supabase files, deployment files, and application UI remain unchanged.                             | In progress | 2026-08-09 |
 | TASK-009 | Review the final diff against REQ-001 through REQ-005, SEC-001 through SEC-002, and CON-001 through CON-004; report local evidence and the remaining need for installation proof on an authorized HTTPS deployment without pushing, deploying, or changing hosted state.    | Planned |      |
 
 ## 3. Alternatives
 
 ### Verification note (2026-08-09)
 
-TASK-007 remains blocked: the available in-app browser rejected the local manifest URL with `ERR_BLOCKED_BY_CLIENT` before it loaded. The focused tests prove the manifest contract and committed icons, but browser-native install eligibility, installed launch, and controlling-service-worker state still need verification in an accessible Chromium session or on an authorized HTTPS deployment.
+TASK-007's manifest endpoint was manually confirmed in Safari with the required name, standalone display, colors, and icon declarations. Browser-native install eligibility, installed launch, and controlling-service-worker state remain an accepted follow-up for an accessible Chromium session or authorized HTTPS deployment.
 
 - **ALT-001**: Add Serwist, `next-pwa`, or another service-worker package. Rejected because installation does not require offline support and authenticated financial caching adds dependency, invalidation, privacy, and stale-data risk.
 - **ALT-002**: Install the third-party Vercel PWA Marketplace integration. Rejected because native App Router manifest support covers the approved scope without a paid integration or external configuration.
