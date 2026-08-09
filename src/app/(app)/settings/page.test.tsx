@@ -113,6 +113,7 @@ it("keeps the Household groceries budget inside the Settings form-owned workspac
   expect(markup).toContain("Manage merchant rules.");
   expect(markup).toContain("active:bg-foreground/10");
   expect(markup).toContain("Manage categories &amp; subcategories.");
+  expect(markup).not.toContain("Leave blank to hide the chart threshold.");
   expect(markup).toContain("hover:bg-foreground/5");
   expect(markup).toContain("User color");
   expect(markup).toContain("User name");
