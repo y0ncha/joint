@@ -21,6 +21,13 @@ Supabase Postgres → RLS evaluates the caller and household boundary
 
 Next.js runs the application boundary; Supabase remains the persistence and final row-authorization boundary.
 
+## Installation metadata and online-only operation
+
+- `src/app/manifest.ts` and the committed install icons in `public/brand/` and `src/app/apple-icon.png` are static, unauthenticated installation metadata. They describe Joint's identity and presentation only; they do not contain session or household financial data.
+- An installed launch follows the same runtime boundary as a browser launch: the browser requests `/`, Next.js runs the existing session and protected-route flow, Supabase remains the persistence boundary, and RLS remains the final row-authorization boundary.
+- Joint remains online-only and does not register a service worker. A service worker must not cache authenticated pages, Supabase responses, or household financial data; any future offline behavior requires a separate approved security and runtime contract.
+- Installation metadata does not move rendering, queries, mutations, authentication, or authorization into the browser.
+
 ## Routing and rendering
 
 - `src/app/layout.tsx` owns global fonts, metadata, CSS, and shared UI providers.
