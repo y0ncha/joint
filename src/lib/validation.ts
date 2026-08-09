@@ -29,10 +29,13 @@ export const groceriesBudgetSchema = z.preprocess((value) => {
   return /^-?\d+(?:\.\d{1,2})?$/.test(trimmed) ? Number(trimmed) : Number.NaN;
 }, z.number().finite("Enter a finite amount.").positive("Enter an amount greater than zero.").lt(10_000_000_000, "Enter an amount below 10000000000.").refine(hasAtMostTwoDecimalPlaces, "Use no more than two decimal places.").nullable());
 const noteSchema = z.string().trim().max(500, "Use 500 characters or fewer.");
-const recurrenceCadenceSchema = z
-  .enum(["weekly", "monthly", "custom_weekly", "custom_monthly"])
-  .nullish()
-  .transform((value) => value ?? null);
+const recurrenceCadenceSchema = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z
+    .enum(["weekly", "monthly", "custom_weekly", "custom_monthly"])
+    .nullish()
+    .transform((value) => value ?? null),
+);
 const recurrenceIntervalSchema = z.preprocess(
   (value) => (value === "" || value === undefined || value === null ? null : value),
   z.coerce.number().int("Use a whole number.").positive("Use an interval greater than zero.").nullable(),

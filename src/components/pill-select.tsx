@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, type ComponentType, type Ref, type SVGProps } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType, type Ref, type SVGProps } from "react";
+import { ChevronDown } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,12 @@ type PillSelectProps = {
   value?: string;
 };
 
+export function nextPillOptionIndex(currentIndex: number, optionCount: number, direction: -1 | 1) {
+  if (optionCount === 0) return -1;
+  if (currentIndex === -1) return direction === 1 ? 0 : optionCount - 1;
+  return (currentIndex + direction + optionCount) % optionCount;
+}
+
 export function PillSelect({
   ariaDescribedBy,
   ariaInvalid,
@@ -55,6 +62,8 @@ export function PillSelect({
   const [internalValue, setInternalValue] = useState(defaultValue ?? "");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const selectedValue = value ?? internalValue;
   const selected = options.find((option) => option.value === selectedValue);
   const SelectedIcon = selected?.icon;
@@ -74,6 +83,14 @@ export function PillSelect({
     sections.set(option.section.id, section);
   }
 
+  useEffect(() => {
+    if (activeIndex !== -1) requestAnimationFrame(() => optionRefs.current[activeIndex]?.focus());
+  }, [activeIndex]);
+
+  function moveActiveOption(direction: -1 | 1) {
+    setActiveIndex((currentIndex) => nextPillOptionIndex(currentIndex, visibleOptions.length, direction));
+  }
+
   function select(nextValue: string) {
     if (value === undefined) setInternalValue(nextValue);
     onValueChange?.(nextValue);
@@ -81,14 +98,23 @@ export function PillSelect({
     setQuery("");
   }
 
-  function renderOption(option: PillOption) {
+  function renderOption(option: PillOption, index: number) {
     return (
       <Button
         key={option.value}
+        ref={(element) => {
+          optionRefs.current[index] = element;
+        }}
         type="button"
         variant="ghost"
         className={cn("h-11 justify-start", option.description && "h-auto min-h-11 py-2")}
         onClick={() => select(option.value)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            moveActiveOption(event.key === "ArrowDown" ? 1 : -1);
+          }
+        }}
       >
         <span className="flex min-w-0 flex-col items-start gap-0.5">
           <Badge
@@ -110,7 +136,13 @@ export function PillSelect({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setActiveIndex(-1);
+      }}
+    >
       {name ? <input name={name} type="hidden" value={selectedValue} /> : null}
       <PopoverTrigger asChild>
         <Button
@@ -123,6 +155,12 @@ export function PillSelect({
           aria-describedby={ariaDescribedBy}
           aria-invalid={ariaInvalid}
           onKeyDown={(event) => {
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              event.preventDefault();
+              setOpen(true);
+              moveActiveOption(event.key === "ArrowDown" ? 1 : -1);
+              return;
+            }
             if (event.key.length === 1) {
               setQuery(event.key);
               setOpen(true);
@@ -145,6 +183,7 @@ export function PillSelect({
           ) : (
             <span className="text-muted-foreground">{emptyLabel}</span>
           )}
+          <ChevronDown data-icon="inline-end" className="ml-auto text-muted-foreground" aria-hidden="true" />
         </Button>
       </PopoverTrigger>
       <PopoverContent container={popoverContainer} align="start" className="w-(--radix-popover-trigger-width) p-2">
@@ -155,12 +194,21 @@ export function PillSelect({
           name={`${ariaLabel.toLowerCase().replaceAll(" ", "-")}-search`}
           placeholder={`Search ${ariaLabel.toLowerCase()}…`}
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setActiveIndex(-1);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              event.preventDefault();
+              moveActiveOption(event.key === "ArrowDown" ? 1 : -1);
+            }
+          }}
         />
         <div className="flex max-h-56 flex-col gap-1 overflow-y-auto">
           {grouped ? (
             <>
-              {unsectionedOptions.map(renderOption)}
+              {unsectionedOptions.map((option) => renderOption(option, visibleOptions.indexOf(option)))}
               {[...sections].map(([sectionId, section]) => {
                 const headingId = `pill-select-section-${sectionId}`;
 
@@ -171,7 +219,7 @@ export function PillSelect({
                       <h3 id={headingId} className="px-2 text-xs font-medium text-muted-foreground">
                         {section.label}
                       </h3>
-                      {section.options.map(renderOption)}
+                      {section.options.map((option) => renderOption(option, visibleOptions.indexOf(option)))}
                     </div>
                   </div>
                 );

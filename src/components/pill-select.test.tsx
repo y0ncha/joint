@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
 
-import { PillSelect } from "./pill-select";
+import { nextPillOptionIndex, PillSelect } from "./pill-select";
 
 vi.mock("@/components/ui/popover", () => ({
   Popover: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -30,6 +30,19 @@ it("associates destination validation feedback with its trigger", () => {
 
   expect(markup).toContain('aria-invalid="true"');
   expect(markup).toContain('aria-describedby="destination-error"');
+});
+
+it("renders a muted decorative chevron on the trigger", () => {
+  const markup = renderToStaticMarkup(<PillSelect ariaLabel="Type" value="expense" options={[{ value: "expense", label: "Expense" }]} />);
+
+  expect(markup).toContain("ml-auto text-muted-foreground");
+  expect(markup).toContain('aria-hidden="true"');
+});
+
+it("cycles searchable options with arrow keys", () => {
+  expect(nextPillOptionIndex(-1, 2, 1)).toBe(0);
+  expect(nextPillOptionIndex(0, 2, -1)).toBe(1);
+  expect(nextPillOptionIndex(1, 2, 1)).toBe(0);
 });
 
 it("renders ungrouped choices before labelled category sections with separators", () => {

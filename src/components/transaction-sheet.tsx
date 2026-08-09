@@ -23,9 +23,9 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input";
 import { PillSelect } from "@/components/pill-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TransactionDuplicatePreviewDialog } from "@/components/transaction-duplicate-preview-dialog";
 import { categoryIcon } from "@/lib/category-icons";
 import type { ReportTransaction } from "@/lib/financial-report";
@@ -107,6 +107,7 @@ export function TransactionSheet({
   const initialSubcategoryId = transaction?.subcategoryId ?? "";
   const initialSubcategory = subcategories.find((subcategory) => subcategory.id === initialSubcategoryId);
   const [sheetContent, setSheetContent] = useState<HTMLDivElement | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
   const submittedFormData = useRef<FormData | null>(null);
   const [dismissedDuplicatePreview, setDismissedDuplicatePreview] = useState("");
   const [recurrenceCadence, setRecurrenceCadence] = useState<"" | "weekly" | "monthly" | "custom_weekly" | "custom_monthly">("");
@@ -130,6 +131,14 @@ export function TransactionSheet({
     async (_state, formData) => (transaction ? updateTransaction(transaction.id, formData) : createTransaction(formData)),
     null,
   );
+  function resetDiscardedTransaction() {
+    formRef.current?.reset();
+    dispatchDraft({ type: "kind_changed", kind: initialKind });
+    dispatchDraft({ type: "occurred_on_changed", occurredOn: initialOccurredOn });
+    dispatchDraft({ type: "paid_by_changed", paidBy: currentUserId || members[0]?.id || "" });
+    setRecurrenceCadence("");
+    setRecurrenceInterval("1");
+  }
   useEffect(() => {
     if (state?.status === "success") {
       toast.success(
@@ -174,6 +183,7 @@ export function TransactionSheet({
     submittedFormData.current.forEach((value, key) => confirmed.append(key, value));
     confirmed.set("duplicateFingerprint", duplicatePreview.fingerprint);
     setDismissedDuplicatePreview(duplicatePreview.fingerprint);
+    if (!isEditing) resetDiscardedTransaction();
     startTransition(() => formAction(confirmed));
   }
 
@@ -199,6 +209,7 @@ export function TransactionSheet({
           <SheetDescription>{isEditing ? "Update or remove this shared ledger entry." : "Log shared household money."}</SheetDescription>
         </SheetHeader>
         <form
+          ref={formRef}
           action={formAction}
           onSubmit={(event) => {
             submittedFormData.current = new FormData(event.currentTarget);
@@ -252,9 +263,7 @@ export function TransactionSheet({
                 disabled={selectableSubcategories.length + selectableCategories.length === 0}
                 emptyLabel="Uncategorized"
                 options={[
-                  ...(!isEditing || transaction?.source === "statement_import"
-                    ? [{ value: "", label: "Uncategorized", description: "Choose automatically when you save." }]
-                    : []),
+                  ...(!isEditing || transaction?.source === "statement_import" ? [{ value: "", label: "Uncategorized" }] : []),
                   ...selectableSubcategories.map((subcategory) => ({
                     value: subcategory.id,
                     label: subcategory.name,
@@ -289,7 +298,7 @@ export function TransactionSheet({
                 </PopoverTrigger>
                 <PopoverContent
                   align="start"
-                  className="w-auto rounded-2xl border-white/70 bg-card p-3 shadow-[0_20px_60px_rgba(15,44,55,0.18)]"
+                  className="w-auto rounded-2xl border-white/70 bg-popover p-3 shadow-[0_20px_60px_rgba(15,44,55,0.18)]"
                 >
                   <Calendar
                     mode="single"
@@ -324,7 +333,7 @@ export function TransactionSheet({
                       </PopoverTrigger>
                       <PopoverContent
                         align="start"
-                        className="w-auto max-w-[calc(100vw-2rem)] rounded-2xl border-white/70 bg-card p-3 shadow-[0_20px_60px_rgba(15,44,55,0.18)]"
+                        className="w-auto max-w-[calc(100vw-2rem)] rounded-2xl border-white/70 bg-popover p-3 shadow-[0_20px_60px_rgba(15,44,55,0.18)]"
                       >
                         <Calendar
                           id="billing-period-start-calendar"
@@ -359,7 +368,7 @@ export function TransactionSheet({
                       </PopoverTrigger>
                       <PopoverContent
                         align="end"
-                        className="w-auto max-w-[calc(100vw-2rem)] rounded-2xl border-white/70 bg-card p-3 shadow-[0_20px_60px_rgba(15,44,55,0.18)]"
+                        className="w-auto max-w-[calc(100vw-2rem)] rounded-2xl border-white/70 bg-popover p-3 shadow-[0_20px_60px_rgba(15,44,55,0.18)]"
                       >
                         <Calendar
                           id="billing-period-end-calendar"
@@ -431,18 +440,25 @@ export function TransactionSheet({
             </Field>
             {!isEditing ? (
               <Field>
-                <FieldLabel>Repeat</FieldLabel>
-                <ToggleGroup
-                  type="single"
-                  value={recurrenceCadence}
-                  onValueChange={(value) => setRecurrenceCadence(value as typeof recurrenceCadence)}
-                  variant="outline"
-                  className="justify-start"
+                <FieldLabel htmlFor="recurrence-cadence">Repeat</FieldLabel>
+                <Select
+                  value={recurrenceCadence === "" ? "none" : recurrenceCadence.startsWith("custom_") ? "custom" : recurrenceCadence}
+                  onValueChange={(value) =>
+                    setRecurrenceCadence(value === "none" ? "" : value === "custom" ? "custom_weekly" : (value as typeof recurrenceCadence))
+                  }
                 >
-                  <ToggleGroupItem value="weekly">Weekly</ToggleGroupItem>
-                  <ToggleGroupItem value="monthly">Monthly</ToggleGroupItem>
-                  <ToggleGroupItem value="custom_weekly">Custom</ToggleGroupItem>
-                </ToggleGroup>
+                  <SelectTrigger id="recurrence-cadence" className="w-full rounded-xl">
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
                 {recurrenceCadence.startsWith("custom_") ? (
                   <FieldGroup className="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
                     <Field>
@@ -458,15 +474,17 @@ export function TransactionSheet({
                         onChange={(event) => setRecurrenceInterval(event.target.value)}
                       />
                     </Field>
-                    <ToggleGroup
-                      type="single"
-                      value={recurrenceCadence}
-                      onValueChange={(value) => setRecurrenceCadence(value as typeof recurrenceCadence)}
-                      variant="outline"
-                    >
-                      <ToggleGroupItem value="custom_weekly">Weeks</ToggleGroupItem>
-                      <ToggleGroupItem value="custom_monthly">Months</ToggleGroupItem>
-                    </ToggleGroup>
+                    <Select value={recurrenceCadence} onValueChange={(value) => setRecurrenceCadence(value as typeof recurrenceCadence)}>
+                      <SelectTrigger id="recurrence-unit" aria-label="Recurrence unit" className="w-full rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value="custom_weekly">Weeks</SelectItem>
+                          <SelectItem value="custom_monthly">Months</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
                   </FieldGroup>
                 ) : null}
               </Field>

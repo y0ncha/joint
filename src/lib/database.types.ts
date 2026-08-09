@@ -21,7 +21,6 @@ export type Database = {
           conditions: Json | null
           created_at: string
           enabled: boolean
-          first_occurrence_transaction_id: string | null
           household_id: string
           id: string
           pattern: string
@@ -36,7 +35,6 @@ export type Database = {
           conditions?: Json | null
           created_at?: string
           enabled?: boolean
-          first_occurrence_transaction_id?: string | null
           household_id: string
           id?: string
           pattern: string
@@ -51,7 +49,6 @@ export type Database = {
           conditions?: Json | null
           created_at?: string
           enabled?: boolean
-          first_occurrence_transaction_id?: string | null
           household_id?: string
           id?: string
           pattern?: string
@@ -359,7 +356,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "recurring_transaction_schedule_household_id_subcategory_id_fkey"
+            foreignKeyName: "recurring_transaction_schedules_household_id_subcategory_id_fke"
             columns: ["household_id", "subcategory_id"]
             isOneToOne: false
             referencedRelation: "subcategories"
@@ -373,7 +370,7 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "recurring_transaction_schedules_first_occurrence_transaction_id_fkey"
+            foreignKeyName: "recurring_transaction_schedul_first_occurrence_transaction_fkey"
             columns: ["first_occurrence_transaction_id"]
             isOneToOne: true
             referencedRelation: "transactions"

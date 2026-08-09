@@ -5,7 +5,6 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -34,26 +33,20 @@ export function TransactionDuplicatePreviewDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Possible duplicates</AlertDialogTitle>
-          <AlertDialogDescription>Keep the existing transactions and skip the incoming matches?</AlertDialogDescription>
+          <AlertDialogTitle>
+            {preview.matches.length} possible duplicate{preview.matches.length === 1 ? "" : "s"}
+          </AlertDialogTitle>
         </AlertDialogHeader>
         <ul className="flex flex-col gap-3">
           {preview.matches.map(({ candidate, existing }) => (
-            <li key={candidate.id} className="grid gap-2 rounded-xl border border-border p-3 text-sm sm:grid-cols-2">
-              <p>
-                <span className="block font-medium">Incoming</span>
-                {summary(candidate)}
-              </p>
-              <p>
-                <span className="block font-medium">Existing</span>
-                {summary(existing)}
-              </p>
+            <li key={candidate.id} className="rounded-xl border border-border bg-white/60 p-3 text-sm">
+              {summary(existing)}
             </li>
           ))}
         </ul>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>Keep existing</AlertDialogAction>
+          <AlertDialogCancel>Edit</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>Discard</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
