@@ -28,11 +28,12 @@ test("declares the install manifest and its public icons", async () => {
   expect(metadata).toEqual(expectedManifest);
 
   for (const icon of metadata.icons) {
-    const publicFile = join(process.cwd(), "public", icon.src);
+    const repositoryPath = `public${icon.src}`;
+    const publicFile = join(process.cwd(), repositoryPath);
     expect(existsSync(publicFile), `${icon.src} does not resolve to a committed public file`).toBe(true);
     expect(
-      () => execFileSync("git", ["ls-files", "--error-unmatch", publicFile], { stdio: "ignore" }),
-      `${icon.src} is not committed`,
+      () => execFileSync("git", ["cat-file", "-e", `HEAD:${repositoryPath}`], { stdio: "ignore" }),
+      `${icon.src} is not committed in HEAD`,
     ).not.toThrow();
   }
 });
