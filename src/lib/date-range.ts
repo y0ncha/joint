@@ -60,6 +60,10 @@ export function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
+export function previousMonth() {
+  return shiftIsoMonth(currentMonth(), -1);
+}
+
 export function formatDateRange(range: DateRange) {
   return `${rangeDate.format(new Date(`${range.from}T00:00:00Z`))} – ${rangeDate.format(new Date(`${range.to}T00:00:00Z`))}`;
 }

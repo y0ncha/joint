@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   epochDayToIsoDate,
@@ -9,11 +9,21 @@ import {
   inclusiveIsoDayCount,
   isCanonicalIsoDate,
   isoDateToEpochDay,
+  previousMonth,
   shiftIsoDate,
   shiftIsoMonth,
 } from "./date-range";
 
 describe("UTC ISO calendar helpers", () => {
+  it("defaults a monthly view to the completed prior month", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-10T12:00:00Z"));
+
+    expect(previousMonth()).toBe("2025-12");
+
+    vi.useRealTimers();
+  });
+
   it("accepts only real canonical ISO dates", () => {
     expect(isCanonicalIsoDate("2024-02-29")).toBe(true);
     expect(isCanonicalIsoDate("2026-02-29")).toBe(false);

@@ -82,6 +82,17 @@ describe("Joint dashboard", () => {
     });
   });
 
+  it("defaults its monthly report to the previous month", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-10T12:00:00Z"));
+
+    const markup = renderToStaticMarkup(await renderHome());
+
+    expect(mocks.getDashboardData).toHaveBeenCalledWith("2026-07");
+    expect(markup).toContain("July 2026");
+    vi.useRealTimers();
+  });
+
   it("shows the restored dashboard cards with live household values", async () => {
     const markup = renderToStaticMarkup(await renderHome());
 

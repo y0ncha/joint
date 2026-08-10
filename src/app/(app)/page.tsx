@@ -10,9 +10,10 @@ import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { getDashboardData } from "@/lib/dashboard-data";
-import { currentMonth, formatDateRange, getValidDateRange, type DateRange } from "@/lib/date-range";
+import { formatDateRange, getValidDateRange, previousMonth, type DateRange } from "@/lib/date-range";
 
 const currency = new Intl.NumberFormat("en-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
+const monthName = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
 function comparisonLabel(change: number | null, range?: DateRange) {
   if (change === null) return range ? "No prior range average" : "No prior average";
   const roundedChange = Math.round(Math.abs(change));
@@ -23,8 +24,9 @@ function comparisonLabel(change: number | null, range?: DateRange) {
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ from?: string; month?: string; to?: string }> }) {
   const { from, month: requestedMonth, to } = await searchParams;
-  const current = currentMonth();
+  const current = previousMonth();
   const month = requestedMonth && /^\d{4}-\d{2}$/.test(requestedMonth) ? requestedMonth : current;
+  const monthLabel = monthName.format(new Date(`${month}-01T00:00:00Z`));
   const range = getValidDateRange(from, to);
   const data = range ? await getDashboardData(month, range) : await getDashboardData(month);
   const { report } = data;
@@ -132,7 +134,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Where your money went</p>
-                  <h2 className="mt-1 text-lg font-semibold">{range ? formatDateRange(range) : "This month"}</h2>
+                  <h2 className="mt-1 text-lg font-semibold">{range ? formatDateRange(range) : monthLabel}</h2>
                 </div>
                 <Button variant="ghost" size="icon" aria-label="More chart options">
                   <MoreHorizontal />

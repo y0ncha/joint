@@ -204,6 +204,19 @@ it("uses iPhone safe areas for the top content and bottom navigation", () => {
   expect(markup).toContain("bottom-[calc(0.75rem+env(safe-area-inset-bottom))]");
 });
 
+it("anchors the complete mobile header text stack with the accent rule", () => {
+  const markup = renderToStaticMarkup(
+    <WorkspaceShell title="Settings" description="Adjust household preferences.">
+      <p>Content</p>
+    </WorkspaceShell>,
+  );
+
+  expect(markup).toContain('class="flex min-w-0 flex-1 items-stretch gap-3 pl-1 md:block md:pl-0"');
+  expect(markup).toContain('class="block w-1 shrink-0 self-stretch rounded-full bg-primary md:hidden"');
+  expect(markup).toContain('bg-primary md:hidden"></span><div><p class="text-sm font-medium text-primary">Joint</p><h1');
+  expect(markup).toContain('>Settings</h1><p class="mt-1 text-sm text-muted-foreground">Adjust household preferences.</p>');
+});
+
 it("keeps workspace chrome visible around BillsGroceries detail content", () => {
   const markup = renderToStaticMarkup(
     <WorkspaceShell title="Groceries by day" description="Daily spending">

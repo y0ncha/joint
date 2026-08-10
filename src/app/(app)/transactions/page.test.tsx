@@ -99,6 +99,16 @@ describe("Transactions page", () => {
     });
   });
 
+  it("defaults its monthly ledger to the previous month", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-10T12:00:00Z"));
+
+    await TransactionsPage({ searchParams: Promise.resolve({}) });
+
+    expect(mocks.getDashboardData).toHaveBeenCalledWith("2026-07");
+    vi.useRealTimers();
+  });
+
   it("loads the selected ledger month and renders month and year selectors", async () => {
     const markup = renderToStaticMarkup(await TransactionsPage({ searchParams: Promise.resolve({ month: "2026-06" }) }));
 

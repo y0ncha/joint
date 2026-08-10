@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { getDashboardData } from "@/lib/dashboard-data";
-import { currentMonth, formatDateRange, getValidDateRange } from "@/lib/date-range";
+import { formatDateRange, getValidDateRange, previousMonth } from "@/lib/date-range";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 function selectedValues(value: string | undefined) {
@@ -41,7 +41,7 @@ export default async function TransactionsPage({
     sort,
     to,
   } = await searchParams;
-  const month = requestedMonth && /^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth) ? requestedMonth : currentMonth();
+  const month = requestedMonth && /^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth) ? requestedMonth : previousMonth();
   const dateRange = getValidDateRange(from, to);
   const ledgerDescription = dateRange
     ? `Review your household ledger from ${formatDateRange(dateRange)}.`

@@ -192,6 +192,7 @@
   }
   html {
     @apply bg-background font-sans;
+    background-color: #ffffff;
     background-image: var(--canvas-gradient);
     background-attachment: fixed;
   }
