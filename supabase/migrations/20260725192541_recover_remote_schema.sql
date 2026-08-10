@@ -41,6 +41,9 @@ END;
 $function$
 ;
 
+revoke execute on function public.rls_auto_enable() from public, anon, authenticated;
+grant execute on function public.rls_auto_enable() to service_role;
+
 CREATE OR REPLACE FUNCTION public.set_current_household_member_color(target_color text)
  RETURNS void
  LANGUAGE plpgsql
@@ -207,5 +210,3 @@ grant insert on table "public"."transactions" to "service_role";
 grant select on table "public"."transactions" to "service_role";
 
 grant update on table "public"."transactions" to "service_role";
-
-

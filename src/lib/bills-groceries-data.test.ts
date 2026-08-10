@@ -13,14 +13,10 @@ type QueryResponse = { count?: number | null; data: unknown; error: unknown };
 
 const mocks = vi.hoisted(() => ({
   getCurrentHouseholdContext: vi.fn(),
-  getDashboardData: vi.fn(() => {
-    throw new Error("BillsGroceries must not call getDashboardData().");
-  }),
   from: vi.fn(),
 }));
 
 vi.mock("@/lib/household", () => ({ getCurrentHouseholdContext: mocks.getCurrentHouseholdContext }));
-vi.mock("@/lib/dashboard-data", () => ({ getDashboardData: mocks.getDashboardData }));
 
 const billsGroceriesDataModule = await import("./bills-groceries-data");
 
@@ -399,7 +395,6 @@ it("resolves active protected categories in the member household and returns com
     { date: "2026-07-01", mainRunAgorot: 0, topUpsAgorot: 0, totalAgorot: 0 },
     { date: "2026-07-31", mainRunAgorot: 0, topUpsAgorot: 0, totalAgorot: 0 },
   ]);
-  expect(mocks.getDashboardData).not.toHaveBeenCalled();
   expect(queries.some((query) => query.table === "transactions")).toBe(false);
 });
 
@@ -601,7 +596,6 @@ it("loads only bounded chart columns and projects current and previous-year Bill
     { id: "top-up-1", amount: 2.5, merchant: "Corner shop", note: "Milk", occurredOn: "2026-07-01", subcategoryKey: "top_ups" },
     { id: "top-up-2", amount: 5, merchant: "Bakery", note: "Bread", occurredOn: "2026-07-31", subcategoryKey: "top_ups" },
   ]);
-  expect(mocks.getDashboardData).not.toHaveBeenCalled();
   expect(data).not.toHaveProperty("transactions");
 });
 

@@ -172,6 +172,6 @@ export function parseBillsGroceriesUrlDefaults(
           ? [...new Set(selectedBills)]
           : allBillIds,
     billId: billParam !== null && validBillIds.has(billParam) ? billParam : options.defaultBillId,
-    groceryRange: groceryRange ?? getIsoMonthRange(options.currentDate.slice(0, 7))!,
+    groceryRange: groceryRange ?? getIsoMonthRange(shiftIsoMonth(options.currentDate.slice(0, 7), -1))!,
   };
 }

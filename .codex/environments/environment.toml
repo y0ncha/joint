@@ -18,4 +18,4 @@ command = "bun run build"
 [[actions]]
 name = "Test"
 icon = "test"
-command = "bun run lint && bun run format && bun run test"
+command = "bun run format:check && bun run lint && bun run typecheck && bun run test"

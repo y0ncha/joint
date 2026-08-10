@@ -2,20 +2,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  getDashboardData: vi.fn(),
+  getLedgerData: vi.fn(),
   ledgerKeys: [] as string[],
-  listSchedules: vi.fn(),
   push: vi.fn(),
 }));
 
-vi.mock("@/lib/dashboard-data", () => ({ getDashboardData: mocks.getDashboardData }));
-vi.mock("@/lib/supabase/server", () => ({
-  createServerSupabaseClient: () => ({
-    from: () => ({
-      select: () => ({ order: mocks.listSchedules }),
-    }),
-  }),
-}));
+vi.mock("@/lib/dashboard-read-model", () => ({ getLedgerData: mocks.getLedgerData }));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/transactions",
   useRouter: () => ({ push: mocks.push }),
@@ -37,9 +29,10 @@ describe("Transactions page", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.ledgerKeys.length = 0;
-    mocks.listSchedules.mockResolvedValue({ data: [] });
-    mocks.getDashboardData.mockResolvedValue({
+    mocks.getLedgerData.mockResolvedValue({
       categories: [{ id: "food", name: "Food", kind: "expense", archivedAt: null }],
+      categoryIds: ["food", "uncategorized"],
+      directCategories: [],
       subcategories: [
         {
           id: "groceries",
@@ -55,6 +48,8 @@ describe("Transactions page", () => {
       ],
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
+      paidByIds: [],
+      schedules: [],
       transactions: [
         {
           id: "outside",
@@ -77,32 +72,30 @@ describe("Transactions page", () => {
           paidBy: null,
         },
       ],
-      report: {
-        sharedBalance: 9000,
-        income: 0,
-        expenses: 0,
-        expectedMonthlyIncome: null,
-        categoryTotals: [],
-        recentTransactions: [
-          {
-            id: "monthly",
-            kind: "expense",
-            amount: 10,
-            occurredOn: "2026-06-05",
-            subcategoryId: null,
-            note: "Monthly activity",
-            createdAt: "2026-06-05T08:00:00Z",
-            paidBy: null,
-          },
-        ],
-      },
     });
+  });
+
+  it("defaults its monthly ledger to the previous month", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-10T12:00:00Z"));
+
+    await TransactionsPage({ searchParams: Promise.resolve({}) });
+
+    expect(mocks.getLedgerData).toHaveBeenCalledWith({
+      categoryIds: [],
+      filterKind: "all",
+      month: "2026-07",
+      paidByIds: [],
+      range: undefined,
+      sort: "date-desc",
+    });
+    vi.useRealTimers();
   });
 
   it("loads the selected ledger month and renders month and year selectors", async () => {
     const markup = renderToStaticMarkup(await TransactionsPage({ searchParams: Promise.resolve({ month: "2026-06" }) }));
 
-    expect(mocks.getDashboardData).toHaveBeenCalledWith("2026-06");
+    expect(mocks.getLedgerData).toHaveBeenCalledWith(expect.objectContaining({ month: "2026-06" }));
     expect(markup).toContain('aria-label="Select ledger month"');
     expect(markup).toContain('aria-label="Select ledger year"');
     expect(markup).not.toContain(">Month<");
@@ -129,6 +122,27 @@ describe("Transactions page", () => {
     expect(markup).not.toContain("Outside range");
     expect(markup).toContain("Review your household ledger from 10/06/2026 – 20/06/2026.");
     expect(markup).toContain("Date range ledger");
+    expect(mocks.getLedgerData).toHaveBeenCalledWith(expect.objectContaining({ range: { from: "2026-06-10", to: "2026-06-20" } }));
+  });
+
+  it("passes requested ledger filters and sort to the bounded read", async () => {
+    await TransactionsPage({
+      searchParams: Promise.resolve({
+        categories: "food,unknown",
+        filter: "expense",
+        paidBy: "member-id,unknown",
+        sort: "amount-desc",
+      }),
+    });
+
+    expect(mocks.getLedgerData).toHaveBeenCalledWith(
+      expect.objectContaining({
+        categoryIds: ["food", "unknown"],
+        filterKind: "expense",
+        paidByIds: ["member-id", "unknown"],
+        sort: "amount-desc",
+      }),
+    );
   });
 
   it("ignores an impossible custom date range", async () => {
@@ -140,10 +154,11 @@ describe("Transactions page", () => {
     expect(markup).not.toContain("02 Mar 2026 – 01 Mar 2026");
   });
 
-  it("resets the ledger instance when the visible scope changes", async () => {
+  it("resets the ledger instance when the visible scope or sort changes", async () => {
     renderToStaticMarkup(await TransactionsPage({ searchParams: Promise.resolve({ month: "2026-06" }) }));
     renderToStaticMarkup(await TransactionsPage({ searchParams: Promise.resolve({ month: "2026-06", filter: "expense" }) }));
+    renderToStaticMarkup(await TransactionsPage({ searchParams: Promise.resolve({ month: "2026-06", sort: "amount-desc" }) }));
 
-    expect(new Set(mocks.ledgerKeys).size).toBe(2);
+    expect(new Set(mocks.ledgerKeys).size).toBe(3);
   });
 });

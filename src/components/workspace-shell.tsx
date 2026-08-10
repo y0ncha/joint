@@ -128,10 +128,13 @@ export function WorkspaceShell({
         >
           {title ? (
             <header className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-primary">Joint</p>
-                <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
-                {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+              <div className="flex min-w-0 flex-1 items-stretch gap-3 pl-1 md:block md:pl-0">
+                <span aria-hidden="true" className="block w-1 shrink-0 self-stretch rounded-full bg-primary md:hidden" />
+                <div>
+                  <p className="text-sm font-medium text-primary">Joint</p>
+                  <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
+                  {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+                </div>
               </div>
               {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
             </header>

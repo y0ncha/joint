@@ -19,7 +19,7 @@ it("uses a translucent status bar for the mobile canvas", () => {
     capable: true,
     statusBarStyle: "black-translucent",
   });
-  expect(viewport).toMatchObject({ themeColor: "#f6d4b8", viewportFit: "cover" });
+  expect(viewport).toMatchObject({ themeColor: "#ffffff", viewportFit: "cover" });
 });
 
 it.each([

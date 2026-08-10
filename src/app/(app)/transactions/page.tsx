@@ -9,9 +9,8 @@ import { FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { getDashboardData } from "@/lib/dashboard-data";
-import { currentMonth, formatDateRange, getValidDateRange } from "@/lib/date-range";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getLedgerData } from "@/lib/dashboard-read-model";
+import { formatDateRange, getValidDateRange, previousMonth } from "@/lib/date-range";
 
 function selectedValues(value: string | undefined) {
   return value?.split(",").filter(Boolean) ?? [];
@@ -41,27 +40,22 @@ export default async function TransactionsPage({
     sort,
     to,
   } = await searchParams;
-  const month = requestedMonth && /^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth) ? requestedMonth : currentMonth();
+  const month = requestedMonth && /^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth) ? requestedMonth : previousMonth();
   const dateRange = getValidDateRange(from, to);
   const ledgerDescription = dateRange
     ? `Review your household ledger from ${formatDateRange(dateRange)}.`
     : "Review this month's household ledger.";
   const filterKind: LedgerFilterKind = filter === "income" || filter === "expense" ? filter : "all";
   const ledgerSort: LedgerSort = sort === "date-asc" || sort === "amount-desc" || sort === "amount-asc" ? sort : "date-desc";
-  const data = await getDashboardData(month);
-  const { data: schedules } = await (
-    await createServerSupabaseClient()
-  )
-    .from("recurring_transaction_schedules")
-    .select("id, amount, cadence, enabled, merchant, next_occurs_on, note, interval_count")
-    .order("next_occurs_on");
-  const selectedCategoryIds = selectedValues(selectedCategories).filter(
-    (id) => id === "uncategorized" || data.categories.some((category) => category.id === id),
-  );
-  const categoryIds = selectedCategoryIds.length
-    ? selectedCategoryIds
-    : [...data.categories.map((category) => category.id), "uncategorized"];
-  const paidByIds = selectedValues(selectedPaidBy).filter((id) => id === "unassigned" || data.members.some((member) => member.id === id));
+  const data = await getLedgerData({
+    month,
+    range: dateRange,
+    categoryIds: selectedValues(selectedCategories),
+    paidByIds: selectedValues(selectedPaidBy),
+    filterKind,
+    sort: ledgerSort,
+  });
+  const { categoryIds, paidByIds } = data;
   return (
     <WorkspaceShell
       title="Transactions"
@@ -117,8 +111,8 @@ export default async function TransactionsPage({
         </CardHeader>
         <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
           <TransactionLedger
-            key={[month, dateRange?.from, dateRange?.to, filterKind, categoryIds.join(","), paidByIds.join(",")].join(":")}
-            transactions={dateRange ? data.transactions : data.report.recentTransactions}
+            key={[month, dateRange?.from, dateRange?.to, filterKind, categoryIds.join(","), paidByIds.join(","), ledgerSort].join(":")}
+            transactions={data.transactions}
             subcategories={data.subcategories}
             directCategories={data.directCategories}
             categoryIds={categoryIds}
@@ -130,7 +124,7 @@ export default async function TransactionsPage({
           />
         </CardContent>
       </Card>
-      <RecurringScheduleList schedules={schedules ?? []} />
+      <RecurringScheduleList schedules={data.schedules} />
     </WorkspaceShell>
   );
 }
