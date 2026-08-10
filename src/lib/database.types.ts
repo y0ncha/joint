@@ -624,6 +624,61 @@ export type Database = {
         }
         Returns: string
       }
+      dashboard_balance: {
+        Args: {
+          p_month: string
+          p_range_from: string | null
+          p_range_to: string | null
+        }
+        Returns: {
+          expected_monthly_income: number | null
+          expenses: number
+          shared_balance: number
+        }[]
+      }
+      dashboard_recent_activity: {
+        Args: {
+          p_month: string
+          p_range_from: string | null
+          p_range_to: string | null
+        }
+        Returns: {
+          amount: number
+          category_name: string | null
+          id: string
+          kind: Database["public"]["Enums"]["transaction_kind"]
+          merchant: string
+          note: string
+          occurred_on: string
+          source: Database["public"]["Enums"]["transaction_source"]
+          subcategory_name: string | null
+        }[]
+      }
+      dashboard_spending: {
+        Args: {
+          p_month: string
+          p_range_from: string | null
+          p_range_to: string | null
+        }
+        Returns: {
+          amount: number
+          category_id: string
+          category_name: string
+        }[]
+      }
+      dashboard_summary: {
+        Args: {
+          p_month: string
+          p_range_from: string | null
+          p_range_to: string | null
+        }
+        Returns: {
+          expense_change_percentage: number | null
+          expenses: number
+          income: number
+          income_change_percentage: number | null
+        }[]
+      }
       delete_recurring_transaction_schedule: {
         Args: { target_schedule_id: string }
         Returns: undefined
