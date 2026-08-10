@@ -57,6 +57,10 @@ Server Components are the default rendering boundary. Client components are limi
 
 See [`docs/architecture/application-runtime.md`](architecture/application-runtime.md).
 
+### Dashboard and ledger reads
+
+The dashboard streams focused Server Component cards backed by separate authenticated Postgres functions for summary, spending, balance, and five-row recent activity. These functions aggregate the household's source transactions on demand; Joint does not persist dashboard aggregate tables or materialized views. The transactions ledger owns a separate server-side row query bounded by the selected month or date range and active filters, with an explicit column projection and sort order, and loads recurring schedules alongside it. Both seams derive household access from the verified member request context and leave RLS as the final authorization boundary.
+
 ### Settings persistence and database privileges
 
 One authenticated RPC atomically persists a current member's display name, own color, and—when that member is the owner—household name. Postgres derives identity and household membership from `auth.uid()`; it does not accept those authorization identifiers from the application. Public-table privileges are denied to `anon`, while RLS remains the row-level household boundary for authenticated application access.

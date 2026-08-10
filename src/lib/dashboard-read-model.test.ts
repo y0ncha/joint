@@ -189,6 +189,25 @@ it("maps each focused dashboard projection to the existing report names", async 
   });
 });
 
+it("does not return more than five activity rows", async () => {
+  mocks.rpc.mockResolvedValueOnce({
+    data: Array.from({ length: 5 }, (_, index) => ({
+      amount: 100 + index,
+      category_name: "Food",
+      id: `activity-${index}`,
+      kind: "expense",
+      merchant: "Market",
+      note: "Groceries",
+      occurred_on: `2026-07-${String(14 - index).padStart(2, "0")}`,
+      source: "manual",
+      subcategory_name: "Groceries",
+    })),
+    error: null,
+  });
+
+  expect((await getDashboardRecentActivity({ month: "2026-07" })).transactions).toHaveLength(5);
+});
+
 it("loads recurring schedules in parallel with bounded ledger rows", async () => {
   const data = await getLedgerData({ month: "2026-07" });
 
