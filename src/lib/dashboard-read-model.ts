@@ -173,7 +173,9 @@ export async function getLedgerData({
 
   const transactionsQuery = household.supabase
     .from("transactions")
-    .select("id, kind, amount, occurred_on, merchant, note, category_id, subcategory_id, source, created_at, paid_by")
+    .select(
+      "id, kind, amount, occurred_on, merchant, note, category_id, subcategory_id, service_period_start, service_period_end, source, created_at, paid_by",
+    )
     .eq("household_id", household.householdId)
     .gte("occurred_on", ledgerRange.from)
     .lte("occurred_on", ledgerRange.to);
@@ -232,6 +234,8 @@ export async function getLedgerData({
       note: row.note,
       categoryId: row.category_id,
       subcategoryId: row.subcategory_id,
+      servicePeriodStart: row.service_period_start,
+      servicePeriodEnd: row.service_period_end,
       source: row.source,
       createdAt: row.created_at,
       paidBy: row.paid_by,

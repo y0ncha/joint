@@ -154,10 +154,11 @@ describe("Transactions page", () => {
     expect(markup).not.toContain("02 Mar 2026 – 01 Mar 2026");
   });
 
-  it("resets the ledger instance when the visible scope changes", async () => {
+  it("resets the ledger instance when the visible scope or sort changes", async () => {
     renderToStaticMarkup(await TransactionsPage({ searchParams: Promise.resolve({ month: "2026-06" }) }));
     renderToStaticMarkup(await TransactionsPage({ searchParams: Promise.resolve({ month: "2026-06", filter: "expense" }) }));
+    renderToStaticMarkup(await TransactionsPage({ searchParams: Promise.resolve({ month: "2026-06", sort: "amount-desc" }) }));
 
-    expect(new Set(mocks.ledgerKeys).size).toBe(2);
+    expect(new Set(mocks.ledgerKeys).size).toBe(3);
   });
 });

@@ -111,7 +111,7 @@ export default async function TransactionsPage({
         </CardHeader>
         <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
           <TransactionLedger
-            key={[month, dateRange?.from, dateRange?.to, filterKind, categoryIds.join(","), paidByIds.join(",")].join(":")}
+            key={[month, dateRange?.from, dateRange?.to, filterKind, categoryIds.join(","), paidByIds.join(","), ledgerSort].join(":")}
             transactions={data.transactions}
             subcategories={data.subcategories}
             directCategories={data.directCategories}

@@ -65,6 +65,8 @@ const mocks = vi.hoisted(() => {
         note: "Groceries",
         occurred_on: "2026-07-14",
         paid_by: "member-id",
+        service_period_end: "2026-07-31",
+        service_period_start: "2026-07-01",
         source: "manual",
         subcategory_id: "groceries",
       },
@@ -191,12 +193,20 @@ it("loads recurring schedules in parallel with bounded ledger rows", async () =>
   const data = await getLedgerData({ month: "2026-07" });
 
   expect(mocks.selects.transactions).toHaveBeenCalledWith(
-    "id, kind, amount, occurred_on, merchant, note, category_id, subcategory_id, source, created_at, paid_by",
+    "id, kind, amount, occurred_on, merchant, note, category_id, subcategory_id, service_period_start, service_period_end, source, created_at, paid_by",
   );
   expect(mocks.transactions.gte).toHaveBeenCalledWith("occurred_on", "2026-07-01");
   expect(mocks.transactions.lte).toHaveBeenCalledWith("occurred_on", "2026-07-31");
   expect(mocks.selects.schedules).toHaveBeenCalledWith("id, amount, cadence, enabled, merchant, next_occurs_on, note, interval_count");
-  expect(data.transactions).toEqual([expect.objectContaining({ amount: 125, id: "transaction-id", occurredOn: "2026-07-14" })]);
+  expect(data.transactions).toEqual([
+    expect.objectContaining({
+      amount: 125,
+      id: "transaction-id",
+      occurredOn: "2026-07-14",
+      servicePeriodEnd: "2026-07-31",
+      servicePeriodStart: "2026-07-01",
+    }),
+  ]);
 });
 
 it("applies valid ledger filters and sort before rows cross the server seam", async () => {

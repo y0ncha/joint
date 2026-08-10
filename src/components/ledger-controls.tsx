@@ -1,8 +1,8 @@
 "use client";
 
 import { ChevronDown, Settings2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { defaultLedgerFilterState, readLedgerFilterState, type LedgerFilterKind, type LedgerSort } from "@/lib/ledger-filters";
+import { readLedgerFilterState, type LedgerFilterKind, type LedgerSort } from "@/lib/ledger-filters";
 
 export type { LedgerFilterKind, LedgerSort } from "@/lib/ledger-filters";
 
@@ -51,20 +51,12 @@ export function LedgerControls({
   sort: LedgerSort;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [categoryQuery, setCategoryQuery] = useState("");
-  const [activeState, setActiveState] = useState(() => readLedgerFilterState(searchParams, { categoryIds, filterKind, paidByIds, sort }));
+  const activeState = readLedgerFilterState(searchParams, { categoryIds, filterKind, paidByIds, sort });
   const { categoryIds: activeCategoryIds, filterKind: activeFilterKind, paidByIds: activePaidByIds, sort: activeSort } = activeState;
-  useEffect(() => {
-    const sync = () => setActiveState(readLedgerFilterState(new URLSearchParams(window.location.search), defaultLedgerFilterState));
-    window.addEventListener("ledger-filter-change", sync);
-    window.addEventListener("popstate", sync);
-    return () => {
-      window.removeEventListener("ledger-filter-change", sync);
-      window.removeEventListener("popstate", sync);
-    };
-  }, []);
   const visibleCategories = useMemo(
     () =>
       categories
@@ -94,8 +86,7 @@ export function LedgerControls({
     else params.delete("categories");
     if (nextPaidByIds.length) params.set("paidBy", nextPaidByIds.join(","));
     else params.delete("paidBy");
-    window.history.pushState(window.history.state, "", `${pathname}?${params}`);
-    window.dispatchEvent(new Event("ledger-filter-change"));
+    router.push(`${pathname}?${params}`);
   }
 
   function toggle(values: string[], value: string) {

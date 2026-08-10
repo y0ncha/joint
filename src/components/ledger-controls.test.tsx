@@ -3,39 +3,18 @@ import { afterEach, expect, it, vi } from "vitest";
 
 import { defaultLedgerFilterState, readLedgerFilterState } from "@/lib/ledger-filters";
 
-const hooks = vi.hoisted(() => ({
-  effects: [] as Array<() => void | (() => void)>,
-  enabled: false,
-  state: [] as unknown[],
-  stateIndex: 0,
-}));
-
-vi.mock("react", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("react")>();
-  return {
-    ...actual,
-    useEffect: (effect: () => void | (() => void), dependencies: readonly unknown[]) => {
-      if (!hooks.enabled) return actual.useEffect(effect, dependencies);
-      hooks.effects.push(effect);
-    },
-    useState: (initialState: unknown | (() => unknown)) => {
-      if (!hooks.enabled) return actual.useState(initialState);
-      const index = hooks.stateIndex++;
-      if (!(index in hooks.state)) hooks.state[index] = typeof initialState === "function" ? initialState() : initialState;
-      return [
-        hooks.state[index],
-        (nextState: unknown | ((current: unknown) => unknown)) => {
-          hooks.state[index] = typeof nextState === "function" ? nextState(hooks.state[index]) : nextState;
-        },
-      ];
-    },
-  };
-});
+const mocks = vi.hoisted(() => ({ checkboxChanges: new Map<string, () => void>(), push: vi.fn() }));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/transactions",
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: mocks.push }),
   useSearchParams: () => new URLSearchParams(),
+}));
+vi.mock("@/components/ui/checkbox", () => ({
+  Checkbox: ({ className, id, onCheckedChange }: { className?: string; id?: string; onCheckedChange?: (checked: boolean) => void }) => {
+    if (id && onCheckedChange) mocks.checkboxChanges.set(id, () => onCheckedChange(true));
+    return <button className={className} id={id} />;
+  },
 }));
 vi.mock("@/components/ui/sheet", () => ({
   Sheet: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -54,69 +33,49 @@ vi.mock("@/components/ui/popover", () => ({
 const { getNextLedgerFilterKind, LedgerControls } = await import("./ledger-controls");
 
 afterEach(() => {
-  hooks.effects = [];
-  hooks.enabled = false;
-  hooks.state = [];
-  hooks.stateIndex = 0;
-  vi.unstubAllGlobals();
+  mocks.checkboxChanges.clear();
+  vi.clearAllMocks();
 });
-
-function renderWithEffects(props: React.ComponentProps<typeof LedgerControls>) {
-  hooks.enabled = true;
-  hooks.stateIndex = 0;
-  hooks.effects = [];
-  const markup = renderToStaticMarkup(<LedgerControls {...props} />);
-  return { effect: hooks.effects[0]!, markup };
-}
 
 function categorySummary(markup: string) {
   return markup.match(/<button(?=[^>]*aria-label="Filter categories")[\s\S]*?<\/button>/)?.[0] ?? "";
 }
 
-it("preserves server-provided filters when hydration registers URL listeners", () => {
-  vi.stubGlobal("window", Object.assign(new EventTarget(), { location: { search: "" } }));
-  const props = {
-    categories: [{ id: "groceries", name: "Groceries", color: "#B7E4C7" }],
-    categoryIds: ["groceries"],
-    filterKind: "expense" as const,
-    importRequested: false,
-    members: [],
-    month: "2026-07",
-    paidByIds: [],
-    sort: "date-desc" as const,
-  };
-
-  const { effect } = renderWithEffects(props);
-  const cleanup = effect();
-  const { markup } = renderWithEffects(props);
+it("preserves server-provided filters during hydration", () => {
+  const markup = renderToStaticMarkup(
+    <LedgerControls
+      categories={[{ id: "groceries", name: "Groceries", color: "#B7E4C7" }]}
+      categoryIds={["groceries"]}
+      filterKind="expense"
+      importRequested={false}
+      members={[]}
+      month="2026-07"
+      paidByIds={[]}
+      sort="date-desc"
+    />,
+  );
 
   expect(markup).toContain("Expenses");
   expect(categorySummary(markup)).toContain("Groceries");
-  cleanup?.();
 });
 
-it("shows all categories after a URL event clears category parameters", () => {
-  const eventTarget = Object.assign(new EventTarget(), { location: { search: "" } });
-  vi.stubGlobal("window", eventTarget);
-  const props = {
-    categories: [{ id: "groceries", name: "Groceries", color: "#B7E4C7" }],
-    categoryIds: ["groceries", "uncategorized"],
-    filterKind: "all" as const,
-    importRequested: false,
-    members: [],
-    month: "2026-07",
-    paidByIds: [],
-    sort: "date-desc" as const,
-  };
+it("navigates when a server-side ledger filter changes", () => {
+  renderToStaticMarkup(
+    <LedgerControls
+      categories={[]}
+      categoryIds={[]}
+      filterKind="all"
+      importRequested={false}
+      members={[]}
+      month="2026-07"
+      paidByIds={[]}
+      sort="date-desc"
+    />,
+  );
 
-  const { effect } = renderWithEffects(props);
-  const cleanup = effect();
-  eventTarget.dispatchEvent(new Event("ledger-filter-change"));
-  const summary = categorySummary(renderWithEffects(props).markup);
-
-  expect(summary).toContain("All categories");
-  expect(summary).not.toContain("Uncategorized");
-  cleanup?.();
+  expect(mocks.checkboxChanges.get("ledger-type-income")).toBeTypeOf("function");
+  mocks.checkboxChanges.get("ledger-type-income")!();
+  expect(mocks.push).toHaveBeenCalledWith("/transactions?month=2026-07&filter=expense");
 });
 
 it("resets removed URL filter parameters to the canonical ledger defaults", () => {
