@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ComponentType, type Ref, type SVGProps } from "react";
+import { useMemo, useState, type ComponentType, type Ref, type SVGProps } from "react";
 import { ChevronDown } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -63,7 +63,6 @@ export function PillSelect({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(-1);
-  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const selectedValue = value ?? internalValue;
   const selected = options.find((option) => option.value === selectedValue);
   const SelectedIcon = selected?.icon;
@@ -83,10 +82,6 @@ export function PillSelect({
     sections.set(option.section.id, section);
   }
 
-  useEffect(() => {
-    if (activeIndex !== -1) requestAnimationFrame(() => optionRefs.current[activeIndex]?.focus());
-  }, [activeIndex]);
-
   function moveActiveOption(direction: -1 | 1) {
     setActiveIndex((currentIndex) => nextPillOptionIndex(currentIndex, visibleOptions.length, direction));
   }
@@ -102,12 +97,9 @@ export function PillSelect({
     return (
       <Button
         key={option.value}
-        ref={(element) => {
-          optionRefs.current[index] = element;
-        }}
         type="button"
         variant="ghost"
-        className={cn("h-11 justify-start", option.description && "h-auto min-h-11 py-2")}
+        className={cn("h-11 justify-start", activeIndex === index && "bg-muted", option.description && "h-auto min-h-11 py-2")}
         onClick={() => select(option.value)}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -202,6 +194,9 @@ export function PillSelect({
             if (event.key === "ArrowDown" || event.key === "ArrowUp") {
               event.preventDefault();
               moveActiveOption(event.key === "ArrowDown" ? 1 : -1);
+            } else if (event.key === "Enter" && activeIndex !== -1) {
+              event.preventDefault();
+              select(visibleOptions[activeIndex].value);
             }
           }}
         />
