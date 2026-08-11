@@ -28,6 +28,11 @@ function rpcArgs({ month, range }: DashboardReadOptions) {
   return { p_month: `${month}-01`, p_range_from: range?.from ?? null, p_range_to: range?.to ?? null };
 }
 
+function isSchemaTransition(error: unknown) {
+  if (typeof error !== "object" || error === null || !("code" in error)) return false;
+  return error.code === "PGRST202" || error.code === "42883";
+}
+
 export const getDashboardControls = cache(async () => {
   const household = await memberContext();
   const [categoriesResult, subcategoriesResult, membersResult] = await Promise.all([
@@ -114,6 +119,7 @@ export async function getDashboardSpending(options: DashboardReadOptions) {
     ...rpcArgs(options),
     p_category_id: options.spendingCategoryId ?? null,
   });
+  if (isSchemaTransition(error)) return { status: "schema_transition" } as const;
   if (error) throw new Error("Unable to load dashboard spending.");
   return {
     categoryTotals: (data ?? []).map((row) => ({
@@ -139,6 +145,7 @@ export async function getDashboardMonthlyReview(month: string) {
 export async function getDashboardRecentActivity(options: DashboardReadOptions) {
   const household = await memberContext();
   const { data, error } = await household.supabase.rpc("dashboard_recent_activity", rpcArgs(options));
+  if (isSchemaTransition(error)) return { status: "schema_transition" } as const;
   if (error) throw new Error("Unable to load dashboard activity.");
   return {
     transactions: (data ?? []).map((row) => ({
