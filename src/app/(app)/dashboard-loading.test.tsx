@@ -5,12 +5,14 @@ const currentPathname = vi.hoisted(() => ({ value: "/" }));
 
 vi.mock("next/navigation", () => ({ usePathname: () => currentPathname.value }));
 
-import { DashboardCardLoading, RouteMembershipFallback } from "./dashboard-loading";
+import { DashboardCardLoading, DashboardMembershipFallback, RouteMembershipFallback } from "./dashboard-loading";
 
 it("keeps a visible card title and accessible reduced-motion-safe loading status", () => {
   const markup = renderToStaticMarkup(<DashboardCardLoading className="lg:col-span-6" title="Income" />);
 
   expect(markup).toContain('role="status"');
+  expect(markup).toContain('data-slot="card-header"');
+  expect(markup).toContain('data-slot="card-action"');
   expect(markup).toContain(">Income<");
   expect(markup).toContain("Loading Income");
   expect(markup).toContain("motion-safe:animate-spin");
@@ -21,6 +23,7 @@ it("keeps a visible card title and accessible reduced-motion-safe loading status
 it("shows route-shaped membership fallbacks", () => {
   currentPathname.value = "/";
   expect(renderToStaticMarkup(<RouteMembershipFallback />)).toContain("Loading Latest activity");
+  expect(renderToStaticMarkup(<DashboardMembershipFallback />)).toContain("lg:col-span-6 lg:aspect-square");
 
   currentPathname.value = "/bills-groceries";
   const billsMarkup = renderToStaticMarkup(<RouteMembershipFallback />);

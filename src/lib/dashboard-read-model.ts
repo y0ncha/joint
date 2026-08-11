@@ -4,7 +4,13 @@ import { getIsoMonthRange, type DateRange } from "@/lib/date-range";
 import { getCurrentHouseholdContext } from "@/lib/household";
 import type { LedgerFilterKind, LedgerSort } from "@/lib/ledger-filters";
 
-type DashboardReadOptions = { month: string; range?: DateRange; spendingCategoryId?: string };
+type DashboardReadOptions = {
+  month: string;
+  range?: DateRange;
+  spendingCategoryId?: string;
+  spendingCategoryIds?: string[];
+  spendingGranularity?: "categories" | "subcategories";
+};
 
 function money(value: number) {
   const amount = Number(value);

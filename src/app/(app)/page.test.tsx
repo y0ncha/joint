@@ -44,7 +44,9 @@ const summary = {
   incomeChangePercentage: 12.5,
 };
 
-function renderHome(searchParams: { from?: string; month?: string; spendingCategory?: string; to?: string } = {}) {
+function renderHome(
+  searchParams: { from?: string; month?: string; spendingCategories?: string; spendingGranularity?: string; to?: string } = {},
+) {
   return Home({ searchParams: Promise.resolve(searchParams) });
 }
 
@@ -56,6 +58,8 @@ describe("Joint dashboard", () => {
       categories: [
         { id: "income-category-id", name: "Salary", kind: "income", archivedAt: null },
         { id: "home-category-id", name: "Home", kind: "expense", archivedAt: null },
+        { id: "bills-category-id", name: "Bills", kind: "expense", archivedAt: null },
+        { id: "00000000-0000-0000-0000-000000000521", name: "Utilities", kind: "expense", archivedAt: null },
       ],
       directCategories: [{ id: "other-expense-id", name: "Other", kind: "expense", archivedAt: null }],
       subcategories: [
@@ -79,6 +83,28 @@ describe("Joint dashboard", () => {
           color: "#d9f0fa",
           icon: "home",
           archivedAt: "2026-07-01T00:00:00Z",
+          categoryArchivedAt: null,
+        },
+        {
+          id: "bills-subcategory",
+          name: "Arnona",
+          categoryId: "bills-category-id",
+          categoryName: "Bills",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "home",
+          archivedAt: null,
+          categoryArchivedAt: null,
+        },
+        {
+          id: "utilities-subcategory",
+          name: "Electricity",
+          categoryId: "00000000-0000-0000-0000-000000000521",
+          categoryName: "Utilities",
+          kind: "expense",
+          color: "#d9f0fa",
+          icon: "home",
+          archivedAt: null,
           categoryArchivedAt: null,
         },
       ],
@@ -137,7 +163,7 @@ describe("Joint dashboard", () => {
     const markup = [
       renderToStaticMarkup(await IncomeCard({ range: undefined, summary: summaryPromise })),
       renderToStaticMarkup(await OutgoingsCard({ range: undefined, summary: summaryPromise })),
-      renderToStaticMarkup(await SpendingCard({ monthLabel: "July 2026", options })),
+      renderToStaticMarkup(await SpendingCard({ options })),
       renderToStaticMarkup(await BalanceCard({ options, range: undefined })),
       renderToStaticMarkup(await RecentActivityCard({ options })),
     ].join("");
@@ -150,14 +176,65 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("Based on 3-month income average");
     expect(markup).toContain("18,420");
     expect(markup).toContain("Where your money went");
-    expect(markup).toContain("July 2026");
-    expect(markup).toContain('aria-label="Break down spending by category"');
+    expect([...markup.matchAll(/text-base font-semibold text-foreground/g)]).toHaveLength(5);
+    expect(markup).toContain("lg:col-span-6 lg:aspect-square");
+    expect(markup).not.toContain("Recent transactions");
+    expect(markup).not.toContain("July 2026");
+    expect(markup).toContain('aria-label="Configure spending breakdown"');
     expect(markup).toContain("Super-Pharm Ltd.");
     expect(markup).toContain("Home → Groceries - 2026-07-14");
     expect(markup).toContain("Imported");
     expect(mocks.getDashboardSpending).toHaveBeenCalledWith(options);
     expect(mocks.getDashboardBalance).toHaveBeenCalledWith(options);
     expect(mocks.getDashboardRecentActivity).toHaveBeenCalledWith(options);
+  });
+
+  it("keeps fewer than three selected categories aggregated", async () => {
+    mocks.getDashboardSpending.mockImplementation(async (spendingOptions) => {
+      if (spendingOptions.spendingCategoryId === "home-category-id") {
+        return { categoryTotals: [{ categoryId: "rent", categoryName: "Rent", amount: 3000 }] };
+      }
+      if (spendingOptions.spendingCategoryId === "bills-category-id") {
+        return { categoryTotals: [{ categoryId: "arnona", categoryName: "Arnona", amount: 1122 }] };
+      }
+      return {
+        categoryTotals: [
+          { categoryId: "home-category-id", categoryName: "Home", amount: 3000 },
+          { categoryId: "bills-category-id", categoryName: "Bills", amount: 1122 },
+        ],
+      };
+    });
+
+    const markup = renderToStaticMarkup(
+      await SpendingCard({ options: { month: "2026-07", spendingCategoryIds: ["home-category-id", "bills-category-id"] } as never }),
+    );
+
+    expect(markup).toContain("₪4,122");
+    expect(markup).toContain('aria-label="Spending breakdown: Home ₪3,000, Bills ₪1,122"');
+    expect(mocks.getDashboardSpending).toHaveBeenCalledTimes(1);
+    expect(markup).not.toContain("<title>");
+    expect(markup).not.toContain('aria-live="polite"');
+    expect(markup).not.toContain("cursor-pointer");
+    expect(markup).not.toContain('role="list"');
+    expect(markup).not.toContain(">Total spending<");
+  });
+
+  it("defaults subcategory mode to all categories", async () => {
+    mocks.getDashboardSpending.mockImplementation(async ({ spendingCategoryId }: { spendingCategoryId?: string }) => {
+      if (spendingCategoryId === "home-category-id")
+        return { categoryTotals: [{ categoryId: "groceries", categoryName: "Groceries", amount: 100 }] };
+      if (spendingCategoryId === "bills-category-id")
+        return { categoryTotals: [{ categoryId: "arnona", categoryName: "Arnona", amount: 200 }] };
+      if (spendingCategoryId === "00000000-0000-0000-0000-000000000521") {
+        return { categoryTotals: [{ categoryId: "electricity", categoryName: "Electricity", amount: 300 }] };
+      }
+      return { categoryTotals: [] };
+    });
+
+    const markup = renderToStaticMarkup(await SpendingCard({ options: { ...options, spendingGranularity: "subcategories" } }));
+
+    expect(mocks.getDashboardSpending).toHaveBeenCalledTimes(4);
+    expect(markup).toContain('aria-label="Spending breakdown: Groceries ₪100, Arnona ₪200, Electricity ₪300"');
   });
 
   it("passes the resolved control data to the transaction entry sheet", async () => {
@@ -169,8 +246,8 @@ describe("Joint dashboard", () => {
       currentUserId: "member-id",
       directCategories: [{ id: "other-expense-id" }],
       members: [{ id: "member-id" }],
-      subcategories: [{ id: "groceries" }],
     });
+    expect(mocks.transactionSheetProps?.subcategories).toContainEqual(expect.objectContaining({ id: "groceries" }));
   });
 
   it("falls back to Uncategorized when recent activity has no category label", async () => {
@@ -202,16 +279,16 @@ describe("Joint dashboard", () => {
   });
 
   it("uses an eligible URL category to request its subcategory spending", async () => {
-    renderToStaticMarkup(await renderHome({ spendingCategory: "00000000-0000-0000-0000-000000000521" }));
+    renderToStaticMarkup(await renderHome({ spendingCategories: "00000000-0000-0000-0000-000000000521" }));
 
     expect(mocks.getDashboardSpending).toHaveBeenCalledWith({
       month: "2026-07",
-      spendingCategoryId: "00000000-0000-0000-0000-000000000521",
+      spendingCategoryIds: ["00000000-0000-0000-0000-000000000521"],
     });
   });
 
   it("ignores an invalid spending category URL value", async () => {
-    renderToStaticMarkup(await renderHome({ spendingCategory: "not-a-uuid" }));
+    renderToStaticMarkup(await renderHome({ spendingCategories: "not-a-uuid" }));
 
     expect(mocks.getDashboardSpending).toHaveBeenCalledWith({ month: "2026-07" });
   });
@@ -221,11 +298,11 @@ describe("Joint dashboard", () => {
     const rangeOptions = { month: expect.any(String), range };
 
     renderToStaticMarkup(await renderHome(range));
-    const markup = renderToStaticMarkup(await SpendingCard({ monthLabel: "July 2026", options: { month: "2026-07", range } }));
+    const markup = renderToStaticMarkup(await SpendingCard({ options: { month: "2026-07", range } }));
 
     expect(mocks.getDashboardSummary).toHaveBeenCalledWith(rangeOptions);
     expect(mocks.getDashboardSpending).toHaveBeenCalledWith({ month: "2026-07", range });
-    expect(markup).toContain("01/07/2026 – 15/07/2026");
+    expect(markup).not.toContain("01/07/2026 – 15/07/2026");
   });
 
   it("ignores an impossible custom range", async () => {
