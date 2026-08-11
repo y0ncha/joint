@@ -1,4 +1,4 @@
-import { WorkspaceShell } from "@/components/workspace-shell";
+import { WorkspacePage } from "@/components/workspace-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -7,7 +7,7 @@ const loadingCards = ["Bills by month", "Year-over-year", "Groceries by month", 
 
 export default function BillsGroceriesLoading() {
   return (
-    <WorkspaceShell title="Bills & Groceries" description="Bills and groceries, without losing the daily detail.">
+    <WorkspacePage title="Bills & Groceries" description="Bills and groceries, without losing the daily detail.">
       <div role="status" aria-live="polite" className="sr-only">
         Loading Bills & Groceries…
       </div>
@@ -24,6 +24,6 @@ export default function BillsGroceriesLoading() {
           </Card>
         ))}
       </section>
-    </WorkspaceShell>
+    </WorkspacePage>
   );
 }

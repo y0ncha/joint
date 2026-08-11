@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { type ReactNode } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
 import { ArrowLeft, ChevronDown, Maximize2, Settings2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -379,9 +379,7 @@ function BillsGroceriesCharts({
   const groceryChartConfig = {
     mainRun: { label: mainRun?.name ?? "Main run", color: "var(--analytics-groceries-main-run)" },
     topUps: { label: topUps?.name ?? "Top-ups", color: "var(--analytics-groceries-top-ups)" },
-    budget: { label: "Monthly budget", color: "var(--color-muted-foreground)" },
   } satisfies ChartConfig;
-  const groceryBudgetAgorot = data.groceries.monthly.budgetAgorot;
   const yearOverYearBillDetails = chartBills.find((bill) => bill.value === yearOverYearBill) ?? chartBills[0];
   const yearOverYearData = alignBillYearOverYear(data.months, data.bills.monthly, yearOverYearBill).map(
     ({ month, currentAgorot, previousAgorot }) => ({
@@ -483,7 +481,11 @@ function BillsGroceriesCharts({
               <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
               <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value) => `₪${value}`} />
               <ExactTooltip labels={Object.fromEntries(chartBills.map((bill) => [bill.value, bill.label]))} totalLabel="Total" />
-              <ChartLegend content={<ChartLegendContent className="grid w-full grid-cols-5 gap-x-3 gap-y-2" />} />
+              <ChartLegend
+                content={
+                  <ChartLegendContent className="grid w-full grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-x-3 gap-y-2 [&>div]:truncate" />
+                }
+              />
               {orderedSelectedBills.map((bill, index) => (
                 <Bar key={bill.value} dataKey={bill.value} stackId="bills" fill={bill.color}>
                   {billMonthlyData.map((month) => (
@@ -606,7 +608,7 @@ function BillsGroceriesCharts({
             <ChartCard
               id="groceries"
               title="Groceries by month"
-              description="Posting-date totals against the monthly budget."
+              description="Posting-date totals by month."
               detailSuffix={detailSuffix}
               backHref={detail ? `/bills-groceries${detailSuffix}` : undefined}
               detail={detail}
@@ -616,7 +618,7 @@ function BillsGroceriesCharts({
                 config={groceryChartConfig}
                 className={cn(chartHeightClass, "w-full", !detail && "flex-1")}
                 role="region"
-                aria-label="Stacked monthly groceries chart with budget threshold, use arrow keys to inspect values"
+                aria-label="Stacked monthly groceries chart, use arrow keys to inspect values"
               >
                 <BarChart accessibilityLayer data={groceryMonthlyData} margin={chartMargin}>
                   <CartesianGrid vertical={false} />
@@ -624,14 +626,6 @@ function BillsGroceriesCharts({
                   <YAxis tickLine={false} axisLine={false} width={58} tickFormatter={(value) => `₪${value}`} />
                   <ExactTooltip labels={{ mainRun: mainRun?.name ?? "Main run", topUps: topUps?.name ?? "Top-ups" }} totalLabel="Total" />
                   <ChartLegend content={<ChartLegendContent />} />
-                  {groceryBudgetAgorot != null ? (
-                    <ReferenceLine
-                      y={groceryBudgetAgorot / 100}
-                      stroke="var(--color-budget)"
-                      strokeDasharray="4 4"
-                      label={{ value: "Monthly budget", position: "insideTopRight", fill: "var(--color-muted-foreground)" }}
-                    />
-                  ) : null}
                   <Bar dataKey="mainRun" stackId="groceries" fill="var(--color-mainRun)">
                     {groceryMonthlyData.map((month) => (
                       <Cell key={month.month} radius={stackedBarRadius([month.mainRun, month.topUps], 0) as unknown as number} />
@@ -644,11 +638,6 @@ function BillsGroceriesCharts({
                   </Bar>
                 </BarChart>
               </ChartContainer>
-              {groceryBudgetAgorot == null ? (
-                <p className="text-sm text-muted-foreground">
-                  <Link href="/settings">Set a monthly groceries budget in Settings.</Link>
-                </p>
-              ) : null}
               {detailChart === "groceries" && groceryMonthlyTableData.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No Groceries data yet.</p>
               ) : null}
@@ -660,26 +649,15 @@ function BillsGroceriesCharts({
                       <TableHead>Main run</TableHead>
                       <TableHead>Top-ups</TableHead>
                       <TableHead>Total</TableHead>
-                      {groceryBudgetAgorot != null ? <TableHead>Monthly budget</TableHead> : null}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {groceryMonthlyTableData.map((month) => (
-                      <TableRow
-                        key={month.month}
-                        className={
-                          groceryBudgetAgorot != null && (month.mainRun + month.topUps) * 100 > groceryBudgetAgorot
-                            ? "bg-destructive/10 hover:bg-destructive/15"
-                            : undefined
-                        }
-                      >
+                      <TableRow key={month.month}>
                         <TableCell>{month.month}</TableCell>
                         <TableCell className="tabular-nums">{currency.format(month.mainRun)}</TableCell>
                         <TableCell className="tabular-nums">{currency.format(month.topUps)}</TableCell>
                         <TableCell className="font-medium tabular-nums">{currency.format(month.mainRun + month.topUps)}</TableCell>
-                        {groceryBudgetAgorot != null ? (
-                          <TableCell className="tabular-nums">{currency.format(groceryBudgetAgorot / 100)}</TableCell>
-                        ) : null}
                       </TableRow>
                     ))}
                   </TableBody>

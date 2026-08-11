@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { CategorySheet } from "@/components/category-form";
 import { CategoryList, type Category, type Subcategory } from "@/components/category-list";
-import { WorkspaceShell } from "@/components/workspace-shell";
+import { WorkspacePage } from "@/components/workspace-shell";
 
 export function CategoriesWorkspace({
   categories,
@@ -17,7 +17,7 @@ export function CategoriesWorkspace({
 }) {
   const [openCategoryIds, setOpenCategoryIds] = useState(() => new Set<string>());
   return (
-    <WorkspaceShell
+    <WorkspacePage
       title="Categories"
       description="Keep income and expense reporting clear."
       actions={
@@ -56,6 +56,6 @@ export function CategoriesWorkspace({
           }}
         />
       </div>
-    </WorkspaceShell>
+    </WorkspacePage>
   );
 }

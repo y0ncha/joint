@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { BillsGroceriesChartDetail } from "@/components/bills-groceries-dashboard";
 import { billsGroceriesChartIds, type BillsGroceriesChartId } from "@/lib/bills-groceries-chart-ids";
-import { WorkspaceShell } from "@/components/workspace-shell";
+import { WorkspacePage } from "@/components/workspace-shell";
 import { loadBillsGroceriesPage, type BillsGroceriesSearchParams } from "@/lib/bills-groceries-page";
 
 export default async function BillsGroceriesDetailPage({
@@ -19,7 +19,7 @@ export default async function BillsGroceriesDetailPage({
   if (canonical.toString() !== requestedParams.toString()) redirect(`/bills-groceries/${chart}?${canonical}`);
 
   return (
-    <WorkspaceShell opaqueContent>
+    <WorkspacePage opaqueContent>
       <BillsGroceriesChartDetail
         chart={chart as BillsGroceriesChartId}
         data={data}
@@ -27,6 +27,6 @@ export default async function BillsGroceriesDetailPage({
         billId={selected.billId}
         period={selected.period}
       />
-    </WorkspaceShell>
+    </WorkspacePage>
   );
 }

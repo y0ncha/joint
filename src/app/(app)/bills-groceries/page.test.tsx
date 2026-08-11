@@ -19,15 +19,15 @@ vi.mock("@/lib/bills-groceries-data", () => ({ getBillsGroceriesData: mocks.getB
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 
 vi.mock("@/components/workspace-shell", () => ({
-  WorkspaceShell: ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <main>
+  WorkspacePage: ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <section id="workspace-content">
       <h1>{title}</h1>
       {children}
-    </main>
+    </section>
   ),
 }));
 
-it("renders a canonical BillsGroceries URL in the normal workspace", async () => {
+it("keeps route content on the shared page surface", async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-07-31T12:00:00Z"));
   mocks.getBillsGroceriesData.mockResolvedValue({ bills: { subcategories: [], defaultSubcategoryId: null } });
@@ -38,6 +38,8 @@ it("renders a canonical BillsGroceries URL in the normal workspace", async () =>
   );
 
   expect(markup).toContain("<h1>Bills &amp; Groceries</h1>");
+  expect(markup).toContain('id="workspace-content"');
+  expect(markup).not.toContain("<main");
   expect(markup).toContain("dashboard");
   expect(markup).not.toContain("true");
   expect(mocks.redirect).not.toHaveBeenCalled();

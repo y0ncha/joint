@@ -32,7 +32,7 @@ Next.js runs the application boundary; Supabase remains the persistence and fina
 ## Routing and rendering
 
 - `src/app/layout.tsx` owns global fonts, metadata, CSS, and shared UI providers.
-- `src/app/(app)/layout.tsx` protects every product route, including `/`, by requiring verified identity and household membership.
+- `src/app/(app)/layout.tsx` owns the persistent, non-sensitive workspace chrome and protects every product route, including `/`, by requiring verified identity and household membership before releasing page children. While that request-scoped check is pending, only a route-aware fallback may render inside the chrome; the dashboard fallback contains headings, cards, spinners, and skeletons but no profile or household data and no active mutation controls.
 - `src/app/(app)/page.tsx` renders the dashboard inside that protected route group.
 - `src/app/login/` is public and initiates Google OAuth.
 - `src/app/auth/callback/route.ts` exchanges the OAuth code, derives verified claims, and admits an existing member or a partner whose email matches `household_allowed_members`.
@@ -51,7 +51,7 @@ The publishable key is intentionally available to the browser. Authorization dep
 
 ## Household request context
 
-`src/lib/household.ts` resolves the cookie-backed Supabase client, verified claim subject, and membership once per React server request with `cache`. The result is exactly one of `unauthenticated`, `unmatched`, or `member`; a member result includes the server client, user ID, household ID, and role. Protected layouts redirect the first two states to `/login` and `/auth/access-denied`; Server Components and Server Actions use the member result rather than accepting identity or household data from browser input.
+`src/lib/household.ts` resolves the cookie-backed Supabase client, verified claim subject, and membership once per React server request with `cache`. The result is exactly one of `unauthenticated`, `unmatched`, or `member`; a member result includes the server client, user ID, household ID, and role. The protected layout starts that request-scoped promise once, renders only non-sensitive workspace chrome outside its Suspense boundary, and redirects the first two states to `/login` and `/auth/access-denied` without releasing page children. Server Components and Server Actions use the member result rather than accepting identity or household data from browser input.
 
 The resolver derives identity only from `auth.getClaims()` and obtains membership through `getHouseholdForUser`. OAuth partner admission stays separate: the callback continues to use its own verified principal and `ensurePartnerMembership`. `household_members` remains the authorization truth and RLS remains the final row-level check.
 
@@ -59,7 +59,7 @@ The resolver derives identity only from `auth.getClaims()` and obtains membershi
 
 - Server Components query Supabase through the member request context's server client.
 - Household-scoped loaders derive the caller's sole `household_members` row from verified claims; browser input does not select `household_id`.
-- `src/lib/dashboard-data.ts` loads the household opening balance, categories, transactions, and members concurrently, maps database rows to domain types, and passes them to the pure reporting layer.
+- `src/lib/dashboard-read-model.ts` owns the dashboard's focused, RLS-scoped projections and bounded ledger reads. Dashboard controls, summary, spending, balance, and recent activity start concurrently after membership succeeds; separate Suspense regions stream their cards independently, with Income and Outgoings sharing one summary promise.
 - Browser queries are limited to data allowed by RLS, such as the current profile name used by the workspace avatar.
 
 `household_allowed_members` is only the partner-join seam. It does not authorize household data: matching OAuth claims may insert the caller's own `member` row, after which ordinary membership-scoped RLS applies.
@@ -91,6 +91,7 @@ Financial persistence, role decisions, and household selection do not belong in 
 - Missing authentication redirects to `/login`.
 - An OAuth identity without an existing or authorized membership is signed out with local scope and redirected to `/login?error=access_denied`.
 - A stale authenticated session without membership is routed through `/auth/access-denied`, which performs the same local sign-out.
+- Before either redirect resolves, a visitor may see only the non-sensitive workspace canvas and navigation; protected page children and profile data remain suspended.
 - Query failures fail the server-rendered request with a sanitized application error.
 - Server Actions return structured validation or form errors and do not expose database messages.
 - RLS remains authoritative if an application filter or route guard is incorrect.
@@ -106,7 +107,7 @@ Financial persistence, role decisions, and household selection do not belong in 
 - `src/lib/supabase/browser.ts`
 - `src/lib/supabase/proxy.ts`
 - `src/lib/household.ts`
-- `src/lib/dashboard-data.ts`
+- `src/lib/dashboard-read-model.ts`
 - `src/app/actions/`
 - `supabase/migrations/20260725212318_remediate_recovery_privileges.sql`
 - `supabase/migrations/20260725212335_save_current_settings_atomically.sql`

@@ -6,11 +6,11 @@ vi.mock("@/components/category-list", () => ({
   CategoryList: ({ openCategoryIds }: { openCategoryIds?: Set<string> }) => <span data-category-list={openCategoryIds?.size ?? -1} />,
 }));
 vi.mock("@/components/workspace-shell", () => ({
-  WorkspaceShell: ({ actions, children }: { actions: React.ReactNode; children: React.ReactNode }) => (
-    <main>
+  WorkspacePage: ({ actions, children }: { actions: React.ReactNode; children: React.ReactNode }) => (
+    <section id="workspace-content">
       {actions}
       {children}
-    </main>
+    </section>
   ),
 }));
 

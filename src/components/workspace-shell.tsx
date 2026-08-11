@@ -60,7 +60,7 @@ export function ProfileInitialAvatar({ name }: { name: string }) {
   );
 }
 
-function CachedProfileInitialAvatar() {
+export function CachedProfileInitialAvatar() {
   const [name, setName] = useState("");
 
   useEffect(() => {
@@ -93,21 +93,20 @@ function NavigationItem({ href, label, icon: Icon }: { href: string; label: stri
   );
 }
 
-export function WorkspaceShell({
-  title,
-  description,
-  actions,
-  children,
-  opaqueContent = false,
-}: {
+export type WorkspacePageProps = {
   title?: string;
   description?: string;
   actions?: ReactNode;
   children: ReactNode;
   opaqueContent?: boolean;
-}) {
+};
+
+export function WorkspaceChrome({ children, profileSlot }: { children: ReactNode; profileSlot: ReactNode }) {
   return (
     <main className="min-h-screen p-0 text-foreground sm:px-5 sm:py-5 lg:px-8 lg:py-8">
+      <a className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50" href="#workspace-content">
+        Skip to page content
+      </a>
       <div className="mx-auto flex min-h-screen max-w-[1500px] overflow-hidden bg-white/24 shadow-[0_24px_80px_rgba(15,44,55,0.25)] backdrop-blur-sm sm:min-h-[calc(100vh-2.5rem)] sm:rounded-[2rem] sm:border sm:border-white/40 lg:min-h-[calc(100vh-4rem)]">
         <aside className="hidden w-[92px] shrink-0 flex-col items-center border-r border-white/35 bg-white/28 px-0 pt-6 pb-6 backdrop-blur-xl md:flex lg:pt-8 lg:pb-8">
           <BrandMark size={44} />
@@ -116,33 +115,9 @@ export function WorkspaceShell({
               <NavigationItem key={href} href={href} label={label} icon={Icon} />
             ))}
           </nav>
-          <div className="mt-auto">
-            <CachedProfileInitialAvatar />
-          </div>
+          <div className="mt-auto">{profileSlot}</div>
         </aside>
-        <section
-          className={cn(
-            "min-w-0 flex-1 animate-in fade-in-0 p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(9rem+env(safe-area-inset-bottom))] duration-150 ease-out sm:p-6 sm:pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-6 lg:p-8",
-            opaqueContent && "bg-white/50 backdrop-blur-sm",
-          )}
-        >
-          {title ? (
-            <header className="flex items-start justify-between gap-4">
-              <div className="flex min-w-0 flex-1 items-stretch gap-3 pl-1 md:block md:pl-0">
-                <span aria-hidden="true" className="block w-1 shrink-0 self-stretch rounded-full bg-primary md:hidden" />
-                <div>
-                  <p className="text-sm font-medium text-primary">Joint</p>
-                  <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
-                  {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
-                </div>
-              </div>
-              {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
-            </header>
-          ) : null}
-          <div data-workspace-content className="w-full">
-            {children}
-          </div>
-        </section>
+        {children}
       </div>
       <nav
         aria-label="Primary navigation"
@@ -153,5 +128,33 @@ export function WorkspaceShell({
         ))}
       </nav>
     </main>
+  );
+}
+
+export function WorkspacePage({ title, description, actions, children, opaqueContent = false }: WorkspacePageProps) {
+  return (
+    <section
+      className={cn(
+        "min-w-0 flex-1 p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(9rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-6 lg:p-8",
+        opaqueContent && "bg-white/50 backdrop-blur-sm",
+      )}
+    >
+      {title ? (
+        <header className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 flex-1 items-stretch gap-3 pl-1 md:block md:pl-0">
+            <span aria-hidden="true" className="block w-1 shrink-0 self-stretch rounded-full bg-primary md:hidden" />
+            <div>
+              <p className="text-sm font-medium text-primary">Joint</p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
+              {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+            </div>
+          </div>
+          {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+        </header>
+      ) : null}
+      <div id="workspace-content" data-workspace-content className="w-full" tabIndex={-1}>
+        {children}
+      </div>
+    </section>
   );
 }
