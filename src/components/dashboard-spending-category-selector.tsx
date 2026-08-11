@@ -46,6 +46,9 @@ export function DashboardSpendingCategorySelector({
     [categories, query],
   );
   const selectedCategories = categories.filter((category) => selectedCategoryIds.includes(category.id));
+  const categorySelectionSummary = selectedCategories.length
+    ? `${selectedCategories.length} ${selectedCategories.length === 1 ? "category" : "categories"} selected`
+    : "All categories";
 
   function update(selectedIds: string[], nextGranularity = granularity) {
     const params = new URLSearchParams(searchParams);
@@ -119,13 +122,7 @@ export function DashboardSpendingCategorySelector({
                 }
               }}
             >
-              <span className="flex min-w-0 flex-1 flex-wrap gap-1">
-                {selectedCategories.length ? (
-                  <Badge variant="outline">Custom</Badge>
-                ) : (
-                  <span className="text-muted-foreground">All categories</span>
-                )}
-              </span>
+              <span className="min-w-0 flex-1 truncate">{categorySelectionSummary}</span>
               <ChevronDown data-icon="inline-end" aria-hidden="true" />
             </Button>
           </PopoverTrigger>
@@ -166,7 +163,6 @@ export function DashboardSpendingCategorySelector({
                     className="size-4"
                     id={`dashboard-spending-${category.id}`}
                     checked={selectedCategoryIds.includes(category.id)}
-                    disabled={!selectedCategoryIds.includes(category.id) && selectedCategoryIds.length === 3}
                     onCheckedChange={() => toggle(category.id)}
                   />
                   <FieldLabel htmlFor={`dashboard-spending-${category.id}`}>

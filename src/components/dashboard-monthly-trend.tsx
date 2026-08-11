@@ -18,7 +18,6 @@ export type DashboardMonthlyTrendRow = {
   income: number;
   expenses: number;
   savings: number;
-  sharedBalance: number;
 };
 
 const currency = new Intl.NumberFormat("en-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
@@ -34,7 +33,7 @@ const shortMonth = new Intl.DateTimeFormat("en-IL", { month: "short", timeZone: 
 const chartConfig = {
   income: { label: "Income", color: "var(--positive)" },
   expenses: { label: "Outgoings", color: "var(--negative)" },
-  sharedBalance: { label: "Shared balance", color: "var(--foreground)" },
+  savings: { label: "Monthly balance", color: "var(--foreground)" },
 } satisfies ChartConfig;
 
 function monthDate(value: string) {
@@ -46,9 +45,9 @@ export function DashboardMonthlyTrend({ data }: { data: DashboardMonthlyTrendRow
     <Card className="min-w-0 border-white/50 bg-card/90 lg:col-span-12">
       <CardHeader>
         <CardTitle>Six-month trend</CardTitle>
-        <CardDescription>Monthly income, outgoings, and closing shared balance.</CardDescription>
+        <CardDescription>Monthly income, outgoings, and balance for each month.</CardDescription>
       </CardHeader>
-      <CardContent className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6">
+      <CardContent className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-8 px-6">
         <ChartContainer config={chartConfig} className="min-h-72 w-full" aria-label="Six-month household money trend">
           <LineChart accessibilityLayer data={data} margin={{ left: 8, right: 12, top: 8 }}>
             <CartesianGrid vertical={false} />
@@ -97,9 +96,9 @@ export function DashboardMonthlyTrend({ data }: { data: DashboardMonthlyTrendRow
               isAnimationActive={false}
             />
             <Line
-              dataKey="sharedBalance"
+              dataKey="savings"
               type="monotone"
-              stroke="var(--color-sharedBalance)"
+              stroke="var(--color-savings)"
               strokeWidth={2.5}
               dot={{ r: 3 }}
               isAnimationActive={false}
@@ -114,7 +113,7 @@ export function DashboardMonthlyTrend({ data }: { data: DashboardMonthlyTrendRow
                 <TableHead>Month</TableHead>
                 <TableHead className="text-right">Income</TableHead>
                 <TableHead className="text-right">Outgoings</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
+                <TableHead className="text-right">Monthly balance</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -123,7 +122,7 @@ export function DashboardMonthlyTrend({ data }: { data: DashboardMonthlyTrendRow
                   <TableCell>{month.format(monthDate(value.month))}</TableCell>
                   <TableCell className="text-right font-mono tabular-nums">{currency.format(value.income)}</TableCell>
                   <TableCell className="text-right font-mono tabular-nums">{currency.format(value.expenses)}</TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">{currency.format(value.sharedBalance)}</TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">{currency.format(value.savings)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
