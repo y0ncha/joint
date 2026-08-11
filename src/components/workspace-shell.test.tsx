@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 import { getProfileInitials } from "@/lib/profile";
 
-import { loadVerifiedProfileName, ProfileInitialAvatar, WorkspaceShell } from "./workspace-shell";
+import { loadVerifiedProfileName, ProfileInitialAvatar, WorkspaceChrome, WorkspacePage, WorkspaceShell } from "./workspace-shell";
 
 const currentPathname = vi.hoisted(() => ({ value: "/settings" }));
 
@@ -116,6 +116,19 @@ it("renders a plain profile-initial avatar", () => {
   expect(markup).not.toContain('role="link"');
   expect(markup).not.toContain("<button");
   expect(markup).not.toContain("<a ");
+});
+
+it("renders one chrome landmark and lets its skip link target page content", () => {
+  const markup = renderToStaticMarkup(
+    <WorkspaceChrome profileSlot={<ProfileInitialAvatar name="" />}>
+      <WorkspacePage title="Transactions">ledger</WorkspacePage>
+    </WorkspaceChrome>,
+  );
+
+  expect(markup.match(/<main/g)).toHaveLength(1);
+  expect(markup).toContain('href="#workspace-content"');
+  expect(markup).toContain('id="workspace-content"');
+  expect(markup).toContain("Transactions");
 });
 
 it("renders the desktop rail with navigation and a plain profile avatar", () => {
@@ -232,7 +245,8 @@ it("keeps workspace chrome visible around BillsGroceries detail content", () => 
   expect(markup).toContain(">Groceries by day</h1>");
   expect(markup).toContain('aria-label="Primary navigation"');
   expect(markup).toContain("Chart detail");
-  expect(markup).toContain("duration-150 ease-out sm:p-6");
+  expect(markup).not.toContain("animate-in fade-in-0");
+  expect(markup).toContain("p-4 pt-[calc(1rem+env(safe-area-inset-top))]");
   expect(markup).toContain("min-h-screen");
   expect(markup).toContain("sm:min-h-[calc(100vh-2.5rem)]");
 });
