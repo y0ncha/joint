@@ -209,6 +209,20 @@ it("passes a selected category to the authenticated spending projection", async 
   });
 });
 
+it.each(["PGRST202", "42883"])("returns a schema transition for missing dashboard projections (%s)", async (code) => {
+  for (const read of [getDashboardSpending, getDashboardRecentActivity]) {
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { code } });
+    await expect(read({ month: "2026-07" })).resolves.toEqual({ status: "schema_transition" });
+  }
+});
+
+it("preserves non-transition dashboard projection errors", async () => {
+  for (const read of [getDashboardSpending, getDashboardRecentActivity]) {
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { code: "42501" } });
+    await expect(read({ month: "2026-07" })).rejects.toThrow(/^Unable to load dashboard/);
+  }
+});
+
 it("does not return more than five activity rows", async () => {
   mocks.rpc.mockResolvedValueOnce({
     data: Array.from({ length: 5 }, (_, index) => ({

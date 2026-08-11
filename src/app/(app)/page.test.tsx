@@ -231,6 +231,16 @@ describe("Joint dashboard", () => {
     expect(markup).toContain('aria-label="Spending breakdown: Groceries ₪100, Arnona ₪200, Electricity ₪300"');
   });
 
+  it("renders neutral spending content while its projection is changing", async () => {
+    mocks.getDashboardSpending.mockResolvedValueOnce({ status: "schema_transition" });
+
+    const markup = renderToStaticMarkup(await SpendingCard({ options }));
+
+    expect(markup).toContain("Where your money went");
+    expect(markup).toContain("Updating dashboard…");
+    expect(markup).toContain("lg:col-span-5 lg:aspect-square");
+  });
+
   it("passes the resolved control data to the transaction entry sheet", async () => {
     const markup = renderToStaticMarkup(await DashboardActions({ month: "2026-07", range: undefined }));
 

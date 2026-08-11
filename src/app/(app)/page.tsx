@@ -43,6 +43,19 @@ function donutSegmentPath(startAngle: number, endAngle: number) {
   return `M ${outerStartX} ${outerStartY} A 96 96 0 ${largeArc} 1 ${outerEndX} ${outerEndY} L ${innerEndX} ${innerEndY} A 62 62 0 ${largeArc} 0 ${innerStartX} ${innerStartY} Z`;
 }
 
+function DashboardSchemaTransition({ className, title }: { className?: string; title: string }) {
+  return (
+    <Card className={cn("border-white/50 bg-card/90", className)}>
+      <CardContent className="p-5 sm:p-6">
+        <p className="text-sm font-medium text-muted-foreground">{title}</p>
+        <p role="status" aria-live="polite" className="mt-5 text-sm text-muted-foreground">
+          Updating dashboard…
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export async function DashboardActions({ month, range }: { month: string; range?: DateRange }) {
   const data = await getDashboardControls();
   const transactionSubcategories = data.subcategories.filter(
@@ -170,6 +183,9 @@ export async function DashboardMetricCards({
 
 export async function SpendingCard({ options }: { options: DashboardReadOptions }) {
   const [report, controls] = await Promise.all([getDashboardSpending(options), getDashboardControls()]);
+  if ("status" in report) {
+    return <DashboardSchemaTransition className="lg:col-span-5 lg:aspect-square" title="Where your money went" />;
+  }
   const selectableCategories = controls.categories.filter(
     (category) =>
       category.kind === "expense" &&
@@ -186,14 +202,20 @@ export async function SpendingCard({ options }: { options: DashboardReadOptions 
       ? await Promise.all(
           categoriesForSubcategories.map(async (category) => ({
             category,
-            totals: (await getDashboardSpending({ ...options, spendingCategoryId: category.id })).categoryTotals,
+            report: await getDashboardSpending({ ...options, spendingCategoryId: category.id }),
           })),
         )
       : [];
+  if (fanouts.some((fanout) => "status" in fanout.report)) {
+    return <DashboardSchemaTransition className="lg:col-span-5 lg:aspect-square" title="Where your money went" />;
+  }
   const parentTotals = selectedCategories.length
     ? report.categoryTotals.filter((category) => selectedCategories.some((selected) => selected.id === category.categoryId))
     : report.categoryTotals;
-  const displayedTotals = options.spendingGranularity === "subcategories" ? fanouts.flatMap((fanout) => fanout.totals) : parentTotals;
+  const displayedTotals =
+    options.spendingGranularity === "subcategories"
+      ? fanouts.flatMap((fanout) => ("categoryTotals" in fanout.report ? (fanout.report.categoryTotals ?? []) : []))
+      : parentTotals;
   const total = displayedTotals.reduce((sum, category) => sum + category.amount, 0);
   const segments = displayedTotals.reduce<Array<{ category: (typeof displayedTotals)[number]; start: number; end: number }>>(
     (values, category) => {
@@ -202,7 +224,6 @@ export async function SpendingCard({ options }: { options: DashboardReadOptions 
     },
     [],
   );
-
   return (
     <Card className="border-white/50 bg-card/90 lg:col-span-5 lg:aspect-square">
       <CardHeader>
