@@ -36,14 +36,6 @@ export function inclusiveIsoDayCount(from: string, to: string) {
   return isoDateToEpochDay(to) - isoDateToEpochDay(from) + 1;
 }
 
-export function previousThreeDateRanges(range: DateRange): [DateRange, DateRange, DateRange] {
-  const days = inclusiveIsoDayCount(range.from, range.to);
-  return [1, 2, 3].map((offset) => ({
-    from: shiftIsoDate(range.from, -days * offset),
-    to: shiftIsoDate(range.to, -days * offset),
-  })) as [DateRange, DateRange, DateRange];
-}
-
 export function shiftIsoMonth(value: string, months: number) {
   if (!isCanonicalIsoMonth(value) || !Number.isInteger(months)) throw new Error(`Invalid ISO month: ${value}`);
   const monthIndex = Number(value.slice(0, 4)) * 12 + Number(value.slice(5)) - 1 + months;

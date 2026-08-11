@@ -44,7 +44,7 @@ export function DashboardMembershipFallback() {
       <section className="mt-6 grid gap-4 lg:grid-cols-12">
         <DashboardCardLoading className="h-full lg:col-span-4" title="Income" />
         <DashboardCardLoading className="h-full lg:col-span-4" title="Outgoings" />
-        <DashboardCardLoading className="h-full lg:col-span-4" title="Shared balance" />
+        <DashboardCardLoading className="h-full lg:col-span-4" title="Monthly balance" />
         <DashboardCardLoading className="lg:col-span-5 lg:aspect-square" title="Where your money went" />
         <DashboardCardLoading className="h-full lg:col-span-7" title="Budgets" />
         <DashboardCardLoading className="min-h-80 lg:col-span-12" title="Six-month trend" />

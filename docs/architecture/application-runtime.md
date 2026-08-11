@@ -59,7 +59,7 @@ The resolver derives identity only from `auth.getClaims()` and obtains membershi
 
 - Server Components query Supabase through the member request context's server client.
 - Household-scoped loaders derive the caller's sole `household_members` row from verified claims; browser input does not select `household_id`.
-- `src/lib/dashboard-read-model.ts` owns the dashboard's focused, RLS-scoped projections and bounded ledger reads. Dashboard controls, summary, spending, balance, and recent activity start concurrently after membership succeeds; separate Suspense regions stream their cards independently, with Income and Outgoings sharing one summary promise.
+- `src/lib/dashboard-read-model.ts` owns the dashboard's focused, RLS-scoped reads: controls, summary with comparison percentages, one `dashboard_spending_breakdown` RPC for category or subcategory totals, and the six-month monthly review. `getLedgerData` supplies bounded transaction and recurring-schedule data to the transactions route. Dashboard controls, metrics, spending, and trend render in independent Suspense regions; the metric cards use the monthly review for a month and the summary for a custom range.
 - Browser queries are limited to data allowed by RLS, such as the current profile name used by the workspace avatar.
 
 `household_allowed_members` is only the partner-join seam. It does not authorize household data: matching OAuth claims may insert the caller's own `member` row, after which ordinary membership-scoped RLS applies.

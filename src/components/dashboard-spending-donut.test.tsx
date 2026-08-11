@@ -8,8 +8,8 @@ it("gives duplicate source IDs distinct React keys", () => {
     ariaLabel: "Spending breakdown",
     total: "₪300",
     segments: [
-      { id: "category", label: "Food: ₪100", color: "red", path: "M 0 0" },
-      { id: "category", label: "Market: ₪200", color: "blue", path: "M 0 0" },
+      { id: "category", label: "Food: ₪100", color: "red", value: 100 },
+      { id: "category", label: "Market: ₪200", color: "blue", value: 200 },
     ],
   });
   const svg = donut.props.children.props.children[0];
@@ -23,8 +23,8 @@ it("keeps donut sections non-focusable at a responsive card-filling size", () =>
       ariaLabel="Spending breakdown"
       total="₪300"
       segments={[
-        { id: "food", label: "Food: ₪100", color: "red", path: "M 0 0" },
-        { id: "market", label: "Market: ₪200", color: "blue", path: "M 0 0" },
+        { id: "food", label: "Food: ₪100", color: "red", value: 100 },
+        { id: "market", label: "Market: ₪200", color: "blue", value: 200 },
       ]}
     />,
   );
@@ -35,4 +35,18 @@ it("keeps donut sections non-focusable at a responsive card-filling size", () =>
   expect(markup).not.toContain("max-w-xl");
   expect(markup).not.toContain("w-56");
   expect(markup).toContain("sm:text-5xl");
+  expect(markup).toContain("M 100 4");
+});
+
+it("renders a single numeric segment as a full donut ring", () => {
+  const markup = renderToStaticMarkup(
+    <DashboardSpendingDonut
+      ariaLabel="Spending breakdown"
+      total="₪100"
+      segments={[{ id: "food", label: "Food: ₪100", color: "red", value: 100 }]}
+    />,
+  );
+
+  expect(markup).toContain('aria-label="Food: ₪100"');
+  expect(markup).toContain('<circle cx="100" cy="100"');
 });

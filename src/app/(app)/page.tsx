@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { getDashboardControls, getDashboardMonthlyReview, getDashboardSpending, getDashboardSummary } from "@/lib/dashboard-read-model";
-import { getValidDateRange, previousMonth, previousThreeDateRanges, type DateRange } from "@/lib/date-range";
+import { getValidDateRange, previousMonth, type DateRange } from "@/lib/date-range";
 import { cn } from "@/lib/utils";
 
 const currency = new Intl.NumberFormat("en-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
@@ -28,19 +28,6 @@ function comparisonLabel(change: number | null, range?: DateRange) {
 
 function percentageChange(value: number, average: number | null) {
   return average === null || average === 0 ? null : ((value - average) / average) * 100;
-}
-
-function donutSegmentPath(startAngle: number, endAngle: number) {
-  const point = (radius: number, angle: number) => {
-    const radians = ((angle - 90) * Math.PI) / 180;
-    return [100 + radius * Math.cos(radians), 100 + radius * Math.sin(radians)];
-  };
-  const [outerStartX, outerStartY] = point(96, startAngle);
-  const [outerEndX, outerEndY] = point(96, endAngle);
-  const [innerEndX, innerEndY] = point(62, endAngle);
-  const [innerStartX, innerStartY] = point(62, startAngle);
-  const largeArc = endAngle - startAngle > 180 ? 1 : 0;
-  return `M ${outerStartX} ${outerStartY} A 96 96 0 ${largeArc} 1 ${outerEndX} ${outerEndY} L ${innerEndX} ${innerEndY} A 62 62 0 ${largeArc} 0 ${innerStartX} ${innerStartY} Z`;
 }
 
 export async function DashboardActions({ month, range }: { month: string; range?: DateRange }) {
@@ -87,15 +74,8 @@ export async function DashboardMetricCards({
   let metrics: Array<{ change: number | null; kind: "balance" | "expenses" | "income"; title: string; value: number }>;
 
   if (options.range) {
-    const previousRanges = previousThreeDateRanges(options.range);
-    const [summary, ...previousSummaries] = await Promise.all([
-      getDashboardSummary(options),
-      ...previousRanges.map((range) => getDashboardSummary({ ...options, range })),
-    ]);
+    const summary = await getDashboardSummary(options);
     const monthlyBalance = summary.income - summary.expenses;
-    const averageMonthlyBalance = previousSummaries.length
-      ? previousSummaries.reduce((total, value) => total + value.income - value.expenses, 0) / previousSummaries.length
-      : null;
     metrics = [
       { title: "Income", kind: "income", value: summary.income, change: summary.incomeChangePercentage },
       { title: "Outgoings", kind: "expenses", value: summary.expenses, change: summary.expenseChangePercentage },
@@ -103,7 +83,7 @@ export async function DashboardMetricCards({
         title: "Monthly balance",
         kind: "balance",
         value: monthlyBalance,
-        change: percentageChange(monthlyBalance, averageMonthlyBalance),
+        change: summary.balanceChangePercentage,
       },
     ];
   } else {
@@ -180,28 +160,8 @@ export async function SpendingCard({ options }: { options: DashboardReadOptions 
       ),
   );
   const selectedCategories = selectableCategories.filter((category) => options.spendingCategoryIds?.includes(category.id));
-  const categoriesForSubcategories = selectedCategories.length ? selectedCategories : selectableCategories;
-  const fanouts =
-    options.spendingGranularity === "subcategories"
-      ? await Promise.all(
-          categoriesForSubcategories.map(async (category) => ({
-            category,
-            totals: (await getDashboardSpending({ ...options, spendingCategoryId: category.id })).categoryTotals,
-          })),
-        )
-      : [];
-  const parentTotals = selectedCategories.length
-    ? report.categoryTotals.filter((category) => selectedCategories.some((selected) => selected.id === category.categoryId))
-    : report.categoryTotals;
-  const displayedTotals = options.spendingGranularity === "subcategories" ? fanouts.flatMap((fanout) => fanout.totals) : parentTotals;
+  const displayedTotals = report.categoryTotals;
   const total = displayedTotals.reduce((sum, category) => sum + category.amount, 0);
-  const segments = displayedTotals.reduce<Array<{ category: (typeof displayedTotals)[number]; start: number; end: number }>>(
-    (values, category) => {
-      const start = values.at(-1)?.end ?? 0;
-      return [...values, { category, start, end: start + (category.amount / total) * 360 }];
-    },
-    [],
-  );
 
   return (
     <Card className="border-white/50 bg-card/90 lg:col-span-5 lg:aspect-square">
@@ -223,10 +183,10 @@ export async function SpendingCard({ options }: { options: DashboardReadOptions 
           {displayedTotals.length ? (
             <DashboardSpendingDonut
               ariaLabel={`Spending breakdown: ${displayedTotals.map((category) => `${category.categoryName} ${currency.format(category.amount)}`).join(", ")}`}
-              segments={segments.map(({ category, start, end }, index) => ({
+              segments={displayedTotals.map((category, index) => ({
                 id: category.categoryId,
                 label: `${category.categoryName}: ${currency.format(category.amount)}`,
-                path: donutSegmentPath(start, end),
+                value: category.amount,
                 color: `var(--chart-${(index % 5) + 1})`,
               }))}
               total={currency.format(total)}

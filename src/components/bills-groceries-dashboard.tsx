@@ -355,7 +355,7 @@ function BillsGroceriesCharts({
   });
   const selectedBills = presentation.billIds;
   const orderedSelectedBills = chartBills.filter((bill) => selectedBills.includes(bill.value));
-  const showBillsLegends = orderedSelectedBills.length > 0 && orderedSelectedBills.length <= 10;
+  const showBillsLegends = orderedSelectedBills.length > 0;
   const billsLegendHeight = showBillsLegends ? Math.ceil(orderedSelectedBills.length / 5) * 28 + 12 : 0;
   const yearOverYearBill = presentation.billId;
   const groceryFilter = presentation.grocery;
@@ -577,7 +577,7 @@ function BillsGroceriesCharts({
               <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
               <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value) => `₪${value}`} />
               <ExactTooltip labels={{ current: "Current year", previous: "Previous year" }} />
-              {showBillsLegends && <ChartLegend content={<ChartLegendContent />} />}
+              <ChartLegend content={<ChartLegendContent />} />
               <Bar dataKey="previous" fill="var(--color-previous)" fillOpacity={0.38} radius={[3, 3, 0, 0]} />
               <Bar dataKey="current" fill="var(--color-current)" radius={[3, 3, 0, 0]} />
             </BarChart>

@@ -59,7 +59,7 @@ See [`docs/architecture/application-runtime.md`](architecture/application-runtim
 
 ### Dashboard and ledger reads
 
-The dashboard streams focused Server Component cards backed by separate authenticated Postgres functions for summary, spending, balance, and five-row recent activity. These functions aggregate the household's source transactions on demand; Joint does not persist dashboard aggregate tables or materialized views. The transactions ledger owns a separate server-side row query bounded by the selected month or date range and active filters, with an explicit column projection and sort order, and loads recurring schedules alongside it. Both seams derive household access from the verified member request context and leave RLS as the final authorization boundary.
+The dashboard streams focused Server Component cards backed by authenticated Postgres functions `dashboard_summary`, `dashboard_spending_breakdown`, and `dashboard_monthly_review`. These functions aggregate the household's source transactions on demand; Joint does not persist dashboard aggregate tables or materialized views. The transactions ledger uses a separate bounded server-side row query for the selected month or date range and active filters, with an explicit column projection and sort order, and loads recurring schedules alongside it. Both seams derive household access from the verified member request context and leave RLS as the final authorization boundary.
 
 ### Settings persistence and database privileges
 

@@ -7,10 +7,23 @@ import type { LedgerFilterKind, LedgerSort } from "@/lib/ledger-filters";
 type DashboardReadOptions = {
   month: string;
   range?: DateRange;
-  spendingCategoryId?: string;
   spendingCategoryIds?: string[];
   spendingGranularity?: "categories" | "subcategories";
 };
+
+type DashboardSpendingBreakdownRpc = (
+  functionName: "dashboard_spending_breakdown",
+  args: {
+    p_category_ids: string[] | null;
+    p_month: string;
+    p_range_from: string | null;
+    p_range_to: string | null;
+    p_subcategories: boolean;
+  },
+) => Promise<{
+  data: Array<{ amount: number; category_id: string; category_name: string }> | null;
+  error: unknown | null;
+}>;
 
 function money(value: number) {
   const amount = Number(value);
@@ -100,19 +113,24 @@ export async function getDashboardSummary(options: DashboardReadOptions) {
   const { data, error } = await household.supabase.rpc("dashboard_summary", rpcArgs(options));
   const row = data?.[0];
   if (error || !row) throw new Error("Unable to load dashboard summary.");
+  const balanceChangePercentage = (row as unknown as { balance_change_percentage?: number | null }).balance_change_percentage;
   return {
     income: money(row.income),
     expenses: money(row.expenses),
     incomeChangePercentage: row.income_change_percentage === null ? null : Number(row.income_change_percentage),
     expenseChangePercentage: row.expense_change_percentage === null ? null : Number(row.expense_change_percentage),
+    balanceChangePercentage:
+      balanceChangePercentage === null || balanceChangePercentage === undefined ? null : Number(balanceChangePercentage),
   };
 }
 
 export async function getDashboardSpending(options: DashboardReadOptions) {
   const household = await memberContext();
-  const { data, error } = await household.supabase.rpc("dashboard_spending", {
+  const supabase = household.supabase as unknown as { rpc: DashboardSpendingBreakdownRpc };
+  const { data, error } = await supabase.rpc("dashboard_spending_breakdown", {
     ...rpcArgs(options),
-    p_category_id: options.spendingCategoryId ?? null,
+    p_category_ids: options.spendingCategoryIds ?? null,
+    p_subcategories: options.spendingGranularity === "subcategories",
   });
   if (error) throw new Error("Unable to load dashboard spending.");
   return {
@@ -134,25 +152,6 @@ export async function getDashboardMonthlyReview(month: string) {
     expenses: money(row.expenses),
     savings: money(row.savings),
   }));
-}
-
-export async function getDashboardRecentActivity(options: DashboardReadOptions) {
-  const household = await memberContext();
-  const { data, error } = await household.supabase.rpc("dashboard_recent_activity", rpcArgs(options));
-  if (error) throw new Error("Unable to load dashboard activity.");
-  return {
-    transactions: (data ?? []).map((row) => ({
-      id: row.id,
-      kind: row.kind,
-      amount: money(row.amount),
-      occurredOn: row.occurred_on,
-      merchant: row.merchant,
-      note: row.note,
-      source: row.source,
-      categoryName: row.category_name,
-      subcategoryName: row.subcategory_name,
-    })),
-  };
 }
 
 export async function getLedgerData({

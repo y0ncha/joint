@@ -46,11 +46,11 @@ household
 shared balance = opening balance + income - expenses
 ```
 
-For a selected `YYYY-MM` month, the shared balance includes transactions before the first day of the next month. Income, expense, and expense-category totals include all selected-month transactions for past months; for the current month, they stop at `asOfDate` (today by default). Current-month comparisons use activity through that same day-of-month against the prior three months. Expected monthly income averages prior lookback months that contain income. Recent activity sorts by `occurred_on`, then `created_at`, descending.
+For a selected `YYYY-MM` month, the shared balance includes transactions before the first day of the next month. Income, expense, and expense-category totals include all selected-month transactions for past months; for the current month, they stop at `asOfDate` (today by default). Current-month comparisons use activity through that same day-of-month against the prior three months, while custom ranges compare up to three preceding equivalent ranges. The monthly review returns six months of income, expenses, and savings for dashboard metrics and trend. Bounded ledger reads use the selected month or date range and default to `occurred_on`, then `created_at`, descending.
 
-`src/lib/dashboard-data.ts` loads the household opening balance, categories, subcategories, transactions, and members. It projects each child with its parent category and resolves the effective icon as the child's override or the parent icon. Ledger category filtering remains parent-scoped by mapping each assigned transaction's subcategory to its parent category ID. `src/lib/financial-report.ts` applies the formula as the pure reporting layer and likewise rolls assigned expense totals up through `transactions.subcategory_id` to the parent category. Assigned transaction labels resolve as `Category → Subcategory`.
+`src/lib/dashboard-read-model.ts` owns the focused dashboard and ledger reads. `getDashboardControls` loads categories, subcategories, and members; `getDashboardSummary` returns period totals and comparison percentages; `getDashboardSpending` calls the single `dashboard_spending_breakdown` RPC for parent-category or eligible-subcategory totals; `getDashboardMonthlyReview` returns the six-month review; and `getLedgerData` bounds transaction and recurring-schedule data while keeping category filtering parent-scoped. `src/lib/financial-report.ts` remains the pure reporting layer and resolves assigned expense totals through `transactions.subcategory_id` to the parent category. Assigned transaction labels resolve as `Category → Subcategory`.
 
-Uncategorized statement imports and historical transactions orphaned by category or subcategory deletion remain valid and are included in shared-balance, income, expense, comparison, and recent-activity calculations, but omitted from parent-category totals. They render as `Uncategorized`. RLS permits an already-orphaned manual row to remain uncategorized during an update, while still rejecting uncategorized manual inserts and clearing an assigned manual destination. `src/app/actions/transactions.ts` persists manual edits after server-side membership, payer, and active matching-kind subcategory checks; `src/app/actions/statement-import.ts` performs authenticated, atomic statement imports.
+Uncategorized statement imports and historical transactions orphaned by category or subcategory deletion remain valid and are included in shared-balance, income, expense, comparison, and bounded-ledger reads, but omitted from parent-category totals. They render as `Uncategorized`. RLS permits an already-orphaned manual row to remain uncategorized during an update, while still rejecting uncategorized manual inserts and clearing an assigned manual destination. `src/app/actions/transactions.ts` persists manual edits after server-side membership, payer, and active matching-kind subcategory checks; `src/app/actions/statement-import.ts` performs authenticated, atomic statement imports.
 
 ## Merchant automation
 
@@ -95,7 +95,7 @@ Only Bills transactions may have an optional inclusive `service_period_start` an
 ## Primary verification
 
 - `src/lib/financial-report.test.ts`
-- `src/lib/dashboard-data.test.ts`
+- `src/lib/dashboard-read-model.test.ts`
 - `src/app/actions/transactions.test.ts`
 - `src/lib/merchant-automations.test.ts`
 - `src/lib/automation-conditions.test.ts`
