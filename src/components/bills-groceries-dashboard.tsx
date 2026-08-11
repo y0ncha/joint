@@ -483,7 +483,7 @@ function BillsGroceriesCharts({
               <ExactTooltip labels={Object.fromEntries(chartBills.map((bill) => [bill.value, bill.label]))} totalLabel="Total" />
               <ChartLegend
                 content={
-                  <ChartLegendContent className="grid w-full grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-x-3 gap-y-2 [&>div]:truncate" />
+                  <ChartLegendContent className="hidden w-full grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-x-3 gap-y-2 [&>div]:truncate md:grid" />
                 }
               />
               {orderedSelectedBills.map((bill, index) => (
