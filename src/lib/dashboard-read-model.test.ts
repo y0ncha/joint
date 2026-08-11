@@ -78,7 +78,9 @@ vi.mock("@/lib/household", () => ({ getCurrentHouseholdContext: mocks.getCurrent
 
 import {
   getDashboardBalance,
+  getDashboardCategoryChanges,
   getDashboardControls,
+  getDashboardMonthlyReview,
   getDashboardRecentActivity,
   getDashboardSpending,
   getDashboardSummary,
@@ -130,6 +132,43 @@ it("requests the summary projection without a browser-controlled household id", 
     p_range_from: null,
     p_range_to: null,
   });
+});
+
+it("maps the bounded monthly review and category comparison projections", async () => {
+  mocks.rpc
+    .mockResolvedValueOnce({
+      data: [{ expenses: 8000, income: 12000, month: "2026-07-01", savings: 4000, shared_balance: 18000 }],
+      error: null,
+    })
+    .mockResolvedValueOnce({
+      data: [
+        {
+          amount: 453,
+          average_amount: 2170,
+          category_name: "Bills",
+          change_amount: -1717,
+          change_percentage: -79.1,
+          kind: "expense",
+        },
+      ],
+      error: null,
+    });
+
+  await expect(getDashboardMonthlyReview("2026-07")).resolves.toEqual([
+    { expenses: 8000, income: 12000, month: "2026-07-01", savings: 4000, sharedBalance: 18000 },
+  ]);
+  await expect(getDashboardCategoryChanges("2026-07")).resolves.toEqual([
+    {
+      amount: 453,
+      averageAmount: 2170,
+      categoryName: "Bills",
+      changeAmount: -1717,
+      changePercentage: -79.1,
+      kind: "expense",
+    },
+  ]);
+  expect(mocks.rpc).toHaveBeenNthCalledWith(1, "dashboard_monthly_review", { p_month: "2026-07-01" });
+  expect(mocks.rpc).toHaveBeenNthCalledWith(2, "dashboard_category_changes", { p_month: "2026-07-01" });
 });
 
 it("loads only the category, subcategory, and member controls", async () => {

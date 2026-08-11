@@ -9,6 +9,7 @@ import {
   inclusiveIsoDayCount,
   isCanonicalIsoDate,
   isoDateToEpochDay,
+  previousThreeDateRanges,
   previousMonth,
   shiftIsoDate,
   shiftIsoMonth,
@@ -45,6 +46,14 @@ describe("UTC ISO calendar helpers", () => {
   it("counts both endpoints of a UTC ISO span", () => {
     expect(inclusiveIsoDayCount("2024-02-28", "2024-03-01")).toBe(3);
     expect(() => inclusiveIsoDayCount("2024-02-30", "2024-03-01")).toThrow();
+  });
+
+  it("returns the previous three equivalent date ranges", () => {
+    expect(previousThreeDateRanges({ from: "2026-07-01", to: "2026-07-15" })).toEqual([
+      { from: "2026-06-16", to: "2026-06-30" },
+      { from: "2026-06-01", to: "2026-06-15" },
+      { from: "2026-05-17", to: "2026-05-31" },
+    ]);
   });
 
   it("shifts canonical ISO months and returns their month-end ranges", () => {

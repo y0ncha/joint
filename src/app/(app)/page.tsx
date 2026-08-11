@@ -1,37 +1,40 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, Settings2 } from "lucide-react";
 
 import { DashboardActionsLoading, DashboardCardLoading } from "./dashboard-loading";
+import { DashboardMonthlyTrend, type DashboardMonthlyTrendRow } from "@/components/dashboard-monthly-trend";
 import { DashboardSpendingCategorySelector } from "@/components/dashboard-spending-category-selector";
 import { DashboardSpendingDonut } from "@/components/dashboard-spending-donut";
 import { LedgerMonthSelector } from "@/components/ledger-month-selector";
 import { TransactionSheet } from "@/components/transaction-sheet";
 import { WorkspacePage } from "@/components/workspace-shell";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
+  getDashboardCategoryChanges,
   getDashboardBalance,
   getDashboardControls,
-  getDashboardRecentActivity,
+  getDashboardMonthlyReview,
   getDashboardSpending,
   getDashboardSummary,
 } from "@/lib/dashboard-read-model";
-import { getValidDateRange, previousMonth, type DateRange } from "@/lib/date-range";
+import { getValidDateRange, previousMonth, previousThreeDateRanges, type DateRange } from "@/lib/date-range";
 import { cn } from "@/lib/utils";
 
 const currency = new Intl.NumberFormat("en-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
 type DashboardReadOptions = Parameters<typeof getDashboardSummary>[0];
-type DashboardSummaryPromise = ReturnType<typeof getDashboardSummary>;
 
 function comparisonLabel(change: number | null, range?: DateRange) {
-  if (change === null) return range ? "No prior range average" : "No prior average";
+  if (change === null) return range ? "No previous equivalent range history" : "No previous 3-month history";
   const roundedChange = Math.round(Math.abs(change));
-  const baseline = range ? "prior range average" : "prior 3-month average";
+  const baseline = range ? "previous 3 equivalent ranges" : "previous 3-month average";
   if (roundedChange === 0) return `In line with ${baseline}`;
   return `${roundedChange}% ${change > 0 ? "above" : "below"} ${baseline}`;
+}
+
+function percentageChange(value: number, average: number | null) {
+  return average === null || average === 0 ? null : ((value - average) / average) * 100;
 }
 
 function donutSegmentPath(startAngle: number, endAngle: number) {
@@ -81,73 +84,92 @@ export async function DashboardActions({ month, range }: { month: string; range?
   );
 }
 
-export async function IncomeCard({ range, summary }: { range?: DateRange; summary: DashboardSummaryPromise }) {
-  const report = await summary;
+export async function DashboardMetricCards({
+  options,
+  review,
+}: {
+  options: DashboardReadOptions;
+  review: Promise<DashboardMonthlyTrendRow[]>;
+}) {
+  let metrics: Array<{ change: number | null; kind: "balance" | "expenses" | "income"; title: string; value: number }>;
+
+  if (options.range) {
+    const previousRanges = previousThreeDateRanges(options.range);
+    const [summary, balance, ...previousBalances] = await Promise.all([
+      getDashboardSummary(options),
+      getDashboardBalance(options),
+      ...previousRanges.map((range) => getDashboardBalance({ ...options, range })),
+    ]);
+    const averageBalance = previousBalances.reduce((total, value) => total + value.sharedBalance, 0) / previousBalances.length;
+    metrics = [
+      { title: "Income", kind: "income", value: summary.income, change: summary.incomeChangePercentage },
+      { title: "Outgoings", kind: "expenses", value: summary.expenses, change: summary.expenseChangePercentage },
+      {
+        title: "Shared balance",
+        kind: "balance",
+        value: balance.sharedBalance,
+        change: percentageChange(balance.sharedBalance, averageBalance),
+      },
+    ];
+  } else {
+    const months = await review;
+    const current = months.at(-1);
+    if (!current) throw new Error("Unable to load dashboard review.");
+    const previous = months.slice(-4, -1);
+    const average = (key: "expenses" | "income" | "sharedBalance") =>
+      previous.length ? previous.reduce((total, value) => total + value[key], 0) / previous.length : null;
+    metrics = [
+      { title: "Income", kind: "income", value: current.income, change: percentageChange(current.income, average("income")) },
+      { title: "Outgoings", kind: "expenses", value: current.expenses, change: percentageChange(current.expenses, average("expenses")) },
+      {
+        title: "Shared balance",
+        kind: "balance",
+        value: current.sharedBalance,
+        change: percentageChange(current.sharedBalance, average("sharedBalance")),
+      },
+    ];
+  }
 
   return (
-    <Card className="border-white/50 bg-card/90 lg:col-span-6">
-      <CardContent className="p-5">
-        <p className="text-base font-semibold text-foreground">Income</p>
-        <p className="mt-3 font-mono text-2xl font-semibold">{currency.format(report.income)}</p>
-        <div
-          className={cn(
-            "mt-5 flex items-center gap-2 text-sm",
-            report.incomeChangePercentage === null
-              ? "text-muted-foreground"
-              : report.incomeChangePercentage >= 0
-                ? "text-positive"
-                : "text-negative",
-          )}
-        >
-          {report.incomeChangePercentage === null ? (
-            range ? (
-              "No earlier range history yet. Record income before this range to compare it."
-            ) : (
-              "No 3-month income history yet. Record income in the prior 3 months to compare this month."
-            )
-          ) : (
-            <>
-              {report.incomeChangePercentage < 0 ? (
-                <ArrowDownRight aria-hidden="true" className="size-4" />
-              ) : (
-                <ArrowUpRight aria-hidden="true" className="size-4" />
-              )}
-              {comparisonLabel(report.incomeChangePercentage, range)}
-            </>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-export async function OutgoingsCard({ range, summary }: { range?: DateRange; summary: DashboardSummaryPromise }) {
-  const report = await summary;
-
-  return (
-    <Card className="border-white/50 bg-card/90 lg:col-span-6">
-      <CardContent className="p-5">
-        <p className="text-base font-semibold text-foreground">Outgoings</p>
-        <p className="mt-3 font-mono text-2xl font-semibold">{currency.format(report.expenses)}</p>
-        <div
-          className={cn(
-            "mt-5 flex items-center gap-2 text-sm",
-            report.expenseChangePercentage === null
-              ? "text-muted-foreground"
-              : report.expenseChangePercentage > 0
-                ? "text-negative"
-                : "text-positive",
-          )}
-        >
-          {report.expenseChangePercentage !== null && report.expenseChangePercentage <= 0 ? (
-            <ArrowDownRight aria-hidden="true" className="size-4" />
-          ) : (
-            <ArrowUpRight aria-hidden="true" className="size-4" />
-          )}
-          {comparisonLabel(report.expenseChangePercentage, range)}
-        </div>
-      </CardContent>
-    </Card>
+    <>
+      {metrics.map((metric) => {
+        const favorable = metric.change === null || (metric.kind === "expenses" ? metric.change <= 0 : metric.change >= 0);
+        return (
+          <Card key={metric.kind} className="h-full border-white/50 bg-card/90 lg:col-span-4">
+            <CardHeader>
+              <CardTitle>{metric.title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p
+                className={cn(
+                  "font-mono text-3xl font-semibold tabular-nums",
+                  metric.kind === "income" || (metric.kind === "balance" && metric.value >= 0)
+                    ? "text-positive"
+                    : metric.kind === "expenses" || metric.value < 0
+                      ? "text-negative"
+                      : undefined,
+                )}
+              >
+                {currency.format(metric.value)}
+              </p>
+              <p
+                className={cn(
+                  "mt-4 flex items-center gap-2 text-sm",
+                  metric.change === null ? "text-muted-foreground" : favorable ? "text-positive" : "text-negative",
+                )}
+              >
+                {metric.change === null ? null : metric.change < 0 ? (
+                  <ArrowDownRight aria-hidden="true" className="size-4 shrink-0" />
+                ) : (
+                  <ArrowUpRight aria-hidden="true" className="size-4 shrink-0" />
+                )}
+                <span className="min-w-0">{comparisonLabel(metric.change, options.range)}</span>
+              </p>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </>
   );
 }
 
@@ -187,7 +209,7 @@ export async function SpendingCard({ options }: { options: DashboardReadOptions 
   );
 
   return (
-    <Card className="border-white/50 bg-card/90 lg:col-span-6 lg:aspect-square">
+    <Card className="border-white/50 bg-card/90 lg:col-span-5 lg:aspect-square">
       <CardContent className="p-5 sm:p-6">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -230,89 +252,42 @@ export async function SpendingCard({ options }: { options: DashboardReadOptions 
   );
 }
 
-export async function BalanceCard({ options, range }: { options: DashboardReadOptions; range?: DateRange }) {
-  const report = await getDashboardBalance(options);
-  const expectedMonthlyIncome = report.expectedMonthlyIncome;
-
-  return (
-    <Card className="border-white/50 bg-card/90 lg:col-span-6">
-      <CardContent className="p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-base font-semibold text-foreground">{range ? "Balance at range end" : "Monthly balance"}</p>
-          </div>
-        </div>
-        {expectedMonthlyIncome === null ? (
-          <div className="mt-7">
-            <p className="font-mono text-2xl font-semibold">No available income</p>
-            <p className="mt-4 text-sm leading-6 text-muted-foreground">
-              {range
-                ? "Record income before this range to estimate this balance."
-                : "Record income in the last 3 months to estimate this balance."}
-            </p>
-          </div>
-        ) : (
-          <>
-            <p className={cn("mt-7 font-mono text-3xl font-semibold", report.sharedBalance >= 0 ? "text-positive" : "text-negative")}>
-              {currency.format(report.sharedBalance)}
-            </p>
-            <div className="mt-6 flex flex-col gap-4">
-              <div className="flex justify-between gap-3 text-sm">
-                <span className="font-medium">Expected income</span>
-                <span className="font-mono text-muted-foreground">{currency.format(expectedMonthlyIncome)}</span>
-              </div>
-              <div className="flex justify-between gap-3 text-sm">
-                <span className="font-medium">Outgoings so far</span>
-                <span className="font-mono text-muted-foreground">{currency.format(report.expenses)}</span>
-              </div>
-            </div>
-            <Separator className="my-5" />
-            <p className="text-sm leading-6 text-muted-foreground">
-              {range ? "Based on prior range average." : "Based on 3-month income average."}
-            </p>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
+export async function DashboardTrendCard({ review }: { review: Promise<DashboardMonthlyTrendRow[]> }) {
+  return <DashboardMonthlyTrend data={await review} />;
 }
 
-export async function RecentActivityCard({ options }: { options: DashboardReadOptions }) {
-  const report = await getDashboardRecentActivity(options);
-
+export async function CategoryChangesCard({ month }: { month: string }) {
+  const changes = await getDashboardCategoryChanges(month);
   return (
-    <Card className="mt-4 border-white/50 bg-card/90">
-      <CardContent className="p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-base font-semibold text-foreground">Latest activity</p>
-          </div>
-          <Button asChild variant="ghost" className="rounded-xl">
-            <Link href="/transactions">View all</Link>
-          </Button>
-        </div>
-        <div className="mt-5 divide-y divide-border/80">
-          {report.transactions.length ? (
-            report.transactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center gap-3 py-4 first:pt-0 last:pb-0">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{transaction.merchant || transaction.note || transaction.kind}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {transaction.categoryName && transaction.subcategoryName
-                      ? `${transaction.categoryName} → ${transaction.subcategoryName}`
-                      : (transaction.subcategoryName ?? transaction.categoryName ?? "Uncategorized")}{" "}
-                    - {transaction.occurredOn}
-                    {transaction.source === "statement_import" ? " - Imported" : ""}
-                  </p>
-                </div>
-                <p className={cn("font-mono text-sm font-semibold", transaction.kind === "income" ? "text-positive" : "text-negative")}>
-                  {transaction.kind === "income" ? "+" : "-"}
-                  {currency.format(transaction.amount)}
-                </p>
+    <Card className="h-full border-white/50 bg-card/90 lg:col-span-7">
+      <CardHeader>
+        <CardTitle>Largest changes</CardTitle>
+        <CardDescription>Monthly totals vs 3-month average.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="divide-y">
+          {changes.length ? (
+            changes.map((change) => (
+              <div key={`${change.kind}-${change.categoryName}`} className="flex items-center justify-between gap-4 py-3">
+                <span>
+                  <strong className="block">{change.categoryName}</strong>
+                  <span className="text-sm text-muted-foreground">{currency.format(change.amount)} this month</span>
+                </span>
+                <span
+                  className={cn(
+                    "font-mono text-sm font-semibold tabular-nums",
+                    (change.kind === "expense" && change.changeAmount > 0) || (change.kind === "income" && change.changeAmount < 0)
+                      ? "text-negative"
+                      : "text-positive",
+                  )}
+                >
+                  {change.changeAmount > 0 ? "+" : "-"}
+                  {currency.format(Math.abs(change.changeAmount))}
+                </span>
               </div>
             ))
           ) : (
-            <p className="text-sm text-muted-foreground">No transactions this month.</p>
+            <p className="py-4 text-sm text-muted-foreground">No category changes above 20% and ₪250.</p>
           )}
         </div>
       </CardContent>
@@ -339,8 +314,8 @@ export default async function HomePage({
     ...(spendingCategoryIds.length ? { spendingCategoryIds } : {}),
     ...(spendingGranularity === "subcategories" ? { spendingGranularity } : {}),
   };
-  const summary = getDashboardSummary(options);
-
+  const reviewMonth = range?.to.slice(0, 7) ?? month;
+  const review = getDashboardMonthlyReview(reviewMonth);
   return (
     <WorkspacePage
       title="Shared money"
@@ -352,22 +327,27 @@ export default async function HomePage({
       }
     >
       <section className="mt-6 grid gap-4 lg:grid-cols-12">
-        <Suspense fallback={<DashboardCardLoading className="lg:col-span-6" title="Income" />}>
-          <IncomeCard range={range} summary={summary} />
+        <Suspense
+          fallback={
+            <>
+              <DashboardCardLoading className="h-full lg:col-span-4" title="Income" />
+              <DashboardCardLoading className="h-full lg:col-span-4" title="Outgoings" />
+              <DashboardCardLoading className="h-full lg:col-span-4" title="Shared balance" />
+            </>
+          }
+        >
+          <DashboardMetricCards options={options} review={review} />
         </Suspense>
-        <Suspense fallback={<DashboardCardLoading className="lg:col-span-6" title="Outgoings" />}>
-          <OutgoingsCard range={range} summary={summary} />
-        </Suspense>
-        <Suspense fallback={<DashboardCardLoading className="lg:col-span-6 lg:aspect-square" title="Where your money went" />}>
+        <Suspense fallback={<DashboardCardLoading className="lg:col-span-5 lg:aspect-square" title="Where your money went" />}>
           <SpendingCard options={options} />
         </Suspense>
-        <Suspense fallback={<DashboardCardLoading className="lg:col-span-6" title={range ? "Balance at range end" : "Monthly balance"} />}>
-          <BalanceCard options={options} range={range} />
+        <Suspense fallback={<DashboardCardLoading className="h-full lg:col-span-7" title="Largest changes" />}>
+          <CategoryChangesCard month={reviewMonth} />
+        </Suspense>
+        <Suspense fallback={<DashboardCardLoading className="min-h-80 lg:col-span-12" title="Six-month trend" />}>
+          <DashboardTrendCard review={review} />
         </Suspense>
       </section>
-      <Suspense fallback={<DashboardCardLoading className="mt-4" title="Latest activity" />}>
-        <RecentActivityCard options={options} />
-      </Suspense>
     </WorkspacePage>
   );
 }

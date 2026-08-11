@@ -42,12 +42,13 @@ export function DashboardMembershipFallback() {
   return (
     <WorkspacePage title="Shared money" description="A calm view of your household money." actions={<DashboardActionsLoading />}>
       <section className="mt-6 grid gap-4 lg:grid-cols-12">
-        <DashboardCardLoading className="lg:col-span-6" title="Income" />
-        <DashboardCardLoading className="lg:col-span-6" title="Outgoings" />
-        <DashboardCardLoading className="lg:col-span-6 lg:aspect-square" title="Where your money went" />
-        <DashboardCardLoading className="lg:col-span-6" title="Monthly balance" />
+        <DashboardCardLoading className="h-full lg:col-span-4" title="Income" />
+        <DashboardCardLoading className="h-full lg:col-span-4" title="Outgoings" />
+        <DashboardCardLoading className="h-full lg:col-span-4" title="Shared balance" />
+        <DashboardCardLoading className="lg:col-span-5 lg:aspect-square" title="Where your money went" />
+        <DashboardCardLoading className="h-full lg:col-span-7" title="Largest changes" />
+        <DashboardCardLoading className="min-h-80 lg:col-span-12" title="Six-month trend" />
       </section>
-      <DashboardCardLoading className="mt-4" title="Latest activity" />
     </WorkspacePage>
   );
 }

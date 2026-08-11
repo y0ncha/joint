@@ -636,6 +636,27 @@ export type Database = {
           shared_balance: number
         }[]
       }
+      dashboard_category_changes: {
+        Args: { p_month: string }
+        Returns: {
+          amount: number
+          average_amount: number
+          category_name: string
+          change_amount: number
+          change_percentage: number | null
+          kind: Database["public"]["Enums"]["category_kind"]
+        }[]
+      }
+      dashboard_monthly_review: {
+        Args: { p_month: string }
+        Returns: {
+          expenses: number
+          income: number
+          month: string
+          savings: number
+          shared_balance: number
+        }[]
+      }
       dashboard_recent_activity: {
         Args: {
           p_month: string

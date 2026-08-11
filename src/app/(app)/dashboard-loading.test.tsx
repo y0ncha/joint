@@ -22,8 +22,19 @@ it("keeps a visible card title and accessible reduced-motion-safe loading status
 
 it("shows route-shaped membership fallbacks", () => {
   currentPathname.value = "/";
-  expect(renderToStaticMarkup(<RouteMembershipFallback />)).toContain("Loading Latest activity");
-  expect(renderToStaticMarkup(<DashboardMembershipFallback />)).toContain("lg:col-span-6 lg:aspect-square");
+  expect(renderToStaticMarkup(<RouteMembershipFallback />)).toContain("Loading Six-month trend");
+  const dashboardMarkup = renderToStaticMarkup(<DashboardMembershipFallback />);
+  expect(dashboardMarkup).toContain("Loading Income");
+  expect(dashboardMarkup).toContain("Loading Outgoings");
+  expect(dashboardMarkup).toContain("Loading Shared balance");
+  expect(dashboardMarkup).toContain("Loading Largest changes");
+  expect(dashboardMarkup).toContain("Loading Six-month trend");
+  expect(dashboardMarkup).toContain("lg:col-span-5 lg:aspect-square");
+  expect(dashboardMarkup).toContain("lg:col-span-7");
+  expect(dashboardMarkup).toContain("lg:col-span-12");
+  expect([...dashboardMarkup.matchAll(/lg:col-span-4/g)]).toHaveLength(3);
+  expect(dashboardMarkup).not.toContain("Latest activity");
+  expect(dashboardMarkup).not.toContain("[contain:size]");
 
   currentPathname.value = "/bills-groceries";
   const billsMarkup = renderToStaticMarkup(<RouteMembershipFallback />);
@@ -37,5 +48,5 @@ it("shows route-shaped membership fallbacks", () => {
   expect(detailMarkup.match(/data-slot=\"card\"/g)).toHaveLength(1);
 
   currentPathname.value = "/transactions";
-  expect(renderToStaticMarkup(<RouteMembershipFallback />)).not.toContain("Loading Latest activity");
+  expect(renderToStaticMarkup(<RouteMembershipFallback />)).not.toContain("Loading Six-month trend");
 });
