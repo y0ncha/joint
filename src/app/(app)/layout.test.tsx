@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
+
+import { DashboardMembershipFallback } from "./dashboard-loading";
+import { ProfileInitialAvatar, WorkspaceChrome } from "@/components/workspace-shell";
 
 const mocks = vi.hoisted(() => ({
   getCurrentHouseholdContext: vi.fn(),
@@ -45,5 +49,18 @@ describe("protected app layout", () => {
     await AuthenticatedAppLayout({ children: "protected" });
 
     expect(mocks.redirect).toHaveBeenCalledWith("/auth/access-denied");
+  });
+
+  it("keeps protected children out of the pending chrome", () => {
+    const markup = renderToStaticMarkup(
+      <WorkspaceChrome profileSlot={<ProfileInitialAvatar name="" />}>
+        <DashboardMembershipFallback />
+      </WorkspaceChrome>,
+    );
+
+    expect(markup).toContain("Skip to page content");
+    expect(markup).toContain("Loading dashboard controls");
+    expect(markup).not.toContain("Ada Lovelace");
+    expect(markup).not.toContain("₪12,000");
   });
 });

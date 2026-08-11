@@ -16,6 +16,7 @@ The interface should feel quiet, trustworthy, and operational. Prefer clear hier
 - Avoid image backgrounds, nested glass cards, large marketing treatments, and ornamental data visualizations.
 - Reuse an established surface, row, form, or navigation family before introducing a new pattern.
 - Use semantic styling for meaning. A personal accent may change emphasis, but never financial semantics.
+- Keep the authenticated workspace chrome stable while page data loads: the warm canvas and primary navigation render first, while page content remains behind verified household membership.
 
 ## Color system
 
@@ -161,10 +162,13 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 - Animate transform and opacity only. Avoid large-distance movement, bounce, or layout-shifting effects.
 - Honor `prefers-reduced-motion`; pending indicators must remain understandable without animation.
 - Controls must not shift surrounding layout when hovered, opened, submitted, or when their label changes.
+- The dashboard preserves its heading and card grid while focused reads resolve. Each card uses the owned `Spinner` and `Skeleton`, keeps an approximate final height, and replaces only its own fallback; Income and Outgoings resolve together from their shared summary read.
+- Do not use a route-group `loading.tsx` for the authenticated workspace. It replaces the persistent chrome during child-route navigation and creates a second-shell flash.
 
 ## Accessibility
 
 - Every interactive control must be keyboard reachable and operable.
+- The workspace chrome provides a keyboard-visible skip link to the current page content.
 - Preserve visible `focus-visible` treatment; never remove an outline without an equivalent ring.
 - Maintain at least 44px targets for mobile buttons, navigation items, segmented choices, and row actions.
 - Labels must be programmatically associated with inputs.
