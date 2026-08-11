@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 
+import { BillsGroceriesDetailLoading, BillsGroceriesLoading } from "@/components/bills-groceries-loading";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -48,5 +49,8 @@ export function DashboardMembershipFallback() {
 }
 
 export function RouteMembershipFallback() {
-  return usePathname() === "/" ? <DashboardMembershipFallback /> : null;
+  const pathname = usePathname();
+  if (pathname === "/") return <DashboardMembershipFallback />;
+  if (pathname === "/bills-groceries") return <BillsGroceriesLoading />;
+  return pathname.startsWith("/bills-groceries/") ? <BillsGroceriesDetailLoading /> : null;
 }
