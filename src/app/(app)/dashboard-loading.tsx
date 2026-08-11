@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 
 import { BillsGroceriesDetailLoading, BillsGroceriesLoading } from "@/components/bills-groceries-loading";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { WorkspacePage } from "@/components/workspace-shell";
@@ -22,13 +22,17 @@ export function DashboardActionsLoading() {
 export function DashboardCardLoading({ className, title }: { className?: string; title: string }) {
   return (
     <Card className={cn("border-white/50 bg-card/90", className)}>
-      <CardContent className="p-5 sm:p-6">
-        <div role="status" aria-live="polite" className="flex items-center justify-between gap-3">
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+      <CardHeader className="px-5 pt-5 sm:px-6 sm:pt-6">
+        <CardTitle className="text-sm text-muted-foreground">{title}</CardTitle>
+        <CardAction>
           <Spinner aria-hidden="true" className="text-muted-foreground" />
-          <span className="sr-only">Loading {title}</span>
-        </div>
-        <Skeleton className="mt-5 h-8" />
+        </CardAction>
+        <span role="status" aria-live="polite" className="sr-only">
+          Loading {title}
+        </span>
+      </CardHeader>
+      <CardContent className="px-5 pb-5 sm:px-6 sm:pb-6">
+        <Skeleton className="h-8" />
       </CardContent>
     </Card>
   );
@@ -40,8 +44,8 @@ export function DashboardMembershipFallback() {
       <section className="mt-6 grid gap-4 lg:grid-cols-12">
         <DashboardCardLoading className="lg:col-span-6" title="Income" />
         <DashboardCardLoading className="lg:col-span-6" title="Outgoings" />
-        <DashboardCardLoading className="lg:col-span-8" title="Where your money went" />
-        <DashboardCardLoading className="lg:col-span-4" title="Monthly balance" />
+        <DashboardCardLoading className="lg:col-span-6 lg:aspect-square" title="Where your money went" />
+        <DashboardCardLoading className="lg:col-span-6" title="Monthly balance" />
       </section>
       <DashboardCardLoading className="mt-4" title="Latest activity" />
     </WorkspacePage>

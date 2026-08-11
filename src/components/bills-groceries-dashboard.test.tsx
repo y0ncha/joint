@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { isValidElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 
@@ -18,6 +19,26 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mocks.push }),
   useSearchParams: () => mocks.searchParams,
 }));
+vi.mock("recharts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("recharts")>();
+  return {
+    ...actual,
+    Bar: () => null,
+    BarChart: ({ children }: { children: ReactNode }) => <>{children}</>,
+    CartesianGrid: () => null,
+    Cell: () => null,
+    Legend: ({ content, height }: { content?: ReactNode; height?: number }) => (
+      <span
+        data-legend-class={isValidElement<{ className?: string }>(content) ? content.props.className : undefined}
+        data-legend-height={height}
+      />
+    ),
+    ReferenceLine: ({ y }: { y: number }) => <span data-budget-line={y} />,
+    Tooltip: () => null,
+    XAxis: () => null,
+    YAxis: () => null,
+  };
+});
 vi.mock("@/lib/bills-groceries", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/bills-groceries")>();
   mocks.alignBillYearOverYear.mockImplementation(actual.alignBillYearOverYear);
@@ -411,7 +432,7 @@ it("keeps Bills stacks and their equivalent table in stable chart order", () => 
   expect(table.indexOf(">Rent</th>")).toBeLessThan(table.indexOf(">Water</th>"));
 });
 
-it("uses nine distinct presentation colors and a two-row legend for Bills series", () => {
+it("limits Bills legends to two five-item rows", () => {
   const data = {
     ...liveData,
     bills: {
@@ -420,7 +441,18 @@ it("uses nine distinct presentation colors and a two-row legend for Bills series
     },
   } as never;
 
-  const markup = renderToStaticMarkup(<BillsGroceriesDashboard data={data} billIds={["bill-0"]} billId="bill-0" period="rolling" />);
+  const markup = renderToStaticMarkup(
+    <BillsGroceriesDashboard
+      data={data}
+      billIds={Array.from({ length: 9 }, (_, index) => `bill-${index}`)}
+      billId="bill-0"
+      period="rolling"
+    />,
+  );
+
+  expect(markup).toContain('data-legend-class="hidden w-full grid-cols-5');
+  expect(markup).toContain('data-legend-height="68"');
+  expect(markup).toContain('style="height:348px"');
 
   for (const color of [
     "var(--analytics-bill-1)",
@@ -435,6 +467,27 @@ it("uses nine distinct presentation colors and a two-row legend for Bills series
   ]) {
     expect(markup).toContain(color);
   }
+});
+
+it("hides both Bills legends when more than ten Bills are selected", () => {
+  const data = {
+    ...liveData,
+    bills: {
+      ...liveData.bills,
+      subcategories: Array.from({ length: 11 }, (_, index) => ({ id: `bill-${index}`, name: `Bill ${index}`, color: "#d9f0fa" })),
+    },
+  } as never;
+
+  const markup = renderToStaticMarkup(
+    <BillsGroceriesDashboard
+      data={data}
+      billIds={Array.from({ length: 11 }, (_, index) => `bill-${index}`)}
+      billId="bill-0"
+      period="rolling"
+    />,
+  );
+
+  expect(markup).not.toContain("data-legend-height");
 });
 
 it("uses the Groceries analytics heatmap palette with white active-day labels and light idle cells", () => {
@@ -550,7 +603,7 @@ it("omits zero-spend rows from analytics detail tables", () => {
   expect(detailTable(dailyMarkup, "Groceries by day")).toContain("₪168.00");
 });
 
-it("omits the configured budget from the monthly Groceries chart detail", () => {
+it("renders the configured Groceries budget line without its label", () => {
   const markup = renderToStaticMarkup(
     <BillsGroceriesChartDetail
       chart="groceries"
@@ -569,6 +622,7 @@ it("omits the configured budget from the monthly Groceries chart detail", () => 
     />,
   );
 
+  expect(markup).toContain("--color-budget: var(--color-muted-foreground)");
+  expect(markup).toContain('data-budget-line="2000"');
   expect(markup).not.toContain("Monthly budget");
-  expect(markup).not.toContain("₪2,000.00");
 });

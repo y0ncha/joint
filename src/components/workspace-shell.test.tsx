@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import type { ComponentProps } from "react";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { getProfileInitials } from "@/lib/profile";
@@ -8,6 +9,11 @@ import { loadVerifiedProfileName, ProfileInitialAvatar, WorkspaceChrome, Workspa
 const currentPathname = vi.hoisted(() => ({ value: "/settings" }));
 
 vi.mock("next/navigation", () => ({ usePathname: () => currentPathname.value }));
+vi.mock("next/link", () => ({
+  default: ({ prefetch, href, className, ...props }: ComponentProps<"a"> & { prefetch?: boolean }) => (
+    <a {...props} className={className} href={href} {...(prefetch ? { "data-prefetch": "full" } : {})} />
+  ),
+}));
 
 const mocks = vi.hoisted(() => ({
   getClaims: vi.fn(),
@@ -175,6 +181,18 @@ it("renders Categories and Automations in the desktop navigation only", () => {
   expect(navigations[0]).toMatch(/<a[^>]*class="[^"]*size-11[^>]*href="\/bills-groceries"/);
 
   expect(navigations[1]).not.toContain("Bills &amp; Groceries</span>");
+});
+
+it("keeps Bills & Groceries prefetching partial so its loading boundary can render", () => {
+  const markup = renderToStaticMarkup(
+    <WorkspaceFixture title="Settings">
+      <p>Content</p>
+    </WorkspaceFixture>,
+  );
+  const billsLinks = [...markup.matchAll(/<a\b[^>]*href="\/bills-groceries"[^>]*>/g)].map(([link]) => link);
+
+  expect(billsLinks).toHaveLength(2);
+  expect(billsLinks.every((link) => !link.includes('data-prefetch="full"'))).toBe(true);
 });
 
 it("marks Bills & Groceries active for its route and nested paths", () => {

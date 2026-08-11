@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { type ReactNode } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from "recharts";
 import { ArrowLeft, ChevronDown, Maximize2, Settings2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -355,6 +355,8 @@ function BillsGroceriesCharts({
   });
   const selectedBills = presentation.billIds;
   const orderedSelectedBills = chartBills.filter((bill) => selectedBills.includes(bill.value));
+  const showBillsLegends = orderedSelectedBills.length > 0 && orderedSelectedBills.length <= 10;
+  const billsLegendHeight = showBillsLegends ? Math.ceil(orderedSelectedBills.length / 5) * 28 + 12 : 0;
   const yearOverYearBill = presentation.billId;
   const groceryFilter = presentation.grocery;
   const billMonthlyData: MonthlyChartDatum[] = data.months.map((month) => ({
@@ -379,7 +381,9 @@ function BillsGroceriesCharts({
   const groceryChartConfig = {
     mainRun: { label: mainRun?.name ?? "Main run", color: "var(--analytics-groceries-main-run)" },
     topUps: { label: topUps?.name ?? "Top-ups", color: "var(--analytics-groceries-top-ups)" },
+    budget: { color: "var(--color-muted-foreground)" },
   } satisfies ChartConfig;
+  const groceryBudgetAgorot = data.groceries.monthly.budgetAgorot;
   const yearOverYearBillDetails = chartBills.find((bill) => bill.value === yearOverYearBill) ?? chartBills[0];
   const yearOverYearData = alignBillYearOverYear(data.months, data.bills.monthly, yearOverYearBill).map(
     ({ month, currentAgorot, previousAgorot }) => ({
@@ -472,7 +476,8 @@ function BillsGroceriesCharts({
         >
           <ChartContainer
             config={Object.fromEntries(chartBills.map((bill) => [bill.value, { label: bill.label, color: bill.color }]))}
-            className={cn(chartHeightClass, "w-full", !detail && "flex-1")}
+            className="w-full shrink-0 aspect-auto"
+            style={{ height: `${(detail ? 320 : 280) + billsLegendHeight}px` }}
             role="region"
             aria-label="Stacked monthly Bills chart, use arrow keys to inspect values"
           >
@@ -481,11 +486,12 @@ function BillsGroceriesCharts({
               <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
               <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value) => `₪${value}`} />
               <ExactTooltip labels={Object.fromEntries(chartBills.map((bill) => [bill.value, bill.label]))} totalLabel="Total" />
-              <ChartLegend
-                content={
-                  <ChartLegendContent className="hidden w-full grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-x-3 gap-y-2 [&>div]:truncate md:grid" />
-                }
-              />
+              {showBillsLegends && (
+                <ChartLegend
+                  height={billsLegendHeight}
+                  content={<ChartLegendContent className="hidden w-full grid-cols-5 gap-x-3 gap-y-2 [&>div]:truncate md:grid" />}
+                />
+              )}
               {orderedSelectedBills.map((bill, index) => (
                 <Bar key={bill.value} dataKey={bill.value} stackId="bills" fill={bill.color}>
                   {billMonthlyData.map((month) => (
@@ -571,7 +577,7 @@ function BillsGroceriesCharts({
               <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
               <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value) => `₪${value}`} />
               <ExactTooltip labels={{ current: "Current year", previous: "Previous year" }} />
-              <ChartLegend content={<ChartLegendContent />} />
+              {showBillsLegends && <ChartLegend content={<ChartLegendContent />} />}
               <Bar dataKey="previous" fill="var(--color-previous)" fillOpacity={0.38} radius={[3, 3, 0, 0]} />
               <Bar dataKey="current" fill="var(--color-current)" radius={[3, 3, 0, 0]} />
             </BarChart>
@@ -626,6 +632,9 @@ function BillsGroceriesCharts({
                   <YAxis tickLine={false} axisLine={false} width={58} tickFormatter={(value) => `₪${value}`} />
                   <ExactTooltip labels={{ mainRun: mainRun?.name ?? "Main run", topUps: topUps?.name ?? "Top-ups" }} totalLabel="Total" />
                   <ChartLegend content={<ChartLegendContent />} />
+                  {groceryBudgetAgorot != null ? (
+                    <ReferenceLine y={groceryBudgetAgorot / 100} stroke="var(--color-budget)" strokeDasharray="4 4" />
+                  ) : null}
                   <Bar dataKey="mainRun" stackId="groceries" fill="var(--color-mainRun)">
                     {groceryMonthlyData.map((month) => (
                       <Cell key={month.month} radius={stackedBarRadius([month.mainRun, month.topUps], 0) as unknown as number} />

@@ -82,7 +82,6 @@ function NavigationItem({ href, label, icon: Icon }: { href: string; label: stri
       aria-current={active ? "page" : undefined}
       aria-label={label}
       href={href}
-      prefetch
       className={cn(
         "flex size-11 touch-manipulation items-center justify-center rounded-2xl transition-colors duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-white/65 hover:text-foreground",
