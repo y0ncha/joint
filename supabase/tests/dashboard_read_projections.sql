@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(11);
+select plan(12);
 
 insert into auth.users (id, email, email_confirmed_at, raw_app_meta_data)
 values
@@ -96,9 +96,15 @@ select results_eq(
 );
 
 select results_eq(
-  $$ select category_name, amount from public.dashboard_spending('2026-07-01', null, null) $$,
+  $$ select category_name, amount from public.dashboard_spending('2026-07-01', null, null, null) $$,
   $$ values ('Food'::text, 7900::numeric), ('Other'::text, 40::numeric) $$,
   'spending groups selected expenses by parent category'
+);
+
+select results_eq(
+  $$ select category_name, amount from public.dashboard_spending('2026-07-01', null, null, '00000000-0000-0000-0000-000000000521') $$,
+  $$ values ('Meals'::text, 7900::numeric) $$,
+  'spending groups a selected category by subcategory'
 );
 
 select results_eq(
@@ -126,11 +132,11 @@ select ok(
 
 select ok(
   has_function_privilege('authenticated', 'public.dashboard_summary(date,date,date)', 'EXECUTE')
-    and has_function_privilege('authenticated', 'public.dashboard_spending(date,date,date)', 'EXECUTE')
+    and has_function_privilege('authenticated', 'public.dashboard_spending(date,date,date,uuid)', 'EXECUTE')
     and has_function_privilege('authenticated', 'public.dashboard_balance(date,date,date)', 'EXECUTE')
     and has_function_privilege('authenticated', 'public.dashboard_recent_activity(date,date,date)', 'EXECUTE')
     and not has_function_privilege('anon', 'public.dashboard_summary(date,date,date)', 'EXECUTE')
-    and not has_function_privilege('anon', 'public.dashboard_spending(date,date,date)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.dashboard_spending(date,date,date,uuid)', 'EXECUTE')
     and not has_function_privilege('anon', 'public.dashboard_balance(date,date,date)', 'EXECUTE')
     and not has_function_privilege('anon', 'public.dashboard_recent_activity(date,date,date)', 'EXECUTE'),
   'only authenticated application callers can execute dashboard projections'

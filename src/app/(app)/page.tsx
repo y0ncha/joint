@@ -1,8 +1,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ArrowDownRight, ArrowUpRight, MoreHorizontal, Settings2 } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Settings2 } from "lucide-react";
 
 import { DashboardActionsLoading, DashboardCardLoading } from "./dashboard-loading";
+import { DashboardSpendingCategorySelector } from "@/components/dashboard-spending-category-selector";
 import { LedgerMonthSelector } from "@/components/ledger-month-selector";
 import { TransactionSheet } from "@/components/transaction-sheet";
 import { WorkspacePage } from "@/components/workspace-shell";
@@ -138,7 +139,17 @@ export async function OutgoingsCard({ range, summary }: { range?: DateRange; sum
 }
 
 export async function SpendingCard({ monthLabel, options }: { monthLabel: string; options: DashboardReadOptions }) {
-  const report = await getDashboardSpending(options);
+  const [report, controls] = await Promise.all([getDashboardSpending(options), getDashboardControls()]);
+  const selectableCategories = controls.categories.filter(
+    (category) =>
+      category.kind === "expense" &&
+      category.archivedAt === null &&
+      controls.subcategories.some(
+        (subcategory) =>
+          subcategory.categoryId === category.id && subcategory.archivedAt === null && subcategory.categoryArchivedAt === null,
+      ),
+  );
+  const selectedCategory = selectableCategories.find((category) => category.id === options.spendingCategoryId);
   const maximumCategoryAmount = Math.max(1, ...report.categoryTotals.map((category) => category.amount));
 
   return (
@@ -149,9 +160,7 @@ export async function SpendingCard({ monthLabel, options }: { monthLabel: string
             <p className="text-sm font-medium text-muted-foreground">Where your money went</p>
             <h2 className="mt-1 text-lg font-semibold">{options.range ? formatDateRange(options.range) : monthLabel}</h2>
           </div>
-          <Button variant="ghost" size="icon" aria-label="More chart options">
-            <MoreHorizontal />
-          </Button>
+          <DashboardSpendingCategorySelector categories={selectableCategories} selectedCategoryId={selectedCategory?.id} />
         </div>
         <div className="mt-7 flex flex-col gap-5">
           {report.categoryTotals.length ? (
@@ -170,12 +179,16 @@ export async function SpendingCard({ monthLabel, options }: { monthLabel: string
               </div>
             ))
           ) : (
-            <p className="text-sm text-muted-foreground">No expense categories this month.</p>
+            <p className="text-sm text-muted-foreground">
+              {selectedCategory
+                ? `No ${selectedCategory.name.toLocaleLowerCase()} subcategory expenses this month.`
+                : "No expense categories this month."}
+            </p>
           )}
         </div>
         {report.categoryTotals.length ? (
           <p className="sr-only">
-            Category spending:{" "}
+            {selectedCategory ? `${selectedCategory.name} subcategory spending` : "Category spending"}:{" "}
             {report.categoryTotals.map((category) => `${category.categoryName} ${currency.format(category.amount)}`).join(", ")}.
           </p>
         ) : null}
@@ -275,13 +288,22 @@ export async function RecentActivityCard({ options }: { options: DashboardReadOp
   );
 }
 
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ from?: string; month?: string; to?: string }> }) {
-  const { from, month: requestedMonth, to } = await searchParams;
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; month?: string; spendingCategory?: string; to?: string }>;
+}) {
+  const { from, month: requestedMonth, spendingCategory, to } = await searchParams;
   const current = previousMonth();
   const month = requestedMonth && /^\d{4}-\d{2}$/.test(requestedMonth) ? requestedMonth : current;
   const monthLabel = monthName.format(new Date(`${month}-01T00:00:00Z`));
   const range = getValidDateRange(from, to);
-  const options: DashboardReadOptions = range ? { month, range } : { month };
+  const spendingCategoryId = spendingCategory?.match(/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i)?.[0];
+  const options: DashboardReadOptions = {
+    month,
+    ...(range ? { range } : {}),
+    ...(spendingCategoryId ? { spendingCategoryId } : {}),
+  };
   const summary = getDashboardSummary(options);
 
   return (

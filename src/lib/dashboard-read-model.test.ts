@@ -189,6 +189,20 @@ it("maps each focused dashboard projection to the existing report names", async 
   });
 });
 
+it("passes a selected category to the authenticated spending projection", async () => {
+  mocks.rpc.mockResolvedValueOnce({ data: [{ amount: 4280, category_id: "groceries", category_name: "Groceries" }], error: null });
+
+  await expect(getDashboardSpending({ month: "2026-07", spendingCategoryId: "food" })).resolves.toEqual({
+    categoryTotals: [{ amount: 4280, categoryId: "groceries", categoryName: "Groceries" }],
+  });
+  expect(mocks.rpc).toHaveBeenCalledWith("dashboard_spending", {
+    p_category_id: "food",
+    p_month: "2026-07-01",
+    p_range_from: null,
+    p_range_to: null,
+  });
+});
+
 it("does not return more than five activity rows", async () => {
   mocks.rpc.mockResolvedValueOnce({
     data: Array.from({ length: 5 }, (_, index) => ({

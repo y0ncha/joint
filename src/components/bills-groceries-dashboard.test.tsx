@@ -387,7 +387,7 @@ it("renders the analytics palette, missing-data guidance, and exact daily values
   expect(markup).toContain("color-mix(in oklab, var(--analytics-groceries-heatmap) 25%, transparent)");
   expect(markup).toContain("var(--analytics-bill-1)");
   expect(markup).not.toContain("No previous-year data");
-  expect(markup).toContain("Set a monthly groceries budget in Settings.");
+  expect(markup).not.toContain("monthly budget");
   expect(markup).toContain("2026-07-01: ₪0.00");
   expect(markup).toContain("2026-07-02: ₪168.00");
 });
@@ -550,7 +550,7 @@ it("omits zero-spend rows from analytics detail tables", () => {
   expect(detailTable(dailyMarkup, "Groceries by day")).toContain("₪168.00");
 });
 
-it("includes the configured budget in the equivalent monthly Groceries table", () => {
+it("omits the configured budget from the monthly Groceries chart detail", () => {
   const markup = renderToStaticMarkup(
     <BillsGroceriesChartDetail
       chart="groceries"
@@ -569,6 +569,6 @@ it("includes the configured budget in the equivalent monthly Groceries table", (
     />,
   );
 
-  expect(markup).toContain("Monthly budget");
-  expect(markup).toContain("₪2,000.00");
+  expect(markup).not.toContain("Monthly budget");
+  expect(markup).not.toContain("₪2,000.00");
 });

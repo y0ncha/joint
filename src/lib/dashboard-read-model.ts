@@ -4,7 +4,7 @@ import { getIsoMonthRange, type DateRange } from "@/lib/date-range";
 import { getCurrentHouseholdContext } from "@/lib/household";
 import type { LedgerFilterKind, LedgerSort } from "@/lib/ledger-filters";
 
-type DashboardReadOptions = { month: string; range?: DateRange };
+type DashboardReadOptions = { month: string; range?: DateRange; spendingCategoryId?: string };
 
 function money(value: number) {
   const amount = Number(value);
@@ -104,7 +104,10 @@ export async function getDashboardSummary(options: DashboardReadOptions) {
 
 export async function getDashboardSpending(options: DashboardReadOptions) {
   const household = await memberContext();
-  const { data, error } = await household.supabase.rpc("dashboard_spending", rpcArgs(options));
+  const { data, error } = await household.supabase.rpc("dashboard_spending", {
+    ...rpcArgs(options),
+    p_category_id: options.spendingCategoryId ?? null,
+  });
   if (error) throw new Error("Unable to load dashboard spending.");
   return {
     categoryTotals: (data ?? []).map((row) => ({

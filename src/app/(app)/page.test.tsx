@@ -28,7 +28,11 @@ vi.mock("@/components/transaction-sheet", () => ({
     return <button aria-label="Add transaction" />;
   },
 }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+  useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 import Home, { BalanceCard, DashboardActions, IncomeCard, OutgoingsCard, RecentActivityCard, SpendingCard } from "./page";
 
@@ -40,7 +44,7 @@ const summary = {
   incomeChangePercentage: 12.5,
 };
 
-function renderHome(searchParams: { from?: string; month?: string; to?: string } = {}) {
+function renderHome(searchParams: { from?: string; month?: string; spendingCategory?: string; to?: string } = {}) {
   return Home({ searchParams: Promise.resolve(searchParams) });
 }
 
@@ -147,7 +151,7 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("18,420");
     expect(markup).toContain("Where your money went");
     expect(markup).toContain("July 2026");
-    expect(markup).toContain("More chart options");
+    expect(markup).toContain('aria-label="Break down spending by category"');
     expect(markup).toContain("Super-Pharm Ltd.");
     expect(markup).toContain("Home → Groceries - 2026-07-14");
     expect(markup).toContain("Imported");
@@ -195,6 +199,21 @@ describe("Joint dashboard", () => {
     renderToStaticMarkup(await renderHome({ month: "2026-06" }));
 
     expect(mocks.getDashboardSummary).toHaveBeenCalledWith({ month: "2026-06" });
+  });
+
+  it("uses an eligible URL category to request its subcategory spending", async () => {
+    renderToStaticMarkup(await renderHome({ spendingCategory: "00000000-0000-0000-0000-000000000521" }));
+
+    expect(mocks.getDashboardSpending).toHaveBeenCalledWith({
+      month: "2026-07",
+      spendingCategoryId: "00000000-0000-0000-0000-000000000521",
+    });
+  });
+
+  it("ignores an invalid spending category URL value", async () => {
+    renderToStaticMarkup(await renderHome({ spendingCategory: "not-a-uuid" }));
+
+    expect(mocks.getDashboardSpending).toHaveBeenCalledWith({ month: "2026-07" });
   });
 
   it("passes a selected custom range to focused dashboard reads", async () => {
