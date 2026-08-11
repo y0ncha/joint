@@ -62,4 +62,16 @@ describe("protected app layout", () => {
     expect(markup).not.toContain("Ada Lovelace");
     expect(markup).not.toContain("₪12,000");
   });
+
+  it("does not duplicate chrome, main landmarks, or dashboard headings during loading", () => {
+    const markup = renderToStaticMarkup(
+      <WorkspaceChrome profileSlot={<ProfileInitialAvatar name="" />}>
+        <DashboardMembershipFallback />
+      </WorkspaceChrome>,
+    );
+
+    expect(markup.match(/<main/g)).toHaveLength(1);
+    expect(markup.match(/Shared money/g)).toHaveLength(1);
+    expect(markup.match(/aria-label="Primary navigation"/g)).toHaveLength(2);
+  });
 });
