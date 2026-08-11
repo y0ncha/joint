@@ -7,7 +7,7 @@ type DonutSegment = { color: string; id: string; label: string; path?: string };
 export function DashboardSpendingDonut({ ariaLabel, segments, total }: { ariaLabel: string; segments: DonutSegment[]; total: string }) {
   return (
     <TooltipProvider>
-      <div aria-label={ariaLabel} className="relative aspect-square w-56 justify-self-center">
+      <div aria-label={ariaLabel} className="relative aspect-square w-full justify-self-center lg:w-[min(100cqw,100cqh)]">
         <svg viewBox="0 0 200 200" className="size-full" role="img" aria-label="Spending breakdown">
           {segments.length === 1 ? (
             <Tooltip>
@@ -28,7 +28,7 @@ export function DashboardSpendingDonut({ ariaLabel, segments, total }: { ariaLab
           )}
         </svg>
         <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
-          <span className="font-mono text-lg font-semibold">{total}</span>
+          <span className="font-mono text-4xl font-semibold sm:text-5xl">{total}</span>
         </div>
       </div>
     </TooltipProvider>

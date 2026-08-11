@@ -77,8 +77,6 @@ const mocks = vi.hoisted(() => {
 vi.mock("@/lib/household", () => ({ getCurrentHouseholdContext: mocks.getCurrentHouseholdContext }));
 
 import {
-  getDashboardBalance,
-  getDashboardCategoryChanges,
   getDashboardControls,
   getDashboardMonthlyReview,
   getDashboardRecentActivity,
@@ -134,41 +132,16 @@ it("requests the summary projection without a browser-controlled household id", 
   });
 });
 
-it("maps the bounded monthly review and category comparison projections", async () => {
-  mocks.rpc
-    .mockResolvedValueOnce({
-      data: [{ expenses: 8000, income: 12000, month: "2026-07-01", savings: 4000, shared_balance: 18000 }],
-      error: null,
-    })
-    .mockResolvedValueOnce({
-      data: [
-        {
-          amount: 453,
-          average_amount: 2170,
-          category_name: "Bills",
-          change_amount: -1717,
-          change_percentage: -79.1,
-          kind: "expense",
-        },
-      ],
-      error: null,
-    });
+it("maps the bounded monthly review projection", async () => {
+  mocks.rpc.mockResolvedValueOnce({
+    data: [{ expenses: 8000, income: 12000, month: "2026-07-01", savings: 4000 }],
+    error: null,
+  });
 
   await expect(getDashboardMonthlyReview("2026-07")).resolves.toEqual([
-    { expenses: 8000, income: 12000, month: "2026-07-01", savings: 4000, sharedBalance: 18000 },
-  ]);
-  await expect(getDashboardCategoryChanges("2026-07")).resolves.toEqual([
-    {
-      amount: 453,
-      averageAmount: 2170,
-      categoryName: "Bills",
-      changeAmount: -1717,
-      changePercentage: -79.1,
-      kind: "expense",
-    },
+    { expenses: 8000, income: 12000, month: "2026-07-01", savings: 4000 },
   ]);
   expect(mocks.rpc).toHaveBeenNthCalledWith(1, "dashboard_monthly_review", { p_month: "2026-07-01" });
-  expect(mocks.rpc).toHaveBeenNthCalledWith(2, "dashboard_category_changes", { p_month: "2026-07-01" });
 });
 
 it("loads only the category, subcategory, and member controls", async () => {
@@ -185,7 +158,6 @@ it("loads only the category, subcategory, and member controls", async () => {
 it("maps each focused dashboard projection to the existing report names", async () => {
   mocks.rpc
     .mockResolvedValueOnce({ data: [{ amount: 4280, category_id: "food", category_name: "Food" }], error: null })
-    .mockResolvedValueOnce({ data: [{ expected_monthly_income: 18000, expenses: 7940, shared_balance: 18420 }], error: null })
     .mockResolvedValueOnce({
       data: [
         {
@@ -205,11 +177,6 @@ it("maps each focused dashboard projection to the existing report names", async 
 
   await expect(getDashboardSpending({ month: "2026-07" })).resolves.toEqual({
     categoryTotals: [{ amount: 4280, categoryId: "food", categoryName: "Food" }],
-  });
-  await expect(getDashboardBalance({ month: "2026-07" })).resolves.toEqual({
-    expectedMonthlyIncome: 18000,
-    expenses: 7940,
-    sharedBalance: 18420,
   });
   await expect(getDashboardRecentActivity({ month: "2026-07" })).resolves.toEqual({
     transactions: [

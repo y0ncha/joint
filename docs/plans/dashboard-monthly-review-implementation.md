@@ -59,12 +59,12 @@ Expected: PASS.
 
 **Interfaces:**
 
-- Consumes: `DashboardMonthlyReviewRow[]` with `month`, `income`, `expenses`, and `sharedBalance`.
+- Consumes: `DashboardMonthlyReviewRow[]` with `month`, `income`, `expenses`, and `savings` (monthly balance), without a cumulative shared-balance field.
 - Produces: `DashboardMonthlyTrend({ data })`, a client component containing the owned chart and equivalent table.
 
 - [ ] **Step 1: Write the failing test**
 
-Render six literal rows and assert visible labels for Income, Outgoings, and Shared balance; exact accessible table values; six month labels; a Recharts accessibility layer; and no custom SVG trend path.
+Render six literal rows and assert visible labels for Income, Outgoings, and Monthly balance; exact accessible table values; six month labels; a Recharts accessibility layer; and no custom SVG trend path.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -93,7 +93,7 @@ Expected: PASS.
 
 **Interfaces:**
 
-- Consumes: one shared `Promise<DashboardMonthlyReviewRow[]>`, `getDashboardSummary(options)`, `getDashboardBalance(options)`, and `previousThreeDateRanges()`.
+- Consumes: one shared `Promise<DashboardMonthlyReviewRow[]>`, `getDashboardSummary(options)`, and `previousThreeDateRanges()`.
 - Produces: `DashboardMetricCards`, `DashboardTrendCard`, and the approved 12-column layout.
 
 - [ ] **Step 1: Write the failing tests**
@@ -132,7 +132,7 @@ Expected: PASS.
 
 - [ ] **Step 1: Write the failing loading test**
 
-Assert loading cards for Income, Outgoings, Shared balance, Where your money went, Largest changes, and Six-month trend with the same spans as final content; assert Latest activity is absent.
+Assert loading cards for Income, Outgoings, Monthly balance, Where your money went, Largest changes, and Six-month trend with the same spans as final content; assert Latest activity is absent.
 
 - [ ] **Step 2: Run test to verify it fails**
 

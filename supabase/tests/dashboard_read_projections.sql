@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(12);
+select plan(10);
 
 insert into auth.users (id, email, email_confirmed_at, raw_app_meta_data)
 values
@@ -78,12 +78,6 @@ select results_eq(
   $$ values (16400::numeric, 7940::numeric) $$,
   'summary returns the selected month totals'
 );
-select is(
-  (select shared_balance from public.dashboard_balance('2026-07-01', null, null)),
-  18420::numeric,
-  'balance includes all earlier household transactions'
-);
-
 select results_eq(
   $$ select income_change_percentage, expense_change_percentage from public.dashboard_summary('2026-07-01', null, null) $$,
   $$ values (null::numeric, null::numeric) $$,
@@ -91,9 +85,15 @@ select results_eq(
 );
 
 select results_eq(
-  $$ select expected_monthly_income, expenses from public.dashboard_balance('2026-07-01', null, null) $$,
-  $$ values (9000::numeric, 7940::numeric) $$,
-  'balance returns only the remaining balance-card totals'
+  $$ select month, income, expenses, savings from public.dashboard_monthly_review('2026-07-01') $$,
+  $$ values
+    ('2026-02-01'::date, 0::numeric, 0::numeric, 0::numeric),
+    ('2026-03-01'::date, 0::numeric, 0::numeric, 0::numeric),
+    ('2026-04-01'::date, 12000::numeric, 12000::numeric, 0::numeric),
+    ('2026-05-01'::date, 12000::numeric, 12000::numeric, 0::numeric),
+    ('2026-06-01'::date, 3000::numeric, 1040::numeric, 1960::numeric),
+    ('2026-07-01'::date, 16400::numeric, 7940::numeric, 8460::numeric) $$,
+  'monthly review returns only monthly totals and balance deltas'
 );
 
 select results_eq(
@@ -126,7 +126,7 @@ select ok(
     from pg_catalog.pg_proc as procedure
     join pg_catalog.pg_namespace as schema on schema.oid = procedure.pronamespace
     where schema.nspname = 'public'
-      and procedure.proname in ('dashboard_summary', 'dashboard_spending', 'dashboard_balance', 'dashboard_recent_activity')
+      and procedure.proname in ('dashboard_summary', 'dashboard_spending', 'dashboard_monthly_review', 'dashboard_recent_activity')
   ),
   'all dashboard projections are stable security-invoker functions'
 );
@@ -134,11 +134,11 @@ select ok(
 select ok(
   has_function_privilege('authenticated', 'public.dashboard_summary(date,date,date)', 'EXECUTE')
     and has_function_privilege('authenticated', 'public.dashboard_spending(date,date,date,uuid)', 'EXECUTE')
-    and has_function_privilege('authenticated', 'public.dashboard_balance(date,date,date)', 'EXECUTE')
+    and has_function_privilege('authenticated', 'public.dashboard_monthly_review(date)', 'EXECUTE')
     and has_function_privilege('authenticated', 'public.dashboard_recent_activity(date,date,date)', 'EXECUTE')
     and not has_function_privilege('anon', 'public.dashboard_summary(date,date,date)', 'EXECUTE')
     and not has_function_privilege('anon', 'public.dashboard_spending(date,date,date,uuid)', 'EXECUTE')
-    and not has_function_privilege('anon', 'public.dashboard_balance(date,date,date)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.dashboard_monthly_review(date)', 'EXECUTE')
     and not has_function_privilege('anon', 'public.dashboard_recent_activity(date,date,date)', 'EXECUTE'),
   'only authenticated application callers can execute dashboard projections'
 );
@@ -152,8 +152,8 @@ select is_empty(
 );
 
 select is_empty(
-  $$ select * from public.dashboard_balance('2026-07-01', null, null) $$,
-  'an authenticated non-member cannot read dashboard balance data'
+  $$ select * from public.dashboard_monthly_review('2026-07-01') $$,
+  'an authenticated non-member cannot read dashboard monthly review data'
 );
 
 reset role;

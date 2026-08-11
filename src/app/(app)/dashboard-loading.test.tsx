@@ -27,7 +27,7 @@ it("shows route-shaped membership fallbacks", () => {
   expect(dashboardMarkup).toContain("Loading Income");
   expect(dashboardMarkup).toContain("Loading Outgoings");
   expect(dashboardMarkup).toContain("Loading Shared balance");
-  expect(dashboardMarkup).toContain("Loading Largest changes");
+  expect(dashboardMarkup).toContain("Loading Budgets");
   expect(dashboardMarkup).toContain("Loading Six-month trend");
   expect(dashboardMarkup).toContain("lg:col-span-5 lg:aspect-square");
   expect(dashboardMarkup).toContain("lg:col-span-7");

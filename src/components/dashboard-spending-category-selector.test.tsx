@@ -9,9 +9,9 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams("month=2026-07"),
 }));
 vi.mock("@/components/ui/checkbox", () => ({
-  Checkbox: ({ id, onCheckedChange }: { id: string; onCheckedChange: () => void }) => {
+  Checkbox: ({ id, disabled, onCheckedChange }: { id: string; disabled?: boolean; onCheckedChange: () => void }) => {
     mocks.checkboxChanges.set(id, onCheckedChange);
-    return <input id={id} type="checkbox" />;
+    return <input id={id} disabled={disabled} type="checkbox" />;
   },
 }));
 vi.mock("@/components/ui/popover", () => ({
@@ -56,7 +56,7 @@ it("adds a category to the configured fanout", () => {
 });
 
 it("allows selecting all categories", () => {
-  renderToStaticMarkup(
+  const markup = renderToStaticMarkup(
     <DashboardSpendingCategorySelector
       categories={[
         { id: "food", name: "Food" },
@@ -69,6 +69,7 @@ it("allows selecting all categories", () => {
     />,
   );
 
+  expect(markup).not.toContain('id="dashboard-spending-leisure" disabled');
   mocks.checkboxChanges.get("dashboard-spending-leisure")!();
   expect(mocks.push).toHaveBeenCalledWith("/?month=2026-07&spendingCategories=food%2Chome%2Cbills%2Cleisure");
 });
@@ -92,7 +93,7 @@ it("uses the searchable category multiselect menu", () => {
   expect(markup).not.toContain("Category detail");
 });
 
-it("summarizes a custom category selection", () => {
+it("summarizes the number of selected categories", () => {
   const markup = renderToStaticMarkup(
     <DashboardSpendingCategorySelector
       categories={[
@@ -104,5 +105,6 @@ it("summarizes a custom category selection", () => {
     />,
   );
 
-  expect(markup).toContain(">Custom<");
+  expect(markup).toContain("2 categories selected");
+  expect(markup).not.toContain(">Custom<");
 });

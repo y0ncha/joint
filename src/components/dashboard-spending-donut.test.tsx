@@ -17,7 +17,7 @@ it("gives duplicate source IDs distinct React keys", () => {
   expect(new Set(svg.props.children.map((child: { key: string }) => child.key)).size).toBe(2);
 });
 
-it("keeps donut sections non-focusable", () => {
+it("keeps donut sections non-focusable at a responsive card-filling size", () => {
   const markup = renderToStaticMarkup(
     <DashboardSpendingDonut
       ariaLabel="Spending breakdown"
@@ -30,4 +30,9 @@ it("keeps donut sections non-focusable", () => {
   );
 
   expect(markup).not.toContain("tabindex");
+  expect(markup).toContain("w-full");
+  expect(markup).toContain("lg:w-[min(100cqw,100cqh)]");
+  expect(markup).not.toContain("max-w-xl");
+  expect(markup).not.toContain("w-56");
+  expect(markup).toContain("sm:text-5xl");
 });

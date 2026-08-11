@@ -124,18 +124,6 @@ export async function getDashboardSpending(options: DashboardReadOptions) {
   };
 }
 
-export async function getDashboardBalance(options: DashboardReadOptions) {
-  const household = await memberContext();
-  const { data, error } = await household.supabase.rpc("dashboard_balance", rpcArgs(options));
-  const row = data?.[0];
-  if (error || !row) throw new Error("Unable to load dashboard balance.");
-  return {
-    sharedBalance: money(row.shared_balance),
-    expectedMonthlyIncome: row.expected_monthly_income === null ? null : money(row.expected_monthly_income),
-    expenses: money(row.expenses),
-  };
-}
-
 export async function getDashboardMonthlyReview(month: string) {
   const household = await memberContext();
   const { data, error } = await household.supabase.rpc("dashboard_monthly_review", { p_month: `${month}-01` });
@@ -145,21 +133,6 @@ export async function getDashboardMonthlyReview(month: string) {
     income: money(row.income),
     expenses: money(row.expenses),
     savings: money(row.savings),
-    sharedBalance: money(row.shared_balance),
-  }));
-}
-
-export async function getDashboardCategoryChanges(month: string) {
-  const household = await memberContext();
-  const { data, error } = await household.supabase.rpc("dashboard_category_changes", { p_month: `${month}-01` });
-  if (error) throw new Error("Unable to load dashboard category changes.");
-  return (data ?? []).map((row) => ({
-    categoryName: row.category_name,
-    kind: row.kind,
-    amount: money(row.amount),
-    averageAmount: money(row.average_amount),
-    changeAmount: money(row.change_amount),
-    changePercentage: row.change_percentage === null ? null : Number(row.change_percentage),
   }));
 }
 

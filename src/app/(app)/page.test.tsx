@@ -2,8 +2,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  getDashboardBalance: vi.fn(),
-  getDashboardCategoryChanges: vi.fn(),
   getDashboardControls: vi.fn(),
   getDashboardMonthlyReview: vi.fn(),
   getDashboardSpending: vi.fn(),
@@ -17,8 +15,6 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/dashboard-read-model", () => ({
-  getDashboardBalance: mocks.getDashboardBalance,
-  getDashboardCategoryChanges: mocks.getDashboardCategoryChanges,
   getDashboardControls: mocks.getDashboardControls,
   getDashboardMonthlyReview: mocks.getDashboardMonthlyReview,
   getDashboardSpending: mocks.getDashboardSpending,
@@ -36,7 +32,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-import Home, { CategoryChangesCard, DashboardActions, DashboardMetricCards, DashboardTrendCard, SpendingCard } from "./page";
+import Home, { BudgetsPlaceholder, DashboardActions, DashboardMetricCards, DashboardTrendCard, SpendingCard } from "./page";
 
 const options = { month: "2026-07" };
 const summary = {
@@ -46,12 +42,12 @@ const summary = {
   incomeChangePercentage: 12.5,
 };
 const monthlyReview = [
-  { month: "2026-02-01", income: 8000, expenses: 5000, savings: 3000, sharedBalance: 7000 },
-  { month: "2026-03-01", income: 9000, expenses: 6000, savings: 3000, sharedBalance: 10000 },
-  { month: "2026-04-01", income: 9000, expenses: 6000, savings: 3000, sharedBalance: 10000 },
-  { month: "2026-05-01", income: 11000, expenses: 7000, savings: 4000, sharedBalance: 14000 },
-  { month: "2026-06-01", income: 10000, expenses: 8000, savings: 2000, sharedBalance: 16000 },
-  { month: "2026-07-01", income: 12000, expenses: 9000, savings: 3000, sharedBalance: 20000 },
+  { month: "2026-02-01", income: 8000, expenses: 5000, savings: 3000 },
+  { month: "2026-03-01", income: 9000, expenses: 6000, savings: 3000 },
+  { month: "2026-04-01", income: 9000, expenses: 6000, savings: 3000 },
+  { month: "2026-05-01", income: 11000, expenses: 7000, savings: 4000 },
+  { month: "2026-06-01", income: 10000, expenses: 8000, savings: 2000 },
+  { month: "2026-07-01", income: 12000, expenses: 9000, savings: 3000 },
 ];
 
 function renderHome(
@@ -123,20 +119,9 @@ describe("Joint dashboard", () => {
     });
     mocks.getDashboardSummary.mockResolvedValue(summary);
     mocks.getDashboardMonthlyReview.mockResolvedValue(monthlyReview);
-    mocks.getDashboardCategoryChanges.mockResolvedValue([
-      {
-        categoryName: "Bills",
-        kind: "expense",
-        amount: 453,
-        averageAmount: 2170,
-        changeAmount: -1717,
-        changePercentage: -79,
-      },
-    ]);
     mocks.getDashboardSpending.mockResolvedValue({
       categoryTotals: [{ categoryId: "home-category-id", categoryName: "Home", amount: 4280 }],
     });
-    mocks.getDashboardBalance.mockResolvedValue({ expectedMonthlyIncome: 18000, expenses: 7940, sharedBalance: 18420 });
   });
 
   it("keeps the dashboard frame visible while controls and cards wait for focused reads", async () => {
@@ -148,9 +133,9 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("Loading dashboard controls");
     expect(markup).toContain("Loading Income");
     expect(markup).toContain("Loading Outgoings");
-    expect(markup).toContain("Loading Shared balance");
+    expect(markup).toContain("Loading Monthly balance");
     expect(markup).toContain("Loading Where your money went");
-    expect(markup).toContain("Loading Largest changes");
+    expect(markup).toContain("Budgets are coming soon.");
     expect(markup).toContain("Loading Six-month trend");
     expect(markup).not.toContain("Latest activity");
   });
@@ -162,7 +147,6 @@ describe("Joint dashboard", () => {
     renderToStaticMarkup(await renderHome());
 
     expect(mocks.getDashboardMonthlyReview).toHaveBeenCalledWith("2026-07");
-    expect(mocks.getDashboardCategoryChanges).toHaveBeenCalledWith("2026-07");
     vi.useRealTimers();
   });
 
@@ -171,20 +155,25 @@ describe("Joint dashboard", () => {
     const markup = [
       renderToStaticMarkup(await DashboardMetricCards({ options, review })),
       renderToStaticMarkup(await SpendingCard({ options })),
-      renderToStaticMarkup(await CategoryChangesCard({ month: "2026-07" })),
+      renderToStaticMarkup(<BudgetsPlaceholder />),
       renderToStaticMarkup(await DashboardTrendCard({ review })),
     ].join("");
 
     expect(markup).toContain("Income");
     expect(markup).toContain("Outgoings");
-    expect(markup).toContain("Shared balance");
+    expect(markup).toContain("Monthly balance");
     expect(markup).toContain("20% above previous 3-month average");
     expect(markup).toContain("29% above previous 3-month average");
-    expect(markup).toContain("50% above previous 3-month average");
+    expect(markup).toContain("In line with previous 3-month average");
     expect(markup).toContain("Where your money went");
-    expect(markup).toContain("Largest changes");
-    expect(markup).toContain("Monthly totals vs 3-month average");
+    expect(markup).toContain("Expense categories for this period.");
+    expect(markup).toContain("Budgets");
+    expect(markup).toContain("Budgets are coming soon.");
+    expect(markup).not.toContain("Largest changes");
     expect(markup).toContain("Six-month trend");
+    expect(markup).toContain('data-slot="card-header"');
+    expect(markup).toContain('data-slot="card-action"');
+    expect(markup).toContain("flex min-h-0 flex-1 items-center justify-center [container-type:size]");
     expect(markup).toContain("lg:col-span-5 lg:aspect-square");
     expect(markup).toContain("lg:col-span-7");
     expect([...markup.matchAll(/lg:col-span-4/g)]).toHaveLength(3);
@@ -192,7 +181,6 @@ describe("Joint dashboard", () => {
     expect(markup).toContain('aria-label="Configure spending breakdown"');
     expect(markup).not.toContain("Latest activity");
     expect(mocks.getDashboardSpending).toHaveBeenCalledWith(options);
-    expect(mocks.getDashboardCategoryChanges).toHaveBeenCalledWith("2026-07");
   });
 
   it("keeps fewer than three selected categories aggregated", async () => {
@@ -280,22 +268,22 @@ describe("Joint dashboard", () => {
   it("passes a selected custom range to focused dashboard reads", async () => {
     const range = { from: "2026-07-01", to: "2026-07-15" };
     const rangeOptions = { month: "2026-07", range };
-    const balances = new Map([
-      ["2026-07-15", 18_420],
-      ["2026-06-30", 16_000],
-      ["2026-06-15", 14_000],
-      ["2026-05-31", 12_000],
+    const summaries = new Map([
+      ["2026-07-15", { expenses: 7940, income: 16_400 }],
+      ["2026-06-30", { expenses: 4000, income: 10_000 }],
+      ["2026-06-15", { expenses: 2500, income: 9000 }],
+      ["2026-05-31", { expenses: 3800, income: 10_500 }],
     ]);
-    mocks.getDashboardBalance.mockImplementation(async ({ range: requestedRange }: typeof rangeOptions) => ({
-      expectedMonthlyIncome: 18_000,
-      expenses: 7_940,
-      sharedBalance: balances.get(requestedRange.to) ?? 0,
+    mocks.getDashboardSummary.mockImplementation(async ({ range: requestedRange }: typeof rangeOptions) => ({
+      ...summaries.get(requestedRange?.to ?? "2026-07-15"),
+      expenseChangePercentage: -7.6,
+      incomeChangePercentage: 12.5,
     }));
 
     const markup = renderToStaticMarkup(await DashboardMetricCards({ options: rangeOptions, review: Promise.resolve(monthlyReview) }));
 
     expect(mocks.getDashboardSummary).toHaveBeenCalledWith(rangeOptions);
-    expect(mocks.getDashboardBalance.mock.calls.map(([value]) => value.range)).toEqual([
+    expect(mocks.getDashboardSummary.mock.calls.map(([value]) => value.range)).toEqual([
       range,
       { from: "2026-06-16", to: "2026-06-30" },
       { from: "2026-06-01", to: "2026-06-15" },
