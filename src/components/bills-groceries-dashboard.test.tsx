@@ -18,6 +18,21 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mocks.push }),
   useSearchParams: () => mocks.searchParams,
 }));
+vi.mock("recharts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("recharts")>();
+  return {
+    ...actual,
+    Bar: () => null,
+    BarChart: ({ children }: { children: ReactNode }) => <>{children}</>,
+    CartesianGrid: () => null,
+    Cell: () => null,
+    Legend: () => null,
+    ReferenceLine: ({ y }: { y: number }) => <span data-budget-line={y} />,
+    Tooltip: () => null,
+    XAxis: () => null,
+    YAxis: () => null,
+  };
+});
 vi.mock("@/lib/bills-groceries", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/bills-groceries")>();
   mocks.alignBillYearOverYear.mockImplementation(actual.alignBillYearOverYear);
@@ -550,7 +565,7 @@ it("omits zero-spend rows from analytics detail tables", () => {
   expect(detailTable(dailyMarkup, "Groceries by day")).toContain("₪168.00");
 });
 
-it("omits the configured budget from the monthly Groceries chart detail", () => {
+it("renders the configured Groceries budget line without its label", () => {
   const markup = renderToStaticMarkup(
     <BillsGroceriesChartDetail
       chart="groceries"
@@ -569,6 +584,7 @@ it("omits the configured budget from the monthly Groceries chart detail", () => 
     />,
   );
 
+  expect(markup).toContain("--color-budget: var(--color-muted-foreground)");
+  expect(markup).toContain('data-budget-line="2000"');
   expect(markup).not.toContain("Monthly budget");
-  expect(markup).not.toContain("₪2,000.00");
 });

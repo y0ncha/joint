@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { type ReactNode } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from "recharts";
 import { ArrowLeft, ChevronDown, Maximize2, Settings2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -379,7 +379,9 @@ function BillsGroceriesCharts({
   const groceryChartConfig = {
     mainRun: { label: mainRun?.name ?? "Main run", color: "var(--analytics-groceries-main-run)" },
     topUps: { label: topUps?.name ?? "Top-ups", color: "var(--analytics-groceries-top-ups)" },
+    budget: { color: "var(--color-muted-foreground)" },
   } satisfies ChartConfig;
+  const groceryBudgetAgorot = data.groceries.monthly.budgetAgorot;
   const yearOverYearBillDetails = chartBills.find((bill) => bill.value === yearOverYearBill) ?? chartBills[0];
   const yearOverYearData = alignBillYearOverYear(data.months, data.bills.monthly, yearOverYearBill).map(
     ({ month, currentAgorot, previousAgorot }) => ({
@@ -626,6 +628,9 @@ function BillsGroceriesCharts({
                   <YAxis tickLine={false} axisLine={false} width={58} tickFormatter={(value) => `₪${value}`} />
                   <ExactTooltip labels={{ mainRun: mainRun?.name ?? "Main run", topUps: topUps?.name ?? "Top-ups" }} totalLabel="Total" />
                   <ChartLegend content={<ChartLegendContent />} />
+                  {groceryBudgetAgorot != null ? (
+                    <ReferenceLine y={groceryBudgetAgorot / 100} stroke="var(--color-budget)" strokeDasharray="4 4" />
+                  ) : null}
                   <Bar dataKey="mainRun" stackId="groceries" fill="var(--color-mainRun)">
                     {groceryMonthlyData.map((month) => (
                       <Cell key={month.month} radius={stackedBarRadius([month.mainRun, month.topUps], 0) as unknown as number} />
