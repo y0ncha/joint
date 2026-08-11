@@ -10,7 +10,7 @@ import { saveSettings } from "@/app/actions/profile";
 import type { ActionResult } from "@/app/actions/result";
 import { serializeAccentCookie } from "@/lib/accent";
 import { Button } from "@/components/ui/button";
-import { WorkspaceShell } from "@/components/workspace-shell";
+import { WorkspacePage } from "@/components/workspace-shell";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -134,7 +134,7 @@ export function SettingsForm({ userId, children }: { userId: string; children: R
         }}
       />
       <form id="settings-save-form" action={formAction}>
-        <WorkspaceShell
+        <WorkspacePage
           title="Settings"
           actions={
             <>
@@ -166,7 +166,7 @@ export function SettingsForm({ userId, children }: { userId: string; children: R
           }
         >
           {children}
-        </WorkspaceShell>
+        </WorkspacePage>
       </form>
       <AlertDialog
         open={Boolean(leaveTo)}

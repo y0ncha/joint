@@ -1,11 +1,11 @@
-import { WorkspaceShell } from "@/components/workspace-shell";
+import { WorkspacePage } from "@/components/workspace-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function BillsGroceriesDetailLoading() {
   return (
-    <WorkspaceShell opaqueContent>
+    <WorkspacePage opaqueContent>
       <div role="status" aria-live="polite" className="sr-only">
         Loading Bills & Groceries…
       </div>
@@ -20,6 +20,6 @@ export default function BillsGroceriesDetailLoading() {
           </CardContent>
         </Card>
       </section>
-    </WorkspaceShell>
+    </WorkspacePage>
   );
 }

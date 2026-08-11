@@ -16,8 +16,8 @@ vi.mock("react", async (importOriginal) => {
 });
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/components/workspace-shell", () => ({
-  WorkspaceShell: ({ actions, children }: { actions: React.ReactNode; children: React.ReactNode }) =>
-    createElement("main", null, actions, children),
+  WorkspacePage: ({ actions, children }: { actions: React.ReactNode; children: React.ReactNode }) =>
+    createElement("section", { id: "workspace-content" }, actions, children),
 }));
 
 const { SettingsForm } = await import("./settings-save-control");

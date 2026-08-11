@@ -51,7 +51,7 @@ import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { WorkspaceShell } from "@/components/workspace-shell";
+import { WorkspacePage } from "@/components/workspace-shell";
 import {
   amountConditionOperatorOptions,
   compatibilityPattern,
@@ -1085,7 +1085,7 @@ export function AutomationRulesWorkspace({
   }, [canReview, preview.fingerprint, previewRequestedFrom]);
 
   return (
-    <WorkspaceShell
+    <WorkspacePage
       title="Automations"
       description="Make familiar merchants consistent and categorized."
       actions={
@@ -1233,6 +1233,6 @@ export function AutomationRulesWorkspace({
           </Card>
         </DragDropProvider>
       </div>
-    </WorkspaceShell>
+    </WorkspacePage>
   );
 }

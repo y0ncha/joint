@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 import { getProfileInitials } from "@/lib/profile";
 
-import { loadVerifiedProfileName, ProfileInitialAvatar, WorkspaceChrome, WorkspacePage, WorkspaceShell } from "./workspace-shell";
+import { loadVerifiedProfileName, ProfileInitialAvatar, WorkspaceChrome, WorkspacePage, type WorkspacePageProps } from "./workspace-shell";
 
 const currentPathname = vi.hoisted(() => ({ value: "/settings" }));
 
@@ -31,6 +31,14 @@ const browserClient = {
   auth: { getClaims: mocks.getClaims },
   from: mocks.from,
 };
+
+function WorkspaceFixture(props: WorkspacePageProps) {
+  return (
+    <WorkspaceChrome profileSlot={<ProfileInitialAvatar name="" />}>
+      <WorkspacePage {...props} />
+    </WorkspaceChrome>
+  );
+}
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -133,9 +141,9 @@ it("renders one chrome landmark and lets its skip link target page content", () 
 
 it("renders the desktop rail with navigation and a plain profile avatar", () => {
   const markup = renderToStaticMarkup(
-    <WorkspaceShell title="Settings">
+    <WorkspaceFixture title="Settings">
       <p>Content</p>
-    </WorkspaceShell>,
+    </WorkspaceFixture>,
   );
   const desktopRail = markup.match(/<aside\b[\s\S]*?<\/aside>/)?.[0] ?? "";
 
@@ -150,9 +158,9 @@ it("renders the desktop rail with navigation and a plain profile avatar", () => 
 
 it("renders Categories and Automations in the desktop navigation only", () => {
   const markup = renderToStaticMarkup(
-    <WorkspaceShell title="Bills & Groceries">
+    <WorkspaceFixture title="Bills & Groceries">
       <p>Content</p>
-    </WorkspaceShell>,
+    </WorkspaceFixture>,
   );
   const navigations = [...markup.matchAll(/<nav\b[\s\S]*?<\/nav>/g)].map(([navigation]) => navigation);
 
@@ -173,9 +181,9 @@ it("marks Bills & Groceries active for its route and nested paths", () => {
   currentPathname.value = "/bills-groceries/groceries";
 
   const markup = renderToStaticMarkup(
-    <WorkspaceShell title="Bills & Groceries">
+    <WorkspaceFixture title="Bills & Groceries">
       <p>Content</p>
-    </WorkspaceShell>,
+    </WorkspaceFixture>,
   );
 
   expect(markup.match(/aria-current="page"[\s\S]*?href="\/bills-groceries"/g)).toHaveLength(2);
@@ -185,9 +193,9 @@ it("marks Categories active for its route", () => {
   currentPathname.value = "/categories";
 
   const markup = renderToStaticMarkup(
-    <WorkspaceShell title="Categories">
+    <WorkspaceFixture title="Categories">
       <p>Content</p>
-    </WorkspaceShell>,
+    </WorkspaceFixture>,
   );
 
   expect(markup.match(/aria-current="page"[\s\S]*?href="\/categories"/g)).toHaveLength(1);
@@ -195,9 +203,9 @@ it("marks Categories active for its route", () => {
 
 it("makes the workspace frame full-bleed on mobile", () => {
   const markup = renderToStaticMarkup(
-    <WorkspaceShell title="Settings">
+    <WorkspaceFixture title="Settings">
       <p>Content</p>
-    </WorkspaceShell>,
+    </WorkspaceFixture>,
   );
 
   expect(markup).toContain('class="min-h-screen p-0 text-foreground sm:px-5 sm:py-5 lg:px-8 lg:py-8"');
@@ -208,9 +216,9 @@ it("makes the workspace frame full-bleed on mobile", () => {
 
 it("uses iPhone safe areas for the top content and bottom navigation", () => {
   const markup = renderToStaticMarkup(
-    <WorkspaceShell title="Settings">
+    <WorkspaceFixture title="Settings">
       <p>Content</p>
-    </WorkspaceShell>,
+    </WorkspaceFixture>,
   );
 
   expect(markup).toContain("pt-[calc(1rem+env(safe-area-inset-top))]");
@@ -219,9 +227,9 @@ it("uses iPhone safe areas for the top content and bottom navigation", () => {
 
 it("anchors the complete mobile header text stack with the accent rule", () => {
   const markup = renderToStaticMarkup(
-    <WorkspaceShell title="Settings" description="Adjust household preferences.">
+    <WorkspaceFixture title="Settings" description="Adjust household preferences.">
       <p>Content</p>
-    </WorkspaceShell>,
+    </WorkspaceFixture>,
   );
 
   expect(markup).toContain('class="flex min-w-0 flex-1 items-stretch gap-3 pl-1 md:block md:pl-0"');
@@ -232,9 +240,9 @@ it("anchors the complete mobile header text stack with the accent rule", () => {
 
 it("keeps workspace chrome visible around BillsGroceries detail content", () => {
   const markup = renderToStaticMarkup(
-    <WorkspaceShell title="Groceries by day" description="Daily spending">
+    <WorkspaceFixture title="Groceries by day" description="Daily spending">
       <p>Chart detail</p>
-    </WorkspaceShell>,
+    </WorkspaceFixture>,
   );
 
   expect(markup).toContain("<aside");
@@ -253,9 +261,9 @@ it("keeps workspace chrome visible around BillsGroceries detail content", () => 
 
 it("can increase the content-surface opacity for a full-page detail view", () => {
   const markup = renderToStaticMarkup(
-    <WorkspaceShell opaqueContent>
+    <WorkspaceFixture opaqueContent>
       <p>Chart detail</p>
-    </WorkspaceShell>,
+    </WorkspaceFixture>,
   );
 
   expect(markup).toContain("bg-white/50");

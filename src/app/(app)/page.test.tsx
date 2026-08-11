@@ -103,11 +103,12 @@ describe("Joint dashboard", () => {
     });
   });
 
-  it("keeps the shell visible while controls and dashboard cards wait for focused reads", async () => {
+  it("keeps the dashboard frame visible while controls and cards wait for focused reads", async () => {
     const markup = renderToStaticMarkup(await renderHome());
 
     expect(markup).toContain("Shared money");
-    expect(markup).toContain('alt="Joint logo"');
+    expect(markup).toContain('id="workspace-content"');
+    expect(markup).not.toContain("<main");
     expect(markup).toContain("Loading dashboard controls");
     expect(markup).toContain("Loading Income");
     expect(markup).toContain("Loading Outgoings");

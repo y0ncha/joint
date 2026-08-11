@@ -2,10 +2,10 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, MoreHorizontal, Settings2 } from "lucide-react";
 
-import { DashboardCardLoading } from "./dashboard-loading";
+import { DashboardActionsLoading, DashboardCardLoading } from "./dashboard-loading";
 import { LedgerMonthSelector } from "@/components/ledger-month-selector";
 import { TransactionSheet } from "@/components/transaction-sheet";
-import { WorkspaceShell } from "@/components/workspace-shell";
+import { WorkspacePage } from "@/components/workspace-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -31,16 +31,6 @@ function comparisonLabel(change: number | null, range?: DateRange) {
   const baseline = range ? "prior range average" : "prior 3-month average";
   if (roundedChange === 0) return `In line with ${baseline}`;
   return `${roundedChange}% ${change > 0 ? "above" : "below"} ${baseline}`;
-}
-
-function DashboardActionsLoading() {
-  return (
-    <div role="status" aria-live="polite" className="flex items-center gap-2">
-      <span aria-hidden="true" className="size-11 rounded-full bg-muted motion-safe:animate-pulse" />
-      <span aria-hidden="true" className="size-11 rounded-full bg-muted motion-safe:animate-pulse" />
-      <span className="sr-only">Loading dashboard controls</span>
-    </div>
-  );
 }
 
 export async function DashboardActions({ month, range }: { month: string; range?: DateRange }) {
@@ -295,7 +285,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const summary = getDashboardSummary(options);
 
   return (
-    <WorkspaceShell
+    <WorkspacePage
       title="Shared money"
       description="A calm view of your household money."
       actions={
@@ -321,6 +311,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       <Suspense fallback={<DashboardCardLoading className="mt-4" title="Latest activity" />}>
         <RecentActivityCard options={options} />
       </Suspense>
-    </WorkspaceShell>
+    </WorkspacePage>
   );
 }

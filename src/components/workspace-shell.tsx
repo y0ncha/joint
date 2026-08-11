@@ -158,11 +158,3 @@ export function WorkspacePage({ title, description, actions, children, opaqueCon
     </section>
   );
 }
-
-export function WorkspaceShell(props: WorkspacePageProps) {
-  return (
-    <WorkspaceChrome profileSlot={<CachedProfileInitialAvatar />}>
-      <WorkspacePage {...props} />
-    </WorkspaceChrome>
-  );
-}

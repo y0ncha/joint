@@ -4,7 +4,7 @@ import { StatementImportForm } from "@/components/statement-import-form";
 import { TransactionLedger } from "@/components/transaction-ledger";
 import { TransactionSheet } from "@/components/transaction-sheet";
 import { RecurringScheduleList } from "@/components/recurring-schedule-list";
-import { WorkspaceShell } from "@/components/workspace-shell";
+import { WorkspacePage } from "@/components/workspace-shell";
 import { FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,7 +57,7 @@ export default async function TransactionsPage({
   });
   const { categoryIds, paidByIds } = data;
   return (
-    <WorkspaceShell
+    <WorkspacePage
       title="Transactions"
       description={ledgerDescription}
       actions={
@@ -125,6 +125,6 @@ export default async function TransactionsPage({
         </CardContent>
       </Card>
       <RecurringScheduleList schedules={data.schedules} />
-    </WorkspaceShell>
+    </WorkspacePage>
   );
 }

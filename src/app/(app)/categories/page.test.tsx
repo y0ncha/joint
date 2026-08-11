@@ -21,11 +21,11 @@ vi.mock("@/components/category-list", () => ({
   ),
 }));
 vi.mock("@/components/workspace-shell", () => ({
-  WorkspaceShell: ({ actions, children }: { actions: React.ReactNode; children: React.ReactNode }) => (
-    <main>
+  WorkspacePage: ({ actions, children }: { actions: React.ReactNode; children: React.ReactNode }) => (
+    <section id="workspace-content">
       {actions}
       {children}
-    </main>
+    </section>
   ),
 }));
 

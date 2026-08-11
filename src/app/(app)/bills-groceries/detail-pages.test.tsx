@@ -38,12 +38,12 @@ vi.mock("@/lib/bills-groceries-chart-ids", () => ({
 vi.mock("@/lib/bills-groceries-page", () => ({ loadBillsGroceriesPage: mocks.loadBillsGroceriesPage }));
 
 vi.mock("@/components/workspace-shell", () => ({
-  WorkspaceShell: ({ title, opaqueContent, children }: { title?: string; opaqueContent?: boolean; children: React.ReactNode }) => (
-    <main>
+  WorkspacePage: ({ title, opaqueContent, children }: { title?: string; opaqueContent?: boolean; children: React.ReactNode }) => (
+    <section id="workspace-content">
       {title ? <h1>{title}</h1> : null}
       <output>{String(opaqueContent)}</output>
       {children}
-    </main>
+    </section>
   ),
 }));
 
