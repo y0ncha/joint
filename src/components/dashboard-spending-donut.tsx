@@ -19,6 +19,7 @@ function donutSegmentPath(startAngle: number, endAngle: number) {
 
 export function DashboardSpendingDonut({ ariaLabel, segments, total }: { ariaLabel: string; segments: DonutSegment[]; total: string }) {
   const totalValue = segments.reduce((sum, segment) => sum + segment.value, 0);
+  const transitionKey = segments.map((segment) => `${segment.id}:${segment.value}:${segment.color}`).join("|");
   const segmentsWithPaths = segments.reduce<Array<DonutSegment & { endAngle: number; path: string }>>((values, segment) => {
     const startAngle = values.at(-1)?.endAngle ?? 0;
     const endAngle = totalValue > 0 ? startAngle + (segment.value / totalValue) * 360 : startAngle;
@@ -30,17 +31,31 @@ export function DashboardSpendingDonut({ ariaLabel, segments, total }: { ariaLab
       <div aria-label={ariaLabel} className="relative aspect-square w-full justify-self-center lg:w-[min(100cqw,100cqh)]">
         <svg viewBox="0 0 200 200" className="size-full" role="img" aria-label="Spending breakdown">
           {segments.length === 1 ? (
-            <Tooltip>
+            <Tooltip key={transitionKey}>
               <TooltipTrigger asChild>
-                <circle cx="100" cy="100" r="79" fill="none" stroke={segments[0].color} strokeWidth="34" aria-label={segments[0].label} />
+                <circle
+                  cx="100"
+                  cy="100"
+                  r="79"
+                  fill="none"
+                  stroke={segments[0].color}
+                  strokeWidth="34"
+                  className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200 motion-reduce:animate-none"
+                  aria-label={segments[0].label}
+                />
               </TooltipTrigger>
               <TooltipContent>{segments[0].label}</TooltipContent>
             </Tooltip>
           ) : (
             segmentsWithPaths.map((segment, index) => (
-              <Tooltip key={`${segment.id}-${index}`}>
+              <Tooltip key={`${transitionKey}-${segment.id}-${index}`}>
                 <TooltipTrigger asChild>
-                  <path d={segment.path} fill={segment.color} className="transition-opacity hover:opacity-70" aria-label={segment.label} />
+                  <path
+                    d={segment.path}
+                    fill={segment.color}
+                    className="transition-opacity hover:opacity-70 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200 motion-reduce:animate-none"
+                    aria-label={segment.label}
+                  />
                 </TooltipTrigger>
                 <TooltipContent>{segment.label}</TooltipContent>
               </Tooltip>

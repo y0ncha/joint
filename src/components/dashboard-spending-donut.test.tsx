@@ -38,6 +38,23 @@ it("keeps donut sections non-focusable at a responsive card-filling size", () =>
   expect(markup).toContain("M 100 4");
 });
 
+it("animates updated donut sections unless reduced motion is requested", () => {
+  const markup = renderToStaticMarkup(
+    <DashboardSpendingDonut
+      ariaLabel="Spending breakdown"
+      total="₪300"
+      segments={[
+        { id: "food", label: "Food: ₪100", color: "red", value: 100 },
+        { id: "market", label: "Market: ₪200", color: "blue", value: 200 },
+      ]}
+    />,
+  );
+
+  expect(markup).toContain("motion-safe:animate-in");
+  expect(markup).toContain("motion-safe:fade-in-0");
+  expect(markup).toContain("motion-reduce:animate-none");
+});
+
 it("renders a single numeric segment as a full donut ring", () => {
   const markup = renderToStaticMarkup(
     <DashboardSpendingDonut
