@@ -60,4 +60,13 @@ describe("recurring schedule actions", () => {
 
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
+
+  it("rejects an interval above the catch-up safety limit before calling the database", async () => {
+    await expect(actions.updateRecurringTransactionSchedule("schedule-id", scheduleForm({ intervalCount: "366" }))).resolves.toMatchObject({
+      status: "error",
+      fieldErrors: { intervalCount: expect.any(String) },
+    });
+
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
 });

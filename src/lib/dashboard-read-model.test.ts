@@ -79,7 +79,6 @@ vi.mock("@/lib/household", () => ({ getCurrentHouseholdContext: mocks.getCurrent
 import {
   getDashboardControls,
   getDashboardMonthlyReview,
-  getDashboardRecentActivity,
   getDashboardSpending,
   getDashboardSummary,
   getLedgerData,
@@ -95,7 +94,15 @@ beforeEach(() => {
     supabase: { from: mocks.from, rpc: mocks.rpc },
   });
   mocks.rpc.mockResolvedValue({
-    data: [{ expense_change_percentage: -7.6, expenses: 7940, income: 16400, income_change_percentage: 12.5 }],
+    data: [
+      {
+        balance_change_percentage: 23.4,
+        expense_change_percentage: -7.6,
+        expenses: 7940,
+        income: 16400,
+        income_change_percentage: 12.5,
+      },
+    ],
     error: null,
   });
   mocks.from.mockImplementation((table: string) => ({
@@ -124,11 +131,25 @@ it("requests the summary projection without a browser-controlled household id", 
     expenses: 7940,
     income: 16400,
     incomeChangePercentage: 12.5,
+    balanceChangePercentage: 23.4,
   });
   expect(mocks.rpc).toHaveBeenCalledWith("dashboard_summary", {
     p_month: "2026-07-01",
-    p_range_from: null,
-    p_range_to: null,
+  });
+});
+
+it("maps a missing balance change percentage to null", async () => {
+  mocks.rpc.mockResolvedValueOnce({
+    data: [{ expense_change_percentage: -7.6, expenses: 7940, income: 16400, income_change_percentage: 12.5 }],
+    error: null,
+  });
+
+  await expect(getDashboardSummary({ month: "2026-07" })).resolves.toEqual({
+    expenseChangePercentage: -7.6,
+    expenses: 7940,
+    income: 16400,
+    incomeChangePercentage: 12.5,
+    balanceChangePercentage: null,
   });
 });
 
@@ -156,90 +177,52 @@ it("loads only the category, subcategory, and member controls", async () => {
 });
 
 it("maps each focused dashboard projection to the existing report names", async () => {
-  mocks.rpc
-    .mockResolvedValueOnce({ data: [{ amount: 4280, category_id: "food", category_name: "Food" }], error: null })
-    .mockResolvedValueOnce({
-      data: [
-        {
-          amount: 186,
-          category_name: "Food",
-          id: "activity-id",
-          kind: "expense",
-          merchant: "Market",
-          note: "Groceries",
-          occurred_on: "2026-07-14",
-          source: "statement_import",
-          subcategory_name: "Groceries",
-        },
-      ],
-      error: null,
-    });
+  mocks.rpc.mockResolvedValueOnce({ data: [{ amount: 4280, category_id: "food", category_name: "Food" }], error: null });
 
   await expect(getDashboardSpending({ month: "2026-07" })).resolves.toEqual({
     categoryTotals: [{ amount: 4280, categoryId: "food", categoryName: "Food" }],
   });
-  await expect(getDashboardRecentActivity({ month: "2026-07" })).resolves.toEqual({
-    transactions: [
-      {
-        amount: 186,
-        categoryName: "Food",
-        id: "activity-id",
-        kind: "expense",
-        merchant: "Market",
-        note: "Groceries",
-        occurredOn: "2026-07-14",
-        source: "statement_import",
-        subcategoryName: "Groceries",
-      },
-    ],
+  expect(mocks.rpc).toHaveBeenCalledWith("dashboard_spending_breakdown", {
+    p_month: "2026-07-01",
+    p_subcategories: false,
+  });
+});
+
+it("keeps the Supabase client context when loading spending", async () => {
+  const rest = vi.fn().mockResolvedValue({
+    data: [{ amount: 4280, category_id: "food", category_name: "Food" }],
+    error: null,
+  });
+  const supabase = {
+    rest,
+    rpc(this: { rest: typeof rest }, functionName: string, args: Record<string, unknown>) {
+      return this.rest(functionName, args);
+    },
+  };
+  mocks.getCurrentHouseholdContext.mockResolvedValueOnce({
+    status: "member",
+    householdId: "household-id",
+    userId: "member-id",
+    role: "owner",
+    supabase,
+  });
+
+  await expect(getDashboardSpending({ month: "2026-07" })).resolves.toEqual({
+    categoryTotals: [{ amount: 4280, categoryId: "food", categoryName: "Food" }],
   });
 });
 
 it("passes a selected category to the authenticated spending projection", async () => {
   mocks.rpc.mockResolvedValueOnce({ data: [{ amount: 4280, category_id: "groceries", category_name: "Groceries" }], error: null });
 
-  await expect(getDashboardSpending({ month: "2026-07", spendingCategoryId: "food" })).resolves.toEqual({
+  await expect(getDashboardSpending({ month: "2026-07", spendingCategoryIds: ["food"] })).resolves.toEqual({
     categoryTotals: [{ amount: 4280, categoryId: "groceries", categoryName: "Groceries" }],
   });
-  expect(mocks.rpc).toHaveBeenCalledWith("dashboard_spending", {
-    p_category_id: "food",
+  expect(mocks.rpc).toHaveBeenCalledWith("dashboard_spending_breakdown", {
+    p_category_ids: ["food"],
     p_month: "2026-07-01",
-    p_range_from: null,
-    p_range_to: null,
+    p_subcategories: false,
   });
-});
-
-it.each(["PGRST202", "42883"])("returns a schema transition for missing dashboard projections (%s)", async (code) => {
-  for (const read of [getDashboardSpending, getDashboardRecentActivity]) {
-    mocks.rpc.mockResolvedValueOnce({ data: null, error: { code } });
-    await expect(read({ month: "2026-07" })).resolves.toEqual({ status: "schema_transition" });
-  }
-});
-
-it("preserves non-transition dashboard projection errors", async () => {
-  for (const read of [getDashboardSpending, getDashboardRecentActivity]) {
-    mocks.rpc.mockResolvedValueOnce({ data: null, error: { code: "42501" } });
-    await expect(read({ month: "2026-07" })).rejects.toThrow(/^Unable to load dashboard/);
-  }
-});
-
-it("does not return more than five activity rows", async () => {
-  mocks.rpc.mockResolvedValueOnce({
-    data: Array.from({ length: 5 }, (_, index) => ({
-      amount: 100 + index,
-      category_name: "Food",
-      id: `activity-${index}`,
-      kind: "expense",
-      merchant: "Market",
-      note: "Groceries",
-      occurred_on: `2026-07-${String(14 - index).padStart(2, "0")}`,
-      source: "manual",
-      subcategory_name: "Groceries",
-    })),
-    error: null,
-  });
-
-  expect((await getDashboardRecentActivity({ month: "2026-07" })).transactions).toHaveLength(5);
 });
 
 it("loads recurring schedules in parallel with bounded ledger rows", async () => {

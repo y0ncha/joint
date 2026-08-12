@@ -15,7 +15,9 @@ vi.mock("recharts", () => ({
           ],
         })
       : null,
-  Line: ({ dataKey }: { dataKey: string }) => <span data-line={dataKey} />,
+  Line: ({ dataKey, strokeDasharray }: { dataKey: string; strokeDasharray?: string }) => (
+    <span data-line={dataKey} data-stroke-dasharray={strokeDasharray ?? "solid"} />
+  ),
   LineChart: ({ accessibilityLayer, children, data }: { accessibilityLayer?: boolean; children: ReactNode; data: unknown[] }) => (
     <div data-accessibility-layer={accessibilityLayer} data-points={data.length}>
       {children}
@@ -48,7 +50,9 @@ it("renders an accessible detailed three-line monthly trend with monthly balance
   expect(markup).toContain('data-line="income"');
   expect(markup).toContain('data-line="expenses"');
   expect(markup).toContain('data-line="savings"');
-  expect(markup).not.toContain("stroke-dasharray");
+  expect(markup).toContain('data-line="income" data-stroke-dasharray="solid"');
+  expect(markup).toContain('data-line="expenses" data-stroke-dasharray="6 4"');
+  expect(markup).toContain('data-line="savings" data-stroke-dasharray="2 4"');
   expect(markup).toContain("Income");
   expect(markup).toContain("Outgoings");
   expect(markup).toContain("Monthly balance");

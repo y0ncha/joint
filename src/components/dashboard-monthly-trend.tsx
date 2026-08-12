@@ -91,6 +91,7 @@ export function DashboardMonthlyTrend({ data }: { data: DashboardMonthlyTrendRow
               dataKey="expenses"
               type="monotone"
               stroke="var(--color-expenses)"
+              strokeDasharray="6 4"
               strokeWidth={2.5}
               dot={{ r: 3 }}
               isAnimationActive={false}
@@ -99,6 +100,7 @@ export function DashboardMonthlyTrend({ data }: { data: DashboardMonthlyTrendRow
               dataKey="savings"
               type="monotone"
               stroke="var(--color-savings)"
+              strokeDasharray="2 4"
               strokeWidth={2.5}
               dot={{ r: 3 }}
               isAnimationActive={false}

@@ -36,6 +36,7 @@ import Home, { BudgetsPlaceholder, DashboardActions, DashboardMetricCards, Dashb
 
 const options = { month: "2026-07" };
 const summary = {
+  balanceChangePercentage: 5.4,
   expenseChangePercentage: -7.6,
   expenses: 7940,
   income: 16400,
@@ -150,10 +151,20 @@ describe("Joint dashboard", () => {
     vi.useRealTimers();
   });
 
+  it("rejects an invalid requested month before dashboard reads", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-10T12:00:00Z"));
+
+    renderToStaticMarkup(await renderHome({ month: "2026-99" }));
+
+    expect(mocks.getDashboardMonthlyReview).toHaveBeenCalledWith("2026-07");
+    vi.useRealTimers();
+  });
+
   it("renders the approved card grid from focused reads", async () => {
     const review = Promise.resolve(monthlyReview);
     const markup = [
-      renderToStaticMarkup(await DashboardMetricCards({ options, review })),
+      renderToStaticMarkup(await DashboardMetricCards({ options })),
       renderToStaticMarkup(await SpendingCard({ options })),
       renderToStaticMarkup(<BudgetsPlaceholder />),
       renderToStaticMarkup(await DashboardTrendCard({ review })),
@@ -162,9 +173,9 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("Income");
     expect(markup).toContain("Outgoings");
     expect(markup).toContain("Monthly balance");
-    expect(markup).toContain("20% above previous 3-month average");
-    expect(markup).toContain("29% above previous 3-month average");
-    expect(markup).toContain("In line with previous 3-month average");
+    expect(markup).toContain("13% above previous 3-month average");
+    expect(markup).toContain("8% below previous 3-month average");
+    expect(markup).toContain("5% above previous 3-month average");
     expect(markup).toContain("Where your money went");
     expect(markup).toContain("Expense categories for this period.");
     expect(markup).toContain("Budgets");
@@ -180,23 +191,17 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("lg:col-span-12");
     expect(markup).toContain('aria-label="Configure spending breakdown"');
     expect(markup).not.toContain("Latest activity");
+    expect(mocks.getDashboardSummary).toHaveBeenCalledWith(options);
+    expect(mocks.getDashboardSummary).toHaveBeenCalledTimes(1);
     expect(mocks.getDashboardSpending).toHaveBeenCalledWith(options);
   });
 
   it("keeps fewer than three selected categories aggregated", async () => {
-    mocks.getDashboardSpending.mockImplementation(async (spendingOptions) => {
-      if (spendingOptions.spendingCategoryId === "home-category-id") {
-        return { categoryTotals: [{ categoryId: "rent", categoryName: "Rent", amount: 3000 }] };
-      }
-      if (spendingOptions.spendingCategoryId === "bills-category-id") {
-        return { categoryTotals: [{ categoryId: "arnona", categoryName: "Arnona", amount: 1122 }] };
-      }
-      return {
-        categoryTotals: [
-          { categoryId: "home-category-id", categoryName: "Home", amount: 3000 },
-          { categoryId: "bills-category-id", categoryName: "Bills", amount: 1122 },
-        ],
-      };
+    mocks.getDashboardSpending.mockResolvedValue({
+      categoryTotals: [
+        { categoryId: "home-category-id", categoryName: "Home", amount: 3000 },
+        { categoryId: "bills-category-id", categoryName: "Bills", amount: 1122 },
+      ],
     });
 
     const markup = renderToStaticMarkup(
@@ -214,31 +219,18 @@ describe("Joint dashboard", () => {
   });
 
   it("defaults subcategory mode to all categories", async () => {
-    mocks.getDashboardSpending.mockImplementation(async ({ spendingCategoryId }: { spendingCategoryId?: string }) => {
-      if (spendingCategoryId === "home-category-id")
-        return { categoryTotals: [{ categoryId: "groceries", categoryName: "Groceries", amount: 100 }] };
-      if (spendingCategoryId === "bills-category-id")
-        return { categoryTotals: [{ categoryId: "arnona", categoryName: "Arnona", amount: 200 }] };
-      if (spendingCategoryId === "00000000-0000-0000-0000-000000000521") {
-        return { categoryTotals: [{ categoryId: "electricity", categoryName: "Electricity", amount: 300 }] };
-      }
-      return { categoryTotals: [] };
+    mocks.getDashboardSpending.mockResolvedValue({
+      categoryTotals: [
+        { categoryId: "groceries", categoryName: "Groceries", amount: 100 },
+        { categoryId: "arnona", categoryName: "Arnona", amount: 200 },
+        { categoryId: "electricity", categoryName: "Electricity", amount: 300 },
+      ],
     });
 
     const markup = renderToStaticMarkup(await SpendingCard({ options: { ...options, spendingGranularity: "subcategories" } }));
 
-    expect(mocks.getDashboardSpending).toHaveBeenCalledTimes(4);
+    expect(mocks.getDashboardSpending).toHaveBeenCalledTimes(1);
     expect(markup).toContain('aria-label="Spending breakdown: Groceries ₪100, Arnona ₪200, Electricity ₪300"');
-  });
-
-  it("renders neutral spending content while its projection is changing", async () => {
-    mocks.getDashboardSpending.mockResolvedValueOnce({ status: "schema_transition" });
-
-    const markup = renderToStaticMarkup(await SpendingCard({ options }));
-
-    expect(markup).toContain("Where your money went");
-    expect(markup).toContain("Updating dashboard…");
-    expect(markup).toContain("lg:col-span-5 lg:aspect-square");
   });
 
   it("passes the resolved control data to the transaction entry sheet", async () => {
@@ -278,27 +270,17 @@ describe("Joint dashboard", () => {
   it("passes a selected custom range to focused dashboard reads", async () => {
     const range = { from: "2026-07-01", to: "2026-07-15" };
     const rangeOptions = { month: "2026-07", range };
-    const summaries = new Map([
-      ["2026-07-15", { expenses: 7940, income: 16_400 }],
-      ["2026-06-30", { expenses: 4000, income: 10_000 }],
-      ["2026-06-15", { expenses: 2500, income: 9000 }],
-      ["2026-05-31", { expenses: 3800, income: 10_500 }],
-    ]);
+    const summaries = new Map([["2026-07-15", { balanceChangePercentage: 32, expenses: 7940, income: 16_400 }]]);
     mocks.getDashboardSummary.mockImplementation(async ({ range: requestedRange }: typeof rangeOptions) => ({
       ...summaries.get(requestedRange?.to ?? "2026-07-15"),
       expenseChangePercentage: -7.6,
       incomeChangePercentage: 12.5,
     }));
 
-    const markup = renderToStaticMarkup(await DashboardMetricCards({ options: rangeOptions, review: Promise.resolve(monthlyReview) }));
+    const markup = renderToStaticMarkup(await DashboardMetricCards({ options: rangeOptions }));
 
     expect(mocks.getDashboardSummary).toHaveBeenCalledWith(rangeOptions);
-    expect(mocks.getDashboardSummary.mock.calls.map(([value]) => value.range)).toEqual([
-      range,
-      { from: "2026-06-16", to: "2026-06-30" },
-      { from: "2026-06-01", to: "2026-06-15" },
-      { from: "2026-05-17", to: "2026-05-31" },
-    ]);
+    expect(mocks.getDashboardSummary).toHaveBeenCalledTimes(1);
     expect(markup).toContain("13% above previous 3 equivalent ranges");
     expect(markup).toContain("8% below previous 3 equivalent ranges");
     expect(markup).toContain("32% above previous 3 equivalent ranges");

@@ -1,5 +1,7 @@
 # Dashboard Monthly Review Implementation Plan
 
+> **Status: Superseded.** This historical plan is superseded by [`progressive-web-app-review-remediation.md`](progressive-web-app-review-remediation.md). Its task history remains below for context.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Deliver the approved three-card financial review, adjacent spending changes, and accessible full-width three-line trend while removing the collapsed activity widget.

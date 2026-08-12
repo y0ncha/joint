@@ -7,9 +7,16 @@ import type { LedgerFilterKind, LedgerSort } from "@/lib/ledger-filters";
 type DashboardReadOptions = {
   month: string;
   range?: DateRange;
-  spendingCategoryId?: string;
   spendingCategoryIds?: string[];
   spendingGranularity?: "categories" | "subcategories";
+};
+
+export type DashboardSummary = {
+  income: number;
+  expenses: number;
+  incomeChangePercentage: number | null;
+  expenseChangePercentage: number | null;
+  balanceChangePercentage: number | null;
 };
 
 function money(value: number) {
@@ -25,12 +32,7 @@ async function memberContext() {
 }
 
 function rpcArgs({ month, range }: DashboardReadOptions) {
-  return { p_month: `${month}-01`, p_range_from: range?.from ?? null, p_range_to: range?.to ?? null };
-}
-
-function isSchemaTransition(error: unknown) {
-  if (typeof error !== "object" || error === null || !("code" in error)) return false;
-  return error.code === "PGRST202" || error.code === "42883";
+  return { p_month: `${month}-01`, ...(range ? { p_range_from: range.from, p_range_to: range.to } : {}) };
 }
 
 export const getDashboardControls = cache(async () => {
@@ -100,26 +102,29 @@ export const getDashboardControls = cache(async () => {
   };
 });
 
-export async function getDashboardSummary(options: DashboardReadOptions) {
+export async function getDashboardSummary(options: DashboardReadOptions): Promise<DashboardSummary> {
   const household = await memberContext();
   const { data, error } = await household.supabase.rpc("dashboard_summary", rpcArgs(options));
   const row = data?.[0];
   if (error || !row) throw new Error("Unable to load dashboard summary.");
+  const balanceChangePercentage = row.balance_change_percentage;
   return {
     income: money(row.income),
     expenses: money(row.expenses),
     incomeChangePercentage: row.income_change_percentage === null ? null : Number(row.income_change_percentage),
     expenseChangePercentage: row.expense_change_percentage === null ? null : Number(row.expense_change_percentage),
+    balanceChangePercentage:
+      balanceChangePercentage === null || balanceChangePercentage === undefined ? null : Number(balanceChangePercentage),
   };
 }
 
 export async function getDashboardSpending(options: DashboardReadOptions) {
   const household = await memberContext();
-  const { data, error } = await household.supabase.rpc("dashboard_spending", {
+  const { data, error } = await household.supabase.rpc("dashboard_spending_breakdown", {
     ...rpcArgs(options),
-    p_category_id: options.spendingCategoryId ?? null,
+    ...(options.spendingCategoryIds ? { p_category_ids: options.spendingCategoryIds } : {}),
+    p_subcategories: options.spendingGranularity === "subcategories",
   });
-  if (isSchemaTransition(error)) return { status: "schema_transition" } as const;
   if (error) throw new Error("Unable to load dashboard spending.");
   return {
     categoryTotals: (data ?? []).map((row) => ({
@@ -140,26 +145,6 @@ export async function getDashboardMonthlyReview(month: string) {
     expenses: money(row.expenses),
     savings: money(row.savings),
   }));
-}
-
-export async function getDashboardRecentActivity(options: DashboardReadOptions) {
-  const household = await memberContext();
-  const { data, error } = await household.supabase.rpc("dashboard_recent_activity", rpcArgs(options));
-  if (isSchemaTransition(error)) return { status: "schema_transition" } as const;
-  if (error) throw new Error("Unable to load dashboard activity.");
-  return {
-    transactions: (data ?? []).map((row) => ({
-      id: row.id,
-      kind: row.kind,
-      amount: money(row.amount),
-      occurredOn: row.occurred_on,
-      merchant: row.merchant,
-      note: row.note,
-      source: row.source,
-      categoryName: row.category_name,
-      subcategoryName: row.subcategory_name,
-    })),
-  };
 }
 
 export async function getLedgerData({

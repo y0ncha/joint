@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { getDashboardControls, getDashboardMonthlyReview, getDashboardSpending, getDashboardSummary } from "@/lib/dashboard-read-model";
-import { getValidDateRange, previousMonth, previousThreeDateRanges, type DateRange } from "@/lib/date-range";
+import { getValidDateRange, isCanonicalIsoMonth, previousMonth, type DateRange } from "@/lib/date-range";
 import { cn } from "@/lib/utils";
 
 const currency = new Intl.NumberFormat("en-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
@@ -24,36 +24,6 @@ function comparisonLabel(change: number | null, range?: DateRange) {
   const baseline = range ? "previous 3 equivalent ranges" : "previous 3-month average";
   if (roundedChange === 0) return `In line with ${baseline}`;
   return `${roundedChange}% ${change > 0 ? "above" : "below"} ${baseline}`;
-}
-
-function percentageChange(value: number, average: number | null) {
-  return average === null || average === 0 ? null : ((value - average) / average) * 100;
-}
-
-function donutSegmentPath(startAngle: number, endAngle: number) {
-  const point = (radius: number, angle: number) => {
-    const radians = ((angle - 90) * Math.PI) / 180;
-    return [100 + radius * Math.cos(radians), 100 + radius * Math.sin(radians)];
-  };
-  const [outerStartX, outerStartY] = point(96, startAngle);
-  const [outerEndX, outerEndY] = point(96, endAngle);
-  const [innerEndX, innerEndY] = point(62, endAngle);
-  const [innerStartX, innerStartY] = point(62, startAngle);
-  const largeArc = endAngle - startAngle > 180 ? 1 : 0;
-  return `M ${outerStartX} ${outerStartY} A 96 96 0 ${largeArc} 1 ${outerEndX} ${outerEndY} L ${innerEndX} ${innerEndY} A 62 62 0 ${largeArc} 0 ${innerStartX} ${innerStartY} Z`;
-}
-
-function DashboardSchemaTransition({ className, title }: { className?: string; title: string }) {
-  return (
-    <Card className={cn("border-white/50 bg-card/90", className)}>
-      <CardContent className="p-5 sm:p-6">
-        <p className="text-sm font-medium text-muted-foreground">{title}</p>
-        <p role="status" aria-live="polite" className="mt-5 text-sm text-muted-foreground">
-          Updating dashboard…
-        </p>
-      </CardContent>
-    </Card>
-  );
 }
 
 export async function DashboardActions({ month, range }: { month: string; range?: DateRange }) {
@@ -90,53 +60,18 @@ export async function DashboardActions({ month, range }: { month: string; range?
   );
 }
 
-export async function DashboardMetricCards({
-  options,
-  review,
-}: {
-  options: DashboardReadOptions;
-  review: Promise<DashboardMonthlyTrendRow[]>;
-}) {
-  let metrics: Array<{ change: number | null; kind: "balance" | "expenses" | "income"; title: string; value: number }>;
-
-  if (options.range) {
-    const previousRanges = previousThreeDateRanges(options.range);
-    const [summary, ...previousSummaries] = await Promise.all([
-      getDashboardSummary(options),
-      ...previousRanges.map((range) => getDashboardSummary({ ...options, range })),
-    ]);
-    const monthlyBalance = summary.income - summary.expenses;
-    const averageMonthlyBalance = previousSummaries.length
-      ? previousSummaries.reduce((total, value) => total + value.income - value.expenses, 0) / previousSummaries.length
-      : null;
-    metrics = [
-      { title: "Income", kind: "income", value: summary.income, change: summary.incomeChangePercentage },
-      { title: "Outgoings", kind: "expenses", value: summary.expenses, change: summary.expenseChangePercentage },
-      {
-        title: "Monthly balance",
-        kind: "balance",
-        value: monthlyBalance,
-        change: percentageChange(monthlyBalance, averageMonthlyBalance),
-      },
-    ];
-  } else {
-    const months = await review;
-    const current = months.at(-1);
-    if (!current) throw new Error("Unable to load dashboard review.");
-    const previous = months.slice(-4, -1);
-    const average = (key: "expenses" | "income" | "savings") =>
-      previous.length ? previous.reduce((total, value) => total + value[key], 0) / previous.length : null;
-    metrics = [
-      { title: "Income", kind: "income", value: current.income, change: percentageChange(current.income, average("income")) },
-      { title: "Outgoings", kind: "expenses", value: current.expenses, change: percentageChange(current.expenses, average("expenses")) },
-      {
-        title: "Monthly balance",
-        kind: "balance",
-        value: current.savings,
-        change: percentageChange(current.savings, average("savings")),
-      },
-    ];
-  }
+export async function DashboardMetricCards({ options }: { options: DashboardReadOptions }) {
+  const summary = await getDashboardSummary(options);
+  const metrics: Array<{ change: number | null; kind: "balance" | "expenses" | "income"; title: string; value: number }> = [
+    { title: "Income", kind: "income", value: summary.income, change: summary.incomeChangePercentage },
+    { title: "Outgoings", kind: "expenses", value: summary.expenses, change: summary.expenseChangePercentage },
+    {
+      title: "Monthly balance",
+      kind: "balance",
+      value: summary.income - summary.expenses,
+      change: summary.balanceChangePercentage,
+    },
+  ];
 
   return (
     <>
@@ -183,9 +118,6 @@ export async function DashboardMetricCards({
 
 export async function SpendingCard({ options }: { options: DashboardReadOptions }) {
   const [report, controls] = await Promise.all([getDashboardSpending(options), getDashboardControls()]);
-  if ("status" in report) {
-    return <DashboardSchemaTransition className="lg:col-span-5 lg:aspect-square" title="Where your money went" />;
-  }
   const selectableCategories = controls.categories.filter(
     (category) =>
       category.kind === "expense" &&
@@ -196,34 +128,9 @@ export async function SpendingCard({ options }: { options: DashboardReadOptions 
       ),
   );
   const selectedCategories = selectableCategories.filter((category) => options.spendingCategoryIds?.includes(category.id));
-  const categoriesForSubcategories = selectedCategories.length ? selectedCategories : selectableCategories;
-  const fanouts =
-    options.spendingGranularity === "subcategories"
-      ? await Promise.all(
-          categoriesForSubcategories.map(async (category) => ({
-            category,
-            report: await getDashboardSpending({ ...options, spendingCategoryId: category.id }),
-          })),
-        )
-      : [];
-  if (fanouts.some((fanout) => "status" in fanout.report)) {
-    return <DashboardSchemaTransition className="lg:col-span-5 lg:aspect-square" title="Where your money went" />;
-  }
-  const parentTotals = selectedCategories.length
-    ? report.categoryTotals.filter((category) => selectedCategories.some((selected) => selected.id === category.categoryId))
-    : report.categoryTotals;
-  const displayedTotals =
-    options.spendingGranularity === "subcategories"
-      ? fanouts.flatMap((fanout) => ("categoryTotals" in fanout.report ? (fanout.report.categoryTotals ?? []) : []))
-      : parentTotals;
+  const displayedTotals = report.categoryTotals;
   const total = displayedTotals.reduce((sum, category) => sum + category.amount, 0);
-  const segments = displayedTotals.reduce<Array<{ category: (typeof displayedTotals)[number]; start: number; end: number }>>(
-    (values, category) => {
-      const start = values.at(-1)?.end ?? 0;
-      return [...values, { category, start, end: start + (category.amount / total) * 360 }];
-    },
-    [],
-  );
+
   return (
     <Card className="border-white/50 bg-card/90 lg:col-span-5 lg:aspect-square">
       <CardHeader>
@@ -244,10 +151,10 @@ export async function SpendingCard({ options }: { options: DashboardReadOptions 
           {displayedTotals.length ? (
             <DashboardSpendingDonut
               ariaLabel={`Spending breakdown: ${displayedTotals.map((category) => `${category.categoryName} ${currency.format(category.amount)}`).join(", ")}`}
-              segments={segments.map(({ category, start, end }, index) => ({
+              segments={displayedTotals.map((category, index) => ({
                 id: category.categoryId,
                 label: `${category.categoryName}: ${currency.format(category.amount)}`,
-                path: donutSegmentPath(start, end),
+                value: category.amount,
                 color: `var(--chart-${(index % 5) + 1})`,
               }))}
               total={currency.format(total)}
@@ -292,7 +199,7 @@ export default async function HomePage({
 }) {
   const { from, month: requestedMonth, spendingCategories, spendingGranularity: requestedSpendingGranularity, to } = await searchParams;
   const current = previousMonth();
-  const month = requestedMonth && /^\d{4}-\d{2}$/.test(requestedMonth) ? requestedMonth : current;
+  const month = requestedMonth && isCanonicalIsoMonth(requestedMonth) ? requestedMonth : current;
   const range = getValidDateRange(from, to);
   const spendingCategoryIds = [
     ...new Set((spendingCategories ?? "").split(",").filter((id) => /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(id))),
@@ -326,7 +233,7 @@ export default async function HomePage({
             </>
           }
         >
-          <DashboardMetricCards options={options} review={review} />
+          <DashboardMetricCards options={options} />
         </Suspense>
         <Suspense fallback={<DashboardCardLoading className="lg:col-span-5 lg:aspect-square" title="Where your money went" />}>
           <SpendingCard options={options} />

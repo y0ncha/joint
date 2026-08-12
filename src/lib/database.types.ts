@@ -356,24 +356,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "recurring_transaction_schedules_household_id_subcategory_id_fke"
-            columns: ["household_id", "subcategory_id"]
-            isOneToOne: false
-            referencedRelation: "subcategories"
-            referencedColumns: ["household_id", "id"]
+            foreignKeyName: "recurring_transaction_schedul_first_occurrence_transaction_fkey"
+            columns: ["first_occurrence_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "recurring_transaction_schedules_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "recurring_transaction_schedul_first_occurrence_transaction_fkey"
-            columns: ["first_occurrence_transaction_id"]
-            isOneToOne: true
-            referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
           {
@@ -389,6 +382,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "households"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transaction_schedules_household_id_subcategory_id_fke"
+            columns: ["household_id", "subcategory_id"]
+            isOneToOne: false
+            referencedRelation: "subcategories"
+            referencedColumns: ["household_id", "id"]
           },
           {
             foreignKeyName: "recurring_transaction_schedules_paid_by_fkey"
@@ -589,63 +589,40 @@ export type Database = {
       }
       create_recurring_transaction_schedule: {
         Args: {
-          target_amount: number
-          target_cadence: Database["public"]["Enums"]["recurring_schedule_cadence"]
-          target_category_id: string | null
+          target_amount?: number
+          target_cadence?: Database["public"]["Enums"]["recurring_schedule_cadence"]
+          target_category_id?: string
           target_household_id: string
-          target_interval_count: number
-          target_kind: Database["public"]["Enums"]["transaction_kind"]
-          target_merchant: string
-          target_note: string
-          target_occurred_on: string
-          target_paid_by: string | null
-          target_service_period_end: string | null
-          target_service_period_start: string | null
-          target_subcategory_id: string | null
+          target_interval_count?: number
+          target_kind?: Database["public"]["Enums"]["transaction_kind"]
+          target_merchant?: string
+          target_note?: string
+          target_occurred_on?: string
+          target_paid_by?: string
+          target_service_period_end?: string
+          target_service_period_start?: string
+          target_subcategory_id?: string
         }
         Returns: string
       }
       create_recurring_transaction_schedule_after_duplicate: {
         Args: {
-          target_amount: number
-          target_cadence: Database["public"]["Enums"]["recurring_schedule_cadence"]
-          target_category_id: string | null
-          target_existing_transaction_id: string
+          target_amount?: number
+          target_cadence?: Database["public"]["Enums"]["recurring_schedule_cadence"]
+          target_category_id?: string
+          target_existing_transaction_id?: string
           target_household_id: string
-          target_interval_count: number
-          target_kind: Database["public"]["Enums"]["transaction_kind"]
-          target_merchant: string
-          target_note: string
-          target_occurred_on: string
-          target_paid_by: string | null
-          target_service_period_end: string | null
-          target_service_period_start: string | null
-          target_subcategory_id: string | null
+          target_interval_count?: number
+          target_kind?: Database["public"]["Enums"]["transaction_kind"]
+          target_merchant?: string
+          target_note?: string
+          target_occurred_on?: string
+          target_paid_by?: string
+          target_service_period_end?: string
+          target_service_period_start?: string
+          target_subcategory_id?: string
         }
         Returns: string
-      }
-      dashboard_balance: {
-        Args: {
-          p_month: string
-          p_range_from: string | null
-          p_range_to: string | null
-        }
-        Returns: {
-          expected_monthly_income: number | null
-          expenses: number
-          shared_balance: number
-        }[]
-      }
-      dashboard_category_changes: {
-        Args: { p_month: string }
-        Returns: {
-          amount: number
-          average_amount: number
-          category_name: string
-          change_amount: number
-          change_percentage: number | null
-          kind: Database["public"]["Enums"]["category_kind"]
-        }[]
       }
       dashboard_monthly_review: {
         Args: { p_month: string }
@@ -654,32 +631,15 @@ export type Database = {
           income: number
           month: string
           savings: number
-          shared_balance: number
         }[]
       }
-      dashboard_recent_activity: {
+      dashboard_spending_breakdown: {
         Args: {
+          p_category_ids?: string[]
           p_month: string
-          p_range_from: string | null
-          p_range_to: string | null
-        }
-        Returns: {
-          amount: number
-          category_name: string | null
-          id: string
-          kind: Database["public"]["Enums"]["transaction_kind"]
-          merchant: string
-          note: string
-          occurred_on: string
-          source: Database["public"]["Enums"]["transaction_source"]
-          subcategory_name: string | null
-        }[]
-      }
-      dashboard_spending: {
-        Args: {
-          p_month: string
-          p_range_from: string | null
-          p_range_to: string | null
+          p_range_from?: string
+          p_range_to?: string
+          p_subcategories?: boolean
         }
         Returns: {
           amount: number
@@ -688,16 +648,13 @@ export type Database = {
         }[]
       }
       dashboard_summary: {
-        Args: {
-          p_month: string
-          p_range_from: string | null
-          p_range_to: string | null
-        }
+        Args: { p_month: string; p_range_from?: string; p_range_to?: string }
         Returns: {
-          expense_change_percentage: number | null
+          balance_change_percentage: number
+          expense_change_percentage: number
           expenses: number
           income: number
-          income_change_percentage: number | null
+          income_change_percentage: number
         }[]
       }
       delete_recurring_transaction_schedule: {
@@ -715,21 +672,6 @@ export type Database = {
       process_due_recurring_transaction_schedules: {
         Args: { target_today?: string }
         Returns: number
-      }
-      set_recurring_transaction_schedule_enabled: {
-        Args: { target_enabled: boolean; target_schedule_id: string }
-        Returns: undefined
-      }
-      update_recurring_transaction_schedule: {
-        Args: {
-          target_amount: number
-          target_cadence: Database["public"]["Enums"]["recurring_schedule_cadence"]
-          target_interval_count: number
-          target_merchant: string
-          target_note: string
-          target_schedule_id: string
-        }
-        Returns: undefined
       }
       reorder_automation_rules: {
         Args: { ordered_rule_ids: string[]; target_household_id: string }
@@ -757,6 +699,21 @@ export type Database = {
           }
       set_current_household_member_color: {
         Args: { target_color: string }
+        Returns: undefined
+      }
+      set_recurring_transaction_schedule_enabled: {
+        Args: { target_enabled: boolean; target_schedule_id: string }
+        Returns: undefined
+      }
+      update_recurring_transaction_schedule: {
+        Args: {
+          target_amount: number
+          target_cadence: Database["public"]["Enums"]["recurring_schedule_cadence"]
+          target_interval_count: number
+          target_merchant: string
+          target_note: string
+          target_schedule_id: string
+        }
         Returns: undefined
       }
     }
