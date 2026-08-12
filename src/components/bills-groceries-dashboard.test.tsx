@@ -453,7 +453,8 @@ it("limits Bills legends to two five-item rows", () => {
 
   expect(markup).toContain('data-legend-class="hidden w-full grid-cols-5');
   expect(markup).toContain('data-legend-height="68"');
-  expect(markup).toContain('style="height:348px"');
+  expect(markup).toContain("w-full shrink-0 aspect-auto h-[280px] md:h-[var(--bills-chart-height)]");
+  expect(markup).toContain("--bills-chart-height:348px");
 
   for (const color of [
     "var(--analytics-bill-1)",
@@ -493,7 +494,8 @@ it("keeps both desktop legends when eleven Bills are selected", () => {
   expect(markup).toContain('data-legend="year-over-year"');
   expect(markup).toContain('data-legend-class="hidden w-full grid-cols-5');
   expect(markup).toContain('data-legend-height="96"');
-  expect(markup).toContain('style="height:376px"');
+  expect(markup).toContain("w-full shrink-0 aspect-auto h-[280px] md:h-[var(--bills-chart-height)]");
+  expect(markup).toContain("--bills-chart-height:376px");
 });
 
 it("uses the Groceries analytics heatmap palette with white active-day labels and light idle cells", () => {

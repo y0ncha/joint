@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { type ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from "recharts";
 import { ArrowLeft, ChevronDown, Maximize2, Settings2 } from "lucide-react";
 
@@ -476,8 +476,8 @@ function BillsGroceriesCharts({
         >
           <ChartContainer
             config={Object.fromEntries(chartBills.map((bill) => [bill.value, { label: bill.label, color: bill.color }]))}
-            className="w-full shrink-0 aspect-auto"
-            style={{ height: `${(detail ? 320 : 280) + billsLegendHeight}px` }}
+            className={cn("w-full shrink-0 aspect-auto", chartHeightClass, "md:h-[var(--bills-chart-height)]")}
+            style={{ "--bills-chart-height": `${(detail ? 320 : 280) + billsLegendHeight}px` } as CSSProperties}
             role="region"
             aria-label="Stacked monthly Bills chart, use arrow keys to inspect values"
           >
