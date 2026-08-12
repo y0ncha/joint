@@ -30,15 +30,16 @@ it("keeps donut sections non-focusable at a responsive card-filling size", () =>
   );
 
   expect(markup).not.toContain("tabindex");
-  expect(markup).toContain("w-full");
-  expect(markup).toContain("lg:w-[min(100cqw,100cqh)]");
-  expect(markup).not.toContain("max-w-xl");
-  expect(markup).not.toContain("w-56");
+  expect(markup).toContain("w-56");
+  expect(markup).toContain("md:h-full");
+  expect(markup).toContain("md:w-auto");
+  expect(markup).toContain("md:max-w-full");
+  expect(markup).not.toContain("container-type:size");
   expect(markup).toContain("sm:text-5xl");
   expect(markup).toContain("M 100 4");
 });
 
-it("animates updated donut sections unless reduced motion is requested", () => {
+it("animates new donut sections unless reduced motion is requested", () => {
   const markup = renderToStaticMarkup(
     <DashboardSpendingDonut
       ariaLabel="Spending breakdown"

@@ -29,7 +29,7 @@ it("shows route-shaped membership fallbacks", () => {
   expect(dashboardMarkup).toContain("Loading Monthly balance");
   expect(dashboardMarkup).toContain("Loading Budgets");
   expect(dashboardMarkup).toContain("Loading Six-month trend");
-  expect(dashboardMarkup).toContain("lg:col-span-5 lg:aspect-square");
+  expect(dashboardMarkup).toContain("lg:col-span-5 md:aspect-square");
   expect(dashboardMarkup).toContain("lg:col-span-7");
   expect(dashboardMarkup).toContain("lg:col-span-12");
   expect([...dashboardMarkup.matchAll(/lg:col-span-4/g)]).toHaveLength(3);

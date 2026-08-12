@@ -51,13 +51,14 @@ function SheetContent({
         className={cn(
           "fixed inset-0 z-50 flex h-dvh w-full max-w-none flex-col gap-4 overflow-y-auto overscroll-contain bg-popover bg-clip-padding pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-sm text-popover-foreground shadow-lg transition duration-200 ease-in-out data-[side=bottom]:inset-x-0 data-[side=bottom]:top-auto data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=left]:md:inset-y-0 data-[side=left]:md:right-auto data-[side=left]:md:left-0 data-[side=left]:md:h-full data-[side=left]:md:w-3/4 data-[side=left]:md:max-w-sm data-[side=left]:md:border-r data-[side=right]:md:inset-y-0 data-[side=right]:md:right-0 data-[side=right]:md:left-auto data-[side=right]:md:h-full data-[side=right]:md:w-3/4 data-[side=right]:md:max-w-sm data-[side=right]:md:border-l data-[side=top]:inset-x-0 data-[side=top]:bottom-auto data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-open:animate-in data-open:fade-in-0 data-[side=bottom]:data-open:slide-in-from-bottom-10 data-[side=left]:data-open:slide-in-from-left-10 data-[side=right]:data-open:slide-in-from-right-10 data-[side=top]:data-open:slide-in-from-top-10 data-closed:animate-out data-closed:fade-out-0 data-[side=bottom]:data-closed:slide-out-to-bottom-10 data-[side=left]:data-closed:slide-out-to-left-10 data-[side=right]:data-closed:slide-out-to-right-10 data-[side=top]:data-closed:slide-out-to-top-10",
           className,
+          "!pt-[env(safe-area-inset-top)] !pb-[env(safe-area-inset-bottom)]",
         )}
         {...props}
       >
         {children}
         {showCloseButton && (
           <SheetPrimitive.Close data-slot="sheet-close" asChild>
-            <Button variant="ghost" className="absolute top-3 right-3 size-11" size="icon">
+            <Button variant="ghost" className="absolute top-[calc(0.75rem+env(safe-area-inset-top))] right-3 size-11" size="icon">
               <XIcon />
               <span className="sr-only">Close</span>
             </Button>

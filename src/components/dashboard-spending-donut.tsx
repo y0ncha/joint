@@ -28,7 +28,7 @@ export function DashboardSpendingDonut({ ariaLabel, segments, total }: { ariaLab
 
   return (
     <TooltipProvider>
-      <div aria-label={ariaLabel} className="relative aspect-square w-full justify-self-center lg:w-[min(100cqw,100cqh)]">
+      <div aria-label={ariaLabel} className="relative aspect-square w-56 justify-self-center md:h-full md:w-auto md:max-w-full">
         <svg viewBox="0 0 200 200" className="size-full" role="img" aria-label="Spending breakdown">
           {segments.length === 1 ? (
             <Tooltip key={transitionKey}>
