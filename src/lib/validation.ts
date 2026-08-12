@@ -2,7 +2,10 @@ import { z } from "zod";
 
 import { inclusiveIsoDayCount, isCanonicalIsoDate } from "./date-range";
 
-const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.");
+const dateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
+  .refine(isCanonicalIsoDate, "Use YYYY-MM-DD.");
 const optionalIdentifierSchema = z
   .string()
   .trim()
@@ -38,7 +41,12 @@ const recurrenceCadenceSchema = z.preprocess(
 );
 const recurrenceIntervalSchema = z.preprocess(
   (value) => (value === "" || value === undefined || value === null ? null : value),
-  z.coerce.number().int("Use a whole number.").positive("Use an interval greater than zero.").nullable(),
+  z.coerce
+    .number()
+    .int("Use a whole number.")
+    .positive("Use an interval greater than zero.")
+    .max(365, "Use an interval of 365 or fewer.")
+    .nullable(),
 );
 const nameSchema = z.string().trim().min(1, "Enter a name.").max(80, "Use 80 characters or fewer.");
 export const categorySchema = z.object({
@@ -92,5 +100,9 @@ export const recurringScheduleSchema = z.object({
   merchant: z.string().trim().max(200, "Use 200 characters or fewer."),
   note: noteSchema,
   cadence: z.enum(["weekly", "monthly", "custom_weekly", "custom_monthly"]),
-  intervalCount: z.coerce.number().int("Use a whole number.").positive("Use an interval greater than zero."),
+  intervalCount: z.coerce
+    .number()
+    .int("Use a whole number.")
+    .positive("Use an interval greater than zero.")
+    .max(365, "Use an interval of 365 or fewer."),
 });

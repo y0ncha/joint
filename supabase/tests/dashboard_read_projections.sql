@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(15);
+select plan(17);
 
 insert into auth.users (id, email, email_confirmed_at, raw_app_meta_data)
 values
@@ -21,8 +21,8 @@ values
   ('00000000-0000-0000-0000-000000000520', '00000000-0000-0000-0000-000000000510', 'Salary', 'income', '#ccebef', null),
   ('00000000-0000-0000-0000-000000000521', '00000000-0000-0000-0000-000000000510', 'Food', 'expense', '#f8d7d7', null),
   ('00000000-0000-0000-0000-000000000522', '00000000-0000-0000-0000-000000000511', 'Private income', 'income', '#ffcff0', null),
-  ('00000000-0000-0000-0000-000000000523', '00000000-0000-0000-0000-000000000510', 'Archived food', 'expense', '#d0d0d0', null),
-  ('00000000-0000-0000-0000-000000000524', '00000000-0000-0000-0000-000000000511', 'Private food', 'expense', '#e0d0ff', null);
+  ('00000000-0000-0000-0000-000000000523', '00000000-0000-0000-0000-000000000510', 'Archived food', 'expense', '#f8d7d7', null),
+  ('00000000-0000-0000-0000-000000000524', '00000000-0000-0000-0000-000000000511', 'Private food', 'expense', '#f8d7d7', null);
 
 insert into public.subcategories (id, household_id, category_id, name, color, archived_at)
 values
@@ -30,8 +30,8 @@ values
   ('00000000-0000-0000-0000-000000000531', '00000000-0000-0000-0000-000000000510', '00000000-0000-0000-0000-000000000521', 'Meals', '#ffe1e8', null),
   ('00000000-0000-0000-0000-000000000533', '00000000-0000-0000-0000-000000000510', '00000000-0000-0000-0000-000000000521', 'Groceries', '#ffedec', null),
   ('00000000-0000-0000-0000-000000000532', '00000000-0000-0000-0000-000000000511', '00000000-0000-0000-0000-000000000522', 'Secret', '#ffbff4', null),
-  ('00000000-0000-0000-0000-000000000534', '00000000-0000-0000-0000-000000000510', '00000000-0000-0000-0000-000000000523', 'Old', '#d0d0d0', null),
-  ('00000000-0000-0000-0000-000000000535', '00000000-0000-0000-0000-000000000511', '00000000-0000-0000-0000-000000000524', 'Private meals', '#e8ddff', null);
+  ('00000000-0000-0000-0000-000000000534', '00000000-0000-0000-0000-000000000510', '00000000-0000-0000-0000-000000000523', 'Old', '#ffe1e8', null),
+  ('00000000-0000-0000-0000-000000000535', '00000000-0000-0000-0000-000000000511', '00000000-0000-0000-0000-000000000524', 'Private meals', '#ffe1e8', null);
 
 insert into public.transactions (id, household_id, kind, amount, occurred_on, subcategory_id, created_by, created_at, merchant, note)
 values
@@ -95,6 +95,31 @@ values (
   'Private expense'
 );
 
+insert into public.transactions (id, household_id, kind, amount, occurred_on, subcategory_id, created_by, created_at, merchant)
+values
+  (
+    '00000000-0000-0000-0000-000000000555',
+    '00000000-0000-0000-0000-000000000510',
+    'income',
+    10,
+    current_date,
+    '00000000-0000-0000-0000-000000000530',
+    '00000000-0000-0000-0000-000000000501',
+    now(),
+    'Today'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000556',
+    '00000000-0000-0000-0000-000000000510',
+    'income',
+    999,
+    current_date + 1,
+    '00000000-0000-0000-0000-000000000530',
+    '00000000-0000-0000-0000-000000000501',
+    now(),
+    'Future'
+  );
+
 set local role authenticated;
 set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000501';
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000501"}';
@@ -106,7 +131,19 @@ select results_eq(
 );
 
 select results_eq(
-  $$ select balance_change_percentage from public.dashboard_summary('2026-07-01', '2026-07-06', '2026-07-06') $$,
+  $$
+    select
+      round(income_change_percentage, 2),
+      round(expense_change_percentage, 2),
+      round(balance_change_percentage, 2)
+    from public.dashboard_summary('2026-07-01')
+  $$,
+  $$ values (82.22::numeric, -1.88::numeric, 1156.63::numeric) $$,
+  'a completed month compares against the previous three full months'
+);
+
+select results_eq(
+  $$ select round(balance_change_percentage, 2) from public.dashboard_summary('2026-07-01', '2026-07-06', '2026-07-06') $$,
   $$ values (-76::numeric) $$,
   'summary returns the custom-range balance comparison'
 );
@@ -202,6 +239,12 @@ select ok(
     and to_regprocedure('public.dashboard_category_changes(date)') is null
     and to_regprocedure('public.dashboard_balance(date,date,date)') is null,
   'obsolete dashboard projections are absent'
+);
+
+select results_eq(
+  $$ select income from public.dashboard_monthly_review(current_date) order by month desc limit 1 $$,
+  $$ values (10::numeric) $$,
+  'the current monthly review excludes future-dated transactions'
 );
 
 set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000503';

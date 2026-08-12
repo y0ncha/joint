@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
-import { beforeEach, describe, expect, it } from "vitest";
+import JSZip from "jszip";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const headers = [
   "כרטיס",
@@ -64,10 +65,117 @@ async function xlsxFixture(rows: readonly (readonly string[])[] = [...nonZeroRow
   return new Uint8Array(await statementWorkbook(rows).xlsx.writeBuffer());
 }
 
+type WorksheetXmlMutation = (xml: string) => string;
+
+async function mutatedWorksheetXlsx(mutate: WorksheetXmlMutation) {
+  const zip = await JSZip.loadAsync(await xlsxFixture());
+  const worksheet = zip.file("xl/worksheets/sheet1.xml");
+  if (!worksheet) throw new Error("worksheet fixture missing");
+  const original = await worksheet.async("string");
+  const mutated = mutate(original);
+  if (mutated === original) throw new Error("worksheet mutation did not apply");
+  zip.file("xl/worksheets/sheet1.xml", mutated);
+  return new Uint8Array(await zip.generateAsync({ compression: "DEFLATE", type: "uint8array" }));
+}
+
+async function leadingSlashWorksheetXlsx(mutate: WorksheetXmlMutation) {
+  const zip = await JSZip.loadAsync(await xlsxFixture());
+  const worksheet = zip.file("xl/worksheets/sheet1.xml");
+  if (!worksheet) throw new Error("worksheet fixture missing");
+  const original = await worksheet.async("string");
+  const mutated = mutate(original);
+  if (mutated === original) throw new Error("worksheet mutation did not apply");
+  zip.remove("xl/worksheets/sheet1.xml");
+  zip.file("/xl/worksheets/sheet1.xml", mutated);
+  return new Uint8Array(await zip.generateAsync({ compression: "DEFLATE", type: "uint8array" }));
+}
+
+async function mutatedXlsxEntry(entryName: string, mutate: WorksheetXmlMutation) {
+  const zip = await JSZip.loadAsync(await xlsxFixture());
+  const entry = zip.file(entryName);
+  if (!entry) throw new Error(`${entryName} fixture missing`);
+  const original = await entry.async("string");
+  const mutated = mutate(original);
+  if (mutated === original) throw new Error("ZIP entry mutation did not apply");
+  zip.file(entryName, mutated);
+  return new Uint8Array(await zip.generateAsync({ compression: "DEFLATE", type: "uint8array" }));
+}
+
 async function csvFixture(rows: readonly (readonly string[])[] = [...nonZeroRows, zeroRow]) {
   const bytes = new Uint8Array(await statementWorkbook(rows).csv.writeBuffer());
   return new Uint8Array([0xef, 0xbb, 0xbf, ...bytes]);
 }
+
+function readU32(bytes: Uint8Array, offset: number) {
+  return (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0;
+}
+
+function writeU16(bytes: Uint8Array, offset: number, value: number) {
+  bytes[offset] = value & 0xff;
+  bytes[offset + 1] = (value >>> 8) & 0xff;
+}
+
+function writeU32(bytes: Uint8Array, offset: number, value: number) {
+  bytes[offset] = value & 0xff;
+  bytes[offset + 1] = (value >>> 8) & 0xff;
+  bytes[offset + 2] = (value >>> 16) & 0xff;
+  bytes[offset + 3] = (value >>> 24) & 0xff;
+}
+
+function lastZipSignature(bytes: Uint8Array, signature: readonly number[]) {
+  for (let offset = bytes.length - signature.length; offset >= 0; offset -= 1) {
+    if (signature.every((value, index) => bytes[offset + index] === value)) return offset;
+  }
+  throw new Error("fixture ZIP signature missing");
+}
+
+type ZipMutation = (bytes: Uint8Array, eocdOffset: number, centralDirectoryOffset: number) => void;
+
+async function mutatedXlsx(mutate: ZipMutation) {
+  const bytes = await xlsxFixture();
+  const eocdOffset = lastZipSignature(bytes, [0x50, 0x4b, 0x05, 0x06]);
+  const centralDirectoryOffset = readU32(bytes, eocdOffset + 16);
+  const mutated = bytes.slice();
+  mutate(mutated, eocdOffset, centralDirectoryOffset);
+  return mutated;
+}
+
+const maliciousZipMutations: Array<[string, ZipMutation]> = [
+  ["central-directory bounds", (bytes, eocdOffset) => writeU32(bytes, eocdOffset + 16, bytes.length)],
+  ["uncompressed entry size", (bytes, _eocdOffset, centralDirectoryOffset) => writeU32(bytes, centralDirectoryOffset + 24, 0xffffffff)],
+  ["central-directory entry count", (bytes, eocdOffset) => writeU16(bytes, eocdOffset + 10, 0xffff)],
+  [
+    "compression ratio",
+    (bytes, _eocdOffset, centralDirectoryOffset) =>
+      writeU32(bytes, centralDirectoryOffset + 24, readU32(bytes, centralDirectoryOffset + 20) * 101),
+  ],
+];
+
+const sparseWorksheetMutations: Array<[string, WorksheetXmlMutation]> = [
+  ["row index", (xml) => xml.replace('<row r="10"', '<row r="4294967295"')],
+  ["cell column", (xml) => xml.replace('<c r="A10"', '<c r="XFD10"')],
+];
+
+const hugeMergeRangeMutation: WorksheetXmlMutation = (xml) =>
+  xml.replace("</worksheet>", '<mergeCells count="1"><mergeCell ref="A1:XFD1048576"/></mergeCells></worksheet>');
+const boundedMergeRangeMutation: WorksheetXmlMutation = (xml) =>
+  xml.replace("</worksheet>", '<mergeCells count="1"><mergeCell ref="A1:B2"/></mergeCells></worksheet>');
+const tooManyMergeRangesMutation: WorksheetXmlMutation = (xml) =>
+  xml.replace(
+    "</worksheet>",
+    `<mergeCells count="65">${Array.from({ length: 65 }, (_, index) => `<mergeCell ref="A${index + 1}:A${index + 1}"/>`).join("")}</mergeCells></worksheet>`,
+  );
+const tooManyWorksheetRowsMutation: WorksheetXmlMutation = (xml) =>
+  xml.replace("</sheetData>", `${Array.from({ length: 1_101 }, (_, index) => `<row r="1" ht="${index + 1}.1"/>`).join("")}</sheetData>`);
+const tooManyWorksheetCellsMutation: WorksheetXmlMutation = (xml) =>
+  xml.replace(
+    "</sheetData>",
+    `<row r="1">${Array.from({ length: 70_401 }, (_, index) => `<c r="A${(index % 64) + 1}" t="n"><v>${index}</v></c>`).join("")}</row></sheetData>`,
+  );
+const tooManySharedStringsMutation: WorksheetXmlMutation = (xml) =>
+  xml.replace("</sst>", `${Array.from({ length: 70_401 }, (_, index) => `<si><t>shared-${index}</t></si>`).join("")}</sst>`);
+const tooManyStylesMutation: WorksheetXmlMutation = (xml) =>
+  xml.replace("</cellXfs>", `${Array.from({ length: 1_025 }, () => "<xf/>").join("")}</cellXfs>`);
 
 async function oneMiBXlsxFixture() {
   const bytes = await xlsxFixture();
@@ -130,6 +238,164 @@ describe("parseStatementFile", () => {
       ],
       skippedZeroCount: 1,
     });
+  });
+
+  it.each(maliciousZipMutations)("rejects XLSX with malicious %s before ExcelJS loads it", async (_label, mutate) => {
+    const bytes = await mutatedXlsx(mutate);
+    const xlsxGetter = vi.spyOn(ExcelJS.Workbook.prototype, "xlsx", "get");
+
+    try {
+      await expect(
+        parseStatementFile({
+          name: "malicious.xlsx",
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          bytes,
+        }),
+      ).rejects.toThrow("Invalid statement file.");
+      expect(xlsxGetter).not.toHaveBeenCalled();
+    } finally {
+      xlsxGetter.mockRestore();
+    }
+  });
+
+  it.each(sparseWorksheetMutations)("rejects XLSX with sparse %s coordinates before worksheet scans", async (_label, mutate) => {
+    const bytes = await mutatedWorksheetXlsx(mutate);
+
+    await expect(
+      parseStatementFile({
+        name: "sparse.xlsx",
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        bytes,
+      }),
+    ).rejects.toThrow("Invalid statement file.");
+  });
+
+  it("rejects XLSX with a huge merge range before ExcelJS loads it", async () => {
+    const bytes = await mutatedWorksheetXlsx(hugeMergeRangeMutation);
+    const xlsxGetter = vi.spyOn(ExcelJS.Workbook.prototype, "xlsx", "get");
+
+    try {
+      await expect(
+        parseStatementFile({
+          name: "huge-merge.xlsx",
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          bytes,
+        }),
+      ).rejects.toThrow("Invalid statement file.");
+      expect(xlsxGetter).not.toHaveBeenCalled();
+    } finally {
+      xlsxGetter.mockRestore();
+    }
+  });
+
+  it("rejects a leading-slash worksheet path with a huge merge range before ExcelJS loads it", async () => {
+    const bytes = await leadingSlashWorksheetXlsx(hugeMergeRangeMutation);
+    const xlsxGetter = vi.spyOn(ExcelJS.Workbook.prototype, "xlsx", "get");
+
+    try {
+      await expect(
+        parseStatementFile({
+          name: "leading-slash-merge.xlsx",
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          bytes,
+        }),
+      ).rejects.toThrow("Invalid statement file.");
+      expect(xlsxGetter).not.toHaveBeenCalled();
+    } finally {
+      xlsxGetter.mockRestore();
+    }
+  });
+
+  it("accepts an XLSX with a bounded merge range", async () => {
+    await expect(
+      parseStatementFile({
+        name: "bounded-merge.xlsx",
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        bytes: await mutatedWorksheetXlsx(boundedMergeRangeMutation),
+      }),
+    ).resolves.toMatchObject({ rows: expect.any(Array) });
+  });
+
+  it("rejects a CSV with more than the bounded worksheet row count", async () => {
+    const rows = [...nonZeroRows, ...Array.from({ length: 1_101 }, () => [] as string[])];
+
+    await expect(parseStatementFile({ name: "too-many-rows.csv", type: "text/csv", bytes: await csvFixture(rows) })).rejects.toThrow(
+      "Invalid statement file.",
+    );
+  });
+
+  it("rejects a CSV row with more than the bounded column count before ExcelJS loads it", async () => {
+    const bytes = new TextEncoder().encode(`${headers.join(",")}\n${Array.from({ length: 65 }, () => "value").join(",")}\n`);
+    const csvGetter = vi.spyOn(ExcelJS.Workbook.prototype, "csv", "get");
+
+    try {
+      await expect(parseStatementFile({ name: "too-many-columns.csv", type: "text/csv", bytes })).rejects.toThrow(
+        "Invalid statement file.",
+      );
+      expect(csvGetter).not.toHaveBeenCalled();
+    } finally {
+      csvGetter.mockRestore();
+    }
+  });
+
+  it("rejects XLSX with too many merge ranges before ExcelJS loads it", async () => {
+    const bytes = await mutatedWorksheetXlsx(tooManyMergeRangesMutation);
+    const xlsxGetter = vi.spyOn(ExcelJS.Workbook.prototype, "xlsx", "get");
+
+    try {
+      await expect(
+        parseStatementFile({
+          name: "too-many-merges.xlsx",
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          bytes,
+        }),
+      ).rejects.toThrow("Invalid statement file.");
+      expect(xlsxGetter).not.toHaveBeenCalled();
+    } finally {
+      xlsxGetter.mockRestore();
+    }
+  });
+
+  it.each([
+    ["duplicate row elements", tooManyWorksheetRowsMutation],
+    ["duplicate cell elements", tooManyWorksheetCellsMutation],
+  ] as const)("rejects XLSX with %s before ExcelJS loads it", async (_label, mutate) => {
+    const bytes = await mutatedWorksheetXlsx(mutate);
+    const xlsxGetter = vi.spyOn(ExcelJS.Workbook.prototype, "xlsx", "get");
+
+    try {
+      await expect(
+        parseStatementFile({
+          name: "too-many-worksheet-elements.xlsx",
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          bytes,
+        }),
+      ).rejects.toThrow("Invalid statement file.");
+      expect(xlsxGetter).not.toHaveBeenCalled();
+    } finally {
+      xlsxGetter.mockRestore();
+    }
+  });
+
+  it.each([
+    ["shared strings", "xl/sharedStrings.xml", tooManySharedStringsMutation],
+    ["styles", "xl/styles.xml", tooManyStylesMutation],
+  ] as const)("rejects XLSX with too many %s elements before ExcelJS loads it", async (_label, entryName, mutate) => {
+    const bytes = await mutatedXlsxEntry(entryName, mutate);
+    const xlsxGetter = vi.spyOn(ExcelJS.Workbook.prototype, "xlsx", "get");
+
+    try {
+      await expect(
+        parseStatementFile({
+          name: `too-many-${_label}.xlsx`,
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          bytes,
+        }),
+      ).rejects.toThrow("Invalid statement file.");
+      expect(xlsxGetter).not.toHaveBeenCalled();
+    } finally {
+      xlsxGetter.mockRestore();
+    }
   });
 
   it("parses a UTF-8 BOM CSV with quoted text using the same exact header contract", async () => {

@@ -123,18 +123,18 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
     parsed.data.recurrenceCadence && parsed.data.recurrenceInterval
       ? {
           target_household_id: household.householdId,
-          target_paid_by: parsed.data.paidBy,
           target_kind: parsed.data.kind,
           target_amount: parsed.data.amount,
           target_occurred_on: parsed.data.occurredOn,
           target_merchant: automated.merchant,
           target_note: parsed.data.note,
-          target_category_id: automated.categoryId,
-          target_subcategory_id: automated.subcategoryId,
-          target_service_period_start: servicePeriods.service_period_start,
-          target_service_period_end: servicePeriods.service_period_end,
           target_cadence: parsed.data.recurrenceCadence,
           target_interval_count: parsed.data.recurrenceInterval,
+          ...(parsed.data.paidBy ? { target_paid_by: parsed.data.paidBy } : {}),
+          ...(automated.categoryId ? { target_category_id: automated.categoryId } : {}),
+          ...(automated.subcategoryId ? { target_subcategory_id: automated.subcategoryId } : {}),
+          ...(servicePeriods.service_period_start ? { target_service_period_start: servicePeriods.service_period_start } : {}),
+          ...(servicePeriods.service_period_end ? { target_service_period_end: servicePeriods.service_period_end } : {}),
         }
       : null;
   if (confirmation.skippedIds.has(candidate.id)) {

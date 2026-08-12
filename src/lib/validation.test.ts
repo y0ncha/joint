@@ -43,6 +43,7 @@ describe("transactionSchema", () => {
   it.each([
     ["amount", "12.345", "Use no more than two decimal places."],
     ["occurredOn", "14-07-2026", "Use YYYY-MM-DD."],
+    ["occurredOn", "2026-02-30", "Use YYYY-MM-DD."],
     ["subcategoryId", 1, "Invalid input: expected string, received number"],
     ["paidBy", 1, "Invalid input: expected string, received number"],
     ["merchant", "x".repeat(201), "Use 200 characters or fewer."],
@@ -52,6 +53,18 @@ describe("transactionSchema", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.issues).toContainEqual(expect.objectContaining({ path: [field], message }));
+  });
+
+  it("rejects recurrence intervals above the bounded database limit", () => {
+    const result = transactionSchema.safeParse({
+      kind: "expense",
+      ...validTransaction,
+      recurrenceCadence: "custom_weekly",
+      recurrenceInterval: "366",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues).toContainEqual(expect.objectContaining({ path: ["recurrenceInterval"] }));
   });
 
   it("accepts the merchant and note length boundaries", () => {

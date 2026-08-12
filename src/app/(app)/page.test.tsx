@@ -151,10 +151,20 @@ describe("Joint dashboard", () => {
     vi.useRealTimers();
   });
 
+  it("rejects an invalid requested month before dashboard reads", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-10T12:00:00Z"));
+
+    renderToStaticMarkup(await renderHome({ month: "2026-99" }));
+
+    expect(mocks.getDashboardMonthlyReview).toHaveBeenCalledWith("2026-07");
+    vi.useRealTimers();
+  });
+
   it("renders the approved card grid from focused reads", async () => {
     const review = Promise.resolve(monthlyReview);
     const markup = [
-      renderToStaticMarkup(await DashboardMetricCards({ options, review })),
+      renderToStaticMarkup(await DashboardMetricCards({ options })),
       renderToStaticMarkup(await SpendingCard({ options })),
       renderToStaticMarkup(<BudgetsPlaceholder />),
       renderToStaticMarkup(await DashboardTrendCard({ review })),
@@ -163,9 +173,9 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("Income");
     expect(markup).toContain("Outgoings");
     expect(markup).toContain("Monthly balance");
-    expect(markup).toContain("20% above previous 3-month average");
-    expect(markup).toContain("29% above previous 3-month average");
-    expect(markup).toContain("In line with previous 3-month average");
+    expect(markup).toContain("13% above previous 3-month average");
+    expect(markup).toContain("8% below previous 3-month average");
+    expect(markup).toContain("5% above previous 3-month average");
     expect(markup).toContain("Where your money went");
     expect(markup).toContain("Expense categories for this period.");
     expect(markup).toContain("Budgets");
@@ -181,6 +191,8 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("lg:col-span-12");
     expect(markup).toContain('aria-label="Configure spending breakdown"');
     expect(markup).not.toContain("Latest activity");
+    expect(mocks.getDashboardSummary).toHaveBeenCalledWith(options);
+    expect(mocks.getDashboardSummary).toHaveBeenCalledTimes(1);
     expect(mocks.getDashboardSpending).toHaveBeenCalledWith(options);
   });
 
@@ -265,7 +277,7 @@ describe("Joint dashboard", () => {
       incomeChangePercentage: 12.5,
     }));
 
-    const markup = renderToStaticMarkup(await DashboardMetricCards({ options: rangeOptions, review: Promise.resolve(monthlyReview) }));
+    const markup = renderToStaticMarkup(await DashboardMetricCards({ options: rangeOptions }));
 
     expect(mocks.getDashboardSummary).toHaveBeenCalledWith(rangeOptions);
     expect(mocks.getDashboardSummary).toHaveBeenCalledTimes(1);

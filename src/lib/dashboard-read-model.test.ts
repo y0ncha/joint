@@ -135,8 +135,6 @@ it("requests the summary projection without a browser-controlled household id", 
   });
   expect(mocks.rpc).toHaveBeenCalledWith("dashboard_summary", {
     p_month: "2026-07-01",
-    p_range_from: null,
-    p_range_to: null,
   });
 });
 
@@ -185,10 +183,7 @@ it("maps each focused dashboard projection to the existing report names", async 
     categoryTotals: [{ amount: 4280, categoryId: "food", categoryName: "Food" }],
   });
   expect(mocks.rpc).toHaveBeenCalledWith("dashboard_spending_breakdown", {
-    p_category_ids: null,
     p_month: "2026-07-01",
-    p_range_from: null,
-    p_range_to: null,
     p_subcategories: false,
   });
 });
@@ -226,8 +221,6 @@ it("passes a selected category to the authenticated spending projection", async 
   expect(mocks.rpc).toHaveBeenCalledWith("dashboard_spending_breakdown", {
     p_category_ids: ["food"],
     p_month: "2026-07-01",
-    p_range_from: null,
-    p_range_to: null,
     p_subcategories: false,
   });
 });

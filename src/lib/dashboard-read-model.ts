@@ -11,19 +11,13 @@ type DashboardReadOptions = {
   spendingGranularity?: "categories" | "subcategories";
 };
 
-type DashboardSpendingBreakdownRpc = (
-  functionName: "dashboard_spending_breakdown",
-  args: {
-    p_category_ids: string[] | null;
-    p_month: string;
-    p_range_from: string | null;
-    p_range_to: string | null;
-    p_subcategories: boolean;
-  },
-) => Promise<{
-  data: Array<{ amount: number; category_id: string; category_name: string }> | null;
-  error: unknown | null;
-}>;
+export type DashboardSummary = {
+  income: number;
+  expenses: number;
+  incomeChangePercentage: number | null;
+  expenseChangePercentage: number | null;
+  balanceChangePercentage: number | null;
+};
 
 function money(value: number) {
   const amount = Number(value);
@@ -38,7 +32,7 @@ async function memberContext() {
 }
 
 function rpcArgs({ month, range }: DashboardReadOptions) {
-  return { p_month: `${month}-01`, p_range_from: range?.from ?? null, p_range_to: range?.to ?? null };
+  return { p_month: `${month}-01`, ...(range ? { p_range_from: range.from, p_range_to: range.to } : {}) };
 }
 
 export const getDashboardControls = cache(async () => {
@@ -108,12 +102,12 @@ export const getDashboardControls = cache(async () => {
   };
 });
 
-export async function getDashboardSummary(options: DashboardReadOptions) {
+export async function getDashboardSummary(options: DashboardReadOptions): Promise<DashboardSummary> {
   const household = await memberContext();
   const { data, error } = await household.supabase.rpc("dashboard_summary", rpcArgs(options));
   const row = data?.[0];
   if (error || !row) throw new Error("Unable to load dashboard summary.");
-  const balanceChangePercentage = (row as unknown as { balance_change_percentage?: number | null }).balance_change_percentage;
+  const balanceChangePercentage = row.balance_change_percentage;
   return {
     income: money(row.income),
     expenses: money(row.expenses),
@@ -126,10 +120,9 @@ export async function getDashboardSummary(options: DashboardReadOptions) {
 
 export async function getDashboardSpending(options: DashboardReadOptions) {
   const household = await memberContext();
-  const supabase = household.supabase as unknown as { rpc: DashboardSpendingBreakdownRpc };
-  const { data, error } = await supabase.rpc("dashboard_spending_breakdown", {
+  const { data, error } = await household.supabase.rpc("dashboard_spending_breakdown", {
     ...rpcArgs(options),
-    p_category_ids: options.spendingCategoryIds ?? null,
+    ...(options.spendingCategoryIds ? { p_category_ids: options.spendingCategoryIds } : {}),
     p_subcategories: options.spendingGranularity === "subcategories",
   });
   if (error) throw new Error("Unable to load dashboard spending.");

@@ -10,7 +10,7 @@ export function isCanonicalIsoDate(value: string) {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
-function isCanonicalIsoMonth(value: string) {
+export function isCanonicalIsoMonth(value: string) {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
 }
 
