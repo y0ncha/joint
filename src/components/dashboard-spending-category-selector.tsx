@@ -57,7 +57,7 @@ export function DashboardSpendingCategorySelector({
     else params.delete("spendingCategories");
     if (nextGranularity === "subcategories") params.set("spendingGranularity", nextGranularity);
     else params.delete("spendingGranularity");
-    router.push(`${pathname}?${params}`);
+    router.push(`${pathname}?${params}`, { scroll: false });
   }
 
   function toggle(categoryId: string) {

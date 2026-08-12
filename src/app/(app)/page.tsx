@@ -132,7 +132,7 @@ export async function SpendingCard({ options }: { options: DashboardReadOptions 
   const total = displayedTotals.reduce((sum, category) => sum + category.amount, 0);
 
   return (
-    <Card className="border-white/50 bg-card/90 lg:col-span-5 lg:aspect-square">
+    <Card className="border-white/50 bg-card/90 lg:col-span-5 md:aspect-square">
       <CardHeader>
         <CardTitle>Where your money went</CardTitle>
         <CardDescription>Expense categories for this period.</CardDescription>
@@ -147,7 +147,7 @@ export async function SpendingCard({ options }: { options: DashboardReadOptions 
         </CardAction>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1">
-        <div className="flex min-h-0 flex-1 items-center justify-center [container-type:size]">
+        <div className="flex min-h-0 flex-1 items-center justify-center">
           {displayedTotals.length ? (
             <DashboardSpendingDonut
               ariaLabel={`Spending breakdown: ${displayedTotals.map((category) => `${category.categoryName} ${currency.format(category.amount)}`).join(", ")}`}
@@ -235,7 +235,7 @@ export default async function HomePage({
         >
           <DashboardMetricCards options={options} />
         </Suspense>
-        <Suspense fallback={<DashboardCardLoading className="lg:col-span-5 lg:aspect-square" title="Where your money went" />}>
+        <Suspense fallback={<DashboardCardLoading className="lg:col-span-5 md:aspect-square" title="Where your money went" />}>
           <SpendingCard options={options} />
         </Suspense>
         <BudgetsPlaceholder />

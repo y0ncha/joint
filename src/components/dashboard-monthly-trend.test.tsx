@@ -9,14 +9,14 @@ vi.mock("recharts", () => ({
     isValidElement(content)
       ? cloneElement(content as ReactElement<{ payload: unknown[] }>, {
           payload: [
-            { color: "var(--positive)", dataKey: "income" },
-            { color: "var(--negative)", dataKey: "expenses" },
-            { color: "var(--foreground)", dataKey: "savings" },
+            { color: "var(--analytics-bill-1)", dataKey: "income" },
+            { color: "var(--analytics-bill-15)", dataKey: "expenses" },
+            { color: "var(--analytics-bill-11)", dataKey: "savings" },
           ],
         })
       : null,
-  Line: ({ dataKey, strokeDasharray }: { dataKey: string; strokeDasharray?: string }) => (
-    <span data-line={dataKey} data-stroke-dasharray={strokeDasharray ?? "solid"} />
+  Line: ({ dataKey, stroke, strokeDasharray }: { dataKey: string; stroke: string; strokeDasharray?: string }) => (
+    <span data-line={dataKey} data-stroke={stroke} data-stroke-dasharray={strokeDasharray ?? "solid"} />
   ),
   LineChart: ({ accessibilityLayer, children, data }: { accessibilityLayer?: boolean; children: ReactNode; data: unknown[] }) => (
     <div data-accessibility-layer={accessibilityLayer} data-points={data.length}>
@@ -50,9 +50,12 @@ it("renders an accessible detailed three-line monthly trend with monthly balance
   expect(markup).toContain('data-line="income"');
   expect(markup).toContain('data-line="expenses"');
   expect(markup).toContain('data-line="savings"');
-  expect(markup).toContain('data-line="income" data-stroke-dasharray="solid"');
-  expect(markup).toContain('data-line="expenses" data-stroke-dasharray="6 4"');
-  expect(markup).toContain('data-line="savings" data-stroke-dasharray="2 4"');
+  expect(markup).toContain('data-line="income" data-stroke="var(--color-income)" data-stroke-dasharray="solid"');
+  expect(markup).toContain('data-line="expenses" data-stroke="var(--color-expenses)" data-stroke-dasharray="solid"');
+  expect(markup).toContain('data-line="savings" data-stroke="var(--color-savings)" data-stroke-dasharray="solid"');
+  expect(markup).toContain("--color-income: var(--analytics-bill-1)");
+  expect(markup).toContain("--color-expenses: var(--analytics-bill-15)");
+  expect(markup).toContain("--color-savings: var(--analytics-bill-11)");
   expect(markup).toContain("Income");
   expect(markup).toContain("Outgoings");
   expect(markup).toContain("Monthly balance");

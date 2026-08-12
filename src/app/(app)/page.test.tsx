@@ -184,8 +184,8 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("Six-month trend");
     expect(markup).toContain('data-slot="card-header"');
     expect(markup).toContain('data-slot="card-action"');
-    expect(markup).toContain("flex min-h-0 flex-1 items-center justify-center [container-type:size]");
-    expect(markup).toContain("lg:col-span-5 lg:aspect-square");
+    expect(markup).toContain("flex min-h-0 flex-1 items-center justify-center");
+    expect(markup).toContain("lg:col-span-5 md:aspect-square");
     expect(markup).toContain("lg:col-span-7");
     expect([...markup.matchAll(/lg:col-span-4/g)]).toHaveLength(3);
     expect(markup).toContain("lg:col-span-12");

@@ -52,7 +52,7 @@ it("adds a category to the configured fanout", () => {
 
   expect(mocks.checkboxChanges.get("dashboard-spending-food")).toBeTypeOf("function");
   mocks.checkboxChanges.get("dashboard-spending-food")!();
-  expect(mocks.push).toHaveBeenCalledWith("/?month=2026-07&spendingCategories=food");
+  expect(mocks.push).toHaveBeenCalledWith("/?month=2026-07&spendingCategories=food", { scroll: false });
 });
 
 it("allows selecting all categories", () => {
@@ -71,7 +71,7 @@ it("allows selecting all categories", () => {
 
   expect(markup).not.toContain('id="dashboard-spending-leisure" disabled');
   mocks.checkboxChanges.get("dashboard-spending-leisure")!();
-  expect(mocks.push).toHaveBeenCalledWith("/?month=2026-07&spendingCategories=food%2Chome%2Cbills%2Cleisure");
+  expect(mocks.push).toHaveBeenCalledWith("/?month=2026-07&spendingCategories=food%2Chome%2Cbills%2Cleisure", { scroll: false });
 });
 
 it("uses an icon-only configuration trigger", () => {

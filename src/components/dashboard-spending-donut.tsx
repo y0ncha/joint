@@ -28,7 +28,7 @@ export function DashboardSpendingDonut({ ariaLabel, segments, total }: { ariaLab
 
   return (
     <TooltipProvider>
-      <div aria-label={ariaLabel} className="relative aspect-square w-full justify-self-center lg:w-[min(100cqw,100cqh)]">
+      <div aria-label={ariaLabel} className="relative aspect-square w-56 justify-self-center md:h-full md:w-auto md:max-w-full">
         <svg viewBox="0 0 200 200" className="size-full" role="img" aria-label="Spending breakdown">
           {segments.length === 1 ? (
             <Tooltip key={transitionKey}>
@@ -44,7 +44,12 @@ export function DashboardSpendingDonut({ ariaLabel, segments, total }: { ariaLab
                   aria-label={segments[0].label}
                 />
               </TooltipTrigger>
-              <TooltipContent>{segments[0].label}</TooltipContent>
+              <TooltipContent
+                arrowClassName="bg-popover fill-popover"
+                className="border border-border bg-popover text-popover-foreground shadow-md"
+              >
+                {segments[0].label}
+              </TooltipContent>
             </Tooltip>
           ) : (
             segmentsWithPaths.map((segment, index) => (
@@ -57,7 +62,12 @@ export function DashboardSpendingDonut({ ariaLabel, segments, total }: { ariaLab
                     aria-label={segment.label}
                   />
                 </TooltipTrigger>
-                <TooltipContent>{segment.label}</TooltipContent>
+                <TooltipContent
+                  arrowClassName="bg-popover fill-popover"
+                  className="border border-border bg-popover text-popover-foreground shadow-md"
+                >
+                  {segment.label}
+                </TooltipContent>
               </Tooltip>
             ))
           )}
