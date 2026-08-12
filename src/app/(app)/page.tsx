@@ -83,18 +83,7 @@ export async function DashboardMetricCards({ options }: { options: DashboardRead
               <CardTitle>{metric.title}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p
-                className={cn(
-                  "font-mono text-3xl font-semibold tabular-nums",
-                  metric.kind === "income" || (metric.kind === "balance" && metric.value >= 0)
-                    ? "text-positive"
-                    : metric.kind === "expenses" || metric.value < 0
-                      ? "text-negative"
-                      : undefined,
-                )}
-              >
-                {currency.format(metric.value)}
-              </p>
+              <p className="font-mono text-3xl font-semibold tabular-nums">{currency.format(metric.value)}</p>
               <p
                 className={cn(
                   "mt-4 flex items-center gap-2 text-sm",
@@ -155,7 +144,7 @@ export async function SpendingCard({ options }: { options: DashboardReadOptions 
                 id: category.categoryId,
                 label: `${category.categoryName}: ${currency.format(category.amount)}`,
                 value: category.amount,
-                color: `var(--chart-${(index % 5) + 1})`,
+                color: `var(--analytics-bill-${(index % 15) + 1})`,
               }))}
               total={currency.format(total)}
             />

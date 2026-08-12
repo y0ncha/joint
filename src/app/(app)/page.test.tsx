@@ -196,6 +196,13 @@ describe("Joint dashboard", () => {
     expect(mocks.getDashboardSpending).toHaveBeenCalledWith(options);
   });
 
+  it("keeps the dashboard headline amounts in the default foreground", async () => {
+    const markup = renderToStaticMarkup(await DashboardMetricCards({ options }));
+
+    expect([...markup.matchAll(/font-mono text-3xl font-semibold tabular-nums/g)]).toHaveLength(3);
+    expect(markup).not.toContain("font-mono text-3xl font-semibold tabular-nums text-");
+  });
+
   it("keeps fewer than three selected categories aggregated", async () => {
     mocks.getDashboardSpending.mockResolvedValue({
       categoryTotals: [
@@ -210,6 +217,8 @@ describe("Joint dashboard", () => {
 
     expect(markup).toContain("₪4,122");
     expect(markup).toContain('aria-label="Spending breakdown: Home ₪3,000, Bills ₪1,122"');
+    expect(markup).toContain('fill="var(--analytics-bill-1)"');
+    expect(markup).toContain('fill="var(--analytics-bill-2)"');
     expect(mocks.getDashboardSpending).toHaveBeenCalledTimes(1);
     expect(markup).not.toContain("<title>");
     expect(markup).not.toContain('aria-live="polite"');

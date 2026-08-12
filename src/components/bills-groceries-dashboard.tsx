@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { type ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from "recharts";
 import { ArrowLeft, ChevronDown, Maximize2, Settings2 } from "lucide-react";
 
@@ -474,41 +474,49 @@ function BillsGroceriesCharts({
             </ChartConfig>
           }
         >
-          <ChartContainer
-            config={Object.fromEntries(chartBills.map((bill) => [bill.value, { label: bill.label, color: bill.color }]))}
-            className="w-full shrink-0 aspect-auto"
-            style={{ height: `${(detail ? 320 : 280) + billsLegendHeight}px` }}
-            role="region"
-            aria-label="Stacked monthly Bills chart, use arrow keys to inspect values"
-          >
-            <BarChart accessibilityLayer data={billMonthlyData} margin={chartMargin}>
-              <CartesianGrid vertical={false} />
-              <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
-              <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value) => `₪${value}`} />
-              <ExactTooltip labels={Object.fromEntries(chartBills.map((bill) => [bill.value, bill.label]))} totalLabel="Total" />
-              {showBillsLegends && (
-                <ChartLegend
-                  height={billsLegendHeight}
-                  content={<ChartLegendContent className="hidden w-full grid-cols-5 gap-x-3 gap-y-2 [&>div]:truncate md:grid" />}
-                />
+          {[false, true].map((withLegend) => (
+            <ChartContainer
+              key={String(withLegend)}
+              config={Object.fromEntries(chartBills.map((bill) => [bill.value, { label: bill.label, color: bill.color }]))}
+              className={cn(
+                "w-full shrink-0 aspect-auto",
+                withLegend ? "hidden md:flex md:h-[var(--bills-chart-height)]" : `${chartHeightClass} md:hidden`,
               )}
-              {orderedSelectedBills.map((bill, index) => (
-                <Bar key={bill.value} dataKey={bill.value} stackId="bills" fill={bill.color}>
-                  {billMonthlyData.map((month) => (
-                    <Cell
-                      key={month.month}
-                      radius={
-                        stackedBarRadius(
-                          orderedSelectedBills.map((item) => Number(month[item.value] ?? 0)),
-                          index,
-                        ) as unknown as number
-                      }
-                    />
-                  ))}
-                </Bar>
-              ))}
-            </BarChart>
-          </ChartContainer>
+              style={
+                withLegend ? ({ "--bills-chart-height": `${(detail ? 320 : 280) + billsLegendHeight}px` } as CSSProperties) : undefined
+              }
+              role="region"
+              aria-label="Stacked monthly Bills chart, use arrow keys to inspect values"
+            >
+              <BarChart accessibilityLayer data={billMonthlyData} margin={chartMargin}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
+                <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value) => `₪${value}`} />
+                <ExactTooltip labels={Object.fromEntries(chartBills.map((bill) => [bill.value, bill.label]))} totalLabel="Total" />
+                {withLegend && showBillsLegends && (
+                  <ChartLegend
+                    height={billsLegendHeight}
+                    content={<ChartLegendContent className="grid w-full grid-cols-5 gap-x-3 gap-y-2 [&>div]:truncate" />}
+                  />
+                )}
+                {orderedSelectedBills.map((bill, index) => (
+                  <Bar key={bill.value} dataKey={bill.value} stackId="bills" fill={bill.color}>
+                    {billMonthlyData.map((month) => (
+                      <Cell
+                        key={month.month}
+                        radius={
+                          stackedBarRadius(
+                            orderedSelectedBills.map((item) => Number(month[item.value] ?? 0)),
+                            index,
+                          ) as unknown as number
+                        }
+                      />
+                    ))}
+                  </Bar>
+                ))}
+              </BarChart>
+            </ChartContainer>
+          ))}
           {chartBills.length === 0 ? (
             <p className="text-sm text-muted-foreground">Add a Bills subcategory to see monthly spending.</p>
           ) : !billMonthlyData.some((month) => selectedBills.some((bill) => Number(month[bill] ?? 0) > 0)) ? (

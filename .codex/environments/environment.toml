@@ -16,6 +16,6 @@ icon = "tool"
 command = "bun run build"
 
 [[actions]]
-name = "Test"
+name = "Quality"
 icon = "test"
-command = "bun run format:check && bun run lint && bun run typecheck && bun run test"
+command = "bun run format && bun run lint && bun run typecheck && bun run test"

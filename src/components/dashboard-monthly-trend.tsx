@@ -32,8 +32,8 @@ const shortMonth = new Intl.DateTimeFormat("en-IL", { month: "short", timeZone: 
 
 const chartConfig = {
   income: { label: "Income", color: "var(--analytics-bill-1)" },
-  expenses: { label: "Outgoings", color: "var(--analytics-bill-15)" },
-  savings: { label: "Monthly balance", color: "var(--analytics-bill-11)" },
+  expenses: { label: "Outgoings", color: "var(--analytics-bill-11)" },
+  savings: { label: "Monthly balance", color: "var(--analytics-bill-15)" },
 } satisfies ChartConfig;
 
 function monthDate(value: string) {

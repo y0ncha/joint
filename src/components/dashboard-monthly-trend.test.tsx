@@ -10,8 +10,8 @@ vi.mock("recharts", () => ({
       ? cloneElement(content as ReactElement<{ payload: unknown[] }>, {
           payload: [
             { color: "var(--analytics-bill-1)", dataKey: "income" },
-            { color: "var(--analytics-bill-15)", dataKey: "expenses" },
-            { color: "var(--analytics-bill-11)", dataKey: "savings" },
+            { color: "var(--analytics-bill-11)", dataKey: "expenses" },
+            { color: "var(--analytics-bill-15)", dataKey: "savings" },
           ],
         })
       : null,
@@ -54,8 +54,8 @@ it("renders an accessible detailed three-line monthly trend with monthly balance
   expect(markup).toContain('data-line="expenses" data-stroke="var(--color-expenses)" data-stroke-dasharray="solid"');
   expect(markup).toContain('data-line="savings" data-stroke="var(--color-savings)" data-stroke-dasharray="solid"');
   expect(markup).toContain("--color-income: var(--analytics-bill-1)");
-  expect(markup).toContain("--color-expenses: var(--analytics-bill-15)");
-  expect(markup).toContain("--color-savings: var(--analytics-bill-11)");
+  expect(markup).toContain("--color-expenses: var(--analytics-bill-11)");
+  expect(markup).toContain("--color-savings: var(--analytics-bill-15)");
   expect(markup).toContain("Income");
   expect(markup).toContain("Outgoings");
   expect(markup).toContain("Monthly balance");
