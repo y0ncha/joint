@@ -16,7 +16,7 @@ vi.mock("recharts", () => ({
   YAxis: () => null,
 }));
 vi.mock("@/components/ui/chart", () => ({
-  ChartContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  ChartContainer: ({ children, className }: { children: ReactNode; className?: string }) => <div className={className}>{children}</div>,
   ChartLegend: ({ content }: { content: ReactNode }) => <>{content}</>,
   ChartLegendContent: ({ className }: { className?: string }) => <div className={className} />,
   ChartTooltip: () => null,
@@ -53,6 +53,6 @@ it("hides a nine-Bill legend below the mobile breakpoint", () => {
     />,
   );
 
-  expect(markup).toContain('class="hidden');
-  expect(markup).toContain("md:grid");
+  expect(markup).toContain("h-[280px] md:hidden");
+  expect(markup).toContain("hidden md:flex md:h-[var(--bills-chart-height)]");
 });

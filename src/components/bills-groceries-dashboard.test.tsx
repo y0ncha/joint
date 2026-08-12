@@ -29,7 +29,9 @@ vi.mock("recharts", async (importOriginal) => {
     Cell: () => null,
     Legend: ({ content, height }: { content?: ReactNode; height?: number }) => (
       <span
-        data-legend={height === undefined ? "year-over-year" : "bills"}
+        data-legend={
+          isValidElement<{ className?: string }>(content) && content.props.className?.includes("grid-cols-5") ? "bills" : "year-over-year"
+        }
         data-legend-class={isValidElement<{ className?: string }>(content) ? content.props.className : undefined}
         data-legend-height={height}
       />
@@ -451,9 +453,10 @@ it("limits Bills legends to two five-item rows", () => {
     />,
   );
 
-  expect(markup).toContain('data-legend-class="hidden w-full grid-cols-5');
+  expect(markup).toContain('data-legend-class="grid w-full grid-cols-5');
   expect(markup).toContain('data-legend-height="68"');
-  expect(markup).toContain("w-full shrink-0 aspect-auto h-[280px] md:h-[var(--bills-chart-height)]");
+  expect(markup).toContain("h-[280px] md:hidden");
+  expect(markup).toContain("hidden md:flex md:h-[var(--bills-chart-height)]");
   expect(markup).toContain("--bills-chart-height:348px");
 
   for (const color of [
@@ -492,9 +495,10 @@ it("keeps both desktop legends when eleven Bills are selected", () => {
   expect(markup.match(/data-legend=/g)).toHaveLength(3);
   expect(markup).toContain('data-legend="bills"');
   expect(markup).toContain('data-legend="year-over-year"');
-  expect(markup).toContain('data-legend-class="hidden w-full grid-cols-5');
+  expect(markup).toContain('data-legend-class="grid w-full grid-cols-5');
   expect(markup).toContain('data-legend-height="96"');
-  expect(markup).toContain("w-full shrink-0 aspect-auto h-[280px] md:h-[var(--bills-chart-height)]");
+  expect(markup).toContain("h-[280px] md:hidden");
+  expect(markup).toContain("hidden md:flex md:h-[var(--bills-chart-height)]");
   expect(markup).toContain("--bills-chart-height:376px");
 });
 
