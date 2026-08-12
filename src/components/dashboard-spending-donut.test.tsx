@@ -56,6 +56,19 @@ it("animates new donut sections unless reduced motion is requested", () => {
   expect(markup).toContain("motion-reduce:animate-none");
 });
 
+it("uses the light chart-tooltip surface", () => {
+  const donut = DashboardSpendingDonut({
+    ariaLabel: "Spending breakdown",
+    total: "₪100",
+    segments: [{ id: "food", label: "Food: ₪100", color: "red", value: 100 }],
+  });
+  const tooltipContent = donut.props.children.props.children[0].props.children.props.children[1];
+
+  expect(tooltipContent.props.className).toContain("bg-popover");
+  expect(tooltipContent.props.className).toContain("text-popover-foreground");
+  expect(tooltipContent.props.arrowClassName).toContain("fill-popover");
+});
+
 it("renders a single numeric segment as a full donut ring", () => {
   const markup = renderToStaticMarkup(
     <DashboardSpendingDonut

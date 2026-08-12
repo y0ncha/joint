@@ -31,9 +31,9 @@ const month = new Intl.DateTimeFormat("en-IL", { month: "short", year: "numeric"
 const shortMonth = new Intl.DateTimeFormat("en-IL", { month: "short", timeZone: "UTC" });
 
 const chartConfig = {
-  income: { label: "Income", color: "var(--positive)" },
-  expenses: { label: "Outgoings", color: "var(--negative)" },
-  savings: { label: "Monthly balance", color: "var(--foreground)" },
+  income: { label: "Income", color: "var(--analytics-bill-1)" },
+  expenses: { label: "Outgoings", color: "var(--analytics-bill-15)" },
+  savings: { label: "Monthly balance", color: "var(--analytics-bill-11)" },
 } satisfies ChartConfig;
 
 function monthDate(value: string) {
@@ -91,7 +91,6 @@ export function DashboardMonthlyTrend({ data }: { data: DashboardMonthlyTrendRow
               dataKey="expenses"
               type="monotone"
               stroke="var(--color-expenses)"
-              strokeDasharray="6 4"
               strokeWidth={2.5}
               dot={{ r: 3 }}
               isAnimationActive={false}
@@ -100,7 +99,6 @@ export function DashboardMonthlyTrend({ data }: { data: DashboardMonthlyTrendRow
               dataKey="savings"
               type="monotone"
               stroke="var(--color-savings)"
-              strokeDasharray="2 4"
               strokeWidth={2.5}
               dot={{ r: 3 }}
               isAnimationActive={false}
