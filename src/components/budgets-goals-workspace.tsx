@@ -30,6 +30,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { calculateGoalProgress, savedAmountSchema, targetAmountSchema, targetDateSchema } from "@/lib/budgets-goals";
 import type { BudgetRow, BudgetsGoalsData, GoalRow } from "@/lib/budgets-goals-data";
 
 const currency = new Intl.NumberFormat("en-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 2 });
@@ -50,6 +51,35 @@ function roundedPercent(value: number) {
 
 function fieldError(state: ActionResult | null, name: string) {
   return state?.status === "error" ? state.fieldErrors[name] : undefined;
+}
+
+function formValue(state: ActionResult | null, name: string, fallback?: string | number) {
+  return state?.status === "error" ? (state.data?.[name] ?? fallback) : fallback;
+}
+
+function preserveSubmittedValues(result: ActionResult, input: FormData, names: readonly string[]) {
+  if (result.status !== "error") return result;
+  return {
+    ...result,
+    data: {
+      ...result.data,
+      ...Object.fromEntries(names.map((name) => [name, input.get(name)?.toString() ?? ""])),
+    },
+  };
+}
+
+function goalPreview(targetAmount: string, savedAmount: string, targetDate: string) {
+  const parsedTargetAmount = targetAmountSchema.safeParse(targetAmount);
+  const parsedSavedAmount = savedAmountSchema.safeParse(savedAmount);
+  const parsedTargetDate = targetDateSchema.safeParse(targetDate);
+  if (!parsedTargetAmount.success || !parsedSavedAmount.success || !parsedTargetDate.success) {
+    return null;
+  }
+
+  return calculateGoalProgress(
+    { targetAmount: parsedTargetAmount.data, savedAmount: parsedSavedAmount.data, targetDate: parsedTargetDate.data },
+    new Date().toISOString().slice(0, 10),
+  );
 }
 
 function MutationStatus({
@@ -101,7 +131,11 @@ export function BudgetForm({
   target?: BudgetRow;
   targets: BudgetTargets;
 }) {
-  const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(saveMonthlyBudget, null);
+  const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
+    async (previousState, input) =>
+      preserveSubmittedValues(await saveMonthlyBudget(previousState, input), input, ["targetKind", "targetId", "monthlyBudget"]),
+    null,
+  );
   const [selectedTargetKey, setSelectedTargetKey] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   useFocusInvalid(state, formRef);
@@ -116,7 +150,8 @@ export function BudgetForm({
 
   const availableCategories = targets.categories.filter((candidate) => candidate.monthlyBudget === null);
   const availableSubcategories = targets.subcategories.filter((candidate) => candidate.monthlyBudget === null);
-  const targetKey = mode === "edit" && target ? `${target.targetKind}:${target.id}` : selectedTargetKey;
+  const submittedTargetKey = state?.status === "error" ? `${state.data?.targetKind ?? ""}:${state.data?.targetId ?? ""}` : "";
+  const targetKey = mode === "edit" && target ? `${target.targetKind}:${target.id}` : selectedTargetKey || submittedTargetKey;
   const [targetKind, targetId] = targetKey.split(":") as ["category" | "subcategory" | "", string | undefined];
   const targetError = fieldError(state, "targetId") ?? fieldError(state, "targetKind");
   const amountError = fieldError(state, "monthlyBudget");
@@ -139,7 +174,7 @@ export function BudgetForm({
         ) : (
           <Field data-invalid={Boolean(targetError)}>
             <FieldLabel htmlFor={`${formId}-target`}>Target</FieldLabel>
-            <Select value={selectedTargetKey} onValueChange={setSelectedTargetKey}>
+            <Select value={targetKey} onValueChange={setSelectedTargetKey}>
               <SelectTrigger
                 id={`${formId}-target`}
                 size="lg"
@@ -180,7 +215,7 @@ export function BudgetForm({
             aria-describedby={amountError ? `${formId}-amount-error` : undefined}
             aria-invalid={Boolean(amountError)}
             autoComplete="off"
-            defaultValue={mode === "edit" && target ? target.monthlyBudget : undefined}
+            defaultValue={formValue(state, "monthlyBudget", mode === "edit" && target ? target.monthlyBudget : undefined)}
             id={`${formId}-amount`}
             inputMode="decimal"
             min="0"
@@ -351,13 +386,19 @@ export function BudgetProgressRow({ row, targets }: { row: BudgetRow; targets: B
 }
 
 export function GoalForm({ goal, mode, onSuccess }: { goal?: GoalRow; mode: "add" | "edit"; onSuccess: () => void }) {
-  const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
-    async (previousState, input) =>
-      mode === "edit" && goal ? updateSavingsGoal(goal.id, previousState, input) : createSavingsGoal(previousState, input),
-    null,
-  );
+  const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(async (previousState, input) => {
+    const result =
+      mode === "edit" && goal ? await updateSavingsGoal(goal.id, previousState, input) : await createSavingsGoal(previousState, input);
+    return preserveSubmittedValues(result, input, ["name", "targetAmount", "savedAmount", "targetDate"]);
+  }, null);
   const formRef = useRef<HTMLFormElement>(null);
   useFocusInvalid(state, formRef);
+
+  const [previewValues, setPreviewValues] = useState(() => ({
+    targetAmount: String(formValue(state, "targetAmount", goal?.targetAmount ?? "")),
+    savedAmount: String(formValue(state, "savedAmount", goal?.savedAmount ?? 0)),
+    targetDate: String(formValue(state, "targetDate", goal?.targetDate ?? "")),
+  }));
 
   useEffect(() => {
     if (state?.status === "success") {
@@ -372,6 +413,7 @@ export function GoalForm({ goal, mode, onSuccess }: { goal?: GoalRow; mode: "add
   const targetAmountError = fieldError(state, "targetAmount");
   const savedAmountError = fieldError(state, "savedAmount");
   const targetDateError = fieldError(state, "targetDate");
+  const monthlyRequiredPreview = goalPreview(previewValues.targetAmount, previewValues.savedAmount, previewValues.targetDate);
 
   return (
     <form ref={formRef} action={formAction} id={formId}>
@@ -382,7 +424,7 @@ export function GoalForm({ goal, mode, onSuccess }: { goal?: GoalRow; mode: "add
             aria-describedby={nameError ? `${formId}-name-error` : undefined}
             aria-invalid={Boolean(nameError)}
             autoComplete="off"
-            defaultValue={goal?.name}
+            defaultValue={formValue(state, "name", goal?.name)}
             id={`${formId}-name`}
             name="name"
             required
@@ -396,7 +438,8 @@ export function GoalForm({ goal, mode, onSuccess }: { goal?: GoalRow; mode: "add
             aria-describedby={targetAmountError ? `${formId}-target-amount-error` : undefined}
             aria-invalid={Boolean(targetAmountError)}
             autoComplete="off"
-            defaultValue={goal?.targetAmount}
+            defaultValue={formValue(state, "targetAmount", goal?.targetAmount)}
+            onChange={(event) => setPreviewValues((current) => ({ ...current, targetAmount: event.target.value }))}
             id={`${formId}-target-amount`}
             inputMode="decimal"
             min="0"
@@ -414,7 +457,8 @@ export function GoalForm({ goal, mode, onSuccess }: { goal?: GoalRow; mode: "add
             aria-describedby={savedAmountError ? `${formId}-saved-amount-error` : undefined}
             aria-invalid={Boolean(savedAmountError)}
             autoComplete="off"
-            defaultValue={goal?.savedAmount ?? 0}
+            defaultValue={formValue(state, "savedAmount", goal?.savedAmount ?? 0)}
+            onChange={(event) => setPreviewValues((current) => ({ ...current, savedAmount: event.target.value }))}
             id={`${formId}-saved-amount`}
             inputMode="decimal"
             min="0"
@@ -432,15 +476,25 @@ export function GoalForm({ goal, mode, onSuccess }: { goal?: GoalRow; mode: "add
             aria-describedby={targetDateError ? `${formId}-target-date-error` : undefined}
             aria-invalid={Boolean(targetDateError)}
             autoComplete="off"
-            defaultValue={goal?.targetDate}
+            defaultValue={formValue(state, "targetDate", goal?.targetDate)}
             id={`${formId}-target-date`}
             name="targetDate"
+            onChange={(event) => setPreviewValues((current) => ({ ...current, targetDate: event.target.value }))}
             required
             type="date"
             className="min-h-11"
           />
           {targetDateError ? <FieldError id={`${formId}-target-date-error`}>{targetDateError}</FieldError> : null}
         </Field>
+        <FieldDescription aria-live="polite" id={`${formId}-monthly-required`}>
+          {monthlyRequiredPreview
+            ? monthlyRequiredPreview.status === "complete"
+              ? `Monthly required: ${formatAgorot(0)} · Complete`
+              : monthlyRequiredPreview.status === "overdue"
+                ? "Overdue · Monthly required is unavailable"
+                : `Monthly required: ${formatAgorot(monthlyRequiredPreview.monthlyRequiredAgorot ?? 0)}`
+            : "Enter a valid target, saved amount, and needed-by date to preview monthly saving."}
+        </FieldDescription>
         <MutationStatus isPending={isPending} pendingMessage="Saving goal…" state={state} successMessage="Goal saved" />
         <Button className="min-h-11" disabled={isPending} type="submit">
           {isPending ? <Spinner aria-hidden="true" data-icon="inline-start" /> : null}

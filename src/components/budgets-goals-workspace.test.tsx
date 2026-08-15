@@ -54,7 +54,7 @@ vi.mock("@/components/ui/alert-dialog", () => ({
   AlertDialogTrigger: ({ children }: { children: ReactNode }) => <div data-alert-dialog-trigger>{children}</div>,
 }));
 vi.mock("@/components/ui/select", () => ({
-  Select: ({ children }: { children: ReactNode }) => <div data-select>{children}</div>,
+  Select: ({ children, value }: { children: ReactNode; value?: string }) => <div data-select={value}>{children}</div>,
   SelectContent: ({ children }: { children: ReactNode }) => <div data-select-content>{children}</div>,
   SelectGroup: ({ children, ...props }: { children: ReactNode } & React.ComponentProps<"div">) => (
     <div data-select-group {...props}>
@@ -273,30 +273,35 @@ it("submits budget and goal forms through their FormData actions and preserves e
     formError: "Check the budget details.",
     fieldErrors: { monthlyBudget: "Enter an amount greater than zero." },
   } as const;
-  const budgetTarget = { ...data.budgets[0], monthlyBudget: 123.45 };
+  const budgetTarget = data.budgets[0];
   vi.mocked(actionsModule.saveMonthlyBudget).mockResolvedValue(budgetError);
 
-  renderToStaticMarkup(<workspaceModule.BudgetForm mode="edit" onSuccess={() => {}} target={budgetTarget} targets={data.targets} />);
+  renderToStaticMarkup(<workspaceModule.BudgetForm mode="add" onSuccess={() => {}} targets={data.targets} />);
   const budgetInput = new FormData();
   budgetInput.set("targetKind", budgetTarget.targetKind);
   budgetInput.set("targetId", budgetTarget.id);
   budgetInput.set("monthlyBudget", "123.45");
-  await expect(mocks.actionReducers[0](null, budgetInput)).resolves.toEqual(budgetError);
+  const budgetActionResult = await mocks.actionReducers[0](null, budgetInput);
+  expect(budgetActionResult).toEqual({
+    ...budgetError,
+    data: { targetKind: "category", targetId: budgetTarget.id, monthlyBudget: "123.45" },
+  });
   expect(actionsModule.saveMonthlyBudget).toHaveBeenCalledWith(null, budgetInput);
 
-  mocks.actionState = budgetError;
-  const budgetErrorMarkup = renderToStaticMarkup(
-    <workspaceModule.BudgetForm mode="edit" onSuccess={() => {}} target={budgetTarget} targets={data.targets} />,
-  );
+  mocks.actionState = budgetActionResult;
+  const budgetErrorMarkup = renderToStaticMarkup(<workspaceModule.BudgetForm mode="add" onSuccess={() => {}} targets={data.targets} />);
   expect(budgetErrorMarkup).toContain('name="targetKind" value="category"');
   expect(budgetErrorMarkup).toContain('name="targetId" value="11111111-1111-4111-8111-111111111111"');
   expect(budgetErrorMarkup).toContain('name="monthlyBudget" value="123.45"');
+  expect(budgetErrorMarkup).toContain('data-select="category:11111111-1111-4111-8111-111111111111"');
   expect(budgetErrorMarkup).toContain("Enter an amount greater than zero.");
 
   mocks.actionState = null;
   mocks.actionReducers.length = 0;
   const createResult = {
-    status: "success",
+    status: "error",
+    formError: "Check the goal details.",
+    fieldErrors: { name: "Enter a name." },
   } as const;
   vi.mocked(actionsModule.createSavingsGoal).mockResolvedValue(createResult);
   renderToStaticMarkup(<workspaceModule.GoalForm mode="add" onSuccess={() => {}} />);
@@ -305,17 +310,24 @@ it("submits budget and goal forms through their FormData actions and preserves e
   createInput.set("targetAmount", "275");
   createInput.set("savedAmount", "125");
   createInput.set("targetDate", "2027-06-30");
-  await expect(mocks.actionReducers[0](null, createInput)).resolves.toEqual(createResult);
+  const createActionResult = await mocks.actionReducers[0](null, createInput);
+  expect(createActionResult).toEqual({
+    ...createResult,
+    data: { name: "Emergency fund", targetAmount: "275", savedAmount: "125", targetDate: "2027-06-30" },
+  });
   expect(actionsModule.createSavingsGoal).toHaveBeenCalledWith(null, createInput);
 
+  mocks.actionState = createActionResult;
+  const createErrorMarkup = renderToStaticMarkup(<workspaceModule.GoalForm mode="add" onSuccess={() => {}} />);
+  expect(createErrorMarkup).toContain('name="name" value="Emergency fund"');
+  expect(createErrorMarkup).toContain('name="targetAmount" value="275"');
+  expect(createErrorMarkup).toContain('name="savedAmount" value="125"');
+  expect(createErrorMarkup).toContain('name="targetDate" value="2027-06-30"');
+  expect(createErrorMarkup).toContain("Enter a name.");
+
+  mocks.actionState = null;
   mocks.actionReducers.length = 0;
-  const enteredGoal = {
-    ...data.goals[0],
-    name: "Entered emergency fund",
-    targetAmount: 275,
-    savedAmount: 125,
-    targetDate: "2027-06-30",
-  };
+  const enteredGoal = data.goals[0];
   const updateError = {
     status: "error",
     formError: "Check the goal details.",
@@ -324,14 +336,18 @@ it("submits budget and goal forms through their FormData actions and preserves e
   vi.mocked(actionsModule.updateSavingsGoal).mockResolvedValue(updateError);
   renderToStaticMarkup(<workspaceModule.GoalForm goal={enteredGoal} mode="edit" onSuccess={() => {}} />);
   const updateInput = new FormData();
-  updateInput.set("name", enteredGoal.name);
+  updateInput.set("name", "Entered emergency fund");
   updateInput.set("targetAmount", "275");
   updateInput.set("savedAmount", "125");
-  updateInput.set("targetDate", enteredGoal.targetDate);
-  await expect(mocks.actionReducers[0](null, updateInput)).resolves.toEqual(updateError);
+  updateInput.set("targetDate", "2027-06-30");
+  const updateActionResult = await mocks.actionReducers[0](null, updateInput);
+  expect(updateActionResult).toEqual({
+    ...updateError,
+    data: { name: "Entered emergency fund", targetAmount: "275", savedAmount: "125", targetDate: "2027-06-30" },
+  });
   expect(actionsModule.updateSavingsGoal).toHaveBeenCalledWith(enteredGoal.id, null, updateInput);
 
-  mocks.actionState = updateError;
+  mocks.actionState = updateActionResult;
   const goalErrorMarkup = renderToStaticMarkup(<workspaceModule.GoalForm goal={enteredGoal} mode="edit" onSuccess={() => {}} />);
   expect(goalErrorMarkup).toContain('name="name" value="Entered emergency fund"');
   expect(goalErrorMarkup).toContain('name="targetAmount" value="275"');
@@ -349,6 +365,25 @@ it("wraps long names in interpolated Sheet and confirmation descriptions", () =>
   expect(budgetMarkup).toContain('class="min-w-0 break-words">Update the monthly limit for');
   expect(budgetMarkup).toContain('class="min-w-0 break-words">This clears the monthly limit for');
   expect(goalMarkup).toContain('class="min-w-0 break-words">This removes');
+});
+
+it("previews active, complete, overdue, and incomplete goal calculations", () => {
+  const activeGoal = { ...data.goals[0], targetAmount: 100, savedAmount: 10, targetDate: "2099-12-31" };
+  const completeGoal = { ...data.goals[0], targetAmount: 100, savedAmount: 100, targetDate: "2000-01-01" };
+  const overdueGoal = { ...data.goals[0], targetAmount: 100, savedAmount: 10, targetDate: "2000-01-01" };
+
+  expect(renderToStaticMarkup(<workspaceModule.GoalForm goal={activeGoal} mode="edit" onSuccess={() => {}} />)).toContain(
+    "Monthly required: ₪",
+  );
+  expect(renderToStaticMarkup(<workspaceModule.GoalForm goal={completeGoal} mode="edit" onSuccess={() => {}} />)).toContain(
+    "Monthly required: ₪0.00 · Complete",
+  );
+  expect(renderToStaticMarkup(<workspaceModule.GoalForm goal={overdueGoal} mode="edit" onSuccess={() => {}} />)).toContain(
+    "Overdue · Monthly required is unavailable",
+  );
+  expect(renderToStaticMarkup(<workspaceModule.GoalForm mode="add" onSuccess={() => {}} />)).toContain(
+    "Enter a valid target, saved amount, and needed-by date to preview monthly saving.",
+  );
 });
 
 it("announces and disables each pending mutation", () => {
