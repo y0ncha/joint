@@ -256,7 +256,7 @@ function BudgetEditSheet({ target, targets }: { target: BudgetRow; targets: Budg
       <SheetContent className={sheetContentClassName()} side="right">
         <SheetHeader className="p-6">
           <SheetTitle className="text-xl">Edit budget</SheetTitle>
-          <SheetDescription>Update the monthly limit for {target.label}.</SheetDescription>
+          <SheetDescription className="min-w-0 break-words">Update the monthly limit for {target.label}.</SheetDescription>
         </SheetHeader>
         <div className="px-6 pb-6">
           <BudgetForm mode="edit" onSuccess={onSuccess} target={target} targets={targets} />
@@ -289,7 +289,7 @@ function RemoveBudgetDialog({ target }: { target: BudgetRow }) {
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Remove this budget?</AlertDialogTitle>
-          <AlertDialogDescription>This clears the monthly limit for {target.label}.</AlertDialogDescription>
+          <AlertDialogDescription className="min-w-0 break-words">This clears the monthly limit for {target.label}.</AlertDialogDescription>
         </AlertDialogHeader>
         <form action={formAction}>
           <input name="targetKind" type="hidden" value={target.targetKind} />
@@ -520,7 +520,9 @@ function DeleteGoalDialog({ goal }: { goal: GoalRow }) {
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete this goal?</AlertDialogTitle>
-          <AlertDialogDescription>This removes {goal.name} and its manually maintained progress.</AlertDialogDescription>
+          <AlertDialogDescription className="min-w-0 break-words">
+            This removes {goal.name} and its manually maintained progress.
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <form action={formAction}>
           <MutationStatus isPending={isPending} pendingMessage="Deleting goal…" state={state} successMessage="Goal deleted" />

@@ -33,7 +33,7 @@ vi.mock("@/app/actions/budgets-goals", () => ({
 vi.mock("@/components/ui/sheet", () => ({
   Sheet: ({ children }: { children: ReactNode }) => <div data-sheet>{children}</div>,
   SheetContent: ({ children }: { children: ReactNode }) => <div data-sheet-content>{children}</div>,
-  SheetDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
+  SheetDescription: ({ children, ...props }: { children: ReactNode } & React.ComponentProps<"p">) => <p {...props}>{children}</p>,
   SheetHeader: ({ children }: { children: ReactNode }) => <header>{children}</header>,
   SheetTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
   SheetTrigger: ({ children }: { children: ReactNode }) => <div data-sheet-trigger>{children}</div>,
@@ -47,7 +47,7 @@ vi.mock("@/components/ui/alert-dialog", () => ({
     <button {...props}>{children}</button>
   ),
   AlertDialogContent: ({ children }: { children: ReactNode }) => <div role="alertdialog">{children}</div>,
-  AlertDialogDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
+  AlertDialogDescription: ({ children, ...props }: { children: ReactNode } & React.ComponentProps<"p">) => <p {...props}>{children}</p>,
   AlertDialogFooter: ({ children }: { children: ReactNode }) => <footer>{children}</footer>,
   AlertDialogHeader: ({ children }: { children: ReactNode }) => <header>{children}</header>,
   AlertDialogTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
@@ -73,6 +73,7 @@ vi.mock("@/components/ui/progress", () => ({
 vi.mock("sonner", () => ({ toast: { error: mocks.toastError, success: mocks.toastSuccess } }));
 
 const workspaceModule = await import("./budgets-goals-workspace");
+const actionsModule = await import("@/app/actions/budgets-goals");
 
 const data = {
   budgets: [
@@ -180,6 +181,12 @@ beforeEach(() => {
   mocks.runEffects = false;
   mocks.toastError.mockReset();
   mocks.toastSuccess.mockReset();
+
+  vi.mocked(actionsModule.createSavingsGoal).mockReset();
+  vi.mocked(actionsModule.deleteSavingsGoal).mockReset();
+  vi.mocked(actionsModule.removeMonthlyBudget).mockReset();
+  vi.mocked(actionsModule.saveMonthlyBudget).mockReset();
+  vi.mocked(actionsModule.updateSavingsGoal).mockReset();
 });
 
 it("renders budgets and goals together with labelled capped progress and supplied ordering", () => {
@@ -260,6 +267,90 @@ it("wires budget target kind and id as separate hidden inputs", () => {
   expect(markup).toContain('name="monthlyBudget"');
 });
 
+it("submits budget and goal forms through their FormData actions and preserves error values", async () => {
+  const budgetError = {
+    status: "error",
+    formError: "Check the budget details.",
+    fieldErrors: { monthlyBudget: "Enter an amount greater than zero." },
+  } as const;
+  const budgetTarget = { ...data.budgets[0], monthlyBudget: 123.45 };
+  vi.mocked(actionsModule.saveMonthlyBudget).mockResolvedValue(budgetError);
+
+  renderToStaticMarkup(<workspaceModule.BudgetForm mode="edit" onSuccess={() => {}} target={budgetTarget} targets={data.targets} />);
+  const budgetInput = new FormData();
+  budgetInput.set("targetKind", budgetTarget.targetKind);
+  budgetInput.set("targetId", budgetTarget.id);
+  budgetInput.set("monthlyBudget", "123.45");
+  await expect(mocks.actionReducers[0](null, budgetInput)).resolves.toEqual(budgetError);
+  expect(actionsModule.saveMonthlyBudget).toHaveBeenCalledWith(null, budgetInput);
+
+  mocks.actionState = budgetError;
+  const budgetErrorMarkup = renderToStaticMarkup(
+    <workspaceModule.BudgetForm mode="edit" onSuccess={() => {}} target={budgetTarget} targets={data.targets} />,
+  );
+  expect(budgetErrorMarkup).toContain('name="targetKind" value="category"');
+  expect(budgetErrorMarkup).toContain('name="targetId" value="11111111-1111-4111-8111-111111111111"');
+  expect(budgetErrorMarkup).toContain('name="monthlyBudget" value="123.45"');
+  expect(budgetErrorMarkup).toContain("Enter an amount greater than zero.");
+
+  mocks.actionState = null;
+  mocks.actionReducers.length = 0;
+  const createResult = {
+    status: "success",
+  } as const;
+  vi.mocked(actionsModule.createSavingsGoal).mockResolvedValue(createResult);
+  renderToStaticMarkup(<workspaceModule.GoalForm mode="add" onSuccess={() => {}} />);
+  const createInput = new FormData();
+  createInput.set("name", "Emergency fund");
+  createInput.set("targetAmount", "275");
+  createInput.set("savedAmount", "125");
+  createInput.set("targetDate", "2027-06-30");
+  await expect(mocks.actionReducers[0](null, createInput)).resolves.toEqual(createResult);
+  expect(actionsModule.createSavingsGoal).toHaveBeenCalledWith(null, createInput);
+
+  mocks.actionReducers.length = 0;
+  const enteredGoal = {
+    ...data.goals[0],
+    name: "Entered emergency fund",
+    targetAmount: 275,
+    savedAmount: 125,
+    targetDate: "2027-06-30",
+  };
+  const updateError = {
+    status: "error",
+    formError: "Check the goal details.",
+    fieldErrors: { name: "Enter a name." },
+  } as const;
+  vi.mocked(actionsModule.updateSavingsGoal).mockResolvedValue(updateError);
+  renderToStaticMarkup(<workspaceModule.GoalForm goal={enteredGoal} mode="edit" onSuccess={() => {}} />);
+  const updateInput = new FormData();
+  updateInput.set("name", enteredGoal.name);
+  updateInput.set("targetAmount", "275");
+  updateInput.set("savedAmount", "125");
+  updateInput.set("targetDate", enteredGoal.targetDate);
+  await expect(mocks.actionReducers[0](null, updateInput)).resolves.toEqual(updateError);
+  expect(actionsModule.updateSavingsGoal).toHaveBeenCalledWith(enteredGoal.id, null, updateInput);
+
+  mocks.actionState = updateError;
+  const goalErrorMarkup = renderToStaticMarkup(<workspaceModule.GoalForm goal={enteredGoal} mode="edit" onSuccess={() => {}} />);
+  expect(goalErrorMarkup).toContain('name="name" value="Entered emergency fund"');
+  expect(goalErrorMarkup).toContain('name="targetAmount" value="275"');
+  expect(goalErrorMarkup).toContain('name="savedAmount" value="125"');
+  expect(goalErrorMarkup).toContain('name="targetDate" value="2027-06-30"');
+  expect(goalErrorMarkup).toContain("Enter a name.");
+});
+
+it("wraps long names in interpolated Sheet and confirmation descriptions", () => {
+  const longBudget = { ...data.budgets[0], label: "A very long budget target name ".repeat(8) };
+  const longGoal = { ...data.goals[0], name: "A very long savings goal name ".repeat(8) };
+  const budgetMarkup = renderToStaticMarkup(<workspaceModule.BudgetProgressRow row={longBudget} targets={data.targets} />);
+  const goalMarkup = renderToStaticMarkup(<workspaceModule.GoalProgressRow goal={longGoal} />);
+
+  expect(budgetMarkup).toContain('class="min-w-0 break-words">Update the monthly limit for');
+  expect(budgetMarkup).toContain('class="min-w-0 break-words">This clears the monthly limit for');
+  expect(goalMarkup).toContain('class="min-w-0 break-words">This removes');
+});
+
 it("announces and disables each pending mutation", () => {
   mocks.pending = true;
   const budgetMarkup = renderToStaticMarkup(<workspaceModule.BudgetForm mode="add" onSuccess={() => {}} targets={data.targets} />);
@@ -285,18 +376,24 @@ it("announces and disables each pending mutation", () => {
 it("announces successful saves before invoking the Sheet close callback", () => {
   mocks.actionState = { status: "success" };
   mocks.runEffects = true;
-  const onBudgetSuccess = vi.fn();
+  const budgetEvents: string[] = [];
+  mocks.toastSuccess.mockImplementation(() => budgetEvents.push("feedback"));
+  const onBudgetSuccess = vi.fn(() => budgetEvents.push("close"));
   renderToStaticMarkup(<workspaceModule.BudgetForm mode="add" onSuccess={onBudgetSuccess} targets={data.targets} />);
 
   expect(mocks.toastSuccess).toHaveBeenCalledWith("Budget saved", { id: "budget-save" });
   expect(onBudgetSuccess).toHaveBeenCalledOnce();
+  expect(budgetEvents).toEqual(["feedback", "close"]);
 
   mocks.toastSuccess.mockReset();
-  const onGoalSuccess = vi.fn();
+  const goalEvents: string[] = [];
+  mocks.toastSuccess.mockImplementation(() => goalEvents.push("feedback"));
+  const onGoalSuccess = vi.fn(() => goalEvents.push("close"));
   renderToStaticMarkup(<workspaceModule.GoalForm mode="add" onSuccess={onGoalSuccess} />);
 
   expect(mocks.toastSuccess).toHaveBeenCalledWith("Goal saved", { id: "goal-save" });
   expect(onGoalSuccess).toHaveBeenCalledOnce();
+  expect(goalEvents).toEqual(["feedback", "close"]);
 });
 
 it("preserves edited values alongside adjacent errors", () => {
