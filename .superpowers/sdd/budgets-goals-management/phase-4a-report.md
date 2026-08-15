@@ -28,3 +28,12 @@ The generated Progress source uses the project’s existing `radix-ui` import st
 The diff does not modify navigation, the dashboard widget, persistence/actions, or the read model. No hosted Supabase operation, build, push, or deploy was run. Authenticated browser proof and the Phase 4B navigation/dashboard work remain intentionally out of scope.
 
 Commit: `feat: add budgets and goals management page` (final phase commit; the handoff reports its immutable HEAD hash).
+
+## Phase 4A fix round 1 — accessible mutation feedback and review findings
+
+- RED: `bun run test -- src/components/budgets-goals-workspace.test.tsx` failed 5 of 9 tests for the new hidden-target, pending-status, success-toast/close, destructive-submit, and no-target Add budget assertions.
+- GREEN: `bun run test -- src/app/'(app)'/budgets-goals/page.test.tsx src/app/'(app)'/budgets-goals/loading.test.tsx src/components/budgets-goals-workspace.test.tsx` passed 3 files and 11 tests.
+- All four mutations now expose pending, success, and error text through an `aria-live` `role="status"`; saves queue a persistent Sonner success/error announcement before Sheet close, and confirmed removals/deletions queue their announcement before closing the AlertDialog.
+- Workspace tests now prove exact budget hidden target wiring, pending disabled/Saving states, success toast-before-close callbacks, edited-value preservation beside errors, and confirmed destructive action payloads. Add budget is disabled with an accessible explanation when no active target remains unbudgeted.
+- Labels wrap safely with `min-w-0 break-words`, and owned Progress uses transform-only motion with a reduced-motion override.
+- Focused lint, `bun run typecheck`, Prettier checks, and `git diff --check` passed. No hosted Supabase operation, build, push, or deploy was run.

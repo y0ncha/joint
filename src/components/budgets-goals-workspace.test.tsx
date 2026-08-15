@@ -4,13 +4,23 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   actionState: null as unknown,
+  actionReducers: [] as Array<(state: unknown, formData: FormData) => unknown>,
+  pending: false,
+  runEffects: false,
+  toastError: vi.fn(),
+  toastSuccess: vi.fn(),
 }));
 
 vi.mock("react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("react")>();
   return {
     ...actual,
-    useActionState: () => [mocks.actionState, () => {}, false] as const,
+    useActionState: (action: (state: unknown, formData: FormData) => unknown) => {
+      mocks.actionReducers.push(action);
+      return [mocks.actionState, () => {}, mocks.pending] as const;
+    },
+    useEffect: (effect: () => void, dependencies: readonly unknown[]) =>
+      mocks.runEffects ? effect() : actual.useEffect(effect, dependencies),
   };
 });
 vi.mock("@/app/actions/budgets-goals", () => ({
@@ -60,6 +70,7 @@ vi.mock("@/components/ui/select", () => ({
 vi.mock("@/components/ui/progress", () => ({
   Progress: ({ value, ...props }: React.ComponentProps<"div"> & { value?: number }) => <div data-progress-value={value} {...props} />,
 }));
+vi.mock("sonner", () => ({ toast: { error: mocks.toastError, success: mocks.toastSuccess } }));
 
 const workspaceModule = await import("./budgets-goals-workspace");
 
@@ -164,6 +175,11 @@ const data = {
 
 beforeEach(() => {
   mocks.actionState = null;
+  mocks.actionReducers.length = 0;
+  mocks.pending = false;
+  mocks.runEffects = false;
+  mocks.toastError.mockReset();
+  mocks.toastSuccess.mockReset();
 });
 
 it("renders budgets and goals together with labelled capped progress and supplied ordering", () => {
@@ -232,4 +248,114 @@ it("renders adjacent invalid fields and confirmation gates for destructive actio
   expect(markup.match(/data-alert-dialog/g)?.length).toBeGreaterThanOrEqual(2);
   expect(markup).toContain("Remove this budget?");
   expect(markup).toContain("Delete this goal?");
+});
+
+it("wires budget target kind and id as separate hidden inputs", () => {
+  const markup = renderToStaticMarkup(
+    <workspaceModule.BudgetForm mode="edit" onSuccess={() => {}} target={data.budgets[0]} targets={data.targets} />,
+  );
+
+  expect(markup).toContain('<input type="hidden" name="targetKind" value="category"');
+  expect(markup).toContain('<input type="hidden" name="targetId" value="11111111-1111-4111-8111-111111111111"');
+  expect(markup).toContain('name="monthlyBudget"');
+});
+
+it("announces and disables each pending mutation", () => {
+  mocks.pending = true;
+  const budgetMarkup = renderToStaticMarkup(<workspaceModule.BudgetForm mode="add" onSuccess={() => {}} targets={data.targets} />);
+  expect(budgetMarkup).toContain('role="status"');
+  expect(budgetMarkup).toContain("Saving budget…");
+  expect(budgetMarkup).toContain('disabled=""');
+
+  const goalMarkup = renderToStaticMarkup(<workspaceModule.GoalForm mode="add" onSuccess={() => {}} />);
+  expect(goalMarkup).toContain("Saving goal…");
+  expect(goalMarkup).toContain('disabled=""');
+
+  const budgetRowMarkup = renderToStaticMarkup(<workspaceModule.BudgetProgressRow row={data.budgets[0]} targets={data.targets} />);
+  expect(budgetRowMarkup).toContain("Removing budget…");
+  expect(budgetRowMarkup).toContain("Remove budget");
+  expect(budgetRowMarkup).toContain("disabled");
+
+  const goalRowMarkup = renderToStaticMarkup(<workspaceModule.GoalProgressRow goal={data.goals[0]} />);
+  expect(goalRowMarkup).toContain("Deleting goal…");
+  expect(goalRowMarkup).toContain("Delete goal");
+  expect(goalRowMarkup).toContain("disabled");
+});
+
+it("announces successful saves before invoking the Sheet close callback", () => {
+  mocks.actionState = { status: "success" };
+  mocks.runEffects = true;
+  const onBudgetSuccess = vi.fn();
+  renderToStaticMarkup(<workspaceModule.BudgetForm mode="add" onSuccess={onBudgetSuccess} targets={data.targets} />);
+
+  expect(mocks.toastSuccess).toHaveBeenCalledWith("Budget saved", { id: "budget-save" });
+  expect(onBudgetSuccess).toHaveBeenCalledOnce();
+
+  mocks.toastSuccess.mockReset();
+  const onGoalSuccess = vi.fn();
+  renderToStaticMarkup(<workspaceModule.GoalForm mode="add" onSuccess={onGoalSuccess} />);
+
+  expect(mocks.toastSuccess).toHaveBeenCalledWith("Goal saved", { id: "goal-save" });
+  expect(onGoalSuccess).toHaveBeenCalledOnce();
+});
+
+it("preserves edited values alongside adjacent errors", () => {
+  mocks.actionState = {
+    status: "error",
+    formError: "Check the form details.",
+    fieldErrors: { name: "Enter a name.", targetAmount: "Enter an amount greater than zero.", targetDate: "Choose a date." },
+  };
+  const markup = renderToStaticMarkup(<workspaceModule.GoalForm goal={data.goals[0]} mode="edit" onSuccess={() => {}} />);
+
+  expect(markup).toContain('name="name" value="Emergency fund"');
+  expect(markup).toContain('name="targetAmount" value="100"');
+  expect(markup).toContain('name="savedAmount" value="50"');
+  expect(markup).toContain('name="targetDate" value="2026-12-31"');
+  expect(markup).toContain("Enter a name.");
+  expect(markup).toContain('aria-describedby="goal-33333333-3333-4333-8333-333333333333-name-error"');
+});
+
+it("keeps remove and delete behind confirmation and submits their action payloads", async () => {
+  const budgetMarkup = renderToStaticMarkup(<workspaceModule.BudgetProgressRow row={data.budgets[0]} targets={data.targets} />);
+  expect(budgetMarkup).toContain('role="alertdialog"');
+  expect(budgetMarkup).toContain('<input type="hidden" name="targetKind" value="category"');
+  expect(budgetMarkup).toContain('<input type="hidden" name="targetId" value="11111111-1111-4111-8111-111111111111"');
+  expect(mocks.actionReducers).toHaveLength(2);
+
+  const removeInput = new FormData();
+  removeInput.set("targetKind", "category");
+  removeInput.set("targetId", data.budgets[0].id);
+  mocks.actionState = null;
+  const removeResult = { status: "success" } as const;
+  const { removeMonthlyBudget } = await import("@/app/actions/budgets-goals");
+  vi.mocked(removeMonthlyBudget).mockResolvedValue(removeResult);
+  await expect(mocks.actionReducers[1](null, removeInput)).resolves.toEqual(removeResult);
+  expect(removeMonthlyBudget).toHaveBeenCalledWith(null, removeInput);
+  expect(mocks.toastSuccess).toHaveBeenCalledWith("Budget removed", { id: "budget-remove" });
+
+  mocks.actionReducers.length = 0;
+  const goalMarkup = renderToStaticMarkup(<workspaceModule.GoalProgressRow goal={data.goals[0]} />);
+  expect(goalMarkup).toContain('role="alertdialog"');
+  expect(mocks.actionReducers).toHaveLength(2);
+  const deleteInput = new FormData();
+  const deleteResult = { status: "success" } as const;
+  const { deleteSavingsGoal } = await import("@/app/actions/budgets-goals");
+  vi.mocked(deleteSavingsGoal).mockResolvedValue(deleteResult);
+  await expect(mocks.actionReducers[1](null, deleteInput)).resolves.toEqual(deleteResult);
+  expect(deleteSavingsGoal).toHaveBeenCalledWith(data.goals[0].id, null, deleteInput);
+  expect(mocks.toastSuccess).toHaveBeenCalledWith("Goal deleted", { id: "goal-delete" });
+});
+
+it("disables Add budget with an accessible explanation when every target is already budgeted", () => {
+  const targets = {
+    categories: data.targets.categories.map((target) => ({ ...target, monthlyBudget: 100 })),
+    subcategories: data.targets.subcategories.map((target) => ({ ...target, monthlyBudget: 100 })),
+  };
+  const markup = renderToStaticMarkup(<workspaceModule.BudgetsGoalsWorkspace budgets={[]} goals={[]} targets={targets} />);
+
+  expect(markup).toContain('aria-describedby="budget-add-help"');
+  expect(markup).toContain('id="budget-add-help"');
+  expect(markup).toContain("All active expense targets already have budgets.");
+  expect(markup).toContain("Add budget");
+  expect(markup).toContain('disabled=""');
 });

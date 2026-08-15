@@ -12,5 +12,3 @@ Phase 3B: complete (commits 5c4afdd..ccf64ca, review clean).
 Phase 3C: fix round 1/5 (1 addressed, 0 open; commits 111eb89..cb3ba64).
 Phase 3C: complete (commits ccf64ca..cb3ba64, review clean).
 Phase 4A: complete; TASK-014 through TASK-016 marked Complete on 2026-08-15; focused tests, lint, typecheck, formatting, whitespace checks, commit, and report complete.
-Phase 3B: implementation complete; TASK-010 and TASK-011 marked Complete on 2026-08-15; commit/report pending.
-Phase 2: implementation complete, close blocked by four expected Phase 3 legacy-consumer type errors; no commit or hosted/local migration.

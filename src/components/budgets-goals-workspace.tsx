@@ -2,6 +2,7 @@
 
 import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import {
   createSavingsGoal,
@@ -51,10 +52,29 @@ function fieldError(state: ActionResult | null, name: string) {
   return state?.status === "error" ? state.fieldErrors[name] : undefined;
 }
 
-function FormStatus({ state }: { state: ActionResult | null }) {
+function MutationStatus({
+  isPending,
+  pendingMessage,
+  state,
+  successMessage,
+}: {
+  isPending: boolean;
+  pendingMessage: string;
+  state: ActionResult | null;
+  successMessage: string;
+}) {
+  const message = isPending
+    ? pendingMessage
+    : state?.status === "success"
+      ? successMessage
+      : state?.status === "error"
+        ? state.formError
+        : null;
+  const className = !isPending && state?.status === "error" ? "text-destructive" : "text-muted-foreground";
+
   return (
-    <div aria-live="polite" className="min-h-5 text-sm text-destructive">
-      {state?.status === "error" ? state.formError : null}
+    <div aria-atomic="true" aria-live="polite" className={`min-h-5 text-sm ${className}`} role="status">
+      {message}
     </div>
   );
 }
@@ -87,7 +107,11 @@ export function BudgetForm({
   useFocusInvalid(state, formRef);
 
   useEffect(() => {
-    if (state?.status === "success") onSuccess();
+    if (state?.status === "success") {
+      toast.success("Budget saved", { id: "budget-save" });
+      onSuccess();
+    }
+    if (state?.status === "error") toast.error(state.formError, { id: "budget-save" });
   }, [onSuccess, state]);
 
   const availableCategories = targets.categories.filter((candidate) => candidate.monthlyBudget === null);
@@ -106,7 +130,7 @@ export function BudgetForm({
         {mode === "edit" && target ? (
           <Field data-invalid={Boolean(targetError)}>
             <FieldLabel>Target</FieldLabel>
-            <p className="rounded-lg border border-input bg-muted/40 px-3 py-2.5 text-sm">
+            <p className="min-w-0 break-words rounded-lg border border-input bg-muted/40 px-3 py-2.5 text-sm">
               <span className="font-medium">{target.targetKind === "category" ? "Category" : "Subcategory"}</span>
               <span className="text-muted-foreground"> · {target.label}</span>
             </p>
@@ -130,7 +154,7 @@ export function BudgetForm({
                   <p className="px-2 py-1 text-xs font-medium text-muted-foreground">Categories</p>
                   {availableCategories.map((candidate) => (
                     <SelectItem key={candidate.id} value={`category:${candidate.id}`}>
-                      {candidate.name}
+                      <span className="min-w-0 break-words">{candidate.name}</span>
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -138,7 +162,7 @@ export function BudgetForm({
                   <p className="px-2 py-1 text-xs font-medium text-muted-foreground">Subcategories</p>
                   {availableSubcategories.map((candidate) => (
                     <SelectItem key={candidate.id} value={`subcategory:${candidate.id}`}>
-                      {candidate.label}
+                      <span className="min-w-0 break-words">{candidate.label}</span>
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -167,10 +191,10 @@ export function BudgetForm({
           />
           {amountError ? <FieldError id={`${formId}-amount-error`}>{amountError}</FieldError> : null}
         </Field>
-        <FormStatus state={state} />
+        <MutationStatus isPending={isPending} pendingMessage="Saving budget…" state={state} successMessage="Budget saved" />
         <Button className="min-h-11" disabled={isPending} type="submit">
           {isPending ? <Spinner aria-hidden="true" data-icon="inline-start" /> : null}
-          {mode === "edit" ? "Save budget" : "Add budget"}
+          {isPending ? "Saving budget…" : mode === "edit" ? "Save budget" : "Add budget"}
         </Button>
       </FieldGroup>
     </form>
@@ -180,15 +204,30 @@ export function BudgetForm({
 function BudgetAddSheet({ targets }: { targets: BudgetTargets }) {
   const [open, setOpen] = useState(false);
   const onSuccess = useCallback(() => setOpen(false), []);
+  const hasUnbudgetedTargets =
+    targets.categories.some((target) => target.monthlyBudget === null) ||
+    targets.subcategories.some((target) => target.monthlyBudget === null);
+  const addBudgetHelpId = "budget-add-help";
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button className="min-h-11" type="button" variant="outline">
+        <Button
+          aria-describedby={!hasUnbudgetedTargets ? addBudgetHelpId : undefined}
+          className="min-h-11"
+          disabled={!hasUnbudgetedTargets}
+          type="button"
+          variant="outline"
+        >
           <Plus aria-hidden="true" data-icon="inline-start" />
           Add budget
         </Button>
       </SheetTrigger>
+      {!hasUnbudgetedTargets ? (
+        <span className="sr-only" id={addBudgetHelpId}>
+          Add budget unavailable: all active expense targets already have budgets.
+        </span>
+      ) : null}
       <SheetContent className={sheetContentClassName()} side="right">
         <SheetHeader className="p-6">
           <SheetTitle className="text-xl">Add budget</SheetTitle>
@@ -231,7 +270,11 @@ function RemoveBudgetDialog({ target }: { target: BudgetRow }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(async (_previousState, input) => {
     const result = await removeMonthlyBudget(null, input);
-    if (result.status === "success") setOpen(false);
+    if (result.status === "success") {
+      toast.success("Budget removed", { id: "budget-remove" });
+      setOpen(false);
+    }
+    if (result.status === "error") toast.error(result.formError, { id: "budget-remove" });
     return result;
   }, null);
 
@@ -251,14 +294,14 @@ function RemoveBudgetDialog({ target }: { target: BudgetRow }) {
         <form action={formAction}>
           <input name="targetKind" type="hidden" value={target.targetKind} />
           <input name="targetId" type="hidden" value={target.id} />
-          <FormStatus state={state} />
+          <MutationStatus isPending={isPending} pendingMessage="Removing budget…" state={state} successMessage="Budget removed" />
           <AlertDialogFooter>
             <AlertDialogCancel className="min-h-11" disabled={isPending} type="button">
               Cancel
             </AlertDialogCancel>
             <Button className="min-h-11" disabled={isPending} type="submit" variant="destructive">
               {isPending ? <Spinner aria-hidden="true" data-icon="inline-start" /> : null}
-              Remove budget
+              {isPending ? "Removing budget…" : "Remove budget"}
             </Button>
           </AlertDialogFooter>
         </form>
@@ -274,7 +317,7 @@ export function BudgetProgressRow({ row, targets }: { row: BudgetRow; targets: B
     <div className="flex flex-col gap-3 border-b border-border/70 py-4 first:pt-0 last:border-0 last:pb-0" data-budget-row>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-medium">{row.label}</p>
+          <p className="min-w-0 break-words font-medium">{row.label}</p>
           <p className="text-sm text-muted-foreground">{level}</p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1">
@@ -316,7 +359,11 @@ export function GoalForm({ goal, mode, onSuccess }: { goal?: GoalRow; mode: "add
   useFocusInvalid(state, formRef);
 
   useEffect(() => {
-    if (state?.status === "success") onSuccess();
+    if (state?.status === "success") {
+      toast.success("Goal saved", { id: "goal-save" });
+      onSuccess();
+    }
+    if (state?.status === "error") toast.error(state.formError, { id: "goal-save" });
   }, [onSuccess, state]);
 
   const formId = mode === "edit" && goal ? `goal-${goal.id}` : "goal-new";
@@ -390,10 +437,10 @@ export function GoalForm({ goal, mode, onSuccess }: { goal?: GoalRow; mode: "add
           />
           {targetDateError ? <FieldError id={`${formId}-target-date-error`}>{targetDateError}</FieldError> : null}
         </Field>
-        <FormStatus state={state} />
+        <MutationStatus isPending={isPending} pendingMessage="Saving goal…" state={state} successMessage="Goal saved" />
         <Button className="min-h-11" disabled={isPending} type="submit">
           {isPending ? <Spinner aria-hidden="true" data-icon="inline-start" /> : null}
-          {mode === "edit" ? "Save goal" : "Add goal"}
+          {isPending ? "Saving goal…" : mode === "edit" ? "Save goal" : "Add goal"}
         </Button>
       </FieldGroup>
     </form>
@@ -454,7 +501,11 @@ function DeleteGoalDialog({ goal }: { goal: GoalRow }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(async (_previousState, input) => {
     const result = await deleteSavingsGoal(goal.id, null, input);
-    if (result.status === "success") setOpen(false);
+    if (result.status === "success") {
+      toast.success("Goal deleted", { id: "goal-delete" });
+      setOpen(false);
+    }
+    if (result.status === "error") toast.error(result.formError, { id: "goal-delete" });
     return result;
   }, null);
 
@@ -472,14 +523,14 @@ function DeleteGoalDialog({ goal }: { goal: GoalRow }) {
           <AlertDialogDescription>This removes {goal.name} and its manually maintained progress.</AlertDialogDescription>
         </AlertDialogHeader>
         <form action={formAction}>
-          <FormStatus state={state} />
+          <MutationStatus isPending={isPending} pendingMessage="Deleting goal…" state={state} successMessage="Goal deleted" />
           <AlertDialogFooter>
             <AlertDialogCancel className="min-h-11" disabled={isPending} type="button">
               Cancel
             </AlertDialogCancel>
             <Button className="min-h-11" disabled={isPending} type="submit" variant="destructive">
               {isPending ? <Spinner aria-hidden="true" data-icon="inline-start" /> : null}
-              Delete goal
+              {isPending ? "Deleting goal…" : "Delete goal"}
             </Button>
           </AlertDialogFooter>
         </form>
@@ -494,7 +545,7 @@ export function GoalProgressRow({ goal }: { goal: GoalRow }) {
   return (
     <div className="flex flex-col gap-3 border-b border-border/70 py-4 first:pt-0 last:border-0 last:pb-0" data-goal-row>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="min-w-0 font-medium">{goal.name}</p>
+        <p className="min-w-0 break-words font-medium">{goal.name}</p>
         <div className="flex flex-wrap items-center justify-end gap-1">
           <GoalEditSheet goal={goal} />
           <DeleteGoalDialog goal={goal} />
