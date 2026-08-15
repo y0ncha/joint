@@ -253,13 +253,35 @@ describe("savings goal actions", () => {
     expect(mocks.revalidatePath.mock.calls).toEqual([["/budgets-goals"], ["/"]]);
   });
 
+  it("allows updating an overdue goal when its past deadline is unchanged", async () => {
+    const queries = configureSupabase({
+      savings_goals: [
+        { data: { id: goalId, target_date: "2020-01-01" }, error: null },
+        { data: { id: goalId }, error: null },
+      ],
+    });
+
+    await expect(
+      actions.updateSavingsGoal(goalId, null, goalForm({ name: "Updated emergency fund", savedAmount: "200", targetDate: "2020-01-01" })),
+    ).resolves.toEqual({ status: "success" });
+    expect(queries[1].chain.update).toHaveBeenCalledWith({
+      name: "Updated emergency fund",
+      target_amount: 5000,
+      saved_amount: 200,
+      target_date: "2020-01-01",
+    });
+  });
+
   it("rejects an update date before today and treats missing or cross-household goals as errors", async () => {
-    await expect(actions.updateSavingsGoal(goalId, null, goalForm({ targetDate: "2020-01-01" }))).resolves.toMatchObject({
+    configureSupabase({ savings_goals: [{ data: { id: goalId, target_date: "2020-01-01" }, error: null }] });
+    await expect(actions.updateSavingsGoal(goalId, null, goalForm({ targetDate: "2020-02-01" }))).resolves.toMatchObject({
       status: "error",
       fieldErrors: { targetDate: "Choose today or a future date." },
     });
-    expect(mocks.requireCurrentHousehold).not.toHaveBeenCalled();
+    expect(mocks.requireCurrentHousehold).toHaveBeenCalledOnce();
+    expect(mocks.from).toHaveBeenCalledOnce();
 
+    vi.resetAllMocks();
     mocks.requireCurrentHousehold.mockResolvedValue({ householdId, supabase: { from: mocks.from } });
     configureSupabase({ savings_goals: [{ data: null, error: null }] });
     await expect(actions.updateSavingsGoal(goalId, null, goalForm())).resolves.toMatchObject({ status: "error" });

@@ -192,10 +192,21 @@ export async function updateSavingsGoal(goalId: string, _previousState: ActionRe
 
   const parsed = parseGoalInput(input);
   if (!parsed.success) return validationError(parsed.error.issues);
-  const dateError = validateGoalDate(parsed.data.targetDate);
-  if (dateError) return dateError;
 
   const household = await requireCurrentHousehold();
+  if (parsed.data.targetDate < todayUtcIso()) {
+    const { data, error } = await household.supabase
+      .from("savings_goals")
+      .select("id, target_date")
+      .eq("id", parsedGoalId)
+      .eq("household_id", household.householdId)
+      .maybeSingle();
+    if (error || !data || !hasExpectedRow(data, parsedGoalId)) return formError(UPDATE_GOAL_ERROR);
+    if (data.target_date !== parsed.data.targetDate) {
+      return formError("Check the form details.", { targetDate: INVALID_DATE_ERROR });
+    }
+  }
+
   const { data, error } = await household.supabase
     .from("savings_goals")
     .update({
