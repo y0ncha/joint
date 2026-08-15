@@ -11,7 +11,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "test:db": "test -n \"$JOINT_DEV_TEST_DB_URL\" || { echo 'Set JOINT_DEV_TEST_DB_URL to the percent-encoded joint-dev postgres connection URL.' >&2; exit 1; }; SUPABASE_TELEMETRY_DISABLED=1 supabase test db --db-url \"$JOINT_DEV_TEST_DB_URL\" supabase/tests/shared_balance.sql"
+    "test:db": "test -n \"$JOINT_DEV_TEST_DB_URL\" || { echo 'Set JOINT_DEV_TEST_DB_URL to the percent-encoded joint-dev postgres connection URL.' >&2; exit 1; }; SUPABASE_TELEMETRY_DISABLED=1 supabase test db --db-url \"$JOINT_DEV_TEST_DB_URL\" supabase/tests/shared_balance.sql supabase/tests/budgets_goals.sql"
   },
   "dependencies": {
     "@dnd-kit/helpers": "0.5.0",
