@@ -10,7 +10,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { getCurrentHouseholdContext } from "@/lib/household";
-import { CreditCard, House, Palette, Pencil, SwatchBook, Tags, UserRound, UsersRound, WandSparkles, type LucideIcon } from "lucide-react";
+import {
+  CreditCard,
+  House,
+  Palette,
+  Pencil,
+  SwatchBook,
+  Tags,
+  Target,
+  UserRound,
+  UsersRound,
+  WandSparkles,
+  type LucideIcon,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 function SettingsRow({
@@ -170,6 +182,13 @@ export default async function SettingsPage() {
               <SettingsRow icon={Tags} label="Categories" description="Manage categories & subcategories.">
                 <Button asChild variant="ghost" size="icon" className="size-11">
                   <Link href="/categories" aria-label="Edit categories">
+                    <Pencil data-icon="inline-start" aria-hidden="true" />
+                  </Link>
+                </Button>
+              </SettingsRow>
+              <SettingsRow icon={Target} label="Budgets & Goals" description="Manage household budgets and goals.">
+                <Button asChild variant="ghost" size="icon" className="size-11">
+                  <Link href="/budgets-goals" aria-label="Edit budgets and goals">
                     <Pencil data-icon="inline-start" aria-hidden="true" />
                   </Link>
                 </Button>

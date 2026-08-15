@@ -28,6 +28,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Textarea } from "@/components/ui/textarea";
 import { TransactionDuplicatePreviewDialog } from "@/components/transaction-duplicate-preview-dialog";
 import { categoryIcon } from "@/lib/category-icons";
+import { Badge } from "@/components/ui/badge";
 import type { ReportTransaction } from "@/lib/financial-report";
 import {
   initializeTransactionDraft,
@@ -426,18 +427,26 @@ export function TransactionSheet({
               {state?.status === "error" ? <FieldError>{state.fieldErrors.paidBy}</FieldError> : null}
             </Field>
             <Field>
-              <FieldLabel>Type</FieldLabel>
-              <PillSelect
-                ariaLabel="Type"
-                value={kind}
-                onValueChange={(value) => {
-                  dispatchDraft({ type: "kind_changed", kind: value as typeof kind });
-                }}
-                options={[
-                  { value: "income", label: "Income", className: "border-positive/20 bg-positive/10 text-positive" },
-                  { value: "expense", label: "Expense", className: "border-negative/20 bg-negative/10 text-negative" },
-                ]}
-              />
+              <FieldLabel htmlFor="transaction-kind">Type</FieldLabel>
+              <Select value={kind} onValueChange={(value) => dispatchDraft({ type: "kind_changed", kind: value as typeof kind })}>
+                <SelectTrigger id="transaction-kind" className="w-full rounded-xl">
+                  <SelectValue placeholder="Choose type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="expense">
+                      <Badge variant="outline" className="border-negative/20 bg-negative/10 text-negative">
+                        Expense
+                      </Badge>
+                    </SelectItem>
+                    <SelectItem value="income">
+                      <Badge variant="outline" className="border-positive/20 bg-positive/10 text-positive">
+                        Income
+                      </Badge>
+                    </SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             </Field>
             {!isEditing ? (
               <Field>

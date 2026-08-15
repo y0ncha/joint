@@ -27,9 +27,9 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { PillSelect } from "@/components/pill-select";
 import { calculateGoalProgress, savedAmountSchema, targetAmountSchema, targetDateSchema } from "@/lib/budgets-goals";
 import type { BudgetRow, BudgetsGoalsData, GoalRow } from "@/lib/budgets-goals-data";
 
@@ -123,11 +123,13 @@ function sheetContentClassName() {
 export function BudgetForm({
   mode,
   onSuccess,
+  popoverContainer,
   target,
   targets,
 }: {
   mode: "add" | "edit";
   onSuccess: () => void;
+  popoverContainer?: HTMLElement | null;
   target?: BudgetRow;
   targets: BudgetTargets;
 }) {
@@ -173,36 +175,32 @@ export function BudgetForm({
           </Field>
         ) : (
           <Field data-invalid={Boolean(targetError)}>
-            <FieldLabel htmlFor={`${formId}-target`}>Target</FieldLabel>
-            <Select value={targetKey} onValueChange={setSelectedTargetKey}>
-              <SelectTrigger
-                id={`${formId}-target`}
-                size="lg"
-                className="w-full"
-                aria-invalid={Boolean(targetError)}
-                aria-describedby={targetError ? `${formId}-target-error` : undefined}
-              >
-                <SelectValue placeholder="Choose a category or subcategory" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup aria-label="Categories">
-                  <p className="px-2 py-1 text-xs font-medium text-muted-foreground">Categories</p>
-                  {availableCategories.map((candidate) => (
-                    <SelectItem key={candidate.id} value={`category:${candidate.id}`}>
-                      <span className="min-w-0 break-words">{candidate.name}</span>
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-                <SelectGroup aria-label="Subcategories">
-                  <p className="px-2 py-1 text-xs font-medium text-muted-foreground">Subcategories</p>
-                  {availableSubcategories.map((candidate) => (
-                    <SelectItem key={candidate.id} value={`subcategory:${candidate.id}`}>
-                      <span className="min-w-0 break-words">{candidate.label}</span>
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+            <FieldLabel>Target</FieldLabel>
+            <PillSelect
+              ariaDescribedBy={targetError ? `${formId}-target-error` : undefined}
+              ariaInvalid={Boolean(targetError)}
+              ariaLabel="Budget target"
+              disabled={availableCategories.length === 0 && availableSubcategories.length === 0}
+              emptyLabel="Choose a category or subcategory"
+              grouped
+              onValueChange={setSelectedTargetKey}
+              options={[
+                ...availableCategories.map((candidate) => ({
+                  value: `category:${candidate.id}`,
+                  label: candidate.name,
+                  color: candidate.color,
+                  section: { id: candidate.id, label: candidate.name },
+                })),
+                ...availableSubcategories.map((candidate) => ({
+                  value: `subcategory:${candidate.id}`,
+                  label: candidate.name,
+                  color: candidate.color,
+                  section: { id: candidate.categoryId, label: candidate.categoryName },
+                })),
+              ]}
+              popoverContainer={popoverContainer}
+              value={targetKey}
+            />
             {availableCategories.length === 0 && availableSubcategories.length === 0 ? (
               <FieldDescription>All active expense targets already have budgets.</FieldDescription>
             ) : null}
@@ -239,6 +237,7 @@ export function BudgetForm({
 
 function BudgetAddSheet({ targets }: { targets: BudgetTargets }) {
   const [open, setOpen] = useState(false);
+  const [sheetContent, setSheetContent] = useState<HTMLDivElement | null>(null);
   const onSuccess = useCallback(() => setOpen(false), []);
   const hasUnbudgetedTargets =
     targets.categories.some((target) => target.monthlyBudget === null) ||
@@ -250,13 +249,16 @@ function BudgetAddSheet({ targets }: { targets: BudgetTargets }) {
       <SheetTrigger asChild>
         <Button
           aria-describedby={!hasUnbudgetedTargets ? addBudgetHelpId : undefined}
-          className="min-h-11"
+          aria-label="Add budget"
+          className="size-11 rounded-full text-primary"
           disabled={!hasUnbudgetedTargets}
+          size="icon"
           type="button"
-          variant="outline"
+          variant="ghost"
         >
-          <Plus aria-hidden="true" data-icon="inline-start" />
-          Add budget
+          <span className="flex size-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-sm">
+            <Plus aria-hidden="true" />
+          </span>
         </Button>
       </SheetTrigger>
       {!hasUnbudgetedTargets ? (
@@ -264,13 +266,13 @@ function BudgetAddSheet({ targets }: { targets: BudgetTargets }) {
           Add budget unavailable: all active expense targets already have budgets.
         </span>
       ) : null}
-      <SheetContent className={sheetContentClassName()} side="right">
+      <SheetContent ref={setSheetContent} className={sheetContentClassName()} side="right">
         <SheetHeader className="p-6">
           <SheetTitle className="text-xl">Add budget</SheetTitle>
           <SheetDescription>Set a recurring monthly limit for an active expense target.</SheetDescription>
         </SheetHeader>
         <div className="px-6 pb-6">
-          <BudgetForm mode="add" onSuccess={onSuccess} targets={targets} />
+          <BudgetForm mode="add" onSuccess={onSuccess} popoverContainer={sheetContent} targets={targets} />
         </div>
       </SheetContent>
     </Sheet>
@@ -284,9 +286,8 @@ function BudgetEditSheet({ target, targets }: { target: BudgetRow; targets: Budg
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button className="min-h-11" type="button" variant="ghost">
-          <Pencil aria-hidden="true" data-icon="inline-start" />
-          Edit budget
+        <Button aria-label={`Edit ${target.label} budget`} className="size-11" size="icon" type="button" variant="ghost">
+          <Pencil aria-hidden="true" />
         </Button>
       </SheetTrigger>
       <SheetContent className={sheetContentClassName()} side="right">
@@ -317,9 +318,8 @@ function RemoveBudgetDialog({ target }: { target: BudgetRow }) {
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button aria-label={`Remove ${target.label} budget`} className="min-h-11 text-destructive" type="button" variant="ghost">
-          <Trash2 aria-hidden="true" data-icon="inline-start" />
-          Remove budget
+        <Button aria-label={`Remove ${target.label} budget`} className="size-11 text-destructive" size="icon" type="button" variant="ghost">
+          <Trash2 aria-hidden="true" />
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
@@ -512,9 +512,10 @@ function GoalAddSheet() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button className="min-h-11" type="button" variant="outline">
-          <Plus aria-hidden="true" data-icon="inline-start" />
-          Add goal
+        <Button aria-label="Add goal" className="size-11 rounded-full text-primary" size="icon" type="button" variant="ghost">
+          <span className="flex size-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-sm">
+            <Plus aria-hidden="true" />
+          </span>
         </Button>
       </SheetTrigger>
       <SheetContent className={sheetContentClassName()} side="right">
@@ -537,9 +538,8 @@ function GoalEditSheet({ goal }: { goal: GoalRow }) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button className="min-h-11" type="button" variant="ghost">
-          <Pencil aria-hidden="true" data-icon="inline-start" />
-          Edit goal
+        <Button aria-label={`Edit ${goal.name}`} className="size-11" size="icon" type="button" variant="ghost">
+          <Pencil aria-hidden="true" />
         </Button>
       </SheetTrigger>
       <SheetContent className={sheetContentClassName()} side="right">
@@ -570,9 +570,8 @@ function DeleteGoalDialog({ goal }: { goal: GoalRow }) {
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button aria-label={`Delete ${goal.name}`} className="min-h-11 text-destructive" type="button" variant="ghost">
-          <Trash2 aria-hidden="true" data-icon="inline-start" />
-          Delete goal
+        <Button aria-label={`Delete ${goal.name}`} className="size-11 text-destructive" size="icon" type="button" variant="ghost">
+          <Trash2 aria-hidden="true" />
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>

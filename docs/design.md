@@ -99,9 +99,9 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 ### Navigation and workspace
 
 - Desktop navigation is icon-only with a clear active state and accessible label.
-- Mobile navigation exposes the same primary destinations as 44px icon links in the bottom bar.
+- Mobile navigation exposes Overview, Transactions, Bills & Groceries, and Settings as 44px icon links in the bottom bar.
 - Desktop and mobile primary navigation include `/bills-groceries` with the accessible label `Bills & Groceries`.
-- Desktop and mobile primary navigation include `/budgets-goals` with the accessible label `Budgets & Goals`.
+- Desktop primary navigation includes `/budgets-goals` with the accessible label `Budgets & Goals`; mobile access is through its Settings shortcut.
 - The desktop rail ends with a non-interactive avatar that shows the signed-in user's cached profile-name initials. It has no notification badge, popover, or notification behavior.
 - Navigation labels and route names must remain consistent across desktop, mobile, page titles, and tests.
 
@@ -118,6 +118,7 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 ### Forms and overlays
 
 - Use `Field`, `FieldGroup`, and visible `FieldLabel` composition for forms.
+- Inside `Sheet`, single-line text, number, date, select, and searchable-dropdown controls fill their available grid cell and use a consistent 44px height with `rounded-xl` corners. Multiline note fields retain their natural height.
 - Browser autofill preserves the established text-input surface; it must not repaint inputs blue.
 - Use `ToggleGroup` for two to seven related choices. Ledger transaction type uses a checkbox multiselect with both types selected by default; it never permits an empty selection.
 - `Uncategorized` is the unified unset state; the category menu groups colored subcategory pills beneath muted parent-category headings; explicit assignment wins over automation; and empty search sections are not rendered. Ledger type and payer filters use compact checkbox multiselects without search. Ledger month, year, and sorting use regular selects in chronological order.
@@ -134,7 +135,7 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 ### Settings
 
 - Appearance, household, and account concerns use separate section cards, in that order.
-- The `Household` card contains the owner-editable household name, Categories and Automations links, all available to both members, and owner-only partner-access controls. Members may view the household name but cannot edit it. Groceries budget configuration belongs to Budgets & Goals, not Settings.
+- The `Household` card contains the owner-editable household name plus Categories, Budgets & Goals, and Automations links, all available to both members, and owner-only partner-access controls. Members may view the household name but cannot edit it. Groceries budget configuration belongs to Budgets & Goals, not Settings.
 - User name, user color, card mapping, and session controls are rows inside the `Account` card, not separate cards. A header Save control atomically persists changed user name, household name, and user color. A member can edit only their own display name. A saved change updates their profile and desktop avatar initials. Header Log out confirms leaving when settings are unsaved.
 - A member may select only their own user color from Account. User colors and the browser-local accent use fixed `react-color` CirclePicker presets with no custom hex input. Categories retain the final `Custom color` circle that opens a BlockPicker, including its hex input. User colors remain labelled supplemental visuals; the accent never changes financial or destructive semantics. New members receive the next available pastel until they change it.
 - Only the household owner sees the `Members` field with the `UsersRound` icon, a short management description, and an accessible icon-only edit control. It opens the established right-side Sheet with read-only owner and partner-access cards. Joined household summaries show both people with avatars, display names (falling back to the known email), email, and joined date; do not show card mappings, colors, or role pills. The owner may invite one Google email, or remove a pending or joined partner after confirmation; authorizing another email requires removal first. A member never sees household member details or controls in Settings.
@@ -143,9 +144,9 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 
 - `/budgets-goals` is a configuration-first page with one page heading and two vertically stacked section Cards: `Budgets` followed by `Goals`. It does not use tabs, toggles, or summary KPI cards.
 - The Budgets Card lists every current recurring monthly budget on an active expense category or subcategory. Each progress row identifies its category level, compares the previous completed calendar month's spending with its limit, and keeps parent and child rows independent even when both are configured; their spending and limits are never aggregated. All configured rows remain visible.
-- Budget creation, editing, and limit updates use the existing right-side `Sheet` family. The target selector exposes only active expense categories and subcategories, and Groceries is configured here. Removing a budget uses an `AlertDialog` confirmation.
+- Budget creation, editing, and limit updates use the existing right-side `Sheet` family. The target selector exposes only active expense categories and subcategories, and Groceries is configured here. Add controls use the shared round primary plus treatment; row edit and remove controls are labelled icon buttons. Removing a budget uses an `AlertDialog` confirmation.
 - The Goals Card lists every manually maintained goal with a name, target amount, saved amount, and needed-by date. Completed goals remain in the list until explicitly deleted. Goal progress is entered manually; transaction-derived progress is deferred.
-- Goal creation and editing use the existing right-side `Sheet` family, with a native date input for needed-by and the existing currency validation. Deletion uses an `AlertDialog` confirmation. Inline validation stays adjacent to its field and all controls remain keyboard-operable with visible focus and 44px targets.
+- Goal creation and editing use the existing right-side `Sheet` family, with a native date input for needed-by and the existing currency validation. Add controls use the shared round primary plus treatment; row edit and delete controls are labelled icon buttons. Deletion uses an `AlertDialog` confirmation. Inline validation stays adjacent to its field and all controls remain keyboard-operable with visible focus and 44px targets.
 - On narrow screens the two Cards remain stacked, progress-row metadata and actions wrap without horizontal overflow, and Sheets use the full-height mobile presentation. Desktop keeps the same section order and stable workspace chrome.
 
 ### Sign-in and access denial

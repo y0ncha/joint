@@ -20,6 +20,7 @@ export type BudgetsGoalsReadOptions = {
 };
 
 type BudgetTargetBase = {
+  color: string;
   id: string;
   label: string;
   monthlyBudget: number | null;
@@ -95,12 +96,12 @@ export async function getBudgetsGoalsData(options: BudgetsGoalsReadOptions = {})
     const [categoriesResult, subcategoriesResult, goalsResult, parentSpendingResult, childSpendingResult] = await Promise.all([
       household.supabase
         .from("categories")
-        .select("id, name, kind, system_key, archived_at, monthly_budget")
+        .select("id, name, kind, color, system_key, archived_at, monthly_budget")
         .eq("household_id", household.householdId)
         .order("name"),
       household.supabase
         .from("subcategories")
-        .select("id, name, category_id, archived_at, monthly_budget")
+        .select("id, name, color, category_id, archived_at, monthly_budget")
         .eq("household_id", household.householdId)
         .order("name"),
       household.supabase
@@ -130,6 +131,7 @@ export async function getBudgetsGoalsData(options: BudgetsGoalsReadOptions = {})
     const categoriesById = new Map(categories.map((category) => [category.id, category]));
     const categoryTargets = categories
       .map<BudgetTarget>((category) => ({
+        color: category.color,
         id: category.id,
         label: category.name,
         monthlyBudget: category.monthly_budget === null ? null : finiteAmount(category.monthly_budget),
@@ -145,6 +147,7 @@ export async function getBudgetsGoalsData(options: BudgetsGoalsReadOptions = {})
           {
             categoryId: category.id,
             categoryName: category.name,
+            color: subcategory.color,
             id: subcategory.id,
             label: `${category.name} · ${subcategory.name}`,
             monthlyBudget: subcategory.monthly_budget === null ? null : finiteAmount(subcategory.monthly_budget),

@@ -25,25 +25,26 @@ vi.mock("@/lib/household", () => ({ getCurrentHouseholdContext: mocks.getCurrent
 const { getBudgetsGoalsData } = await import("./budgets-goals-data");
 
 const categoryRows = [
-  { archived_at: null, id: "food", kind: "expense", monthly_budget: 100, name: "Food", system_key: null },
-  { archived_at: null, id: "home", kind: "expense", monthly_budget: null, name: "Home", system_key: null },
+  { archived_at: null, color: "#ccebef", id: "food", kind: "expense", monthly_budget: 100, name: "Food", system_key: null },
+  { archived_at: null, color: "#ffcff0", id: "home", kind: "expense", monthly_budget: null, name: "Home", system_key: null },
   {
     archived_at: "2026-01-01T00:00:00Z",
+    color: "#f8d7d7",
     id: "archived",
     kind: "expense",
     monthly_budget: 250,
     name: "Archived",
     system_key: null,
   },
-  { archived_at: null, id: "income", kind: "income", monthly_budget: null, name: "Salary", system_key: "salary" },
+  { archived_at: null, color: "#efeffc", id: "income", kind: "income", monthly_budget: null, name: "Salary", system_key: "salary" },
 ];
 
 const subcategoryRows = [
-  { archived_at: null, category_id: "food", id: "groceries", monthly_budget: 50, name: "Groceries" },
-  { archived_at: null, category_id: "food", id: "restaurants", monthly_budget: null, name: "Restaurants" },
-  { archived_at: null, category_id: "home", id: "rent", monthly_budget: 700, name: "Rent" },
-  { archived_at: "2026-01-01T00:00:00Z", category_id: "food", id: "old", monthly_budget: 25, name: "Old" },
-  { archived_at: null, category_id: "income", id: "bonus", monthly_budget: 10, name: "Bonus" },
+  { archived_at: null, category_id: "food", color: "#d9f0fa", id: "groceries", monthly_budget: 50, name: "Groceries" },
+  { archived_at: null, category_id: "food", color: "#cadae0", id: "restaurants", monthly_budget: null, name: "Restaurants" },
+  { archived_at: null, category_id: "home", color: "#ffbff4", id: "rent", monthly_budget: 700, name: "Rent" },
+  { archived_at: "2026-01-01T00:00:00Z", category_id: "food", color: "#ced9e3", id: "old", monthly_budget: 25, name: "Old" },
+  { archived_at: null, category_id: "income", color: "#e6d5e6", id: "bonus", monthly_budget: 10, name: "Bonus" },
 ];
 
 const goalRows = [
@@ -131,7 +132,7 @@ it("loads active targets, independent parent and child progress, and sorted goal
           { column: "household_id", method: "eq", value: "household-id" },
           { column: "name", method: "order", value: undefined },
         ],
-        select: "id, name, kind, system_key, archived_at, monthly_budget",
+        select: "id, name, kind, color, system_key, archived_at, monthly_budget",
         table: "categories",
       },
       {
@@ -139,7 +140,7 @@ it("loads active targets, independent parent and child progress, and sorted goal
           { column: "household_id", method: "eq", value: "household-id" },
           { column: "name", method: "order", value: undefined },
         ],
-        select: "id, name, category_id, archived_at, monthly_budget",
+        select: "id, name, color, category_id, archived_at, monthly_budget",
         table: "subcategories",
       },
       {
@@ -151,13 +152,14 @@ it("loads active targets, independent parent and child progress, and sorted goal
   );
   expect(data.targets).toEqual({
     categories: [
-      { id: "food", label: "Food", monthlyBudget: 100, name: "Food", targetKind: "category" },
-      { id: "home", label: "Home", monthlyBudget: null, name: "Home", targetKind: "category" },
+      { color: "#ccebef", id: "food", label: "Food", monthlyBudget: 100, name: "Food", targetKind: "category" },
+      { color: "#ffcff0", id: "home", label: "Home", monthlyBudget: null, name: "Home", targetKind: "category" },
     ],
     subcategories: [
       {
         categoryId: "food",
         categoryName: "Food",
+        color: "#d9f0fa",
         id: "groceries",
         label: "Food · Groceries",
         monthlyBudget: 50,
@@ -167,6 +169,7 @@ it("loads active targets, independent parent and child progress, and sorted goal
       {
         categoryId: "food",
         categoryName: "Food",
+        color: "#cadae0",
         id: "restaurants",
         label: "Food · Restaurants",
         monthlyBudget: null,
@@ -176,6 +179,7 @@ it("loads active targets, independent parent and child progress, and sorted goal
       {
         categoryId: "home",
         categoryName: "Home",
+        color: "#ffbff4",
         id: "rent",
         label: "Home · Rent",
         monthlyBudget: 700,

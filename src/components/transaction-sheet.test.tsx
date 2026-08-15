@@ -126,18 +126,18 @@ vi.mock("@/components/ui/alert-dialog", () => ({
 }));
 
 vi.mock("@/components/ui/select", () => ({
-  Select: ({ children, onValueChange }: { children: ReactNode; onValueChange: (value: string) => void }) => {
-    mocks.recurrenceChange = onValueChange;
-    return (
-      <button data-select="recurrence-cadence" type="button">
-        {children}
-      </button>
-    );
+  Select: ({ children, onValueChange, value }: { children: ReactNode; onValueChange: (value: string) => void; value?: string }) => {
+    const isTypeSelector = value === "income" || value === "expense";
+    if (isTypeSelector) mocks.kindChange = onValueChange;
+    else mocks.recurrenceChange = onValueChange;
+    return <div data-select={isTypeSelector ? "transaction-kind" : "recurrence-cadence"}>{children}</div>;
   },
   SelectContent: ({ children }: { children: ReactNode }) => children,
   SelectGroup: ({ children }: { children: ReactNode }) => children,
   SelectItem: ({ children }: { children: ReactNode }) => children,
-  SelectTrigger: ({ children }: { children: ReactNode }) => children,
+  SelectTrigger: ({ children, ...props }: { children: ReactNode } & React.ComponentProps<"button">) => (
+    <button {...props}>{children}</button>
+  ),
   SelectValue: ({ placeholder }: { placeholder?: string }) => placeholder,
 }));
 
@@ -212,6 +212,17 @@ it("opens a new transaction calendar in the viewed ledger month", () => {
   renderToStaticMarkup(<TransactionSheet defaultMonth="2026-03" members={[]} />);
 
   expect(mocks.calendarDefaultMonths[0]?.toISOString()).toContain("2026-03-01");
+});
+
+it("uses a regular dropdown for transaction type without a search field", () => {
+  const markup = renderSheet();
+
+  expect(markup).toContain('data-select="transaction-kind"');
+  expect(markup).toContain('id="transaction-kind"');
+  expect(markup).not.toContain('aria-label="Type"');
+  expect(markup).not.toContain("Search type…");
+  expect(markup).toContain("border-negative/20 bg-negative/10 text-negative");
+  expect(markup).toContain("border-positive/20 bg-positive/10 text-positive");
 });
 
 it("opens a new billing period calendar in the viewed ledger month", () => {
@@ -305,7 +316,7 @@ it("renders the transaction composer with labelled core controls", () => {
     />,
   );
   expect(markup).toContain('aria-label="Add transaction"');
-  expect(markup).toContain('aria-label="Type"');
+  expect(markup).toContain('id="transaction-kind"');
   expect(markup).toContain("Expense");
   expect(markup).toContain('data-select="recurrence-cadence"');
   expect(markup).toContain("None");
@@ -318,8 +329,8 @@ it("renders the transaction composer with labelled core controls", () => {
   expect(markup.indexOf("Category")).toBeLessThan(markup.indexOf("transaction-date-label"));
   expect(markup.indexOf("transaction-date-label")).toBeLessThan(markup.indexOf("Merchant"));
   expect(markup.indexOf("Merchant")).toBeLessThan(markup.indexOf("Paid by"));
-  expect(markup.indexOf("Paid by")).toBeLessThan(markup.indexOf('aria-label="Type"'));
-  expect(markup.indexOf('aria-label="Type"')).toBeLessThan(markup.indexOf("Note"));
+  expect(markup.indexOf("Paid by")).toBeLessThan(markup.indexOf('id="transaction-kind"'));
+  expect(markup.indexOf('id="transaction-kind"')).toBeLessThan(markup.indexOf("Note"));
 });
 
 it("uses a dropdown for custom cadence units", () => {

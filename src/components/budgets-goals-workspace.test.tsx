@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   actionState: null as unknown,
   actionReducers: [] as Array<(state: unknown, formData: FormData) => unknown>,
   pending: false,
+  pillSelectProps: [] as Array<Record<string, unknown>>,
   runEffects: false,
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
@@ -30,6 +31,16 @@ vi.mock("@/app/actions/budgets-goals", () => ({
   saveMonthlyBudget: vi.fn(),
   updateSavingsGoal: vi.fn(),
 }));
+vi.mock("@/components/pill-select", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/pill-select")>();
+  return {
+    ...actual,
+    PillSelect: (props: React.ComponentProps<typeof actual.PillSelect>) => {
+      mocks.pillSelectProps.push(props);
+      return <actual.PillSelect {...props} />;
+    },
+  };
+});
 vi.mock("@/components/ui/sheet", () => ({
   Sheet: ({ children }: { children: ReactNode }) => <div data-sheet>{children}</div>,
   SheetContent: ({ children }: { children: ReactNode }) => <div data-sheet-content>{children}</div>,
@@ -153,6 +164,7 @@ const data = {
   targets: {
     categories: [
       {
+        color: "#ccebef",
         id: "55555555-5555-4555-8555-555555555555",
         label: "Home",
         name: "Home",
@@ -162,6 +174,7 @@ const data = {
     ],
     subcategories: [
       {
+        color: "#d9f0fa",
         id: "66666666-6666-4666-8666-666666666666",
         label: "Home · Rent",
         name: "Rent",
@@ -178,6 +191,7 @@ beforeEach(() => {
   mocks.actionState = null;
   mocks.actionReducers.length = 0;
   mocks.pending = false;
+  mocks.pillSelectProps.length = 0;
   mocks.runEffects = false;
   mocks.toastError.mockReset();
   mocks.toastSuccess.mockReset();
@@ -219,16 +233,56 @@ it("renders budgets and goals together with labelled capped progress and supplie
   expect(markup).not.toContain("ToggleGroup");
 });
 
-it("keeps empty copy inside each section and exposes grouped target choices", () => {
+it("keeps empty copy inside each section and submits target identifiers", () => {
   const markup = renderToStaticMarkup(<workspaceModule.BudgetsGoalsWorkspace {...data} budgets={[]} goals={[]} />);
 
   expect(markup).toContain("No monthly budgets configured yet.");
   expect(markup).toContain("No savings goals configured yet.");
-  expect(markup.match(/data-select-group/g)).toHaveLength(2);
-  expect(markup).toContain("Categories");
-  expect(markup).toContain("Subcategories");
   expect(markup).toContain('name="targetKind"');
   expect(markup).toContain('name="targetId"');
+});
+
+it("groups budget targets by category like the expense selector", () => {
+  mocks.actionState = {
+    status: "error",
+    formError: "Check the form details.",
+    fieldErrors: {},
+    data: { targetKind: "category", targetId: "55555555-5555-4555-8555-555555555555" },
+  };
+  const markup = renderToStaticMarkup(<workspaceModule.BudgetForm mode="add" targets={data.targets} onSuccess={() => {}} />);
+  const targetSelector = mocks.pillSelectProps.find((props) => props.ariaLabel === "Budget target");
+
+  expect(markup).toContain('aria-label="Budget target"');
+  expect(markup).toContain('type="button"');
+  expect(markup).toContain("background-color:#ccebef");
+  expect(targetSelector).toMatchObject({
+    grouped: true,
+    options: [
+      {
+        value: "category:55555555-5555-4555-8555-555555555555",
+        label: "Home",
+        section: { id: "55555555-5555-4555-8555-555555555555", label: "Home" },
+      },
+      {
+        value: "subcategory:66666666-6666-4666-8666-666666666666",
+        label: "Rent",
+        section: { id: "55555555-5555-4555-8555-555555555555", label: "Home" },
+      },
+    ],
+  });
+});
+
+it("uses rounded primary add controls and labelled icon-only row actions", () => {
+  const markup = renderToStaticMarkup(<workspaceModule.BudgetsGoalsWorkspace {...data} />);
+  const budgetRowMarkup = renderToStaticMarkup(<workspaceModule.BudgetProgressRow row={data.budgets[0]} targets={data.targets} />);
+  const goalRowMarkup = renderToStaticMarkup(<workspaceModule.GoalProgressRow goal={data.goals[0]} />);
+
+  expect(markup).toMatch(/<button(?=[^>]*aria-label="Add budget")(?=[^>]*data-size="icon")(?=[^>]*rounded-full)/);
+  expect(markup).toMatch(/<button(?=[^>]*aria-label="Add goal")(?=[^>]*data-size="icon")(?=[^>]*rounded-full)/);
+  expect(budgetRowMarkup).toMatch(/<button(?=[^>]*aria-label="Edit Food budget")(?=[^>]*data-size="icon")/);
+  expect(budgetRowMarkup).toMatch(/<button(?=[^>]*aria-label="Remove Food budget")(?=[^>]*data-size="icon")/);
+  expect(goalRowMarkup).toMatch(/<button(?=[^>]*aria-label="Edit Emergency fund")(?=[^>]*data-size="icon")/);
+  expect(goalRowMarkup).toMatch(/<button(?=[^>]*aria-label="Delete Emergency fund")(?=[^>]*data-size="icon")/);
 });
 
 it("renders adjacent invalid fields and confirmation gates for destructive actions", () => {
@@ -293,7 +347,7 @@ it("submits budget and goal forms through their FormData actions and preserves e
   expect(budgetErrorMarkup).toContain('name="targetKind" value="category"');
   expect(budgetErrorMarkup).toContain('name="targetId" value="11111111-1111-4111-8111-111111111111"');
   expect(budgetErrorMarkup).toContain('name="monthlyBudget" value="123.45"');
-  expect(budgetErrorMarkup).toContain('data-select="category:11111111-1111-4111-8111-111111111111"');
+  expect(budgetErrorMarkup).toContain('aria-label="Budget target"');
   expect(budgetErrorMarkup).toContain("Enter an amount greater than zero.");
 
   mocks.actionState = null;
@@ -399,12 +453,12 @@ it("announces and disables each pending mutation", () => {
 
   const budgetRowMarkup = renderToStaticMarkup(<workspaceModule.BudgetProgressRow row={data.budgets[0]} targets={data.targets} />);
   expect(budgetRowMarkup).toContain("Removing budget…");
-  expect(budgetRowMarkup).toContain("Remove budget");
+  expect(budgetRowMarkup).toContain('aria-label="Remove Food budget"');
   expect(budgetRowMarkup).toContain("disabled");
 
   const goalRowMarkup = renderToStaticMarkup(<workspaceModule.GoalProgressRow goal={data.goals[0]} />);
   expect(goalRowMarkup).toContain("Deleting goal…");
-  expect(goalRowMarkup).toContain("Delete goal");
+  expect(goalRowMarkup).toContain('aria-label="Delete Emergency fund"');
   expect(goalRowMarkup).toContain("disabled");
 });
 

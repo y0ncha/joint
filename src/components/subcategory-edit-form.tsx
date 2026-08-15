@@ -54,7 +54,7 @@ export function SubcategoryEditForm({ categories, subcategory }: { categories: P
         ) : (
           <Field>
             <FieldLabel htmlFor={`subcategory-${subcategory.id}`}>Name</FieldLabel>
-            <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+            <div className="flex h-11 overflow-hidden rounded-xl border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
               <Input
                 id={`subcategory-${subcategory.id}`}
                 name="name"

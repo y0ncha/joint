@@ -109,6 +109,9 @@ it("keeps the remaining Household and Account settings inside the Settings form-
   expect(markup).toContain("The Lovelaces");
   expect(markup).toContain('href="/categories"');
   expect(markup).toContain('aria-label="Edit categories"');
+  expect(markup).toContain('href="/budgets-goals"');
+  expect(markup).toContain('aria-label="Edit budgets and goals"');
+  expect(markup).toContain("Manage household budgets and goals.");
   expect(markup).toContain('href="/automations"');
   expect(markup).toContain('aria-label="Edit automations"');
   expect(markup).toContain("Manage merchant rules.");

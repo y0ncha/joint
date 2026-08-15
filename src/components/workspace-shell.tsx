@@ -15,7 +15,6 @@ const navigation = [
   ["/", "Overview", LayoutDashboard],
   ["/transactions", "Transactions", WalletCards],
   ["/bills-groceries", "Bills & Groceries", PieChart],
-  ["/budgets-goals", "Budgets & Goals", Target],
   ["/settings", "Settings", Settings],
 ] as const;
 

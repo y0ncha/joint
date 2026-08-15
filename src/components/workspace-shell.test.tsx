@@ -163,7 +163,7 @@ it("renders the desktop rail with navigation and a plain profile avatar", () => 
   expect(desktopRail).toContain('href="/settings"');
 });
 
-it("renders five mobile destinations and keeps Categories and Automations on desktop only", () => {
+it("keeps Budgets & Goals, Categories, and Automations out of mobile navigation", () => {
   const markup = renderToStaticMarkup(
     <WorkspaceFixture title="Bills & Groceries">
       <p>Content</p>
@@ -175,10 +175,9 @@ it("renders five mobile destinations and keeps Categories and Automations on des
   expect(navigations[0]).toMatch(
     /href="\/transactions"[\s\S]*href="\/bills-groceries"[\s\S]*href="\/budgets-goals"[\s\S]*href="\/categories"[\s\S]*href="\/automations"[\s\S]*href="\/settings"/,
   );
-  expect(navigations[1]).toMatch(
-    /href="\/transactions"[\s\S]*href="\/bills-groceries"[\s\S]*href="\/budgets-goals"[\s\S]*href="\/settings"/,
-  );
-  expect(navigations[1].match(/<a\b/g)).toHaveLength(5);
+  expect(navigations[1]).toMatch(/href="\/transactions"[\s\S]*href="\/bills-groceries"[\s\S]*href="\/settings"/);
+  expect(navigations[1].match(/<a\b/g)).toHaveLength(4);
+  expect(navigations[1]).not.toContain('href="/budgets-goals"');
   expect(navigations[1]).not.toContain('href="/categories"');
   expect(navigations[1]).not.toContain('href="/automations"');
   expect(navigations[0]).toContain('aria-label="Bills &amp; Groceries"');
@@ -234,7 +233,7 @@ it("marks Budgets & Goals active for its route and nested paths", () => {
       </WorkspaceFixture>,
     );
 
-    expect(markup.match(/aria-current="page"[\s\S]*?href="\/budgets-goals"/g)).toHaveLength(2);
+    expect(markup.match(/aria-current="page"[\s\S]*?href="\/budgets-goals"/g)).toHaveLength(1);
   }
 });
 
