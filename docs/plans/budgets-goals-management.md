@@ -67,21 +67,21 @@ Add a combined Budgets & Goals management page, manual savings goals, a migrated
 | TASK-009 | Implement `getBudgetsGoalsData()` using existing category reads and two `dashboard_spending_breakdown` calls for parent and subcategory totals, then return all configured progress rows plus manually stored goals. | Complete | 2026-08-15 |
 | TASK-010 | Implement `saveMonthlyBudget()` and `removeMonthlyBudget()` Server Actions that validate target kind, active expense ownership, amount, and household membership before updating the appropriate existing row.       | Complete | 2026-08-15 |
 | TASK-011 | Implement `createSavingsGoal()`, `updateSavingsGoal()`, and `deleteSavingsGoal()` Server Actions with membership-derived household scope, field errors, and route revalidation.                                      | Complete | 2026-08-15 |
-| TASK-012 | Update Bills & Groceries data loading to read the protected Groceries category’s `monthly_budget` while preserving the existing chart threshold line.                                                                | Complete  | 2026-08-15 |
-| TASK-013 | Remove Groceries budget fields, dirty-state plumbing, validation, and save arguments from Settings and delete the unused control after caller tests pass.                                                            | Complete  | 2026-08-15 |
+| TASK-012 | Update Bills & Groceries data loading to read the protected Groceries category’s `monthly_budget` while preserving the existing chart threshold line.                                                                | Complete | 2026-08-15 |
+| TASK-013 | Remove Groceries budget fields, dirty-state plumbing, validation, and save arguments from Settings and delete the unused control after caller tests pass.                                                            | Complete | 2026-08-15 |
 
 ### Implementation Phase 4 — Build the approved interfaces
 
 - **GOAL-004**: Deliver the configuration-first page, navigation destination, and compact dashboard widget.
 
-| Task     | Description                                                                                                                                                                                                         | Status  | Date |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
-| TASK-014 | Add `/budgets-goals` with local loading UI and two stacked Cards that list every budget and goal progress row with exact accessible text alternatives.                                                              | Planned |      |
-| TASK-015 | Add budget creation and editing Sheets that group active expense parents and subcategories, exclude already-budgeted targets when adding, and clear budgets through AlertDialog confirmation.                       | Planned |      |
-| TASK-016 | Add goal creation and update Sheets with name, target, saved amount, native needed-by date, inline validation, calculated monthly requirement, and confirmed deletion.                                              | Planned |      |
-| TASK-017 | Add Budgets & Goals to desktop and five-item mobile navigation using the approved Target icon and update active-route tests.                                                                                        | Planned |      |
-| TASK-018 | Replace `BudgetsPlaceholder` and its loading state with a compact widget showing the two highest `spent / limit` budget ratios and nearest incomplete goal, with deterministic ties and capped bars.                | Planned |      |
-| TASK-019 | Add focusable 44px tooltip triggers whose accessible labels expose spent/limit, saved/target, needed-by date, monthly requirement, completion, overdue, and over-budget details without permanent explanatory copy. | Planned |      |
+| Task     | Description                                                                                                                                                                                                         | Status   | Date       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| TASK-014 | Add `/budgets-goals` with local loading UI and two stacked Cards that list every budget and goal progress row with exact accessible text alternatives.                                                              | Complete | 2026-08-15 |
+| TASK-015 | Add budget creation and editing Sheets that group active expense parents and subcategories, exclude already-budgeted targets when adding, and clear budgets through AlertDialog confirmation.                       | Complete | 2026-08-15 |
+| TASK-016 | Add goal creation and update Sheets with name, target, saved amount, native needed-by date, inline validation, calculated monthly requirement, and confirmed deletion.                                              | Complete | 2026-08-15 |
+| TASK-017 | Add Budgets & Goals to desktop and five-item mobile navigation using the approved Target icon and update active-route tests.                                                                                        | Planned  |            |
+| TASK-018 | Replace `BudgetsPlaceholder` and its loading state with a compact widget showing the two highest `spent / limit` budget ratios and nearest incomplete goal, with deterministic ties and capped bars.                | Planned  |            |
+| TASK-019 | Add focusable 44px tooltip triggers whose accessible labels expose spent/limit, saved/target, needed-by date, monthly requirement, completion, overdue, and over-budget details without permanent explanatory copy. | Planned  |            |
 
 ### Implementation Phase 5 — Verify and close the plan
 
