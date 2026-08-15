@@ -3,13 +3,22 @@ import { getBillsGroceriesData } from "@/lib/bills-groceries-data";
 
 export type BillsGroceriesSearchParams = Record<string, string | string[] | undefined>;
 
-export function canonicalBillsGroceriesParams(params: URLSearchParams, selected: ReturnType<typeof parseBillsGroceriesUrlDefaults>) {
+export function canonicalBillsGroceriesParams(
+  params: URLSearchParams,
+  selected: ReturnType<typeof parseBillsGroceriesUrlDefaults>,
+  defaults: ReturnType<typeof parseBillsGroceriesUrlDefaults>,
+) {
   const canonical = new URLSearchParams(params);
-  canonical.set("period", selected.period);
-  canonical.set("bills", selected.billIds.join(","));
-  if (selected.billId) canonical.set("bill", selected.billId);
+  if (selected.period === defaults.period) canonical.delete("period");
+  else canonical.set("period", selected.period);
+  const usesAllBills = selected.billIds.length === defaults.billIds.length && selected.billIds.every((id) => defaults.billIds.includes(id));
+  if (usesAllBills) canonical.delete("bills");
+  else canonical.set("bills", selected.billIds.join(","));
+  if (selected.billId === defaults.billId) canonical.delete("bill");
+  else if (selected.billId) canonical.set("bill", selected.billId);
   else canonical.delete("bill");
-  canonical.set("groceryMonth", selected.groceryRange.from.slice(0, 7));
+  if (selected.groceryRange.from === defaults.groceryRange.from) canonical.delete("groceryMonth");
+  else canonical.set("groceryMonth", selected.groceryRange.from.slice(0, 7));
   canonical.delete("groceryFrom");
   canonical.delete("groceryTo");
   return canonical;
@@ -24,12 +33,14 @@ export async function loadBillsGroceriesPage(searchParams: BillsGroceriesSearchP
   const currentDate = new Date().toISOString().slice(0, 10);
   const initial = parseBillsGroceriesUrlDefaults(params, { bills: [], defaultBillId: null, currentDate });
   const data = await getBillsGroceriesData({ currentDate, groceryRange: initial.groceryRange, period: initial.period });
-  const selected = parseBillsGroceriesUrlDefaults(params, {
+  const options = {
     bills: data.bills.subcategories,
     defaultBillId: data.bills.defaultSubcategoryId,
     currentDate,
-  });
-  const canonical = canonicalBillsGroceriesParams(params, selected);
+  };
+  const selected = parseBillsGroceriesUrlDefaults(params, options);
+  const defaults = parseBillsGroceriesUrlDefaults(new URLSearchParams(), options);
+  const canonical = canonicalBillsGroceriesParams(params, selected, defaults);
 
   return { canonical, data, params, selected };
 }
