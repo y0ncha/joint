@@ -40,15 +40,22 @@ security invoker
 set search_path = ''
 as $$
 begin
-  if new.kind = 'income'::public.category_kind
-    and exists (
+  if new.kind = 'income'::public.category_kind then
+    -- Budget validations lock the parent category first. Keep this lock order
+    -- before inspecting children so kind changes and child-budget writes serialize.
+    perform 1
+      from public.categories as category
+     where category.id = new.id
+       for update;
+
+    if exists (
       select 1
       from public.subcategories as subcategory
       where subcategory.category_id = new.id
         and subcategory.monthly_budget is not null
-    )
-  then
-    raise exception 'A category with budgeted children must remain an expense';
+    ) then
+      raise exception 'A category with budgeted children must remain an expense';
+    end if;
   end if;
 
   return new;
@@ -79,7 +86,8 @@ begin
   select category.household_id, category.kind
     into parent_household_id, parent_kind
     from public.categories as category
-   where category.id = new.category_id;
+   where category.id = new.category_id
+     for update;
 
   if parent_household_id is null
     or parent_household_id is distinct from new.household_id

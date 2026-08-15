@@ -44,6 +44,16 @@ describe("budgets and goals input schemas", () => {
     if (!result.success) expect(result.error.issues.some((issue) => issue.path[0] === field)).toBe(true);
   });
 
+  it.each([Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, 10_000_000_000])("rejects budget boundary %s", (monthlyBudget) => {
+    const result = budgetInputSchema.safeParse({
+      targetKind: "category",
+      targetId: "11111111-1111-4111-8111-111111111111",
+      monthlyBudget,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues.some((issue) => issue.path[0] === "monthlyBudget")).toBe(true);
+  });
+
   it.each([
     [{ name: " ", targetAmount: 1, savedAmount: 0, targetDate: "2026-12-31" }, "name"],
     [{ name: "Goal", targetAmount: 0, savedAmount: 0, targetDate: "2026-12-31" }, "targetAmount"],
@@ -54,6 +64,20 @@ describe("budgets and goals input schemas", () => {
     const result = goalInputSchema.safeParse(input);
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.issues.some((issue) => issue.path[0] === field)).toBe(true);
+  });
+
+  it.each([Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, 10_000_000_000])("rejects goal amount boundary %s", (amount) => {
+    for (const field of ["targetAmount", "savedAmount"] as const) {
+      const result = goalInputSchema.safeParse({
+        name: "Goal",
+        targetAmount: 1,
+        savedAmount: 0,
+        targetDate: "2026-12-31",
+        [field]: amount,
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.issues.some((issue) => issue.path[0] === field)).toBe(true);
+    }
   });
 });
 
