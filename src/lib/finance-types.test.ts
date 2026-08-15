@@ -14,6 +14,7 @@ it("maps BillsGroceries system keys and Bills service periods", () => {
       icon: "receipt",
       created_at: "2026-07-30T00:00:00Z",
       household_id: "household-id",
+      monthly_budget: null,
       updated_at: "2026-07-30T00:00:00Z",
     }),
     subcategory: subcategoryFromRow({
@@ -26,6 +27,7 @@ it("maps BillsGroceries system keys and Bills service periods", () => {
       archived_at: null,
       created_at: "2026-07-30T00:00:00Z",
       household_id: "household-id",
+      monthly_budget: null,
       updated_at: "2026-07-30T00:00:00Z",
     }),
     transaction: transactionFromRow({
@@ -68,6 +70,7 @@ it("retains a subcategory row's persisted color and optional icon", () => {
       created_at: "2026-07-26T00:00:00Z",
       household_id: "household-id",
       system_key: null,
+      monthly_budget: null,
       updated_at: "2026-07-26T00:00:00Z",
     }),
   ).toEqual({

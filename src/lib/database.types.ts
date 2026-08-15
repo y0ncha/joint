@@ -90,6 +90,7 @@ export type Database = {
           icon: string
           id: string
           kind: Database["public"]["Enums"]["category_kind"]
+          monthly_budget: number | null
           name: string
           system_key: string | null
           updated_at: string
@@ -102,6 +103,7 @@ export type Database = {
           icon?: string
           id?: string
           kind: Database["public"]["Enums"]["category_kind"]
+          monthly_budget?: number | null
           name: string
           system_key?: string | null
           updated_at?: string
@@ -114,6 +116,7 @@ export type Database = {
           icon?: string
           id?: string
           kind?: Database["public"]["Enums"]["category_kind"]
+          monthly_budget?: number | null
           name?: string
           system_key?: string | null
           updated_at?: string
@@ -200,7 +203,6 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
-          groceries_monthly_budget: number | null
           id: string
           name: string
           opening_balance: number
@@ -209,7 +211,6 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by: string
-          groceries_monthly_budget?: number | null
           id?: string
           name: string
           opening_balance?: number
@@ -218,7 +219,6 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string
-          groceries_monthly_budget?: number | null
           id?: string
           name?: string
           opening_balance?: number
@@ -399,6 +399,47 @@ export type Database = {
           },
         ]
       }
+      savings_goals: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          name: string
+          saved_amount: number
+          target_amount: number
+          target_date: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          name: string
+          saved_amount?: number
+          target_amount: number
+          target_date: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          name?: string
+          saved_amount?: number
+          target_amount?: number
+          target_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "savings_goals_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subcategories: {
         Row: {
           archived_at: string | null
@@ -408,6 +449,7 @@ export type Database = {
           household_id: string
           icon: string | null
           id: string
+          monthly_budget: number | null
           name: string
           system_key: string | null
           updated_at: string
@@ -420,6 +462,7 @@ export type Database = {
           household_id: string
           icon?: string | null
           id?: string
+          monthly_budget?: number | null
           name: string
           system_key?: string | null
           updated_at?: string
@@ -432,6 +475,7 @@ export type Database = {
           household_id?: string
           icon?: string | null
           id?: string
+          monthly_budget?: number | null
           name?: string
           system_key?: string | null
           updated_at?: string
@@ -678,25 +722,15 @@ export type Database = {
         Returns: undefined
       }
       save_current_settings:
-        | {
-            Args: {
-              groceries_monthly_budget: number
-              household_name?: string
-              member_card_last_four?: string
-              member_color?: string
-              profile_name?: string
-            }
-            Returns: string
+        {
+          Args: {
+            household_name?: string
+            member_card_last_four?: string
+            member_color?: string
+            profile_name?: string
           }
-        | {
-            Args: {
-              household_name?: string
-              member_card_last_four?: string
-              member_color?: string
-              profile_name?: string
-            }
-            Returns: string
-          }
+          Returns: string
+        }
       set_current_household_member_color: {
         Args: { target_color: string }
         Returns: undefined

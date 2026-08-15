@@ -51,12 +51,12 @@ Add a combined Budgets & Goals management page, manual savings goals, a migrated
 
 | Task | Description | Status | Date |
 |---|---|---|---|
-| TASK-003 | Generate the `add_budgets_and_savings_goals` migration under `supabase/migrations/` and add nullable constrained `monthly_budget` columns to `categories` and `subcategories`. | Planned | |
-| TASK-004 | Add migration validation preventing budgets on income categories or their subcategories and verify category-kind changes cannot leave an expense budget under an income parent. | Planned | |
-| TASK-005 | Create `savings_goals` with household ownership, validated amounts and name, needed-by date, timestamps, household index, RLS policies, and explicit authenticated grants. | Planned | |
-| TASK-006 | Copy each `households.groceries_monthly_budget` value to the protected Groceries category, then remove the household column, constraint, and obsolete numeric `save_current_settings` overload only after migration assertions prove parity. | Planned | |
-| TASK-007 | Regenerate `src/lib/database.types.ts` and verify only the planned budget, goal, and removed Settings contract fields change. | Planned | |
-| TASK-008 | Add `src/lib/budgets-goals.ts` with schemas, agorot-safe percentages, goal status, monthly-required calculation, deterministic urgency sorting, and focused unit tests. | Planned | |
+| TASK-003 | Generate the `add_budgets_and_savings_goals` migration under `supabase/migrations/` and add nullable constrained `monthly_budget` columns to `categories` and `subcategories`. | Complete | 2026-08-15 |
+| TASK-004 | Add migration validation preventing budgets on income categories or their subcategories and verify category-kind changes cannot leave an expense budget under an income parent. | Complete | 2026-08-15 |
+| TASK-005 | Create `savings_goals` with household ownership, validated amounts and name, needed-by date, timestamps, household index, RLS policies, and explicit authenticated grants. | Complete | 2026-08-15 |
+| TASK-006 | Copy each `households.groceries_monthly_budget` value to the protected Groceries category, then remove the household column, constraint, and obsolete numeric `save_current_settings` overload only after migration assertions prove parity. | Complete | 2026-08-15 |
+| TASK-007 | Regenerate `src/lib/database.types.ts` and verify only the planned budget, goal, and removed Settings contract fields change. | Complete | 2026-08-15 |
+| TASK-008 | Add `src/lib/budgets-goals.ts` with schemas, agorot-safe percentages, goal status, monthly-required calculation, deterministic urgency sorting, and focused unit tests. | Complete | 2026-08-15 |
 
 ### Implementation Phase 3 — Add authenticated reads and mutations
 
