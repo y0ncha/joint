@@ -87,7 +87,7 @@ function useFocusInvalid(state: ActionResult | null, formRef: React.RefObject<HT
 }
 
 function sheetContentClassName() {
-  return "inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl md:inset-x-auto md:w-3/4 md:max-w-lg";
+  return "inset-x-0 h-dvh w-full max-w-none overflow-y-auto border-white/60 bg-card/95 p-0 shadow-[0_24px_80px_rgba(15,44,55,0.3)] backdrop-blur-xl motion-reduce:animate-none motion-reduce:transition-none md:inset-x-auto md:w-3/4 md:max-w-lg";
 }
 
 export function BudgetForm({
@@ -179,6 +179,7 @@ export function BudgetForm({
           <Input
             aria-describedby={amountError ? `${formId}-amount-error` : undefined}
             aria-invalid={Boolean(amountError)}
+            autoComplete="off"
             defaultValue={mode === "edit" && target ? target.monthlyBudget : undefined}
             id={`${formId}-amount`}
             inputMode="decimal"
@@ -394,6 +395,7 @@ export function GoalForm({ goal, mode, onSuccess }: { goal?: GoalRow; mode: "add
           <Input
             aria-describedby={targetAmountError ? `${formId}-target-amount-error` : undefined}
             aria-invalid={Boolean(targetAmountError)}
+            autoComplete="off"
             defaultValue={goal?.targetAmount}
             id={`${formId}-target-amount`}
             inputMode="decimal"
@@ -411,6 +413,7 @@ export function GoalForm({ goal, mode, onSuccess }: { goal?: GoalRow; mode: "add
           <Input
             aria-describedby={savedAmountError ? `${formId}-saved-amount-error` : undefined}
             aria-invalid={Boolean(savedAmountError)}
+            autoComplete="off"
             defaultValue={goal?.savedAmount ?? 0}
             id={`${formId}-saved-amount`}
             inputMode="decimal"
@@ -428,6 +431,7 @@ export function GoalForm({ goal, mode, onSuccess }: { goal?: GoalRow; mode: "add
           <Input
             aria-describedby={targetDateError ? `${formId}-target-date-error` : undefined}
             aria-invalid={Boolean(targetDateError)}
+            autoComplete="off"
             defaultValue={goal?.targetDate}
             id={`${formId}-target-date`}
             name="targetDate"
