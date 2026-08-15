@@ -95,7 +95,7 @@ export async function getBudgetsGoalsData(options: BudgetsGoalsReadOptions = {})
     const [categoriesResult, subcategoriesResult, goalsResult, parentSpendingResult, childSpendingResult] = await Promise.all([
       household.supabase
         .from("categories")
-        .select("id, name, kind, archived_at, monthly_budget")
+        .select("id, name, kind, system_key, archived_at, monthly_budget")
         .eq("household_id", household.householdId)
         .order("name"),
       household.supabase
@@ -116,12 +116,17 @@ export async function getBudgetsGoalsData(options: BudgetsGoalsReadOptions = {})
       subcategoriesResult.error ||
       goalsResult.error ||
       parentSpendingResult.error ||
-      childSpendingResult.error
+      childSpendingResult.error ||
+      categoriesResult.data === null ||
+      subcategoriesResult.data === null ||
+      goalsResult.data === null ||
+      parentSpendingResult.data === null ||
+      childSpendingResult.data === null
     ) {
       throw new Error("Budget or goal read failed.");
     }
 
-    const categories = (categoriesResult.data ?? []).filter((category) => category.kind === "expense" && category.archived_at === null);
+    const categories = categoriesResult.data.filter((category) => category.kind === "expense" && category.archived_at === null);
     const categoriesById = new Map(categories.map((category) => [category.id, category]));
     const categoryTargets = categories
       .map<BudgetTarget>((category) => ({
@@ -132,7 +137,7 @@ export async function getBudgetsGoalsData(options: BudgetsGoalsReadOptions = {})
         targetKind: "category",
       }))
       .sort((left, right) => compareText(left.label, right.label) || compareText(left.id, right.id));
-    const subcategoryTargets = (subcategoriesResult.data ?? [])
+    const subcategoryTargets = subcategoriesResult.data
       .flatMap<SubcategoryBudgetTarget>((subcategory) => {
         const category = categoriesById.get(subcategory.category_id);
         if (!category || subcategory.archived_at !== null) return [];
@@ -150,8 +155,8 @@ export async function getBudgetsGoalsData(options: BudgetsGoalsReadOptions = {})
       })
       .sort((left, right) => compareText(left.label, right.label) || compareText(left.id, right.id));
 
-    const parentSpending = new Map((parentSpendingResult.data ?? []).map((row) => [row.category_id, finiteAmount(row.amount)]));
-    const childSpending = new Map((childSpendingResult.data ?? []).map((row) => [row.category_id, finiteAmount(row.amount)]));
+    const parentSpending = new Map(parentSpendingResult.data.map((row) => [row.category_id, finiteAmount(row.amount)]));
+    const childSpending = new Map(childSpendingResult.data.map((row) => [row.category_id, finiteAmount(row.amount)]));
     const budgets = [...categoryTargets, ...subcategoryTargets]
       .filter((target): target is (BudgetTarget | SubcategoryBudgetTarget) & { monthlyBudget: number } => target.monthlyBudget !== null)
       .map((target) => {
@@ -171,7 +176,7 @@ export async function getBudgetsGoalsData(options: BudgetsGoalsReadOptions = {})
       })
       .sort((left, right) => compareText(left.label, right.label) || compareText(left.id, right.id));
 
-    const goalInputs = (goalsResult.data ?? []).map((goal) => {
+    const goalInputs = goalsResult.data.map((goal) => {
       const targetAmount = finiteAmount(goal.target_amount);
       const savedAmount = finiteAmount(goal.saved_amount);
       return { id: goal.id, label: goal.name, name: goal.name, savedAmount, targetAmount, targetDate: goal.target_date };

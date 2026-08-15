@@ -9,9 +9,14 @@ type Query = {
   then: Promise<unknown>["then"];
 };
 
+type Response = { data: unknown; error: unknown; reject?: unknown };
+type QueryRecord = { filters: Array<{ column: string; method: string; value: unknown }>; select: string | null; table: string };
+
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   getCurrentHouseholdContext: vi.fn(),
+  queryRecords: [] as QueryRecord[],
+  responses: {} as Record<string, Response>,
   rpc: vi.fn(),
 }));
 
@@ -20,10 +25,17 @@ vi.mock("@/lib/household", () => ({ getCurrentHouseholdContext: mocks.getCurrent
 const { getBudgetsGoalsData } = await import("./budgets-goals-data");
 
 const categoryRows = [
-  { archived_at: null, id: "food", kind: "expense", monthly_budget: 100, name: "Food" },
-  { archived_at: null, id: "home", kind: "expense", monthly_budget: null, name: "Home" },
-  { archived_at: "2026-01-01T00:00:00Z", id: "archived", kind: "expense", monthly_budget: 250, name: "Archived" },
-  { archived_at: null, id: "income", kind: "income", monthly_budget: null, name: "Salary" },
+  { archived_at: null, id: "food", kind: "expense", monthly_budget: 100, name: "Food", system_key: null },
+  { archived_at: null, id: "home", kind: "expense", monthly_budget: null, name: "Home", system_key: null },
+  {
+    archived_at: "2026-01-01T00:00:00Z",
+    id: "archived",
+    kind: "expense",
+    monthly_budget: 250,
+    name: "Archived",
+    system_key: null,
+  },
+  { archived_at: null, id: "income", kind: "income", monthly_budget: null, name: "Salary", system_key: "salary" },
 ];
 
 const subcategoryRows = [
@@ -40,22 +52,37 @@ const goalRows = [
   { id: "goal-complete", name: "Complete", saved_amount: 100, target_amount: 100, target_date: "2026-01-01" },
 ];
 
-function query(data: unknown): Query {
-  const result = Promise.resolve({ data, error: null });
+function query(table: string, response: Response): Query {
+  const record: QueryRecord = { filters: [], select: null, table };
+  mocks.queryRecords.push(record);
+  const result = response.reject
+    ? Promise.reject(response.reject)
+    : Promise.resolve({ data: response.data, error: response.error });
   const builder = {
     eq: vi.fn(),
     order: vi.fn(),
     select: vi.fn(),
     then: result.then.bind(result),
   } as unknown as Query;
-  builder.eq.mockReturnValue(builder);
-  builder.order.mockReturnValue(builder);
-  builder.select.mockReturnValue(builder);
+  builder.eq.mockImplementation((column: string, value: unknown) => {
+    record.filters.push({ column, method: "eq", value });
+    return builder;
+  });
+  builder.order.mockImplementation((column: string, value: unknown) => {
+    record.filters.push({ column, method: "order", value });
+    return builder;
+  });
+  builder.select.mockImplementation((columns: string) => {
+    record.select = columns;
+    return builder;
+  });
   return builder;
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.queryRecords.length = 0;
+  for (const key of Object.keys(mocks.responses)) delete mocks.responses[key];
   mocks.getCurrentHouseholdContext.mockResolvedValue({
     householdId: "household-id",
     role: "owner",
@@ -64,10 +91,17 @@ beforeEach(() => {
     userId: "user-id",
   });
   mocks.from.mockImplementation((table: string) =>
-    table === "categories" ? query(categoryRows) : table === "subcategories" ? query(subcategoryRows) : query(goalRows),
+    query(
+      table,
+      mocks.responses[table] ?? {
+        data: table === "categories" ? categoryRows : table === "subcategories" ? subcategoryRows : goalRows,
+        error: null,
+      },
+    ),
   );
-  mocks.rpc.mockImplementation((name: string, args: { p_subcategories?: boolean }) =>
-    Promise.resolve({
+  mocks.rpc.mockImplementation((name: string, args: { p_subcategories?: boolean }) => {
+    const key = args.p_subcategories ? "child-rpc" : "parent-rpc";
+    const response = mocks.responses[key] ?? {
       data:
         name === "dashboard_spending_breakdown" && args.p_subcategories
           ? [
@@ -76,8 +110,9 @@ beforeEach(() => {
             ]
           : [{ amount: 80, category_id: "food", category_name: "Food" }],
       error: null,
-    }),
-  );
+    };
+    return response.reject ? Promise.reject(response.reject) : Promise.resolve({ data: response.data, error: response.error });
+  });
 });
 
 it("loads active targets, independent parent and child progress, and sorted goals", async () => {
@@ -91,6 +126,31 @@ it("loads active targets, independent parent and child progress, and sorted goal
     p_month: "2026-07-01",
     p_subcategories: true,
   });
+  expect(mocks.queryRecords).toEqual(
+    expect.arrayContaining([
+      {
+        filters: [
+          { column: "household_id", method: "eq", value: "household-id" },
+          { column: "name", method: "order", value: undefined },
+        ],
+        select: "id, name, kind, system_key, archived_at, monthly_budget",
+        table: "categories",
+      },
+      {
+        filters: [
+          { column: "household_id", method: "eq", value: "household-id" },
+          { column: "name", method: "order", value: undefined },
+        ],
+        select: "id, name, category_id, archived_at, monthly_budget",
+        table: "subcategories",
+      },
+      {
+        filters: [{ column: "household_id", method: "eq", value: "household-id" }],
+        select: "id, name, target_amount, saved_amount, target_date",
+        table: "savings_goals",
+      },
+    ]),
+  );
   expect(data.targets).toEqual({
     categories: [
       { id: "food", label: "Food", monthlyBudget: 100, name: "Food", targetKind: "category" },
@@ -170,6 +230,63 @@ it("maps every read or RPC failure to the sanitized error", async () => {
   await expect(getBudgetsGoalsData({ month: "2026-07", today: "2026-08-15" })).rejects.toEqual(
     new Error("Unable to load budgets and goals."),
   );
+});
+
+it.each(["categories", "subcategories", "savings_goals"])("sanitizes a %s read error", async (table) => {
+  mocks.responses[table] = { data: null, error: new Error(`${table} failed`) };
+
+  await expect(getBudgetsGoalsData({ month: "2026-07", today: "2026-08-15" })).rejects.toEqual(
+    new Error("Unable to load budgets and goals."),
+  );
+});
+
+it.each(["categories", "subcategories", "savings_goals"])("sanitizes a %s read rejection", async (table) => {
+  mocks.responses[table] = { data: null, error: null, reject: new Error(`${table} rejected`) };
+
+  await expect(getBudgetsGoalsData({ month: "2026-07", today: "2026-08-15" })).rejects.toEqual(
+    new Error("Unable to load budgets and goals."),
+  );
+});
+
+it.each(["parent-rpc", "child-rpc"])("sanitizes a %s error", async (rpc) => {
+  mocks.responses[rpc] = { data: null, error: new Error(`${rpc} failed`) };
+
+  await expect(getBudgetsGoalsData({ month: "2026-07", today: "2026-08-15" })).rejects.toEqual(
+    new Error("Unable to load budgets and goals."),
+  );
+});
+
+it.each(["parent-rpc", "child-rpc"])("sanitizes a %s rejection", async (rpc) => {
+  mocks.responses[rpc] = { data: null, error: null, reject: new Error(`${rpc} rejected`) };
+
+  await expect(getBudgetsGoalsData({ month: "2026-07", today: "2026-08-15" })).rejects.toEqual(
+    new Error("Unable to load budgets and goals."),
+  );
+});
+
+it.each(["categories", "subcategories", "savings_goals", "parent-rpc", "child-rpc"])(
+  "rejects a malformed null %s response",
+  async (source) => {
+    mocks.responses[source] = { data: null, error: null };
+
+    await expect(getBudgetsGoalsData({ month: "2026-07", today: "2026-08-15" })).rejects.toEqual(
+      new Error("Unable to load budgets and goals."),
+    );
+  },
+);
+
+it("accepts legitimate empty arrays from every read and RPC", async () => {
+  mocks.responses.categories = { data: [], error: null };
+  mocks.responses.subcategories = { data: [], error: null };
+  mocks.responses.savings_goals = { data: [], error: null };
+  mocks.responses["parent-rpc"] = { data: [], error: null };
+  mocks.responses["child-rpc"] = { data: [], error: null };
+
+  await expect(getBudgetsGoalsData({ month: "2026-07", today: "2026-08-15" })).resolves.toEqual({
+    budgets: [],
+    goals: [],
+    targets: { categories: [], subcategories: [] },
+  });
 });
 
 it("rejects a non-member context without querying financial data", async () => {
