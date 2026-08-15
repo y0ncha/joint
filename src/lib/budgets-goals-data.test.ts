@@ -55,9 +55,7 @@ const goalRows = [
 function query(table: string, response: Response): Query {
   const record: QueryRecord = { filters: [], select: null, table };
   mocks.queryRecords.push(record);
-  const result = response.reject
-    ? Promise.reject(response.reject)
-    : Promise.resolve({ data: response.data, error: response.error });
+  const result = response.reject ? Promise.reject(response.reject) : Promise.resolve({ data: response.data, error: response.error });
   const builder = {
     eq: vi.fn(),
     order: vi.fn(),

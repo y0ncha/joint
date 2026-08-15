@@ -315,10 +315,7 @@ it("reads the protected Groceries budget from the active category", async () => 
     if (query.table !== "categories") return { data: null, error: null };
     const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
     return {
-      data:
-        systemKey === "groceries"
-          ? { id: "groceries-id", name: "Groceries", color: "#445566", monthly_budget: 125.5 }
-          : null,
+      data: systemKey === "groceries" ? { id: "groceries-id", name: "Groceries", color: "#445566", monthly_budget: 125.5 } : null,
       error: null,
     };
   };

@@ -10,18 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { getCurrentHouseholdContext } from "@/lib/household";
-import {
-  CreditCard,
-  House,
-  Palette,
-  Pencil,
-  SwatchBook,
-  Tags,
-  UserRound,
-  UsersRound,
-  WandSparkles,
-  type LucideIcon,
-} from "lucide-react";
+import { CreditCard, House, Palette, Pencil, SwatchBook, Tags, UserRound, UsersRound, WandSparkles, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 function SettingsRow({

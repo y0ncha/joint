@@ -87,14 +87,14 @@ Add a combined Budgets & Goals management page, manual savings goals, a migrated
 
 - **GOAL-005**: Prove data migration, authorization, financial calculations, and approved responsive behavior.
 
-| Task     | Description                                                                                                                                                                                                                    | Status  | Date |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ---- |
-| TASK-020 | Add migration pgTAP coverage for Groceries value preservation, budget constraints, goal constraints, grants, RLS membership access, and cross-household isolation.                                                             | Planned |      |
-| TASK-021 | Add action and read-model tests for parent and subcategory budgets, overlapping independent rows, set/remove flows, goal CRUD, completed/overdue calculations, and unauthorized identifiers.                                   | Planned |      |
-| TASK-022 | Add component tests proving both sections render simultaneously without tabs, all progress rows remain visible, the widget exposes only approved visible copy, and tooltip details work by hover and focus.                    | Planned |      |
-| TASK-023 | Run `bun run format:check && bun run lint && bun run typecheck && bun run test` and keep the plan incomplete until all relevant checks pass.                                                                                   | Planned |      |
-| TASK-024 | After explicit hosted-write authorization, verify `joint-dev` project ref `magcvzqnwrwxkhtsfspg`, run migration list and dry-run, apply through the linked CLI, recheck history, types, pgTAP, catalog behavior, and advisors. | Planned |      |
-| TASK-025 | Verify authenticated desktop and mobile flows for add/edit/remove, keyboard tooltips, empty states, completed and overdue goals, over-budget rows, Bills threshold parity, dashboard rendering, and horizontal overflow.       | Planned |      |
+| Task     | Description                                                                                                                                                                                                                    | Status   | Date       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | ---------- |
+| TASK-020 | Add migration pgTAP coverage for Groceries value preservation, budget constraints, goal constraints, grants, RLS membership access, and cross-household isolation.                                                             | Complete | 2026-08-15 |
+| TASK-021 | Add action and read-model tests for parent and subcategory budgets, overlapping independent rows, set/remove flows, goal CRUD, completed/overdue calculations, and unauthorized identifiers.                                   | Complete | 2026-08-15 |
+| TASK-022 | Add component tests proving both sections render simultaneously without tabs, all progress rows remain visible, the widget exposes only approved visible copy, and tooltip details work by hover and focus.                    | Complete | 2026-08-15 |
+| TASK-023 | Run `bun run format:check && bun run lint && bun run typecheck && bun run test` and keep the plan incomplete until all relevant checks pass.                                                                                   | Complete | 2026-08-15 |
+| TASK-024 | After explicit hosted-write authorization, verify `joint-dev` project ref `magcvzqnwrwxkhtsfspg`, run migration list and dry-run, apply through the linked CLI, recheck history, types, pgTAP, catalog behavior, and advisors. | Blocked  | 2026-08-15 |
+| TASK-025 | Verify authenticated desktop and mobile flows for add/edit/remove, keyboard tooltips, empty states, completed and overdue goals, over-budget rows, Bills threshold parity, dashboard rendering, and horizontal overflow.       | Blocked  | 2026-08-15 |
 
 ## 3. Alternatives
 
