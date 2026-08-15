@@ -157,12 +157,13 @@ it("renders the desktop rail with navigation and a plain profile avatar", () => 
   expect(desktopRail).toContain('aria-label="Primary navigation"');
   expect(desktopRail).toContain('href="/"');
   expect(desktopRail).toContain('href="/transactions"');
+  expect(desktopRail).toContain('href="/budgets-goals"');
   expect(desktopRail).toContain('href="/categories"');
   expect(desktopRail).toContain('href="/automations"');
   expect(desktopRail).toContain('href="/settings"');
 });
 
-it("renders Categories and Automations in the desktop navigation only", () => {
+it("renders five mobile destinations and keeps Categories and Automations on desktop only", () => {
   const markup = renderToStaticMarkup(
     <WorkspaceFixture title="Bills & Groceries">
       <p>Content</p>
@@ -172,12 +173,16 @@ it("renders Categories and Automations in the desktop navigation only", () => {
 
   expect(navigations).toHaveLength(2);
   expect(navigations[0]).toMatch(
-    /href="\/transactions"[\s\S]*href="\/bills-groceries"[\s\S]*href="\/categories"[\s\S]*href="\/automations"[\s\S]*href="\/settings"/,
+    /href="\/transactions"[\s\S]*href="\/bills-groceries"[\s\S]*href="\/budgets-goals"[\s\S]*href="\/categories"[\s\S]*href="\/automations"[\s\S]*href="\/settings"/,
   );
-  expect(navigations[1]).toMatch(/href="\/transactions"[\s\S]*href="\/bills-groceries"[\s\S]*href="\/settings"/);
+  expect(navigations[1]).toMatch(
+    /href="\/transactions"[\s\S]*href="\/bills-groceries"[\s\S]*href="\/budgets-goals"[\s\S]*href="\/settings"/,
+  );
+  expect(navigations[1].match(/<a\b/g)).toHaveLength(5);
   expect(navigations[1]).not.toContain('href="/categories"');
   expect(navigations[1]).not.toContain('href="/automations"');
   expect(navigations[0]).toContain('aria-label="Bills &amp; Groceries"');
+  expect(navigations[0]).toContain('aria-label="Budgets &amp; Goals"');
   expect(navigations[0]).toMatch(/<a[^>]*class="[^"]*size-11[^>]*href="\/bills-groceries"/);
 
   expect(navigations[1]).not.toContain("Bills &amp; Groceries</span>");
@@ -217,6 +222,20 @@ it("marks Categories active for its route", () => {
   );
 
   expect(markup.match(/aria-current="page"[\s\S]*?href="\/categories"/g)).toHaveLength(1);
+});
+
+it("marks Budgets & Goals active for its route and nested paths", () => {
+  for (const pathname of ["/budgets-goals", "/budgets-goals/anything"]) {
+    currentPathname.value = pathname;
+
+    const markup = renderToStaticMarkup(
+      <WorkspaceFixture title="Budgets & Goals">
+        <p>Content</p>
+      </WorkspaceFixture>,
+    );
+
+    expect(markup.match(/aria-current="page"[\s\S]*?href="\/budgets-goals"/g)).toHaveLength(2);
+  }
 });
 
 it("makes the workspace frame full-bleed on mobile", () => {

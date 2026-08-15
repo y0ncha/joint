@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
-import { LayoutDashboard, PieChart, Settings, Tags, WalletCards, WandSparkles, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, PieChart, Settings, Tags, Target, WalletCards, WandSparkles, type LucideIcon } from "lucide-react";
 
 import { BrandMark } from "@/components/brand-mark";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -15,6 +15,7 @@ const navigation = [
   ["/", "Overview", LayoutDashboard],
   ["/transactions", "Transactions", WalletCards],
   ["/bills-groceries", "Bills & Groceries", PieChart],
+  ["/budgets-goals", "Budgets & Goals", Target],
   ["/settings", "Settings", Settings],
 ] as const;
 
@@ -22,6 +23,7 @@ const sidebarNavigation = [
   ["/", "Overview", LayoutDashboard],
   ["/transactions", "Transactions", WalletCards],
   ["/bills-groceries", "Bills & Groceries", PieChart],
+  ["/budgets-goals", "Budgets & Goals", Target],
   ["/categories", "Categories", Tags],
   ["/automations", "Automations", WandSparkles],
   ["/settings", "Settings", Settings],

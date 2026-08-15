@@ -99,9 +99,9 @@ Joint uses owned shadcn/ui components with the `radix-nova` style, Radix primiti
 ### Navigation and workspace
 
 - Desktop navigation is icon-only with a clear active state and accessible label.
-- Mobile navigation exposes the same primary destinations in the bottom bar.
-- Desktop and mobile primary navigation include `/bills-groceries`; desktop follows the existing icon-only pattern with the accessible label `Bills & Groceries`, while mobile exposes the visible destination label.
-- Desktop and mobile primary navigation include `/budgets-goals`; desktop follows the existing icon-only pattern with the accessible label `Budgets & Goals`, while mobile exposes the visible destination label.
+- Mobile navigation exposes the same primary destinations as 44px icon links in the bottom bar.
+- Desktop and mobile primary navigation include `/bills-groceries` with the accessible label `Bills & Groceries`.
+- Desktop and mobile primary navigation include `/budgets-goals` with the accessible label `Budgets & Goals`.
 - The desktop rail ends with a non-interactive avatar that shows the signed-in user's cached profile-name initials. It has no notification badge, popover, or notification behavior.
 - Navigation labels and route names must remain consistent across desktop, mobile, page titles, and tests.
 
