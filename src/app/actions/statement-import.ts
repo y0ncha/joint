@@ -131,7 +131,7 @@ export async function importStatement(_previousState: ActionResult | null, formD
 
   if (insertError) return { status: "error", formError: IMPORT_ERROR, fieldErrors: {} };
 
-  for (const path of ["/", "/transactions", "/categories"]) revalidatePath(path);
+  for (const path of ["/", "/transactions", "/categories", "/budgets-goals"]) revalidatePath(path);
 
   const importedRows = rowsToInsert.map((row) => ({ kind: row.kind, amount: row.amount, occurredOn: row.occurred_on }));
   const incomeTotal = importedRows.filter((row) => row.kind === "income").reduce((total, row) => total + row.amount, 0);

@@ -146,6 +146,7 @@ describe("statement import action", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/categories");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/budgets-goals");
   });
 
   it("returns a duplicate preview before inserting matching import rows", async () => {
