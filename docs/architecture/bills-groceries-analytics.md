@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Bills & Groceries is a household-scoped analytics view over the existing ledger. It adds a protected taxonomy, optional Bills service periods, and an optional shared Groceries budget. It does not replace the stored transaction model: the ledger and shared balance continue to use each transaction's positive stored amount, `kind`, and `occurred_on` posting date.
+Bills & Groceries is a household-scoped analytics view over the existing ledger. It adds a protected taxonomy, optional Bills service periods, and the protected Groceries category's optional recurring budget threshold. It does not replace the stored transaction model: the ledger and shared balance continue to use each transaction's positive stored amount, `kind`, and `occurred_on` posting date.
 
 ## Trust boundary and persistence
 
@@ -16,7 +16,7 @@ Authenticated member
 
 `getBillsGroceriesData` obtains the household ID from `getCurrentHouseholdContext`; it never accepts one from the URL or browser state. It rejects a non-member context before issuing a query. RLS remains the final household-data boundary.
 
-The shared Groceries budget is `households.groceries_monthly_budget`: an optional, positive finite ILS numeric value with at most two decimal places and a value below `10000000000`. The Settings Server Action validates the submitted field, calls the authenticated `save_current_settings` RPC, and revalidates the dashboard only after a successful write. The five-argument RPC derives the caller and household from `auth.uid()`, delegates the existing settings update atomically, then stores the current household's budget. It is executable by `authenticated`, not `anon`.
+The Bills & Groceries threshold is the protected Groceries category's one optional current recurring monthly budget: a positive finite ILS numeric value with at most two decimal places and a value below `10000000000`. The Budgets & Goals page owns this configuration. The Phase 2 migration copies each existing `households.groceries_monthly_budget` value into the protected Groceries category before removing the legacy field and its obsolete persistence contract, preserving the threshold value and its optional unset state.
 
 ## Authorized reset and protected taxonomy
 
@@ -49,9 +49,9 @@ The route accepts `period`, `bills`, `bill`, `groceryMonth`, and the client-side
 
 ## Accessible charts and failure behavior
 
-The three Recharts bar charts expose labelled regions, Recharts' accessibility layer, keyboard-inspectable values, and tooltips. Bills keeps its visible text legend at `md` and wider; on smaller screens, the labelled Bills selector and accessible detail table provide the non-color alternatives without consuming the plot area. The daily heatmap is instead a labelled keyboard-focusable grid whose cells expose each date and amount through `title` and `aria-label`, with a text lower-to-higher legend. Each chart's detail route adds an accessible labelled data table; the table is intentionally not rendered in the compact dashboard cards. Empty Bills data and missing prior-year data render explicit text, and an unset Groceries budget links to Settings instead of inventing a threshold.
+The three Recharts bar charts expose labelled regions, Recharts' accessibility layer, keyboard-inspectable values, and tooltips. Bills keeps its visible text legend at `md` and wider; on smaller screens, the labelled Bills selector and accessible detail table provide the non-color alternatives without consuming the plot area. The daily heatmap is instead a labelled keyboard-focusable grid whose cells expose each date and amount through `title` and `aria-label`, with a text lower-to-higher legend. Each chart's detail route adds an accessible labelled data table; the table is intentionally not rendered in the compact dashboard cards. Empty Bills data and missing prior-year data render explicit text, and an unset Groceries budget links to Budgets & Goals instead of inventing a threshold.
 
-Member-context and query failures cause the loader to throw an `Error`; the Bills & Groceries routes do not catch it or define a route-local error boundary. Transaction and settings validation failures return structured field/form errors; persistence failures return sanitized messages and do not revalidate routes. Database constraints and RLS still reject invalid or cross-household writes if application validation is bypassed.
+Member-context and query failures cause the loader to throw an `Error`; the Bills & Groceries routes do not catch it or define a route-local error boundary. Transaction and budget validation failures return structured field/form errors; persistence failures return sanitized messages and do not revalidate routes. Database constraints and RLS still reject invalid or cross-household writes if application validation is bypassed.
 
 ## Primary sources
 
