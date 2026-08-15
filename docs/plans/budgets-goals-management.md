@@ -40,61 +40,61 @@ Add a combined Budgets & Goals management page, manual savings goals, a migrated
 
 - **GOAL-001**: Authorize generalized category budgets and manual savings goals in durable documentation before behavior changes.
 
-| Task | Description | Status | Date |
-|---|---|---|---|
-| TASK-001 | Update `docs/design.md` with the approved combined page, progress-row, Sheet, tooltip, responsive, and dashboard-widget contracts and verify it no longer places Groceries budget in Settings. | Complete | 2026-08-15 |
+| Task     | Description                                                                                                                                                                                                                                                             | Status   | Date       |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| TASK-001 | Update `docs/design.md` with the approved combined page, progress-row, Sheet, tooltip, responsive, and dashboard-widget contracts and verify it no longer places Groceries budget in Settings.                                                                          | Complete | 2026-08-15 |
 | TASK-002 | Update `docs/architecture/financial-model.md`, `docs/architecture/bills-groceries-analytics.md`, and `docs/roadmap.md` to define current recurring category/subcategory budgets and manual savings goals while retaining transaction-derived progress as deferred work. | Complete | 2026-08-15 |
 
 ### Implementation Phase 2 — Add persistence and domain rules
 
 - **GOAL-002**: Persist the minimum budget and goal state while preserving existing Groceries data.
 
-| Task | Description | Status | Date |
-|---|---|---|---|
-| TASK-003 | Generate the `add_budgets_and_savings_goals` migration under `supabase/migrations/` and add nullable constrained `monthly_budget` columns to `categories` and `subcategories`. | Complete | 2026-08-15 |
-| TASK-004 | Add migration validation preventing budgets on income categories or their subcategories and verify category-kind changes cannot leave an expense budget under an income parent. | Complete | 2026-08-15 |
-| TASK-005 | Create `savings_goals` with household ownership, validated amounts and name, needed-by date, timestamps, household index, RLS policies, and explicit authenticated grants. | Complete | 2026-08-15 |
+| Task     | Description                                                                                                                                                                                                                                  | Status   | Date       |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| TASK-003 | Generate the `add_budgets_and_savings_goals` migration under `supabase/migrations/` and add nullable constrained `monthly_budget` columns to `categories` and `subcategories`.                                                               | Complete | 2026-08-15 |
+| TASK-004 | Add migration validation preventing budgets on income categories or their subcategories and verify category-kind changes cannot leave an expense budget under an income parent.                                                              | Complete | 2026-08-15 |
+| TASK-005 | Create `savings_goals` with household ownership, validated amounts and name, needed-by date, timestamps, household index, RLS policies, and explicit authenticated grants.                                                                   | Complete | 2026-08-15 |
 | TASK-006 | Copy each `households.groceries_monthly_budget` value to the protected Groceries category, then remove the household column, constraint, and obsolete numeric `save_current_settings` overload only after migration assertions prove parity. | Complete | 2026-08-15 |
-| TASK-007 | Regenerate `src/lib/database.types.ts` and verify only the planned budget, goal, and removed Settings contract fields change. | Complete | 2026-08-15 |
-| TASK-008 | Add `src/lib/budgets-goals.ts` with schemas, agorot-safe percentages, goal status, monthly-required calculation, deterministic urgency sorting, and focused unit tests. | Complete | 2026-08-15 |
+| TASK-007 | Regenerate `src/lib/database.types.ts` and verify only the planned budget, goal, and removed Settings contract fields change.                                                                                                                | Complete | 2026-08-15 |
+| TASK-008 | Add `src/lib/budgets-goals.ts` with schemas, agorot-safe percentages, goal status, monthly-required calculation, deterministic urgency sorting, and focused unit tests.                                                                      | Complete | 2026-08-15 |
 
 ### Implementation Phase 3 — Add authenticated reads and mutations
 
 - **GOAL-003**: Expose membership-scoped data and mutations without new API routes or read RPCs.
 
-| Task | Description | Status | Date |
-|---|---|---|---|
-| TASK-009 | Implement `getBudgetsGoalsData()` using existing category reads and two `dashboard_spending_breakdown` calls for parent and subcategory totals, then return all configured progress rows plus manually stored goals. | Planned | |
-| TASK-010 | Implement `saveMonthlyBudget()` and `removeMonthlyBudget()` Server Actions that validate target kind, active expense ownership, amount, and household membership before updating the appropriate existing row. | Planned | |
-| TASK-011 | Implement `createSavingsGoal()`, `updateSavingsGoal()`, and `deleteSavingsGoal()` Server Actions with membership-derived household scope, field errors, and route revalidation. | Planned | |
-| TASK-012 | Update Bills & Groceries data loading to read the protected Groceries category’s `monthly_budget` while preserving the existing chart threshold line. | Planned | |
-| TASK-013 | Remove Groceries budget fields, dirty-state plumbing, validation, and save arguments from Settings and delete the unused control after caller tests pass. | Planned | |
+| Task     | Description                                                                                                                                                                                                          | Status   | Date       |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| TASK-009 | Implement `getBudgetsGoalsData()` using existing category reads and two `dashboard_spending_breakdown` calls for parent and subcategory totals, then return all configured progress rows plus manually stored goals. | Complete | 2026-08-15 |
+| TASK-010 | Implement `saveMonthlyBudget()` and `removeMonthlyBudget()` Server Actions that validate target kind, active expense ownership, amount, and household membership before updating the appropriate existing row.       | Planned  |            |
+| TASK-011 | Implement `createSavingsGoal()`, `updateSavingsGoal()`, and `deleteSavingsGoal()` Server Actions with membership-derived household scope, field errors, and route revalidation.                                      | Planned  |            |
+| TASK-012 | Update Bills & Groceries data loading to read the protected Groceries category’s `monthly_budget` while preserving the existing chart threshold line.                                                                | Planned  |            |
+| TASK-013 | Remove Groceries budget fields, dirty-state plumbing, validation, and save arguments from Settings and delete the unused control after caller tests pass.                                                            | Planned  |            |
 
 ### Implementation Phase 4 — Build the approved interfaces
 
 - **GOAL-004**: Deliver the configuration-first page, navigation destination, and compact dashboard widget.
 
-| Task | Description | Status | Date |
-|---|---|---|---|
-| TASK-014 | Add `/budgets-goals` with local loading UI and two stacked Cards that list every budget and goal progress row with exact accessible text alternatives. | Planned | |
-| TASK-015 | Add budget creation and editing Sheets that group active expense parents and subcategories, exclude already-budgeted targets when adding, and clear budgets through AlertDialog confirmation. | Planned | |
-| TASK-016 | Add goal creation and update Sheets with name, target, saved amount, native needed-by date, inline validation, calculated monthly requirement, and confirmed deletion. | Planned | |
-| TASK-017 | Add Budgets & Goals to desktop and five-item mobile navigation using the approved Target icon and update active-route tests. | Planned | |
-| TASK-018 | Replace `BudgetsPlaceholder` and its loading state with a compact widget showing the two highest `spent / limit` budget ratios and nearest incomplete goal, with deterministic ties and capped bars. | Planned | |
-| TASK-019 | Add focusable 44px tooltip triggers whose accessible labels expose spent/limit, saved/target, needed-by date, monthly requirement, completion, overdue, and over-budget details without permanent explanatory copy. | Planned | |
+| Task     | Description                                                                                                                                                                                                         | Status  | Date |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---- |
+| TASK-014 | Add `/budgets-goals` with local loading UI and two stacked Cards that list every budget and goal progress row with exact accessible text alternatives.                                                              | Planned |      |
+| TASK-015 | Add budget creation and editing Sheets that group active expense parents and subcategories, exclude already-budgeted targets when adding, and clear budgets through AlertDialog confirmation.                       | Planned |      |
+| TASK-016 | Add goal creation and update Sheets with name, target, saved amount, native needed-by date, inline validation, calculated monthly requirement, and confirmed deletion.                                              | Planned |      |
+| TASK-017 | Add Budgets & Goals to desktop and five-item mobile navigation using the approved Target icon and update active-route tests.                                                                                        | Planned |      |
+| TASK-018 | Replace `BudgetsPlaceholder` and its loading state with a compact widget showing the two highest `spent / limit` budget ratios and nearest incomplete goal, with deterministic ties and capped bars.                | Planned |      |
+| TASK-019 | Add focusable 44px tooltip triggers whose accessible labels expose spent/limit, saved/target, needed-by date, monthly requirement, completion, overdue, and over-budget details without permanent explanatory copy. | Planned |      |
 
 ### Implementation Phase 5 — Verify and close the plan
 
 - **GOAL-005**: Prove data migration, authorization, financial calculations, and approved responsive behavior.
 
-| Task | Description | Status | Date |
-|---|---|---|---|
-| TASK-020 | Add migration pgTAP coverage for Groceries value preservation, budget constraints, goal constraints, grants, RLS membership access, and cross-household isolation. | Planned | |
-| TASK-021 | Add action and read-model tests for parent and subcategory budgets, overlapping independent rows, set/remove flows, goal CRUD, completed/overdue calculations, and unauthorized identifiers. | Planned | |
-| TASK-022 | Add component tests proving both sections render simultaneously without tabs, all progress rows remain visible, the widget exposes only approved visible copy, and tooltip details work by hover and focus. | Planned | |
-| TASK-023 | Run `bun run format:check && bun run lint && bun run typecheck && bun run test` and keep the plan incomplete until all relevant checks pass. | Planned | |
-| TASK-024 | After explicit hosted-write authorization, verify `joint-dev` project ref `magcvzqnwrwxkhtsfspg`, run migration list and dry-run, apply through the linked CLI, recheck history, types, pgTAP, catalog behavior, and advisors. | Planned | |
-| TASK-025 | Verify authenticated desktop and mobile flows for add/edit/remove, keyboard tooltips, empty states, completed and overdue goals, over-budget rows, Bills threshold parity, dashboard rendering, and horizontal overflow. | Planned | |
+| Task     | Description                                                                                                                                                                                                                    | Status  | Date |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ---- |
+| TASK-020 | Add migration pgTAP coverage for Groceries value preservation, budget constraints, goal constraints, grants, RLS membership access, and cross-household isolation.                                                             | Planned |      |
+| TASK-021 | Add action and read-model tests for parent and subcategory budgets, overlapping independent rows, set/remove flows, goal CRUD, completed/overdue calculations, and unauthorized identifiers.                                   | Planned |      |
+| TASK-022 | Add component tests proving both sections render simultaneously without tabs, all progress rows remain visible, the widget exposes only approved visible copy, and tooltip details work by hover and focus.                    | Planned |      |
+| TASK-023 | Run `bun run format:check && bun run lint && bun run typecheck && bun run test` and keep the plan incomplete until all relevant checks pass.                                                                                   | Planned |      |
+| TASK-024 | After explicit hosted-write authorization, verify `joint-dev` project ref `magcvzqnwrwxkhtsfspg`, run migration list and dry-run, apply through the linked CLI, recheck history, types, pgTAP, catalog behavior, and advisors. | Planned |      |
+| TASK-025 | Verify authenticated desktop and mobile flows for add/edit/remove, keyboard tooltips, empty states, completed and overdue goals, over-budget rows, Bills threshold parity, dashboard rendering, and horizontal overflow.       | Planned |      |
 
 ## 3. Alternatives
 
