@@ -15,4 +15,4 @@ Phase 4A: fix round 2/5 (2 addressed, 0 open; commit 7986038).
 Phase 4A: complete (commits cb3ba64..7986038, review clean).
 Phase 4B: fix round 1/5 (3 addressed, 0 open; commits 2cbaedd..2a18c95).
 Phase 4B: complete (commits 7986038..2a18c95, review clean).
-Phase 5 local: TASK-020 through TASK-023 complete; 83 test files and 619 tests passed with format, lint, and typecheck. TASK-024 and TASK-025 blocked pending explicit joint-dev migration authorization.
+Phase 5 local: TASK-020 through TASK-023 complete; 83 test files and 621 tests passed with format, lint, and typecheck. TASK-024 and TASK-025 blocked pending explicit joint-dev migration authorization.
