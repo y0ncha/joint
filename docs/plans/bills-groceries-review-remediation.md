@@ -14,6 +14,8 @@ tags: [bug, refactor, accessibility, analytics, nextjs, supabase]
 
 This plan fixes the reviewed Bills & Groceries route, URL, pagination, YoY, validation, and UTC calendar defects. It permits breaking internal and route-identifier changes, preserves stored transaction amounts and posting dates as ledger truth, and does not change the database schema, hosted environments, approved Settings placement, or icon-only navigation.
 
+> **Supersession note (2026-08-15):** This completed plan's Settings placement and budget-mutation references describe the historical Bills & Groceries delivery. The current ownership contract is [`budgets-goals-management.md`](budgets-goals-management.md): Groceries budget configuration belongs to `/budgets-goals`. The completed requirements and task history below remain historical evidence, not current UI authorization.
+
 ## 1. Requirements & Constraints
 
 - **REQ-001**: `year-over-year` MUST be the only Year-over-year chart identity in `BillsGroceriesChartId`, detail-route validation, generated links, selectors, conditions, and tests; `/bills-groceries/yoy` compatibility is not required.

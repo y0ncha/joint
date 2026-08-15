@@ -20,7 +20,7 @@ Add a combined Budgets & Goals management page, manual savings goals, a migrated
 - **REQ-002**: Allow one current recurring monthly budget on any active expense category or subcategory; parent and child budgets remain independent and are never aggregated together.
 - **REQ-003**: Show every configured budget’s progress against the previous completed calendar month without a month picker.
 - **REQ-004**: Store goals manually with name, target amount, current saved amount, and needed-by date.
-- **REQ-005**: Calculate required monthly saving as `ceil(max(targetAgorot - savedAgorot, 0) / max(calendarMonthsUntilTarget, 1))`; completed goals require zero and overdue incomplete goals show `Overdue`.
+- **REQ-005**: Calculate required monthly saving as `ceil(max(targetAgorot - savedAgorot, 0) / max(calendarMonthsUntilTarget, 1))`; define `calendarMonthsUntilTarget` from UTC ISO calendar months as `(targetYear - currentYear) * 12 + targetMonth - currentMonth`, using a minimum of `1` for a non-overdue target in the current month. A target date before today's UTC ISO date is overdue; completed goals require zero and overdue incomplete goals show `Overdue`.
 - **REQ-006**: Keep completed goals in the Goals section until explicitly deleted.
 - **REQ-007**: Replace the dashboard placeholder with two highest-utilization budget rows and the nearest incomplete goal; omit unavailable rows and show a concise empty state when none exist.
 - **REQ-008**: Show only names, percentages, progress bars, and the Manage link directly in the widget; expose amounts, dates, and status details through hover/focus tooltips.
