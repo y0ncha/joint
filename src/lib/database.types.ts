@@ -721,16 +721,15 @@ export type Database = {
         Args: { ordered_rule_ids: string[]; target_household_id: string }
         Returns: undefined
       }
-      save_current_settings:
-        {
-          Args: {
-            household_name?: string
-            member_card_last_four?: string
-            member_color?: string
-            profile_name?: string
-          }
-          Returns: string
+      save_current_settings: {
+        Args: {
+          household_name?: string
+          member_card_last_four?: string
+          member_color?: string
+          profile_name?: string
         }
+        Returns: string
+      }
       set_current_household_member_color: {
         Args: { target_color: string }
         Returns: undefined

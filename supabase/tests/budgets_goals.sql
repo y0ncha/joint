@@ -152,13 +152,13 @@ insert into public.categories (id, household_id, name, kind, color)
 values
   ('00000000-0000-0000-0000-000000000920', '00000000-0000-0000-0000-000000000910', 'Budgeted parent', 'expense', '#ccebef'),
   ('00000000-0000-0000-0000-000000000921', '00000000-0000-0000-0000-000000000910', 'Budgeted income', 'income', '#f8d7d7'),
-  ('00000000-0000-0000-0000-000000000922', '00000000-0000-0000-0000-000000000911', 'Other parent', 'expense', '#d9f0fa');
+  ('00000000-0000-0000-0000-000000000922', '00000000-0000-0000-0000-000000000911', 'Other parent', 'expense', '#ccebef');
 
 insert into public.subcategories (id, household_id, category_id, name, color)
 values
-  ('00000000-0000-0000-0000-000000000930', '00000000-0000-0000-0000-000000000910', '00000000-0000-0000-0000-000000000920', 'Budgeted child', '#ffe1e8'),
+  ('00000000-0000-0000-0000-000000000930', '00000000-0000-0000-0000-000000000910', '00000000-0000-0000-0000-000000000920', 'Budgeted child', '#d9f0fa'),
   ('00000000-0000-0000-0000-000000000931', '00000000-0000-0000-0000-000000000910', '00000000-0000-0000-0000-000000000921', 'Income child', '#ffe1e8'),
-  ('00000000-0000-0000-0000-000000000932', '00000000-0000-0000-0000-000000000911', '00000000-0000-0000-0000-000000000922', 'Other child', '#ffe1e8');
+  ('00000000-0000-0000-0000-000000000932', '00000000-0000-0000-0000-000000000911', '00000000-0000-0000-0000-000000000922', 'Other child', '#d9f0fa');
 
 set local role authenticated;
 set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000902';
@@ -381,7 +381,7 @@ select extensions.throws_like(
 select extensions.throws_like(
   $$
     insert into public.savings_goals (id, household_id, name, target_amount, saved_amount, target_date)
-    values ('00000000-0000-0000-0000-000000000966', '00000000-0000-0000-0000-000000000910', 'Blank name', 10, 0, current_date)
+    values ('00000000-0000-0000-0000-000000000966', '00000000-0000-0000-0000-000000000910', '   ', 10, 0, current_date)
   $$,
   '%savings_goals_name_check%',
   'a savings goal rejects a blank name'
