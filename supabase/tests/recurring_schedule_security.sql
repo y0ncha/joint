@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(16);
+select extensions.plan(20);
 
 select extensions.ok(
   has_schema_privilege('service_role', 'private', 'USAGE')
@@ -166,6 +166,65 @@ select extensions.is(
   (select count(*) from public.transactions where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Legitimate bounded schedule')),
   3::bigint,
   'cron preserves the initial row and creates only bounded due occurrences'
+);
+
+set local role authenticated;
+
+insert into public.subcategories (household_id, category_id, name)
+select household_id, id, 'Recurring utilities'
+from public.categories
+where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'bills';
+
+select extensions.lives_ok(
+  $$
+    select public.create_recurring_transaction_schedule(
+      '00000000-0000-0000-0000-000000000610', null, 'expense', 20, current_date - 14,
+      'Recurring utility bill', '', null,
+      (select id from public.subcategories where household_id = '00000000-0000-0000-0000-000000000610' and name = 'Recurring utilities'),
+      current_date - 20, current_date - 14, 'weekly', 1
+    )
+  $$,
+  'a Bills schedule stores its initial service-period template'
+);
+
+set local role service_role;
+
+select extensions.is(
+  public.process_due_recurring_transaction_schedules(current_date),
+  2,
+  'cron creates each due Bills occurrence exactly once'
+);
+
+select extensions.ok(
+  exists (
+    select 1
+    from public.transactions
+    where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Recurring utility bill')
+      and scheduled_for = current_date
+      and service_period_start = current_date - 6
+      and service_period_end = current_date
+  ),
+  'a weekly Bills occurrence shifts both service-period endpoints with its posting date'
+);
+
+set local role authenticated;
+
+select public.update_recurring_transaction_occurrence(
+  (select id from public.transactions where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Recurring utility bill') and scheduled_for = current_date),
+  'all', 25, 'Updated utility bill', '', null, null,
+  (select id from public.subcategories where household_id = '00000000-0000-0000-0000-000000000610' and name = 'Recurring utilities'),
+  current_date - 6, current_date
+);
+
+select extensions.ok(
+  (
+    select count(*) = 3
+      and bool_and(amount = 25)
+      and bool_and(occurred_on = scheduled_for)
+    from public.transactions
+    where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Updated utility bill')
+  ),
+  'all-scope recurring edits update generated values without changing posting dates'
 );
 
 select * from extensions.finish();

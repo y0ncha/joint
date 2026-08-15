@@ -66,7 +66,7 @@ function configureContextClient({
   }>;
   payer?: { user_id: string } | null;
   transactionError?: unknown;
-  existingTransaction?: { source: "manual" | "statement_import" } | null;
+  existingTransaction?: { source: "manual" | "statement_import"; recurring_schedule_id?: string | null } | null;
   subcategory?: { categories: { system_key: string | null } } | null;
 } = {}) {
   const payerMaybeSingle = vi.fn().mockResolvedValue({ data: payer, error: null });
@@ -95,7 +95,7 @@ function configureContextClient({
     throw new Error(`Unexpected table: ${table}`);
   });
 
-  mocks.select.mockImplementation((columns: string) => (columns === "source" ? { eq: sourceEqId } : { eq: duplicateHouseholdEq }));
+  mocks.select.mockImplementation((columns: string) => (columns.startsWith("source") ? { eq: sourceEqId } : { eq: duplicateHouseholdEq }));
   mocks.subcategorySelect.mockReturnValue({ eq: subcategoryEqId });
 
   return {
@@ -422,6 +422,31 @@ describe("transaction actions", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/budgets-goals");
   });
 
+  it("applies recurring future edits through the atomic schedule RPC", async () => {
+    configureContextClient({ existingTransaction: { source: "manual", recurring_schedule_id: "schedule-id" } });
+
+    await expect(
+      transactionsModule.updateTransaction(
+        "transaction-id",
+        transactionForm({ recurrenceScope: "future", amount: "51", paidBy: "member-id" }),
+      ),
+    ).resolves.toEqual({ status: "success" });
+
+    expect(mocks.rpc).toHaveBeenCalledWith("update_recurring_transaction_occurrence", {
+      target_amount: 51,
+      target_category_id: null,
+      target_merchant: "",
+      target_note: "Groceries",
+      target_paid_by: "member-id",
+      target_scope: "future",
+      target_service_period_end: null,
+      target_service_period_start: null,
+      target_subcategory_id: "groceries",
+      target_transaction_id: "transaction-id",
+    });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
   it("keeps imported transactions uncategorized and unassigned when editing", async () => {
     const { sourceEqHousehold, sourceEqId, transactionEqHousehold, transactionEqId } = configureContextClient({
       existingTransaction: { source: "statement_import" },
@@ -434,7 +459,7 @@ describe("transaction actions", () => {
     });
 
     expect(mocks.from).not.toHaveBeenCalledWith("household_members");
-    expect(mocks.select).toHaveBeenCalledWith("source");
+    expect(mocks.select).toHaveBeenCalledWith("source, recurring_schedule_id");
     expect(sourceEqId).toHaveBeenCalledWith("id", "transaction-id");
     expect(sourceEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ subcategory_id: null, paid_by: null }));
@@ -455,7 +480,7 @@ describe("transaction actions", () => {
       fieldErrors: { subcategoryId: "Select a value." },
     });
 
-    expect(mocks.select).toHaveBeenCalledWith("source");
+    expect(mocks.select).toHaveBeenCalledWith("source, recurring_schedule_id");
     expect(sourceEqId).toHaveBeenCalledWith("id", "transaction-id");
     expect(sourceEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.update).not.toHaveBeenCalled();

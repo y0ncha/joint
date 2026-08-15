@@ -17,12 +17,15 @@ const mocks = vi.hoisted(() => ({
   categoryChange: undefined as undefined | ((value: string) => void),
   actionState: null as null | { status: "error"; formError: string; fieldErrors: Record<string, string> },
   createTransaction: vi.fn(),
+  deleteRecurringTransactionSchedule: vi.fn(),
   dateSelect: undefined as undefined | ((date: Date | undefined) => void),
   formAction: undefined as undefined | ((previousState: unknown, formData: FormData) => unknown),
   kindChange: undefined as undefined | ((value: string) => void),
   recurrenceChange: undefined as undefined | ((value: string) => void),
+  pauseRecurringTransactionSchedule: vi.fn(),
   state: [] as unknown[],
   stateIndex: 0,
+  updateRecurringTransactionSchedule: vi.fn(),
 }));
 
 vi.mock("react", async (importOriginal) => {
@@ -61,6 +64,11 @@ vi.mock("@/app/actions/transactions", () => ({
   createTransaction: mocks.createTransaction,
   deleteTransaction: vi.fn(),
   updateTransaction: vi.fn(),
+}));
+vi.mock("@/app/actions/recurring-transactions", () => ({
+  deleteRecurringTransactionSchedule: mocks.deleteRecurringTransactionSchedule,
+  pauseRecurringTransactionSchedule: mocks.pauseRecurringTransactionSchedule,
+  updateRecurringTransactionSchedule: mocks.updateRecurringTransactionSchedule,
 }));
 vi.mock("@/components/pill-select", () => ({
   PillSelect: ({
@@ -223,6 +231,35 @@ it("uses a regular dropdown for transaction type without a search field", () => 
   expect(markup).not.toContain("Search type…");
   expect(markup).toContain("border-negative/20 bg-negative/10 text-negative");
   expect(markup).toContain("border-positive/20 bg-positive/10 text-positive");
+});
+
+it("keeps recurring schedule controls in the transaction edit sheet", () => {
+  const markup = renderToStaticMarkup(
+    <TransactionSheet
+      members={[]}
+      transaction={{
+        id: "recurring-transaction",
+        kind: "expense",
+        amount: 125,
+        occurredOn: "2026-07-15",
+        subcategoryId: null,
+        note: "Monthly bill",
+        merchant: "Electricity",
+        recurringScheduleId: "schedule-id",
+        createdAt: "2026-07-15T08:00:00Z",
+        paidBy: null,
+      }}
+    />,
+  );
+
+  expect(markup).toContain("Recurring schedule");
+  expect(markup).toContain("Active");
+  expect(markup).toContain("Pause future repeats");
+  expect(markup).toContain("Save future schedule");
+  expect(markup).toContain("Apply to this transaction");
+  expect(markup).toContain("Apply to future transactions");
+  expect(markup).toContain("Apply to all transactions");
+  expect(markup).toContain("Stop future repeats");
 });
 
 it("opens a new billing period calendar in the viewed ledger month", () => {

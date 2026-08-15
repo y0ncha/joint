@@ -69,6 +69,8 @@ const mocks = vi.hoisted(() => {
         service_period_start: "2026-07-01",
         source: "manual",
         subcategory_id: "groceries",
+        recurring_schedule_id: "schedule-id",
+        recurring_transaction_schedules: { enabled: true, cadence: "monthly", interval_count: 1 },
       },
     ]),
   };
@@ -225,20 +227,22 @@ it("passes a selected category to the authenticated spending projection", async 
   });
 });
 
-it("loads recurring schedules in parallel with bounded ledger rows", async () => {
+it("loads bounded ledger rows with recurring metadata", async () => {
   const data = await getLedgerData({ month: "2026-07" });
 
   expect(mocks.selects.transactions).toHaveBeenCalledWith(
-    "id, kind, amount, occurred_on, merchant, note, category_id, subcategory_id, service_period_start, service_period_end, source, created_at, paid_by",
+    "id, kind, amount, occurred_on, merchant, note, category_id, subcategory_id, service_period_start, service_period_end, source, created_at, paid_by, recurring_schedule_id, recurring_transaction_schedules(enabled, cadence, interval_count)",
   );
   expect(mocks.transactions.gte).toHaveBeenCalledWith("occurred_on", "2026-07-01");
   expect(mocks.transactions.lte).toHaveBeenCalledWith("occurred_on", "2026-07-31");
-  expect(mocks.selects.schedules).toHaveBeenCalledWith("id, amount, cadence, enabled, merchant, next_occurs_on, note, interval_count");
+  expect(mocks.from).not.toHaveBeenCalledWith("recurring_transaction_schedules");
   expect(data.transactions).toEqual([
     expect.objectContaining({
       amount: 125,
       id: "transaction-id",
       occurredOn: "2026-07-14",
+      recurringScheduleId: "schedule-id",
+      recurringScheduleEnabled: true,
       servicePeriodEnd: "2026-07-31",
       servicePeriodStart: "2026-07-01",
     }),

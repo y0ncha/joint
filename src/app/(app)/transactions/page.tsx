@@ -3,7 +3,6 @@ import { LedgerControls, type LedgerFilterKind, type LedgerSort } from "@/compon
 import { StatementImportForm } from "@/components/statement-import-form";
 import { TransactionLedger } from "@/components/transaction-ledger";
 import { TransactionSheet } from "@/components/transaction-sheet";
-import { RecurringScheduleList } from "@/components/recurring-schedule-list";
 import { WorkspacePage } from "@/components/workspace-shell";
 import { FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -124,7 +123,6 @@ export default async function TransactionsPage({
           />
         </CardContent>
       </Card>
-      <RecurringScheduleList schedules={data.schedules} />
     </WorkspacePage>
   );
 }

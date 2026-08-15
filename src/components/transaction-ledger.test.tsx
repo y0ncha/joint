@@ -145,6 +145,7 @@ it("keeps transaction selection, editing, and bulk deletion accessible", () => {
           note: "A long supermarket note that should not push the action column outside the card",
           createdAt: "2026-07-15T08:00:00Z",
           paidBy: "member-id",
+          recurringScheduleId: "schedule-id",
         },
       ]}
     />,
@@ -157,6 +158,7 @@ it("keeps transaction selection, editing, and bulk deletion accessible", () => {
   expect(markup).toContain('aria-label="Edit A long supermarket note that should not push the action column outside the card transaction"');
   expect(markup).toContain('aria-label="Delete selected transactions"');
   expect(markup).toContain('aria-haspopup="dialog"');
+  expect(markup).toContain("Recurring transaction");
   expect(markup).toContain('data-category-icon="utensils"');
   expect(markup).toContain(">Groceries</span>");
 });

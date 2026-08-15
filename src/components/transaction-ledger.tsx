@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
-import { Pencil, Trash2 } from "lucide-react";
+import { Clock3, Pencil, Trash2 } from "lucide-react";
 
 import { deleteTransactions } from "@/app/actions/transactions";
 import { CategoryIcon } from "@/components/category-icon-picker";
@@ -254,7 +254,17 @@ export function TransactionLedger({
                 })()}
               </TableCell>
               <TableCell className="max-w-[14rem] truncate">{transaction.merchant || "-"}</TableCell>
-              <TableCell className="text-right font-mono">{currency.format(transaction.amount)}</TableCell>
+              <TableCell className="font-mono">
+                <span className="flex items-center justify-end gap-1">
+                  {transaction.recurringScheduleId ? (
+                    <>
+                      <Clock3 aria-hidden="true" className="size-3" />
+                      <span className="sr-only">Recurring transaction</span>
+                    </>
+                  ) : null}
+                  {currency.format(transaction.amount)}
+                </span>
+              </TableCell>
               <TableCell>
                 <Button
                   type="button"
