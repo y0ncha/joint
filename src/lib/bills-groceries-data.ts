@@ -38,8 +38,7 @@ export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) 
 
   if (household.status !== "member") throw new Error("Create or join a household before viewing the dashboard.");
 
-  const [budgetResult, billsCategoryResult, groceriesCategoryResult] = await Promise.all([
-    household.supabase.from("households").select("groceries_monthly_budget").eq("id", household.householdId).maybeSingle(),
+  const [billsCategoryResult, groceriesCategoryResult] = await Promise.all([
     household.supabase
       .from("categories")
       .select("id, name, color")
@@ -49,14 +48,14 @@ export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) 
       .maybeSingle(),
     household.supabase
       .from("categories")
-      .select("id, name, color")
+      .select("id, name, color, monthly_budget")
       .eq("household_id", household.householdId)
       .eq("system_key", "groceries")
       .is("archived_at", null)
       .maybeSingle(),
   ]);
 
-  if (budgetResult.error || billsCategoryResult.error || groceriesCategoryResult.error) {
+  if (billsCategoryResult.error || groceriesCategoryResult.error) {
     throw new Error("Unable to load BillsGroceries data.");
   }
 
@@ -192,7 +191,7 @@ export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) 
       monthly: buildGroceriesMonthly(
         months,
         groceryInputs(groceryMonthlyTransactions),
-        budgetResult.data?.groceries_monthly_budget ?? null,
+        groceriesCategoryResult.data?.monthly_budget ?? null,
       ),
       daily: buildGroceriesDaily(options.groceryRange, groceryInputs(groceryDailyTransactions)),
       transactions: (groceryDailyTransactions ?? []).flatMap((transaction) => {

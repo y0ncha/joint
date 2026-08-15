@@ -110,7 +110,6 @@ it.each(["unauthenticated", "unmatched"] as const)(
 
 it("reads every exact-count Bills transaction page before projecting the chart", async () => {
   respond = (query) => {
-    if (query.table === "households") return { data: { groceries_monthly_budget: null }, error: null };
     if (query.table === "categories") {
       const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
       return { data: { id: `${systemKey}-id`, name: String(systemKey), color: "#112233" }, error: null };
@@ -147,7 +146,6 @@ it("reads every exact-count Bills transaction page before projecting the chart",
 
 it("reads every exact-count monthly Groceries transaction page before projecting the chart", async () => {
   respond = (query) => {
-    if (query.table === "households") return { data: { groceries_monthly_budget: null }, error: null };
     if (query.table === "categories") {
       const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
       return { data: { id: `${systemKey}-id`, name: String(systemKey), color: "#112233" }, error: null };
@@ -192,7 +190,6 @@ it("reads every exact-count monthly Groceries transaction page before projecting
 
 it("aggregates Bills and both Groceries streams after short server-capped pages", async () => {
   respond = (query) => {
-    if (query.table === "households") return { data: { groceries_monthly_budget: null }, error: null };
     if (query.table === "categories") {
       const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
       return { data: { id: `${systemKey}-id`, name: String(systemKey), color: "#112233" }, error: null };
@@ -245,7 +242,6 @@ it.each(["bills", "monthly", "daily"] as const)(
   async (failingStream) => {
     let failed = false;
     respond = (query) => {
-      if (query.table === "households") return { data: { groceries_monthly_budget: null }, error: null };
       if (query.table === "categories") {
         const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
         return { data: { id: `${systemKey}-id`, name: String(systemKey), color: "#112233" }, error: null };
@@ -286,7 +282,6 @@ it.each(["bills", "monthly", "daily"] as const)(
 it("rejects a no-progress first Bills page with the sanitized load failure", async () => {
   let billPageReads = 0;
   respond = (query) => {
-    if (query.table === "households") return { data: { groceries_monthly_budget: null }, error: null };
     if (query.table === "categories") {
       const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
       return { data: { id: `${systemKey}-id`, name: String(systemKey), color: "#112233" }, error: null };
@@ -315,19 +310,22 @@ it("rejects a no-progress first Bills page with the sanitized load failure", asy
   expect(billPageReads).toBe(1);
 });
 
-it("resolves active protected categories in the member household and returns compact empty chart states", async () => {
-  respond = (query) =>
-    query.table === "households" ? { data: { groceries_monthly_budget: null }, error: null } : { data: null, error: null };
+it("reads the protected Groceries budget from the active category", async () => {
+  respond = (query) => {
+    if (query.table !== "categories") return { data: null, error: null };
+    const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
+    return {
+      data:
+        systemKey === "groceries"
+          ? { id: "groceries-id", name: "Groceries", color: "#445566", monthly_budget: 125.5 }
+          : null,
+      error: null,
+    };
+  };
 
   const data = await billsGroceriesDataModule.getBillsGroceriesData(options);
 
-  expect(queries).toEqual([
-    {
-      table: "households",
-      select: "groceries_monthly_budget",
-      filters: [{ method: "eq", column: "id", value: "household-id" }],
-      terminal: "maybeSingle",
-    },
+  expect(queries.filter((query) => query.table === "categories")).toEqual([
     {
       table: "categories",
       select: "id, name, color",
@@ -340,7 +338,7 @@ it("resolves active protected categories in the member household and returns com
     },
     {
       table: "categories",
-      select: "id, name, color",
+      select: "id, name, color, monthly_budget",
       filters: [
         { method: "eq", column: "household_id", value: "household-id" },
         { method: "eq", column: "system_key", value: "groceries" },
@@ -349,6 +347,7 @@ it("resolves active protected categories in the member household and returns com
       terminal: "maybeSingle",
     },
   ]);
+  expect(queries.some((query) => query.table === "households")).toBe(false);
   expect(data.months).toEqual([
     "2025-08",
     "2025-09",
@@ -370,10 +369,10 @@ it("resolves active protected categories in the member household and returns com
     defaultSubcategoryId: null,
   });
   expect(data.groceries).toMatchObject({
-    category: null,
+    category: { id: "groceries-id", name: "Groceries", color: "#445566", monthly_budget: 125.5 },
     subcategories: { mainRun: null, topUps: null },
     monthly: {
-      budgetAgorot: null,
+      budgetAgorot: 12550,
       months: [
         { month: "2025-08", mainRunAgorot: 0, topUpsAgorot: 0 },
         { month: "2025-09", mainRunAgorot: 0, topUpsAgorot: 0 },
@@ -400,14 +399,13 @@ it("resolves active protected categories in the member household and returns com
 
 it("loads only bounded chart columns and projects current and previous-year BillsGroceries series", async () => {
   respond = (query) => {
-    if (query.table === "households") return { data: { groceries_monthly_budget: 500 }, error: null };
     if (query.table === "categories") {
       const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
       return {
         data:
           systemKey === "bills"
             ? { id: "bills-id", name: "Bills", color: "#112233" }
-            : { id: "groceries-id", name: "Groceries", color: "#445566" },
+            : { id: "groceries-id", name: "Groceries", color: "#445566", monthly_budget: 500 },
         error: null,
       };
     }
@@ -500,7 +498,7 @@ it("loads only bounded chart columns and projects current and previous-year Bill
 
   const data = await billsGroceriesDataModule.getBillsGroceriesData(options);
 
-  expect(queries.slice(3)).toEqual([
+  expect(queries.slice(2)).toEqual([
     {
       table: "subcategories",
       select: "id, name, color",
@@ -599,12 +597,11 @@ it("loads only bounded chart columns and projects current and previous-year Bill
   expect(data).not.toHaveProperty("transactions");
 });
 
-it.each(["households", "categories", "subcategories", "transactions"])(
+it.each(["categories", "subcategories", "transactions"])(
   "surfaces a %s query error as an BillsGroceries load failure",
   async (failingTable) => {
     respond = (query) => {
       if (query.table === failingTable) return { data: null, error: new Error("query failed") };
-      if (query.table === "households") return { data: { groceries_monthly_budget: null }, error: null };
       if (query.table === "categories") {
         const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
         return { data: { id: `${systemKey}-id`, name: String(systemKey), color: "#112233" }, error: null };
@@ -630,7 +627,6 @@ it.each(["households", "categories", "subcategories", "transactions"])(
 
 it("uses calendar-year monthly bounds and the matching previous-year Bills comparison range", async () => {
   respond = (query) => {
-    if (query.table === "households") return { data: { groceries_monthly_budget: null }, error: null };
     if (query.table === "categories") {
       const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
       return { data: { id: `${systemKey}-id`, name: String(systemKey), color: "#112233" }, error: null };

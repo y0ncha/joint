@@ -97,7 +97,7 @@ beforeEach(() => {
   mocks.householdMaybeSingle.mockResolvedValue({ data: { name: "The Lovelaces" }, error: null });
 });
 
-it("keeps the Household groceries budget inside the Settings form-owned workspace", async () => {
+it("keeps the remaining Household and Account settings inside the Settings form-owned workspace", async () => {
   const markup = renderToStaticMarkup(await settingsModule.default());
 
   expect(markup).toMatch(/<section[^>]*data-settings-form-owner[^>]*>[\s\S]*<div class="mt-6/);
@@ -105,9 +105,8 @@ it("keeps the Household groceries budget inside the Settings form-owned workspac
   expect(markup).not.toContain("Set an optional monthly groceries threshold.");
   expect(markup).toContain("Household");
   expect(markup).toContain("Account");
+  expect(markup).not.toContain(">Groceries budget</p>");
   expect(markup).toContain("The Lovelaces");
-  expect(markup.indexOf(">Name</p>")).toBeLessThan(markup.indexOf(">Groceries budget</p>"));
-  expect(markup.indexOf(">Groceries budget</p>")).toBeLessThan(markup.indexOf(">Categories</p>"));
   expect(markup).toContain('href="/categories"');
   expect(markup).toContain('aria-label="Edit categories"');
   expect(markup).toContain('href="/automations"');
@@ -123,53 +122,16 @@ it("keeps the Household groceries budget inside the Settings form-owned workspac
   expect(markup).not.toContain("Card ending");
   expect(markup).toContain('name="profileName" value="Ada Lovelace"');
   expect(markup).not.toContain('aria-label="Save household name"');
-  expect(markup.match(/w-\[min\(22rem,55vw\)\]/g)).toHaveLength(5);
+  expect(markup.match(/w-\[min\(22rem,55vw\)\]/g)).toHaveLength(4);
   expect(mocks.from).toHaveBeenCalledWith("profiles");
   expect(mocks.from).toHaveBeenCalledWith("households");
   expect(mocks.profileEq).toHaveBeenCalledWith("id", "owner-id");
+  expect(mocks.householdSelect).toHaveBeenCalledWith("name");
   expect([...markup.matchAll(/data-slot="card-title"[^>]*>([^<]+)</g)].map((match) => match[1])).toEqual([
     "Appearance",
     "Household",
     "Account",
   ]);
-});
-
-it.each(["owner", "member"] as const)("renders a positive groceries budget for a %s", async (role) => {
-  mocks.getCurrentHouseholdContext.mockResolvedValue({
-    status: "member",
-    supabase: { from: mocks.from },
-    userId: `${role}-id`,
-    email: `${role}@example.com`,
-    householdId: "household-id",
-    role,
-  });
-  mocks.householdMaybeSingle.mockResolvedValue({ data: { name: "The Lovelaces", groceries_monthly_budget: 125.5 }, error: null });
-
-  const markup = renderToStaticMarkup(await settingsModule.default());
-
-  expect(markup).toContain('href="/categories"');
-  expect(markup).toContain('name="initialGroceriesBudget" value="125.5"');
-  expect(markup).toMatch(
-    /<input(?=[^>]*type="number")(?=[^>]*min="0\.01")(?=[^>]*step="0\.01")(?=[^>]*name="groceriesBudget")(?=[^>]*value="125\.5")(?![^>]*form="settings-save-form")[^>]*>/,
-  );
-});
-
-it.each(["owner", "member"] as const)("renders an empty groceries budget for a %s", async (role) => {
-  mocks.getCurrentHouseholdContext.mockResolvedValue({
-    status: "member",
-    supabase: { from: mocks.from },
-    userId: `${role}-id`,
-    email: `${role}@example.com`,
-    householdId: "household-id",
-    role,
-  });
-
-  const markup = renderToStaticMarkup(await settingsModule.default());
-
-  expect(markup).toContain('name="initialGroceriesBudget" value=""');
-  expect(markup).toMatch(
-    /<input(?=[^>]*type="number")(?=[^>]*min="0\.01")(?=[^>]*step="0\.01")(?=[^>]*name="groceriesBudget")(?=[^>]*value="")(?![^>]*form="settings-save-form")[^>]*>/,
-  );
 });
 
 it("derives the empty owner state through the member request context", async () => {

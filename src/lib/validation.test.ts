@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { categorySchema, groceriesBudgetSchema, partnerAccessSchema, transactionSchema } from "./validation";
+import { categorySchema, partnerAccessSchema, transactionSchema } from "./validation";
 
 describe("transactionSchema", () => {
   const validTransaction = {
@@ -135,28 +135,4 @@ describe("setup schemas", () => {
   it("normalizes a valid partner email", () => {
     expect(partnerAccessSchema.parse({ email: " Partner@Example.com " })).toEqual({ email: "partner@example.com" });
   });
-});
-
-describe("groceriesBudgetSchema", () => {
-  it.each([undefined, null, "", "   "])("maps an omitted or empty budget to no budget", (budget) => {
-    expect(groceriesBudgetSchema.parse(budget)).toBeNull();
-  });
-
-  it.each([
-    ["1", 1],
-    ["0.07", 0.07],
-    ["0.29", 0.29],
-    ["1.15", 1.15],
-    ["1200.50", 1200.5],
-    [9_999_999_999.99, 9_999_999_999.99],
-  ])("accepts a positive ILS budget below the database limit", (budget, expected) => {
-    expect(groceriesBudgetSchema.parse(budget)).toBe(expected);
-  });
-
-  it.each([0, -1, "not-money", "0x10", "1e3", "12.345", Number.NaN, Number.POSITIVE_INFINITY, 10_000_000_000])(
-    "rejects an invalid Groceries budget",
-    (budget) => {
-      expect(groceriesBudgetSchema.safeParse(budget).success).toBe(false);
-    },
-  );
 });

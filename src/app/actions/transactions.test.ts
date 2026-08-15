@@ -154,7 +154,8 @@ describe("transaction actions", () => {
     });
     expect(mocks.from).not.toHaveBeenCalledWith("accounts");
     expect(payerEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
-    expect(mocks.revalidatePath).toHaveBeenCalledTimes(4);
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(5);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/budgets-goals");
   });
 
   it("creates a schedule atomically when recurrence is configured", async () => {
@@ -417,7 +418,8 @@ describe("transaction actions", () => {
     expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(payerEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.from).not.toHaveBeenCalledWith("accounts");
-    expect(mocks.revalidatePath).toHaveBeenCalledTimes(4);
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(5);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/budgets-goals");
   });
 
   it("keeps imported transactions uncategorized and unassigned when editing", async () => {
@@ -476,7 +478,8 @@ describe("transaction actions", () => {
 
     expect(transactionEqId).toHaveBeenCalledWith("id", "transaction-id");
     expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
-    expect(mocks.revalidatePath).toHaveBeenCalledTimes(4);
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(5);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/budgets-goals");
   });
 
   it("sanitizes delete database failures", async () => {
@@ -496,7 +499,8 @@ describe("transaction actions", () => {
 
     expect(transactionIn).toHaveBeenCalledWith("id", ["transaction-a", "transaction-b"]);
     expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
-    expect(mocks.revalidatePath).toHaveBeenCalledTimes(4);
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(5);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/budgets-goals");
   });
 
   it("rejects transfer submissions at the validation boundary", async () => {

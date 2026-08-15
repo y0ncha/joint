@@ -67,8 +67,8 @@ Add a combined Budgets & Goals management page, manual savings goals, a migrated
 | TASK-009 | Implement `getBudgetsGoalsData()` using existing category reads and two `dashboard_spending_breakdown` calls for parent and subcategory totals, then return all configured progress rows plus manually stored goals. | Complete | 2026-08-15 |
 | TASK-010 | Implement `saveMonthlyBudget()` and `removeMonthlyBudget()` Server Actions that validate target kind, active expense ownership, amount, and household membership before updating the appropriate existing row.       | Complete | 2026-08-15 |
 | TASK-011 | Implement `createSavingsGoal()`, `updateSavingsGoal()`, and `deleteSavingsGoal()` Server Actions with membership-derived household scope, field errors, and route revalidation.                                      | Complete | 2026-08-15 |
-| TASK-012 | Update Bills & Groceries data loading to read the protected Groceries category’s `monthly_budget` while preserving the existing chart threshold line.                                                                | Planned  |            |
-| TASK-013 | Remove Groceries budget fields, dirty-state plumbing, validation, and save arguments from Settings and delete the unused control after caller tests pass.                                                            | Planned  |            |
+| TASK-012 | Update Bills & Groceries data loading to read the protected Groceries category’s `monthly_budget` while preserving the existing chart threshold line.                                                                | Complete  | 2026-08-15 |
+| TASK-013 | Remove Groceries budget fields, dirty-state plumbing, validation, and save arguments from Settings and delete the unused control after caller tests pass.                                                            | Complete  | 2026-08-15 |
 
 ### Implementation Phase 4 — Build the approved interfaces
 
