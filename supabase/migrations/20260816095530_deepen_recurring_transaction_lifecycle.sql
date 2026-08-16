@@ -357,10 +357,12 @@ begin
   if not found then
     raise exception 'Recurring schedule not found';
   end if;
-  if current_user not in ('postgres', 'service_role')
-    and (actor is null or not private.is_household_member(schedule.household_id))
-  then
-    raise exception 'Not a household member';
+  if actor is not null then
+    if not private.is_household_member(schedule.household_id) then
+      raise exception 'Not a household member';
+    end if;
+  elsif current_user not in ('postgres', 'service_role') then
+    raise exception 'Only the recurring processor may use an internal transition';
   end if;
   if target_status = 'blocked'::public.recurring_schedule_status and not target_allow_block then
     raise exception 'Only the recurring processor may block a schedule';
@@ -431,6 +433,9 @@ security definer
 set search_path = ''
 as $$
 begin
+  if auth.uid() is not null and not private.is_household_member(new.household_id) then
+    raise exception 'Not a household member';
+  end if;
   if new.status = 'active'::public.recurring_schedule_status
     and not private.recurring_destination_is_valid(
       new.household_id,
@@ -701,16 +706,21 @@ create or replace function public.create_recurring_transaction_schedule(
   target_interval_count integer default null
 )
 returns uuid
-language sql
+language plpgsql
 security definer
 set search_path = ''
 as $$
-  select private.create_recurring_transaction_schedule(
+begin
+  if not private.is_household_member(target_household_id) then
+    raise exception 'Not a household member';
+  end if;
+  return private.create_recurring_transaction_schedule(
     target_household_id, target_paid_by, target_kind, target_amount,
     target_occurred_on, target_merchant, target_note, target_category_id,
     target_subcategory_id, target_service_period_start, target_service_period_end,
     target_cadence, target_interval_count, true, null
   );
+end;
 $$;
 
 create or replace function public.create_recurring_transaction_schedule_after_duplicate(
@@ -730,16 +740,21 @@ create or replace function public.create_recurring_transaction_schedule_after_du
   target_existing_transaction_id uuid default null
 )
 returns uuid
-language sql
+language plpgsql
 security definer
 set search_path = ''
 as $$
-  select private.create_recurring_transaction_schedule(
+begin
+  if not private.is_household_member(target_household_id) then
+    raise exception 'Not a household member';
+  end if;
+  return private.create_recurring_transaction_schedule(
     target_household_id, target_paid_by, target_kind, target_amount,
     target_occurred_on, target_merchant, target_note, target_category_id,
     target_subcategory_id, target_service_period_start, target_service_period_end,
     target_cadence, target_interval_count, false, target_existing_transaction_id
   );
+end;
 $$;
 
 create function public.save_recurring_transaction_occurrence(
@@ -1002,7 +1017,12 @@ declare
 begin
   select * into occurrence from public.transactions where id = target_transaction_id;
   select * into schedule from public.recurring_transaction_schedules where id = occurrence.recurring_schedule_id;
-  if not found then raise exception 'Transaction is not a recurring occurrence'; end if;
+  if occurrence.id is null
+    or schedule.id is null
+    or not private.is_household_member(schedule.household_id)
+  then
+    raise exception 'Not a household member';
+  end if;
   perform public.save_recurring_transaction_occurrence(
     target_transaction_id, target_scope, schedule.kind, target_amount, occurrence.occurred_on,
     target_merchant, target_note, target_paid_by, target_category_id, target_subcategory_id,
@@ -1020,7 +1040,16 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  household_id uuid;
 begin
+  select schedule.household_id
+  into household_id
+  from public.recurring_transaction_schedules as schedule
+  where schedule.id = target_schedule_id;
+  if household_id is null or not private.is_household_member(household_id) then
+    raise exception 'Not a household member';
+  end if;
   perform public.set_recurring_transaction_schedule_status(
     target_schedule_id,
     case when target_enabled then 'active'::public.recurring_schedule_status else 'paused'::public.recurring_schedule_status end
@@ -1034,7 +1063,16 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  household_id uuid;
 begin
+  select schedule.household_id
+  into household_id
+  from public.recurring_transaction_schedules as schedule
+  where schedule.id = target_schedule_id;
+  if household_id is null or not private.is_household_member(household_id) then
+    raise exception 'Not a household member';
+  end if;
   perform public.set_recurring_transaction_schedule_status(
     target_schedule_id, 'stopped'::public.recurring_schedule_status
   );
@@ -1136,6 +1174,7 @@ end;
 $$;
 
 revoke execute on function private.recurring_occurrence_date_with_offset(date, public.recurring_schedule_cadence, integer, integer) from public, anon, authenticated;
+revoke execute on function private.recurring_occurrence_date(date, public.recurring_schedule_cadence, integer, integer) from public, anon, authenticated;
 revoke execute on function private.recurring_occurrence_index(date, public.recurring_schedule_cadence, integer, date) from public, anon, authenticated;
 revoke execute on function private.recurring_destination_is_valid(uuid, uuid, public.transaction_kind, uuid, uuid, date, date) from public, anon, authenticated;
 revoke execute on function private.validate_recurring_schedule_destination() from public, anon, authenticated;
