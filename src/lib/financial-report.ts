@@ -31,7 +31,7 @@ export type ReportTransaction = {
   merchant?: string;
   source?: "manual" | "statement_import";
   recurringScheduleId?: string | null;
-  recurringScheduleEnabled?: boolean | null;
+  recurringScheduleStatus?: "active" | "paused" | "stopped" | "blocked" | null;
   recurrenceCadence?: "weekly" | "monthly" | "custom_weekly" | "custom_monthly" | null;
   recurrenceInterval?: number | null;
   createdAt: string;

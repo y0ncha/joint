@@ -165,7 +165,7 @@ it("renders the desktop rail with navigation and a plain profile avatar", () => 
 
 it("keeps Budgets & Goals, Categories, and Automations out of mobile navigation", () => {
   const markup = renderToStaticMarkup(
-    <WorkspaceFixture title="Bills & Groceries">
+    <WorkspaceFixture title="Analytics">
       <p>Content</p>
     </WorkspaceFixture>,
   );
@@ -173,42 +173,42 @@ it("keeps Budgets & Goals, Categories, and Automations out of mobile navigation"
 
   expect(navigations).toHaveLength(2);
   expect(navigations[0]).toMatch(
-    /href="\/transactions"[\s\S]*href="\/bills-groceries"[\s\S]*href="\/budgets-goals"[\s\S]*href="\/categories"[\s\S]*href="\/automations"[\s\S]*href="\/settings"/,
+    /href="\/transactions"[\s\S]*href="\/analytics"[\s\S]*href="\/budgets-goals"[\s\S]*href="\/categories"[\s\S]*href="\/automations"[\s\S]*href="\/settings"/,
   );
-  expect(navigations[1]).toMatch(/href="\/transactions"[\s\S]*href="\/bills-groceries"[\s\S]*href="\/settings"/);
+  expect(navigations[1]).toMatch(/href="\/transactions"[\s\S]*href="\/analytics"[\s\S]*href="\/settings"/);
   expect(navigations[1].match(/<a\b/g)).toHaveLength(4);
   expect(navigations[1]).not.toContain('href="/budgets-goals"');
   expect(navigations[1]).not.toContain('href="/categories"');
   expect(navigations[1]).not.toContain('href="/automations"');
-  expect(navigations[0]).toContain('aria-label="Bills &amp; Groceries"');
+  expect(navigations[0]).toContain('aria-label="Analytics"');
   expect(navigations[0]).toContain('aria-label="Budgets &amp; Goals"');
-  expect(navigations[0]).toMatch(/<a[^>]*class="[^"]*size-11[^>]*href="\/bills-groceries"/);
+  expect(navigations[0]).toMatch(/<a[^>]*class="[^"]*size-11[^>]*href="\/analytics"/);
 
-  expect(navigations[1]).not.toContain("Bills &amp; Groceries</span>");
+  expect(navigations[1]).not.toContain("Analytics</span>");
 });
 
-it("keeps Bills & Groceries prefetching partial so its loading boundary can render", () => {
+it("keeps Analytics prefetching partial so its loading boundary can render", () => {
   const markup = renderToStaticMarkup(
     <WorkspaceFixture title="Settings">
       <p>Content</p>
     </WorkspaceFixture>,
   );
-  const billsLinks = [...markup.matchAll(/<a\b[^>]*href="\/bills-groceries"[^>]*>/g)].map(([link]) => link);
+  const billsLinks = [...markup.matchAll(/<a\b[^>]*href="\/analytics"[^>]*>/g)].map(([link]) => link);
 
   expect(billsLinks).toHaveLength(2);
   expect(billsLinks.every((link) => !link.includes('data-prefetch="full"'))).toBe(true);
 });
 
-it("marks Bills & Groceries active for its route and nested paths", () => {
-  currentPathname.value = "/bills-groceries/groceries";
+it("marks Analytics active for its route and nested paths", () => {
+  currentPathname.value = "/analytics/groceries";
 
   const markup = renderToStaticMarkup(
-    <WorkspaceFixture title="Bills & Groceries">
+    <WorkspaceFixture title="Analytics">
       <p>Content</p>
     </WorkspaceFixture>,
   );
 
-  expect(markup.match(/aria-current="page"[\s\S]*?href="\/bills-groceries"/g)).toHaveLength(2);
+  expect(markup.match(/aria-current="page"[\s\S]*?href="\/analytics"/g)).toHaveLength(2);
 });
 
 it("marks Categories active for its route", () => {
@@ -274,7 +274,7 @@ it("anchors the complete mobile header text stack with the accent rule", () => {
   expect(markup).toContain('>Settings</h1><p class="mt-1 text-sm text-muted-foreground">Adjust household preferences.</p>');
 });
 
-it("keeps workspace chrome visible around BillsGroceries detail content", () => {
+it("keeps workspace chrome visible around Analytics detail content", () => {
   const markup = renderToStaticMarkup(
     <WorkspaceFixture title="Groceries by day" description="Daily spending">
       <p>Chart detail</p>

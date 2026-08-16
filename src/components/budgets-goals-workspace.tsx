@@ -348,13 +348,11 @@ function RemoveBudgetDialog({ target }: { target: BudgetRow }) {
 
 export function BudgetProgressRow({ row, targets }: { row: BudgetRow; targets: BudgetTargets }) {
   const percent = roundedPercent(row.progress.percentage);
-  const level = row.targetKind === "category" ? "Category" : "Subcategory";
   return (
-    <div className="flex flex-col gap-3 border-b border-border/70 py-4 first:pt-0 last:border-0 last:pb-0" data-budget-row>
+    <div className="flex flex-col gap-2 border-b border-border/70 py-4 first:pt-0 last:border-0 last:pb-0" data-budget-row>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="min-w-0 break-words font-medium">{row.label}</p>
-          <p className="text-sm text-muted-foreground">{level}</p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1">
           <BudgetEditSheet target={row} targets={targets} />
@@ -362,9 +360,16 @@ export function BudgetProgressRow({ row, targets }: { row: BudgetRow; targets: B
         </div>
       </div>
       <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-        <p className="font-mono tabular-nums">
-          {formatAgorot(row.progress.spentAgorot)} spent of {formatAgorot(row.progress.budgetAgorot)}
-        </p>
+        <div className="flex flex-wrap items-baseline gap-3">
+          <p className="font-mono tabular-nums">
+            {formatAgorot(row.progress.spentAgorot)} spent of {formatAgorot(row.progress.budgetAgorot)}
+          </p>
+          <p className={row.progress.overBudgetAgorot > 0 ? "text-negative" : "text-muted-foreground"}>
+            {row.progress.overBudgetAgorot > 0
+              ? `Over budget by ${formatAgorot(row.progress.overBudgetAgorot)}`
+              : `${formatAgorot(row.progress.remainingAgorot)} remaining`}
+          </p>
+        </div>
         <p className="font-medium tabular-nums">{percent}%</p>
       </div>
       <Progress
@@ -376,11 +381,6 @@ export function BudgetProgressRow({ row, targets }: { row: BudgetRow; targets: B
         role="progressbar"
         value={row.progress.barPercentage}
       />
-      <p className={row.progress.overBudgetAgorot > 0 ? "text-sm text-negative" : "text-sm text-muted-foreground"}>
-        {row.progress.overBudgetAgorot > 0
-          ? `Over budget by ${formatAgorot(row.progress.overBudgetAgorot)}`
-          : `${formatAgorot(row.progress.remainingAgorot)} remaining`}
-      </p>
     </div>
   );
 }
@@ -641,7 +641,7 @@ export function GoalProgressRow({ goal }: { goal: GoalRow }) {
 
 function BudgetCard({ budgets, targets }: { budgets: BudgetRow[]; targets: BudgetTargets }) {
   return (
-    <Card>
+    <Card className="[--card-spacing:--spacing(6)] pb-12">
       <CardHeader>
         <CardTitle>Budgets</CardTitle>
         <CardDescription>Set monthly limits for active household expense targets.</CardDescription>
@@ -662,7 +662,7 @@ function BudgetCard({ budgets, targets }: { budgets: BudgetRow[]; targets: Budge
 
 function GoalCard({ goals }: { goals: GoalRow[] }) {
   return (
-    <Card>
+    <Card className="[--card-spacing:--spacing(6)] pb-12">
       <CardHeader>
         <CardTitle>Goals</CardTitle>
         <CardDescription>Track manually maintained savings targets and deadlines.</CardDescription>

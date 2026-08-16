@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
@@ -17,15 +17,19 @@ const mocks = vi.hoisted(() => ({
   categoryChange: undefined as undefined | ((value: string) => void),
   actionState: null as unknown,
   createTransaction: vi.fn(),
-  deleteRecurringTransactionSchedule: vi.fn(),
   dateSelect: undefined as undefined | ((date: Date | undefined) => void),
   formAction: undefined as undefined | ((previousState: unknown, formData: FormData) => unknown),
+  lastSubmittedFormData: undefined as FormData | undefined,
   kindChange: undefined as undefined | ((value: string) => void),
   recurrenceChange: undefined as undefined | ((value: string) => void),
   pauseRecurringTransactionSchedule: vi.fn(),
+  resumeRecurringTransactionSchedule: vi.fn(),
+  stopRecurringTransactionSchedule: vi.fn(),
+  scopeActions: [] as Array<{ label: string; onClick?: () => void }>,
   state: [] as unknown[],
   stateIndex: 0,
-  updateRecurringTransactionSchedule: vi.fn(),
+  transitionPending: false,
+  updateTransaction: vi.fn(),
 }));
 
 vi.mock("react", async (importOriginal) => {
@@ -35,8 +39,18 @@ vi.mock("react", async (importOriginal) => {
     ...actual,
     useActionState: (action: (previousState: unknown, formData: FormData) => unknown) => {
       mocks.formAction = action;
-      return [mocks.actionState, () => {}, false];
+      return [
+        mocks.actionState,
+        (formData: FormData) => {
+          mocks.lastSubmittedFormData = formData;
+          return action(null, formData);
+        },
+        false,
+      ];
     },
+    useEffect: () => {},
+    useMemo: <T,>(factory: () => T) => factory(),
+    useRef: <T,>(initialValue: T) => ({ current: initialValue }),
     useState: (initialState: unknown | (() => unknown)) => {
       const index = mocks.stateIndex++;
       if (!(index in mocks.state)) mocks.state[index] = typeof initialState === "function" ? initialState() : initialState;
@@ -57,18 +71,19 @@ vi.mock("react", async (importOriginal) => {
         },
       ];
     },
+    useTransition: () => [mocks.transitionPending, (callback: () => void) => void callback()],
   };
 });
 
 vi.mock("@/app/actions/transactions", () => ({
   createTransaction: mocks.createTransaction,
   deleteTransaction: vi.fn(),
-  updateTransaction: vi.fn(),
+  updateTransaction: mocks.updateTransaction,
 }));
 vi.mock("@/app/actions/recurring-transactions", () => ({
-  deleteRecurringTransactionSchedule: mocks.deleteRecurringTransactionSchedule,
   pauseRecurringTransactionSchedule: mocks.pauseRecurringTransactionSchedule,
-  updateRecurringTransactionSchedule: mocks.updateRecurringTransactionSchedule,
+  resumeRecurringTransactionSchedule: mocks.resumeRecurringTransactionSchedule,
+  stopRecurringTransactionSchedule: mocks.stopRecurringTransactionSchedule,
 }));
 vi.mock("@/components/pill-select", () => ({
   PillSelect: ({
@@ -123,14 +138,21 @@ vi.mock("@/components/ui/popover", () => ({
 }));
 vi.mock("@/components/ui/alert-dialog", () => ({
   AlertDialog: ({ children }: { children: ReactNode }) => <>{children}</>,
-  AlertDialogAction: ({ children }: { children: ReactNode }) => <button>{children}</button>,
+  AlertDialogAction: ({ children, onClick, ...props }: { children: ReactNode; onClick?: () => void }) => {
+    if (typeof children === "string") mocks.scopeActions.push({ label: children, onClick });
+    return (
+      <button {...props} data-alert-dialog-confirmation={typeof children === "string" ? children : undefined} onClick={onClick}>
+        {children}
+      </button>
+    );
+  },
   AlertDialogCancel: ({ children }: { children: ReactNode }) => <button>{children}</button>,
   AlertDialogContent: ({ children }: { children: ReactNode }) => <>{children}</>,
   AlertDialogDescription: ({ children }: { children: ReactNode }) => <>{children}</>,
   AlertDialogFooter: ({ children }: { children: ReactNode }) => <>{children}</>,
   AlertDialogHeader: ({ children }: { children: ReactNode }) => <>{children}</>,
   AlertDialogTitle: ({ children }: { children: ReactNode }) => <>{children}</>,
-  AlertDialogTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  AlertDialogTrigger: ({ children }: { children: ReactNode }) => <div data-alert-dialog-trigger>{children}</div>,
 }));
 
 vi.mock("@/components/ui/select", () => ({
@@ -198,6 +220,73 @@ function renderSheet() {
   );
 }
 
+type TestElement = ReactElement<Record<string, unknown>>;
+
+function visitElements(node: ReactNode, visit: (element: TestElement) => void) {
+  if (Array.isArray(node)) {
+    node.forEach((child) => visitElements(child, visit));
+    return;
+  }
+  if (!isValidElement(node)) return undefined;
+  const element = node as TestElement;
+  visit(element);
+  if (typeof element.type === "function") {
+    const component = element.type as (props: Record<string, unknown>) => ReactNode;
+    visitElements(component(element.props), visit);
+    return;
+  }
+  visitElements(element.props.children as ReactNode, visit);
+}
+
+function findElements(node: ReactNode, predicate: (element: TestElement) => boolean) {
+  const matches: TestElement[] = [];
+  visitElements(node, (element) => {
+    if (predicate(element)) matches.push(element);
+  });
+  return matches;
+}
+
+function findElement(node: ReactNode, predicate: (element: TestElement) => boolean): TestElement | undefined {
+  return findElements(node, predicate)[0];
+}
+
+function collectNamedFormData(form: TestElement) {
+  const formData = new FormData();
+  visitElements(form, (element) => {
+    if (element.type !== "input" && element.type !== "textarea") return;
+    const name = element.props.name;
+    if (typeof name !== "string") return;
+    const value = element.props.value ?? element.props.defaultValue ?? element.props.children ?? "";
+    formData.append(name, String(value));
+  });
+  return formData;
+}
+
+function submitForm(form: TestElement, values: Record<string, string> | FormData) {
+  const NativeFormData = globalThis.FormData;
+  const formData = new NativeFormData();
+  if (values instanceof NativeFormData) values.forEach((value, key) => formData.append(key, value));
+  else Object.entries(values).forEach(([key, value]) => formData.set(key, value));
+
+  class FormDataFromForm extends NativeFormData {
+    constructor(source?: unknown) {
+      super();
+      const sourceData = (source as { formData?: FormData } | undefined)?.formData;
+      sourceData?.forEach((value, key) => this.append(key, value));
+    }
+  }
+
+  globalThis.FormData = FormDataFromForm as typeof FormData;
+  const preventDefault = vi.fn();
+  try {
+    const onSubmit = form.props.onSubmit as ((event: { currentTarget: unknown; preventDefault: () => void }) => void) | undefined;
+    onSubmit?.({ currentTarget: { formData }, preventDefault });
+  } finally {
+    globalThis.FormData = NativeFormData;
+  }
+  return preventDefault;
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date(2026, 6, 14, 12));
@@ -208,12 +297,22 @@ beforeEach(() => {
   mocks.categoryChange = undefined;
   mocks.actionState = null;
   mocks.createTransaction.mockReset();
+  mocks.updateTransaction.mockReset();
   mocks.dateSelect = undefined;
   mocks.formAction = undefined;
+  mocks.lastSubmittedFormData = undefined;
   mocks.kindChange = undefined;
   mocks.recurrenceChange = undefined;
+  mocks.pauseRecurringTransactionSchedule.mockReset();
+  mocks.pauseRecurringTransactionSchedule.mockResolvedValue({ status: "success" });
+  mocks.resumeRecurringTransactionSchedule.mockReset();
+  mocks.resumeRecurringTransactionSchedule.mockResolvedValue({ status: "success" });
+  mocks.stopRecurringTransactionSchedule.mockReset();
+  mocks.stopRecurringTransactionSchedule.mockResolvedValue({ status: "success" });
+  mocks.scopeActions = [];
   mocks.state = [];
   mocks.stateIndex = 0;
+  mocks.transitionPending = false;
 });
 
 it("opens a new transaction calendar in the viewed ledger month", () => {
@@ -276,6 +375,7 @@ it("uses one bottom save for recurring transaction edits", () => {
         note: "Monthly bill",
         merchant: "Electricity",
         recurringScheduleId: "schedule-id",
+        recurringScheduleStatus: "active",
         createdAt: "2026-07-15T08:00:00Z",
         paidBy: null,
       }}
@@ -288,7 +388,8 @@ it("uses one bottom save for recurring transaction edits", () => {
   expect(markup).toContain('aria-label="Stop future repeats"');
   expect(markup).toMatch(/aria-label="Pause future repeats"[^>]*><svg/);
   expect(markup).toMatch(/aria-label="Stop future repeats"[^>]*><svg/);
-  expect(markup).toContain("lucide-square");
+  expect(markup).toContain("lucide-circle-stop");
+  expect(markup).not.toContain("lucide-square");
   expect(markup).not.toContain(">Repeat<");
   expect(markup).toMatch(/class="[^"]*sr-only[^"]*" for="recurrence-cadence">Recurring cadence<\/label>/);
   expect(markup).toContain("grid-cols-[minmax(0,1fr)_auto] items-end gap-3");
@@ -297,9 +398,254 @@ it("uses one bottom save for recurring transaction edits", () => {
   expect(markup.indexOf("Recurring schedule")).toBeLessThan(markup.indexOf("Note"));
   expect(markup.indexOf("Note")).toBeLessThan(markup.indexOf("Save changes"));
   expect(markup).toMatch(/class="[^"]*h-11[^"]*" type="submit">Save changes/);
+  expect(markup.match(/>Save changes</g)).toHaveLength(1);
   expect(markup).toContain("Apply to this transaction");
   expect(markup).toContain("Apply to future transactions");
   expect(markup).toContain("Apply to all transactions");
+});
+
+it("wires pause, resume, and confirmed stop through the lifecycle adapters", async () => {
+  const transaction = {
+    id: "paused-recurring-transaction",
+    kind: "expense" as const,
+    amount: 125,
+    occurredOn: "2026-07-15",
+    subcategoryId: null,
+    note: "Monthly bill",
+    merchant: "Electricity",
+    source: "manual" as const,
+    recurringScheduleId: "schedule-id",
+    recurringScheduleStatus: "paused" as const,
+    recurrenceCadence: "monthly" as const,
+    recurrenceInterval: 1,
+    createdAt: "2026-07-15T08:00:00Z",
+    paidBy: null,
+  };
+  const activeTree = TransactionSheet({ members: [], transaction: { ...transaction, recurringScheduleStatus: "active" } });
+  findElement(activeTree, () => false);
+  const pauseButton = findElement(
+    activeTree,
+    (element) => element.type === "button" && element.props["aria-label"] === "Pause future repeats",
+  );
+  await (pauseButton?.props.onClick as (() => void) | undefined)?.();
+
+  expect(mocks.pauseRecurringTransactionSchedule).toHaveBeenCalledWith("schedule-id");
+
+  mocks.scopeActions = [];
+  mocks.stateIndex = 0;
+  const inactiveTree = TransactionSheet({ members: [], transaction });
+  findElement(inactiveTree, () => false);
+  const resumeButton = findElement(
+    inactiveTree,
+    (element) => element.type === "button" && element.props["aria-label"] === "Resume future repeats",
+  );
+  const stopButton = findElement(
+    inactiveTree,
+    (element) => element.type === "button" && element.props["aria-label"] === "Stop future repeats",
+  );
+  const stopTrigger = findElements(
+    inactiveTree,
+    (element) =>
+      element.type === "div" &&
+      element.props["data-alert-dialog-trigger"] === true &&
+      Boolean(
+        findElement(
+          element.props.children as ReactNode,
+          (child) => child.type === "button" && child.props["aria-label"] === "Stop future repeats",
+        ),
+      ),
+  )[0];
+  const stopConfirmation = findElement(
+    inactiveTree,
+    (element) => element.type === "button" && element.props["data-alert-dialog-confirmation"] === "Stop future repeats",
+  );
+
+  expect(resumeButton?.props.title).toBe("Resume future repeats");
+  expect(stopButton?.props.title).toBe("Stop future repeats");
+  expect(stopButton?.props.className).toContain("size-11");
+  expect(stopTrigger).toBeDefined();
+  expect(stopConfirmation).toBeDefined();
+  expect(renderToStaticMarkup(inactiveTree)).toContain("Existing transactions will stay in the shared ledger.");
+  expect(stopButton?.props.onClick).toBeUndefined();
+  await (resumeButton?.props.onClick as (() => void) | undefined)?.();
+  await (stopConfirmation?.props.onClick as (() => void) | undefined)?.();
+
+  expect(mocks.resumeRecurringTransactionSchedule).toHaveBeenCalledWith("schedule-id");
+  expect(mocks.stopRecurringTransactionSchedule).toHaveBeenCalledWith("schedule-id");
+});
+
+it.each([
+  ["blocked", ["Resume future repeats", "Stop future repeats"], ["Pause future repeats"]],
+  ["stopped", [], ["Pause future repeats", "Resume future repeats", "Stop future repeats"]],
+] as const)("aligns %s lifecycle controls with canonical schedule status", (status, visibleLabels, hiddenLabels) => {
+  const tree = TransactionSheet({
+    members: [],
+    transaction: {
+      id: "recurring-transaction",
+      kind: "expense",
+      amount: 125,
+      occurredOn: "2026-07-15",
+      subcategoryId: null,
+      note: "Monthly bill",
+      merchant: "Electricity",
+      source: "manual",
+      recurringScheduleId: "schedule-id",
+      recurringScheduleStatus: status,
+      recurrenceCadence: "monthly",
+      recurrenceInterval: 1,
+      createdAt: "2026-07-15T08:00:00Z",
+      paidBy: null,
+    },
+  });
+  const markup = renderToStaticMarkup(tree);
+
+  for (const label of visibleLabels) expect(markup).toContain(`aria-label="${label}"`);
+  for (const label of hiddenLabels) expect(markup).not.toContain(`aria-label="${label}"`);
+});
+
+it("disables lifecycle controls while a schedule transition is pending", () => {
+  mocks.transitionPending = true;
+  const transaction = {
+    id: "recurring-transaction",
+    kind: "expense" as const,
+    amount: 125,
+    occurredOn: "2026-07-15",
+    subcategoryId: null,
+    note: "Monthly bill",
+    merchant: "Electricity",
+    source: "manual" as const,
+    recurringScheduleId: "schedule-id",
+    recurringScheduleStatus: "active" as const,
+    recurrenceCadence: "monthly" as const,
+    recurrenceInterval: 1,
+    createdAt: "2026-07-15T08:00:00Z",
+    paidBy: null,
+  };
+  const tree = TransactionSheet({ members: [], transaction });
+  findElement(tree, () => false);
+  const pauseButton = findElement(tree, (element) => element.type === "button" && element.props["aria-label"] === "Pause future repeats");
+  const stopButton = findElement(tree, (element) => element.type === "button" && element.props["aria-label"] === "Stop future repeats");
+  const stopConfirmation = findElement(
+    tree,
+    (element) => element.type === "button" && element.props["data-alert-dialog-confirmation"] === "Stop future repeats",
+  );
+
+  expect(pauseButton?.props.disabled).toBe(true);
+  expect(stopButton?.props.disabled).toBe(true);
+  expect(stopButton?.props.className).toContain("size-11");
+  expect(stopConfirmation?.props.disabled).toBe(true);
+});
+
+it.each(["future", "all"] as const)("submits the selected %s scope with stored identity and controlled recurrence", (scope) => {
+  const transaction = {
+    id: "recurring-transaction",
+    kind: "expense" as const,
+    amount: 125,
+    occurredOn: "2026-07-15",
+    subcategoryId: null,
+    note: "Monthly bill",
+    merchant: "Electricity",
+    source: "manual" as const,
+    recurringScheduleId: "schedule-id",
+    recurringScheduleStatus: "active" as const,
+    recurrenceCadence: "monthly" as const,
+    recurrenceInterval: 1,
+    createdAt: "2026-07-15T08:00:00Z",
+    paidBy: null,
+  };
+  const props = { members: [], transaction };
+  const initialTree = TransactionSheet(props);
+  findElement(initialTree, () => false);
+  mocks.recurrenceChange?.("custom");
+
+  mocks.stateIndex = 0;
+  const customTree = TransactionSheet(props);
+  findElement(customTree, () => false);
+  const recurrenceInterval = findElement(customTree, (element) => element.type === "input" && element.props.id === "recurrence-interval");
+  (recurrenceInterval?.props.onChange as ((event: { target: { value: string } }) => void) | undefined)?.({ target: { value: "3" } });
+
+  mocks.stateIndex = 0;
+  const changedTree = TransactionSheet(props);
+  findElement(changedTree, () => false);
+  const form = findElement(changedTree, (element) => element.type === "form");
+
+  expect(form).toBeDefined();
+  const renderedFormData = collectNamedFormData(form!);
+  expect(renderedFormData.get("recurrenceCadence")).toBe("custom_weekly");
+  expect(renderedFormData.get("recurrenceInterval")).toBe("3");
+  const preventDefault = submitForm(form!, renderedFormData);
+  expect(preventDefault).toHaveBeenCalledOnce();
+  expect(mocks.lastSubmittedFormData).toBeUndefined();
+  mocks.scopeActions = [];
+  mocks.stateIndex = 0;
+  renderToStaticMarkup(<TransactionSheet {...props} />);
+  mocks.scopeActions.find(({ label }) => label === `Apply to ${scope} transactions`)?.onClick?.();
+
+  expect(mocks.lastSubmittedFormData?.get("recurrenceScope")).toBe(scope);
+  expect(mocks.lastSubmittedFormData?.get("recurrenceCadence")).toBe("custom_weekly");
+  expect(mocks.lastSubmittedFormData?.get("recurrenceInterval")).toBe("3");
+  expect(mocks.lastSubmittedFormData?.get("kind")).toBe("expense");
+  expect(mocks.lastSubmittedFormData?.get("occurredOn")).toBe("2026-07-15");
+  expect(mocks.updateTransaction).toHaveBeenCalledOnce();
+});
+
+it.each(["kind", "date"] as const)("limits a recurring %s change to this and omits recurrence fields", (change) => {
+  const transaction = {
+    id: "recurring-transaction",
+    kind: "expense" as const,
+    amount: 125,
+    occurredOn: "2026-07-15",
+    subcategoryId: null,
+    note: "Monthly bill",
+    merchant: "Electricity",
+    source: "manual" as const,
+    recurringScheduleId: "schedule-id",
+    recurringScheduleStatus: "active" as const,
+    recurrenceCadence: "monthly" as const,
+    recurrenceInterval: 1,
+    createdAt: "2026-07-15T08:00:00Z",
+    paidBy: null,
+  };
+  const props = { members: [], transaction };
+  const initialTree = TransactionSheet(props);
+  findElement(initialTree, () => false);
+  if (change === "kind") mocks.kindChange?.("income");
+  else mocks.dateSelect?.(new Date(2026, 6, 20, 12));
+  mocks.recurrenceChange?.("custom");
+
+  mocks.stateIndex = 0;
+  const customTree = TransactionSheet(props);
+  findElement(customTree, () => false);
+  const recurrenceInterval = findElement(customTree, (element) => element.type === "input" && element.props.id === "recurrence-interval");
+  (recurrenceInterval?.props.onChange as ((event: { target: { value: string } }) => void) | undefined)?.({ target: { value: "4" } });
+
+  mocks.stateIndex = 0;
+  const changedTree = TransactionSheet(props);
+  findElement(changedTree, () => false);
+  const form = findElement(changedTree, (element) => element.type === "form");
+  const changedKind = change === "kind" ? "income" : "expense";
+  const changedDate = change === "date" ? "2026-07-20" : "2026-07-15";
+
+  expect(form).toBeDefined();
+  const renderedFormData = collectNamedFormData(form!);
+  expect(renderedFormData.get("recurrenceCadence")).toBe("custom_weekly");
+  expect(renderedFormData.get("recurrenceInterval")).toBe("4");
+  submitForm(form!, renderedFormData);
+  expect(mocks.lastSubmittedFormData).toBeUndefined();
+  mocks.scopeActions = [];
+  mocks.stateIndex = 0;
+  const markup = renderToStaticMarkup(<TransactionSheet {...props} />);
+
+  expect(markup).not.toContain("Apply to future transactions");
+  expect(markup).not.toContain("Apply to all transactions");
+  expect(markup).toContain("Apply to this transaction");
+  mocks.scopeActions.find(({ label }) => label === "Apply to this transaction")?.onClick?.();
+
+  expect(mocks.lastSubmittedFormData?.get("recurrenceScope")).toBe("this");
+  expect(mocks.lastSubmittedFormData?.get("recurrenceCadence")).toBeNull();
+  expect(mocks.lastSubmittedFormData?.get("recurrenceInterval")).toBeNull();
+  expect(mocks.lastSubmittedFormData?.get("kind")).toBe(changedKind);
+  expect(mocks.lastSubmittedFormData?.get("occurredOn")).toBe(changedDate);
 });
 
 it("opens a new billing period calendar in the viewed ledger month", () => {
@@ -402,6 +748,9 @@ it("renders the transaction composer with labelled core controls", () => {
   expect(markup).toContain("Custom");
   expect(markup).toContain("Paid by");
   expect(markup).toContain("Choose date");
+  expect(markup).toContain("Recurring schedule");
+  expect(markup.indexOf("Recurring schedule")).toBeLessThan(markup.indexOf("Note"));
+  expect(markup.match(/>Save transaction</g)).toHaveLength(1);
   expect(markup.indexOf("Amount")).toBeLessThan(markup.indexOf("Category"));
   expect(markup.indexOf("Category")).toBeLessThan(markup.indexOf("transaction-date-label"));
   expect(markup.indexOf("transaction-date-label")).toBeLessThan(markup.indexOf("Merchant"));
@@ -520,6 +869,54 @@ it("renders edit mode with saved transaction values and deletion inside the shee
   expect(mocks.categoryOptions).not.toContainEqual({ value: "", label: "Uncategorized" });
 });
 
+it("uses the shared recurring fields for a regular manual edit", () => {
+  const markup = renderToStaticMarkup(
+    <TransactionSheet
+      members={[]}
+      transaction={{
+        id: "manual-recurring-candidate",
+        kind: "expense",
+        amount: 50,
+        occurredOn: "2026-07-14",
+        subcategoryId: null,
+        note: "Saved note",
+        merchant: "Saved merchant",
+        source: "manual",
+        createdAt: "2026-07-14T08:00:00Z",
+        paidBy: null,
+      }}
+    />,
+  );
+
+  expect(markup).toContain("Recurring schedule");
+  expect(markup).toContain('data-select="recurrence-cadence"');
+  expect(markup).toContain("None");
+});
+
+it("uses the shared recurring fields for a regular manual income edit", () => {
+  const markup = renderToStaticMarkup(
+    <TransactionSheet
+      members={[]}
+      transaction={{
+        id: "manual-income-candidate",
+        kind: "income",
+        amount: 500,
+        occurredOn: "2026-07-14",
+        subcategoryId: null,
+        note: "Saved income",
+        merchant: "Salary",
+        source: "manual",
+        createdAt: "2026-07-14T08:00:00Z",
+        paidBy: null,
+      }}
+    />,
+  );
+
+  expect(markup).toContain("Recurring schedule");
+  expect(markup).toContain('data-select="recurrence-cadence"');
+  expect(markup).toContain("None");
+});
+
 it("keeps an imported transaction unassigned while allowing its category to be edited", () => {
   const transaction: ImportedTransaction = {
     id: "imported-id",
@@ -557,6 +954,9 @@ it("keeps an imported transaction unassigned while allowing its category to be e
   expect(markup).toContain('type="hidden" name="subcategoryId" value=""');
   expect(markup).toContain('type="hidden" name="paidBy" value=""');
   expect(mocks.categoryOptions).toContainEqual(expect.objectContaining({ value: "", label: "Uncategorized" }));
+  expect(markup).not.toContain("Recurring schedule");
+  expect(markup).not.toContain('data-select="recurrence-cadence"');
+  expect(markup).not.toContain('name="recurrenceCadence"');
 });
 
 it("exposes only matching subcategories and clears the selection when the type changes", () => {

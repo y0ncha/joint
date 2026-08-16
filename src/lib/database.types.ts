@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   public: {
     Tables: {
       automation_rules: {
@@ -287,6 +282,61 @@ export type Database = {
         }
         Relationships: []
       }
+      recurring_transaction_schedule_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          household_id: string
+          id: string
+          new_status: Database["public"]["Enums"]["recurring_schedule_status"]
+          previous_status: Database["public"]["Enums"]["recurring_schedule_status"]
+          reason: string | null
+          schedule_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          household_id: string
+          id?: string
+          new_status: Database["public"]["Enums"]["recurring_schedule_status"]
+          previous_status: Database["public"]["Enums"]["recurring_schedule_status"]
+          reason?: string | null
+          schedule_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          household_id?: string
+          id?: string
+          new_status?: Database["public"]["Enums"]["recurring_schedule_status"]
+          previous_status?: Database["public"]["Enums"]["recurring_schedule_status"]
+          reason?: string | null
+          schedule_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_transaction_schedule_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transaction_schedule_events_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transaction_schedule_events_schedule_fkey"
+            columns: ["household_id", "schedule_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_transaction_schedules"
+            referencedColumns: ["household_id", "id"]
+          },
+        ]
+      }
       recurring_transaction_schedules: {
         Row: {
           amount: number
@@ -295,8 +345,7 @@ export type Database = {
           category_id: string | null
           created_at: string
           created_by: string
-          enabled: boolean
-          first_occurrence_transaction_id: string | null
+          enabled: boolean | null
           household_id: string
           id: string
           interval_count: number
@@ -306,9 +355,10 @@ export type Database = {
           next_occurs_on: string
           note: string
           paid_by: string | null
-          paused_reason: string | null
           service_period_end: string | null
           service_period_start: string | null
+          status: Database["public"]["Enums"]["recurring_schedule_status"]
+          status_reason: string | null
           subcategory_id: string | null
           updated_at: string
         }
@@ -319,8 +369,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           created_by: string
-          enabled?: boolean
-          first_occurrence_transaction_id?: string | null
+          enabled?: boolean | null
           household_id: string
           id?: string
           interval_count?: number
@@ -330,9 +379,10 @@ export type Database = {
           next_occurs_on: string
           note?: string
           paid_by?: string | null
-          paused_reason?: string | null
           service_period_end?: string | null
           service_period_start?: string | null
+          status?: Database["public"]["Enums"]["recurring_schedule_status"]
+          status_reason?: string | null
           subcategory_id?: string | null
           updated_at?: string
         }
@@ -343,8 +393,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           created_by?: string
-          enabled?: boolean
-          first_occurrence_transaction_id?: string | null
+          enabled?: boolean | null
           household_id?: string
           id?: string
           interval_count?: number
@@ -354,20 +403,14 @@ export type Database = {
           next_occurs_on?: string
           note?: string
           paid_by?: string | null
-          paused_reason?: string | null
           service_period_end?: string | null
           service_period_start?: string | null
+          status?: Database["public"]["Enums"]["recurring_schedule_status"]
+          status_reason?: string | null
           subcategory_id?: string | null
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "recurring_transaction_schedul_first_occurrence_transaction_fkey"
-            columns: ["first_occurrence_transaction_id"]
-            isOneToOne: true
-            referencedRelation: "transactions"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "recurring_transaction_schedules_created_by_fkey"
             columns: ["created_by"]
@@ -608,10 +651,10 @@ export type Database = {
           },
           {
             foreignKeyName: "transactions_recurring_schedule_id_fkey"
-            columns: ["recurring_schedule_id"]
+            columns: ["household_id", "recurring_schedule_id"]
             isOneToOne: false
             referencedRelation: "recurring_transaction_schedules"
-            referencedColumns: ["id"]
+            referencedColumns: ["household_id", "id"]
           },
         ]
       }
@@ -628,6 +671,24 @@ export type Database = {
         }
         Returns: number
       }
+      convert_transaction_to_recurring_schedule: {
+        Args: {
+          target_amount?: number
+          target_cadence?: Database["public"]["Enums"]["recurring_schedule_cadence"]
+          target_category_id?: string
+          target_interval_count?: number
+          target_kind?: Database["public"]["Enums"]["transaction_kind"]
+          target_merchant?: string
+          target_note?: string
+          target_occurred_on?: string
+          target_paid_by?: string
+          target_service_period_end?: string
+          target_service_period_start?: string
+          target_subcategory_id?: string
+          target_transaction_id: string
+        }
+        Returns: string
+      }
       create_category: {
         Args: {
           category_color?: string
@@ -642,7 +703,7 @@ export type Database = {
           target_amount?: number
           target_cadence?: Database["public"]["Enums"]["recurring_schedule_cadence"]
           target_category_id?: string
-          target_household_id: string
+          target_household_id?: string
           target_interval_count?: number
           target_kind?: Database["public"]["Enums"]["transaction_kind"]
           target_merchant?: string
@@ -661,7 +722,7 @@ export type Database = {
           target_cadence?: Database["public"]["Enums"]["recurring_schedule_cadence"]
           target_category_id?: string
           target_existing_transaction_id?: string
-          target_household_id: string
+          target_household_id?: string
           target_interval_count?: number
           target_kind?: Database["public"]["Enums"]["transaction_kind"]
           target_merchant?: string
@@ -721,7 +782,7 @@ export type Database = {
       }
       process_due_recurring_transaction_schedules: {
         Args: { target_today?: string }
-        Returns: number
+        Returns: Json
       }
       reorder_automation_rules: {
         Args: { ordered_rule_ids: string[]; target_household_id: string }
@@ -736,12 +797,38 @@ export type Database = {
         }
         Returns: string
       }
+      save_recurring_transaction_occurrence: {
+        Args: {
+          target_amount?: number
+          target_cadence?: Database["public"]["Enums"]["recurring_schedule_cadence"]
+          target_category_id?: string
+          target_interval_count?: number
+          target_kind?: Database["public"]["Enums"]["transaction_kind"]
+          target_merchant?: string
+          target_note?: string
+          target_occurred_on?: string
+          target_paid_by?: string
+          target_scope?: string
+          target_service_period_end?: string
+          target_service_period_start?: string
+          target_subcategory_id?: string
+          target_transaction_id: string
+        }
+        Returns: undefined
+      }
       set_current_household_member_color: {
         Args: { target_color: string }
         Returns: undefined
       }
       set_recurring_transaction_schedule_enabled: {
         Args: { target_enabled: boolean; target_schedule_id: string }
+        Returns: undefined
+      }
+      set_recurring_transaction_schedule_status: {
+        Args: {
+          target_schedule_id: string
+          target_status: Database["public"]["Enums"]["recurring_schedule_status"]
+        }
         Returns: undefined
       }
       update_recurring_transaction_occurrence: {
@@ -759,17 +846,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      update_recurring_transaction_schedule: {
-        Args: {
-          target_amount: number
-          target_cadence: Database["public"]["Enums"]["recurring_schedule_cadence"]
-          target_interval_count: number
-          target_merchant: string
-          target_note: string
-          target_schedule_id: string
-        }
-        Returns: undefined
-      }
     }
     Enums: {
       category_kind: "income" | "expense"
@@ -779,6 +855,7 @@ export type Database = {
         | "monthly"
         | "custom_weekly"
         | "custom_monthly"
+      recurring_schedule_status: "active" | "paused" | "stopped" | "blocked"
       transaction_kind: "income" | "expense"
       transaction_source: "manual" | "statement_import"
     }
@@ -916,6 +993,7 @@ export const Constants = {
         "custom_weekly",
         "custom_monthly",
       ],
+      recurring_schedule_status: ["active", "paused", "stopped", "blocked"],
       transaction_kind: ["income", "expense"],
       transaction_source: ["manual", "statement_import"],
     },

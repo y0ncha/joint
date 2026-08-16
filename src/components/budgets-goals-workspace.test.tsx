@@ -211,13 +211,14 @@ it("renders budgets and goals together with labelled capped progress and supplie
   expect(markup).toContain("Goals");
   expect(markup).toContain("Food");
   expect(markup).toContain("Food · Groceries");
-  expect(markup).toContain("Category");
-  expect(markup).toContain("Subcategory");
+  expect(markup).not.toContain(">Category</p>");
+  expect(markup).not.toContain(">Subcategory</p>");
   expect(markup).toContain("₪125.50");
   expect(markup).toContain("₪100.00");
   expect(markup).toContain("126%");
   expect(markup).toContain("Over budget by");
   expect(markup).toContain("₪150.00 remaining");
+  expect(markup.indexOf("₪150.00 remaining")).toBeLessThan(markup.indexOf('data-progress-value="25"'));
   expect(markup).toContain("Emergency fund");
   expect(markup).toContain("₪50.00");
   expect(markup).toContain("₪100.00");

@@ -41,6 +41,10 @@ const recurrenceIntervalSchema = z.preprocess(
     .max(365, "Use an interval of 365 or fewer.")
     .nullable(),
 );
+const recurrenceScopeSchema = z.preprocess(
+  (value) => (value === "" || value === undefined || value === null ? null : value),
+  z.enum(["this", "future", "all"]).nullable(),
+);
 const nameSchema = z.string().trim().min(1, "Enter a name.").max(80, "Use 80 characters or fewer.");
 export const categorySchema = z.object({
   name: nameSchema,
@@ -65,13 +69,21 @@ export const transactionSchema = z
     note: noteSchema,
     recurrenceCadence: recurrenceCadenceSchema,
     recurrenceInterval: recurrenceIntervalSchema,
+    recurrenceScope: recurrenceScopeSchema,
   })
-  .superRefine(({ servicePeriodStart, servicePeriodEnd, recurrenceCadence, recurrenceInterval }, context) => {
+  .superRefine(({ servicePeriodStart, servicePeriodEnd, recurrenceCadence, recurrenceInterval, recurrenceScope }, context) => {
     if (recurrenceCadence && !recurrenceInterval) {
       context.addIssue({ code: "custom", path: ["recurrenceInterval"], message: "Choose an interval greater than zero." });
     }
     if (!recurrenceCadence && recurrenceInterval) {
       context.addIssue({ code: "custom", path: ["recurrenceCadence"], message: "Choose a recurrence." });
+    }
+    if (recurrenceScope === "this" && (recurrenceCadence || recurrenceInterval)) {
+      context.addIssue({ code: "custom", path: ["recurrenceScope"], message: "This scope cannot change recurrence." });
+    }
+    if ((recurrenceScope === "future" || recurrenceScope === "all") && !recurrenceCadence && !recurrenceInterval) {
+      context.addIssue({ code: "custom", path: ["recurrenceCadence"], message: "Choose a recurrence." });
+      context.addIssue({ code: "custom", path: ["recurrenceInterval"], message: "Choose an interval greater than zero." });
     }
     if (Boolean(servicePeriodStart) !== Boolean(servicePeriodEnd)) {
       context.addIssue({ code: "custom", path: ["servicePeriodEnd"], message: "Enter both service period dates." });

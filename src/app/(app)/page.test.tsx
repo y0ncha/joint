@@ -22,6 +22,13 @@ vi.mock("@/lib/dashboard-read-model", () => ({
   getDashboardSummary: mocks.getDashboardSummary,
 }));
 vi.mock("@/lib/budgets-goals-data", () => ({ getBudgetsGoalsData: mocks.getBudgetsGoalsData }));
+vi.mock("@/components/gas-trend-card", () => ({
+  GasTrendCard: ({ className, data }: { className?: string; data?: { average: number } }) => (
+    <div className={className} data-gas-trend={data?.average}>
+      Gas trend
+    </div>
+  ),
+}));
 vi.mock("@/components/transaction-sheet", () => ({
   TransactionSheet: (props: NonNullable<typeof mocks.transactionSheetProps>) => {
     mocks.transactionSheetProps = props;
@@ -103,6 +110,17 @@ const budgetsGoalsData = {
       },
     },
   ],
+  gasTrend: {
+    average: 25,
+    months: [
+      { bike: 10, car: 20, month: "2026-02", total: 30 },
+      { bike: 0, car: 20, month: "2026-03", total: 20 },
+      { bike: 0, car: 0, month: "2026-04", total: 0 },
+      { bike: 60, car: 40, month: "2026-05", total: 100 },
+      { bike: 0, car: 0, month: "2026-06", total: 0 },
+      { bike: 0, car: 0, month: "2026-07", total: 0 },
+    ],
+  },
   goals: [
     {
       id: "soon",
@@ -248,7 +266,8 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("Loading Outgoings");
     expect(markup).toContain("Loading Monthly balance");
     expect(markup).toContain("Loading Where your money went");
-    expect(markup).toContain("Loading Budgets &amp; Goals");
+    expect(markup).toContain("Loading Budgets");
+    expect(markup).toContain("Loading Gas trend");
     expect(markup).toContain("Loading Six-month trend");
     expect(markup).not.toContain("Latest activity");
   });
@@ -290,12 +309,13 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("5% above previous 3-month average");
     expect(markup).toContain("Where your money went");
     expect(markup).toContain("Expense categories for this period.");
-    expect(markup).toContain("Budgets &amp; Goals");
+    expect(markup).toContain("Budgets");
+    expect(markup).not.toContain("Gas trend");
     expect(markup).toContain('href="/budgets-goals"');
-    expect(markup).toContain('aria-label="Edit budgets and goals"');
+    expect(markup).toContain('aria-label="Edit budgets"');
     expect(markup).not.toContain(">Manage<");
     expect(markup).not.toContain("Largest changes");
-    expect(markup).toContain("Six-month trend");
+    expect(markup).toContain("Balance trend");
     expect(markup).toContain('data-slot="card-header"');
     expect(markup).toContain('data-slot="card-action"');
     expect(markup).toContain("flex min-h-0 flex-1 items-center justify-center");
@@ -311,29 +331,28 @@ describe("Joint dashboard", () => {
     expect(mocks.getBudgetsGoalsData).toHaveBeenCalledWith(options);
   });
 
-  it("shows two most urgent budgets, nearest incomplete goal, and tooltip-only details", async () => {
+  it("shows all budgets in a scrollable list above the gas trend", async () => {
     const markup = renderToStaticMarkup(await BudgetsGoalsWidget({ options }));
 
     expect(markup).toContain("Rent");
     expect(markup).toContain("Groceries");
-    expect(markup).not.toContain(">Other<");
-    expect(markup).toContain("Emergency fund");
-    expect(markup).not.toContain(">Holiday<");
-    expect(markup).not.toContain(">Finished<");
+    expect(markup).toContain(">Other<");
+    expect(markup).toContain("Monthly spending limits for this period.");
+    expect(markup).not.toContain('data-gas-trend="25"');
     expect(markup).toContain('aria-label="Rent: Category; ₪1,500.00 spent of ₪1,000.00 budget; ₪500.00 over budget"');
     expect(markup).toContain('aria-label="Groceries: Subcategory; ₪400.00 spent of ₪500.00 budget; ₪100.00 remaining"');
-    expect(markup).toContain(
-      'aria-label="Emergency fund: ₪250.00 saved of ₪1,000.00 target; needed by 01/09/2026; Active; save ₪375.00 per month; ₪750.00 remaining"',
-    );
     expect(markup).toContain("size-11");
-    expect(markup).toContain("flex flex-1 flex-col justify-start gap-4");
+    expect(markup).toContain("h-full border-white/50 bg-card/90 lg:col-span-7");
+    expect(markup).toContain('aria-label="All monthly budgets"');
+    expect(markup).toContain('tabindex="0"');
+    expect(markup).toContain("min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain");
     expect(markup).toContain("grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4");
     expect(markup).toContain('role="progressbar"');
     expect(markup).toContain('aria-valuenow="100"');
     expect(markup).not.toContain("Shared spending limits for your household.");
   });
 
-  it("keeps overdue status in goal details while showing progress directly", async () => {
+  it("does not show goals in the dashboard widget", async () => {
     mocks.getBudgetsGoalsData.mockResolvedValue({
       ...budgetsGoalsData,
       budgets: [],
@@ -352,9 +371,7 @@ describe("Joint dashboard", () => {
 
     const markup = renderToStaticMarkup(await BudgetsGoalsWidget({ options }));
 
-    expect(markup).toContain(">25%<");
-    expect(markup).not.toContain(">Overdue<");
-    expect(markup).toContain("; Overdue; no monthly saving available;");
+    expect(markup).not.toContain("Emergency fund");
   });
 
   it("keeps cents in tooltip amounts", async () => {
@@ -382,12 +399,12 @@ describe("Joint dashboard", () => {
     expect(markup).toContain('aria-label="Rent: Category; ₪1,234.56 spent of ₪1,234.56 budget; ₪0.00 remaining"');
   });
 
-  it("keeps the dashboard widget concise when no budgets or goals exist", async () => {
+  it("keeps the dashboard widget concise when no budgets exist", async () => {
     mocks.getBudgetsGoalsData.mockResolvedValue({ budgets: [], goals: [], targets: { categories: [], subcategories: [] } });
 
     const markup = renderToStaticMarkup(await BudgetsGoalsWidget({ options }));
 
-    expect(markup).toContain("No budgets or goals yet.");
+    expect(markup).toContain("No monthly budgets configured yet.");
     expect(markup).toContain('href="/budgets-goals"');
     expect(markup).not.toContain('role="progressbar"');
   });

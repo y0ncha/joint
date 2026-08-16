@@ -5,17 +5,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 
-const loadingCards = ["Bills by month", "Year-over-year", "Groceries by month", "Groceries by day"];
+const loadingCards = [
+  ["Bills by month", "xl:col-span-5"],
+  ["Year-over-year", "xl:col-span-5"],
+  ["Groceries by month", "xl:col-span-3"],
+  ["Groceries by day", "xl:col-span-2"],
+] as const;
 
-export function BillsGroceriesLoading() {
+export function AnalyticsLoading() {
   return (
-    <WorkspacePage title="Bills & Groceries" description="Bills and groceries, without losing the daily detail.">
+    <WorkspacePage title="Analytics" description="Bills, groceries, and fuel without losing the daily detail.">
       <div role="status" aria-live="polite" className="sr-only">
-        Loading Bills & Groceries…
+        Loading Analytics…
       </div>
-      <section aria-label="Bills & Groceries charts" className="mt-6 grid gap-4 xl:grid-cols-2">
-        {loadingCards.map((title) => (
-          <Card key={title} className="min-w-0 border-border bg-card/80 px-3 py-7">
+      <section aria-label="Analytics charts" className="mt-6 grid gap-4 xl:grid-cols-5">
+        {loadingCards.map(([title, layoutClassName]) => (
+          <Card key={title} className={`min-w-0 border-border bg-card/80 px-3 py-7 ${layoutClassName}`}>
             <CardHeader className="grid-cols-[1fr_auto]">
               <CardTitle>{title}</CardTitle>
               <Spinner aria-hidden="true" className="text-muted-foreground" />
@@ -30,13 +35,13 @@ export function BillsGroceriesLoading() {
   );
 }
 
-export function BillsGroceriesDetailLoading() {
+export function AnalyticsDetailLoading() {
   return (
     <WorkspacePage opaqueContent>
       <div role="status" aria-live="polite" className="sr-only">
-        Loading Bills & Groceries…
+        Loading Analytics…
       </div>
-      <section aria-label="Bills & Groceries chart" className="mt-0">
+      <section aria-label="Analytics chart" className="mt-0">
         <Card className="min-w-0 border-border bg-card/80 px-3 py-7">
           <CardHeader className="grid-cols-[1fr_auto]">
             <CardTitle>Loading chart…</CardTitle>

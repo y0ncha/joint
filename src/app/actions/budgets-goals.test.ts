@@ -94,7 +94,7 @@ describe("budget actions", () => {
     expect(queries[1].chain.update).toHaveBeenCalledWith({ monthly_budget: 1200.5 });
     expect(queries[1].chain.eq).toHaveBeenCalledWith("id", categoryId);
     expect(queries[1].chain.eq).toHaveBeenCalledWith("household_id", householdId);
-    expect(mocks.revalidatePath.mock.calls).toEqual([["/budgets-goals"], ["/"], ["/bills-groceries"]]);
+    expect(mocks.revalidatePath.mock.calls).toEqual([["/budgets-goals"], ["/"], ["/analytics"]]);
   });
 
   it("validates the active expense parent before updating a subcategory budget", async () => {
@@ -179,7 +179,7 @@ describe("budget actions", () => {
       status: "success",
     });
     expect(queries[1].chain.update).toHaveBeenCalledWith({ monthly_budget: null });
-    expect(mocks.revalidatePath.mock.calls).toEqual([["/budgets-goals"], ["/"], ["/bills-groceries"]]);
+    expect(mocks.revalidatePath.mock.calls).toEqual([["/budgets-goals"], ["/"], ["/analytics"]]);
   });
 });
 

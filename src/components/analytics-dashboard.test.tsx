@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   activeSelectChange: undefined as undefined | ((value: string) => void),
   alignBillYearOverYear: vi.fn(),
   billChanges: new Map<string, (checked: boolean) => void>(),
+  billContextMenus: new Map<string, (event: { preventDefault: () => void }) => void>(),
   historyPushState: vi.fn(),
   push: vi.fn(),
   searchParams: new URLSearchParams(),
@@ -15,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/bills-groceries",
+  usePathname: () => "/analytics",
   useRouter: () => ({ push: mocks.push }),
   useSearchParams: () => mocks.searchParams,
 }));
@@ -23,8 +24,12 @@ vi.mock("recharts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("recharts")>();
   return {
     ...actual,
-    Bar: () => null,
-    BarChart: ({ children }: { children: ReactNode }) => <>{children}</>,
+    Bar: ({ dataKey, fillOpacity, stackId }: { dataKey: string; fillOpacity?: number; stackId?: string }) => (
+      <span data-bar={dataKey} data-stack={stackId} data-opacity={fillOpacity ?? 1} />
+    ),
+    BarChart: ({ children, data }: { children: ReactNode; data: unknown[] }) => (
+      <div data-chart-data={JSON.stringify(data)}>{children}</div>
+    ),
     CartesianGrid: () => null,
     Cell: () => null,
     Legend: ({ content, height }: { content?: ReactNode; height?: number }) => (
@@ -36,14 +41,38 @@ vi.mock("recharts", async (importOriginal) => {
         data-legend-height={height}
       />
     ),
-    ReferenceLine: ({ y }: { y: number }) => <span data-budget-line={y} />,
+    Line: ({ dataKey, strokeDasharray, strokeOpacity }: { dataKey: string; strokeDasharray?: string; strokeOpacity?: number }) => (
+      <span data-line={dataKey} data-stroke-dasharray={strokeDasharray ?? "solid"} data-stroke-opacity={strokeOpacity ?? "1"} />
+    ),
+    ReferenceLine: ({
+      label,
+      strokeDasharray,
+      strokeOpacity,
+      strokeWidth,
+      y,
+    }: {
+      label?: string;
+      strokeDasharray?: string;
+      strokeOpacity?: number;
+      strokeWidth?: number;
+      y: number;
+    }) => (
+      <span
+        data-budget-line={label ? undefined : y}
+        data-reference-line={y}
+        data-reference-label={label}
+        data-stroke-dasharray={strokeDasharray}
+        data-reference-opacity={strokeOpacity ?? "1"}
+        data-reference-width={strokeWidth ?? "1"}
+      />
+    ),
     Tooltip: () => null,
     XAxis: () => null,
     YAxis: () => null,
   };
 });
-vi.mock("@/lib/bills-groceries", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/bills-groceries")>();
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/analytics")>();
   mocks.alignBillYearOverYear.mockImplementation(actual.alignBillYearOverYear);
   return { ...actual, alignBillYearOverYear: mocks.alignBillYearOverYear };
 });
@@ -53,6 +82,18 @@ vi.mock("@/components/ui/checkbox", () => ({
     return <input id={id} type="checkbox" />;
   },
 }));
+vi.mock("@/components/ui/field", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/ui/field")>();
+  return {
+    ...actual,
+    Field: ({ id, onContextMenu, ...props }: React.ComponentProps<typeof actual.Field>) => {
+      if (id?.startsWith("bills-option-") && onContextMenu) {
+        mocks.billContextMenus.set(id, onContextMenu as (event: { preventDefault: () => void }) => void);
+      }
+      return <actual.Field id={id} onContextMenu={onContextMenu} {...props} />;
+    },
+  };
+});
 vi.mock("@/components/ui/popover", () => ({
   Popover: ({ children }: { children: ReactNode }) => <>{children}</>,
   PopoverContent: ({ align, children, className, side }: { align?: string; children: ReactNode; className?: string; side?: string }) =>
@@ -97,13 +138,13 @@ vi.mock("@/components/ui/select", () => ({
 }));
 
 import {
-  BillsGroceriesChartDetail,
-  BillsGroceriesDashboard,
-  billsGroceriesChartIds,
+  AnalyticsChartDetail,
+  AnalyticsDashboard,
+  analyticsChartIds,
   dailyHeatmapLevel,
   groceryTransactionsForDate,
   stackedBarRadius,
-} from "./bills-groceries-dashboard";
+} from "./analytics-dashboard";
 
 const liveData = {
   months: ["2026-07"],
@@ -141,9 +182,28 @@ const liveData = {
       { id: "grocery-2", amount: 45, merchant: "Corner shop", note: "Milk", occurredOn: "2026-07-02", subcategoryKey: "top_ups" as const },
     ],
   },
+  gas: {
+    average: 30,
+    months: [
+      {
+        bike: 10,
+        car: 20,
+        month: "2026-07",
+        previousBike: 5,
+        previousCar: 15,
+        previousTotal: 20,
+        total: 30,
+      },
+    ],
+  },
 };
 
-const dashboardProps = { data: liveData as never, billIds: ["rent"], billId: "rent", period: "rolling" as const };
+const dashboardProps = {
+  data: liveData as never,
+  billIds: ["rent"],
+  yoy: "rent",
+  period: "rolling" as const,
+};
 
 function detailTable(markup: string, label: string) {
   return markup.match(new RegExp(`<table[^>]*aria-label="${label} data table"[^>]*>([\\s\\S]*?)</table>`))?.[1] ?? "";
@@ -153,6 +213,7 @@ beforeEach(() => {
   mocks.activeSelectChange = undefined;
   mocks.alignBillYearOverYear.mockClear();
   mocks.billChanges.clear();
+  mocks.billContextMenus.clear();
   mocks.historyPushState.mockReset();
   mocks.push.mockReset();
   mocks.searchParams = new URLSearchParams();
@@ -188,14 +249,14 @@ it("uses a fixed 700 ILS ceiling for daily heatmap intensity", () => {
 });
 
 it("writes the separately selected daily year and month without losing dashboard filters", () => {
-  mocks.searchParams = new URLSearchParams("period=calendar&bills=rent&bill=rent&groceryMonth=2026-07&grocery=top-ups");
+  mocks.searchParams = new URLSearchParams("period=calendar&bills=rent&yoy=rent&groceryMonth=2026-07&grocery=top-ups");
   mocks.showPopoverContent = true;
 
   const markup = renderToStaticMarkup(
-    <BillsGroceriesDashboard
+    <AnalyticsDashboard
       data={{ ...liveData, months: ["2025-09", "2025-10", "2026-06", "2026-07"] } as never}
       billIds={["rent"]}
-      billId="rent"
+      yoy="rent"
       period="calendar"
     />,
   );
@@ -206,20 +267,14 @@ it("writes the separately selected daily year and month without losing dashboard
   expect(markup).toContain('for="groceries-month"');
   expect(markup).toContain("2025");
   expect(markup).toContain("July");
-  expect(mocks.push).toHaveBeenNthCalledWith(
-    1,
-    "/bills-groceries?period=calendar&bills=rent&bill=rent&groceryMonth=2025-09&grocery=top-ups",
-  );
-  expect(mocks.push).toHaveBeenNthCalledWith(
-    2,
-    "/bills-groceries?period=calendar&bills=rent&bill=rent&groceryMonth=2026-10&grocery=top-ups",
-  );
+  expect(mocks.push).toHaveBeenNthCalledWith(1, "/analytics?period=calendar&bills=rent&yoy=rent&groceryMonth=2025-09&grocery=top-ups");
+  expect(mocks.push).toHaveBeenNthCalledWith(2, "/analytics?period=calendar&bills=rent&yoy=rent&groceryMonth=2026-10&grocery=top-ups");
 });
 
 it("anchors Groceries day details to their selected cell", () => {
   mocks.showPopoverContent = true;
 
-  const markup = renderToStaticMarkup(<BillsGroceriesDashboard {...dashboardProps} />);
+  const markup = renderToStaticMarkup(<AnalyticsDashboard {...dashboardProps} />);
 
   expect(markup).toContain('data-side="right"');
   expect(markup).toContain('data-align="start"');
@@ -229,7 +284,7 @@ it("anchors Groceries day details to their selected cell", () => {
 it("renders separate year and month selectors for Groceries by day", () => {
   mocks.showPopoverContent = true;
 
-  const markup = renderToStaticMarkup(<BillsGroceriesDashboard {...dashboardProps} />);
+  const markup = renderToStaticMarkup(<AnalyticsDashboard {...dashboardProps} />);
   const yearControl = markup.match(/<button[^>]*aria-label="Select Groceries year"[^>]*>/)?.[0] ?? "";
   const monthControl = markup.match(/<button[^>]*aria-label="Select Groceries month"[^>]*>/)?.[0] ?? "";
   const spendingControl = markup.match(/<button[^>]*aria-label="Show spending"[^>]*>/)?.[0] ?? "";
@@ -240,7 +295,7 @@ it("renders separate year and month selectors for Groceries by day", () => {
 });
 
 it("uses router navigation only for data-bearing dashboard filters", () => {
-  mocks.searchParams = new URLSearchParams("period=rolling&bills=rent&bill=rent&groceryMonth=2026-07&grocery=main-run");
+  mocks.searchParams = new URLSearchParams("period=rolling&bills=rent&yoy=rent&groceryMonth=2026-07&grocery=main-run");
   mocks.showPopoverContent = true;
   const data = {
     ...liveData,
@@ -250,51 +305,67 @@ it("uses router navigation only for data-bearing dashboard filters", () => {
     },
   };
 
-  renderToStaticMarkup(<BillsGroceriesDashboard data={data as never} billIds={["rent"]} billId="rent" period="rolling" />);
+  renderToStaticMarkup(<AnalyticsDashboard data={data as never} billIds={["rent"]} yoy="rent" period="rolling" />);
 
   mocks.selectChanges.get("Bills by month-period")?.("calendar");
   mocks.selectChanges.get("Year-over-year-period")?.("calendar");
   mocks.selectChanges.get("Groceries by month-period")?.("calendar");
   mocks.billChanges.get("bills-water")?.(true);
-  mocks.selectChanges.get("year-over-year-bill")?.("water");
+  mocks.selectChanges.get("year-over-year-series")?.("water");
   mocks.selectChanges.get("groceries-spending")?.("top-ups");
 
-  expect(mocks.push).toHaveBeenNthCalledWith(
-    1,
-    "/bills-groceries?period=calendar&bills=rent&bill=rent&groceryMonth=2026-07&grocery=main-run",
-  );
-  expect(mocks.push).toHaveBeenNthCalledWith(
-    2,
-    "/bills-groceries?period=calendar&bills=rent&bill=rent&groceryMonth=2026-07&grocery=main-run",
-  );
-  expect(mocks.push).toHaveBeenNthCalledWith(
-    3,
-    "/bills-groceries?period=calendar&bills=rent&bill=rent&groceryMonth=2026-07&grocery=main-run",
-  );
+  expect(mocks.push).toHaveBeenNthCalledWith(1, "/analytics?period=calendar&bills=rent&yoy=rent&groceryMonth=2026-07&grocery=main-run");
+  expect(mocks.push).toHaveBeenNthCalledWith(2, "/analytics?period=calendar&bills=rent&yoy=rent&groceryMonth=2026-07&grocery=main-run");
+  expect(mocks.push).toHaveBeenNthCalledWith(3, "/analytics?period=calendar&bills=rent&yoy=rent&groceryMonth=2026-07&grocery=main-run");
   expect(mocks.push).toHaveBeenCalledTimes(3);
   expect(mocks.historyPushState).toHaveBeenNthCalledWith(
     1,
     null,
     "",
-    "/bills-groceries?period=rolling&bills=rent%2Cwater&bill=rent&groceryMonth=2026-07&grocery=main-run",
+    "/analytics?period=rolling&bills=rent%2Cwater&yoy=rent&groceryMonth=2026-07&grocery=main-run",
   );
   expect(mocks.historyPushState).toHaveBeenNthCalledWith(
     2,
     null,
     "",
-    "/bills-groceries?period=rolling&bills=rent&bill=water&groceryMonth=2026-07&grocery=main-run",
+    "/analytics?period=rolling&bills=rent&yoy=water&groceryMonth=2026-07&grocery=main-run",
   );
   expect(mocks.historyPushState).toHaveBeenNthCalledWith(
     3,
     null,
     "",
-    "/bills-groceries?period=rolling&bills=rent&bill=rent&groceryMonth=2026-07&grocery=top-ups",
+    "/analytics?period=rolling&bills=rent&yoy=rent&groceryMonth=2026-07&grocery=top-ups",
   );
   expect(mocks.historyPushState).toHaveBeenCalledTimes(3);
 });
 
+it("uses a searchable Bills multiselect and right-click selects only that Bill", () => {
+  mocks.searchParams = new URLSearchParams("bills=rent,water&yoy=rent");
+  mocks.showPopoverContent = true;
+  const data = {
+    ...liveData,
+    bills: {
+      ...liveData.bills,
+      subcategories: [
+        ...liveData.bills.subcategories,
+        { id: "water", name: "Water", color: "#234567" },
+        { id: "cables", name: "Cables", color: "#345678" },
+      ],
+    },
+  };
+
+  const markup = renderToStaticMarkup(<AnalyticsDashboard data={data as never} billIds={["rent", "water"]} yoy="rent" period="rolling" />);
+  const preventDefault = vi.fn();
+  mocks.billContextMenus.get("bills-option-water")?.({ preventDefault });
+
+  expect(markup).toContain("2 Bills selected");
+  expect(markup).toContain('aria-label="Search Bills"');
+  expect(preventDefault).toHaveBeenCalledOnce();
+  expect(mocks.historyPushState).toHaveBeenCalledWith(null, "", "/analytics?bills=water&yoy=rent");
+});
+
 it("renders valid Bills selections and the year-over-year Bill from synchronized URL state", () => {
-  mocks.searchParams = new URLSearchParams("period=rolling&bills=water&bill=water&groceryMonth=2026-07");
+  mocks.searchParams = new URLSearchParams("period=rolling&bills=water&yoy=water&groceryMonth=2026-07");
   const data = {
     ...liveData,
     bills: {
@@ -305,16 +376,33 @@ it("renders valid Bills selections and the year-over-year Bill from synchronized
   };
 
   const billsMarkup = renderToStaticMarkup(
-    <BillsGroceriesChartDetail chart="bills" data={data as never} billIds={["rent"]} billId="rent" period="rolling" />,
+    <AnalyticsChartDetail chart="bills" data={data as never} billIds={["rent"]} yoy="rent" period="rolling" />,
   );
   const yearOverYearMarkup = renderToStaticMarkup(
-    <BillsGroceriesChartDetail chart="year-over-year" data={data as never} billIds={["rent"]} billId="rent" period="rolling" />,
+    <AnalyticsChartDetail chart="year-over-year" data={data as never} billIds={["rent"]} yoy="rent" period="rolling" />,
   );
 
   expect(billsMarkup).toContain(">Water</th>");
   expect(billsMarkup).not.toContain(">Rent</th>");
   expect(mocks.alignBillYearOverYear).toHaveBeenLastCalledWith(data.months, data.bills.monthly, "water");
   expect(yearOverYearMarkup).toContain('aria-label="Water year-over-year chart');
+});
+
+it("renders Gas as current and previous Bike/Car stacks with a tabular equivalent", () => {
+  mocks.searchParams = new URLSearchParams("yoy=gas");
+
+  const markup = renderToStaticMarkup(
+    <AnalyticsChartDetail chart="year-over-year" data={liveData as never} billIds={["rent"]} yoy="rent" period="rolling" />,
+  );
+
+  expect(markup).toContain('aria-label="Gas year-over-year chart');
+  expect(markup).toContain('data-bar="previousBike" data-stack="previous" data-opacity="0.38"');
+  expect(markup).toContain('data-bar="previousCar" data-stack="previous" data-opacity="0.38"');
+  expect(markup).toContain('data-bar="bike" data-stack="current"');
+  expect(markup).toContain('data-bar="car" data-stack="current"');
+  expect(markup).toContain("Current Bike");
+  expect(markup).toContain("Previous Car");
+  expect(markup).toContain("₪30.00");
 });
 
 it("re-derives presentation state when browser history supplies different search parameters", () => {
@@ -326,13 +414,13 @@ it("re-derives presentation state when browser history supplies different search
       monthly: [...liveData.bills.monthly, { month: "2026-07", subcategoryId: "water", agorot: 6_789 }],
     },
   };
-  mocks.searchParams = new URLSearchParams("bills=water&bill=water&grocery=top-ups");
+  mocks.searchParams = new URLSearchParams("bills=water&yoy=water&grocery=top-ups");
   const forwardMarkup = renderToStaticMarkup(
-    <BillsGroceriesChartDetail chart="year-over-year" data={data as never} billIds={["rent"]} billId="rent" period="rolling" />,
+    <AnalyticsChartDetail chart="year-over-year" data={data as never} billIds={["rent"]} yoy="rent" period="rolling" />,
   );
-  mocks.searchParams = new URLSearchParams("bills=rent&bill=rent&grocery=main-run");
+  mocks.searchParams = new URLSearchParams("bills=rent&yoy=rent&grocery=main-run");
   const backMarkup = renderToStaticMarkup(
-    <BillsGroceriesChartDetail chart="year-over-year" data={data as never} billIds={["water"]} billId="water" period="rolling" />,
+    <AnalyticsChartDetail chart="year-over-year" data={data as never} billIds={["water"]} yoy="water" period="rolling" />,
   );
 
   expect(forwardMarkup).toContain('aria-label="Water year-over-year chart');
@@ -341,23 +429,30 @@ it("re-derives presentation state when browser history supplies different search
 });
 
 it("links every dashboard chart to the detail route for its exported ID", () => {
-  mocks.searchParams = new URLSearchParams("period=calendar&bill=rent");
-  const markup = renderToStaticMarkup(<BillsGroceriesDashboard {...dashboardProps} />);
+  mocks.searchParams = new URLSearchParams("period=calendar&yoy=rent");
+  const markup = renderToStaticMarkup(<AnalyticsDashboard {...dashboardProps} />);
 
-  for (const id of billsGroceriesChartIds) {
-    expect(markup).toContain(`href="/bills-groceries/${id}?period=calendar&amp;bill=rent"`);
+  for (const id of analyticsChartIds) {
+    expect(markup).toContain(`href="/analytics/${id}?period=calendar&amp;yoy=rent"`);
   }
-  expect(markup).not.toContain('href="/bills-groceries/yoy"');
+  expect(markup).not.toContain('href="/analytics/yoy"');
+});
+
+it("gives Year-over-year the full desktop row", () => {
+  const markup = renderToStaticMarkup(<AnalyticsDashboard {...dashboardProps} />);
+  const card = markup.match(/<div[^>]*data-chart-card="year-over-year"[^>]*>/)?.[0] ?? "";
+
+  expect(card).toContain("xl:col-span-2");
 });
 
 it("renders only the requested chart and its table on a detail page", () => {
-  const markup = renderToStaticMarkup(<BillsGroceriesChartDetail chart="daily" {...dashboardProps} />);
+  const markup = renderToStaticMarkup(<AnalyticsChartDetail chart="daily" {...dashboardProps} />);
 
   expect(markup).toContain("Groceries by day");
   expect(markup).toContain('aria-label="Groceries by day data table"');
   expect(markup).toContain("Cumulative total");
-  expect(markup).toContain('aria-label="Back to Bills &amp; Groceries"');
-  expect(markup).not.toContain(">Back to Bills &amp; Groceries<");
+  expect(markup).toContain('aria-label="Back to Analytics"');
+  expect(markup).not.toContain(">Back to Analytics<");
   expect(markup).not.toContain("Open Groceries by day details");
   expect(markup).not.toContain("Bills by month");
   expect(markup).not.toContain("Year-over-year");
@@ -365,7 +460,7 @@ it("renders only the requested chart and its table on a detail page", () => {
 });
 
 it("keeps chart data tables out of the default card view", () => {
-  const markup = renderToStaticMarkup(<BillsGroceriesDashboard {...dashboardProps} />);
+  const markup = renderToStaticMarkup(<AnalyticsDashboard {...dashboardProps} />);
 
   for (const title of ["Bills by month", "Year-over-year", "Groceries by month", "Groceries by day"]) {
     expect(markup).toContain(title);
@@ -375,14 +470,13 @@ it("keeps chart data tables out of the default card view", () => {
   expect(markup.indexOf("Bills by month")).toBeLessThan(markup.indexOf("Year-over-year"));
   expect(markup.indexOf("Year-over-year")).toBeLessThan(markup.indexOf("Groceries by month"));
   expect(markup.indexOf("Groceries by month")).toBeLessThan(markup.indexOf("Groceries by day"));
-  expect(markup).not.toContain('aria-label="Bills & Groceries controls"');
+  expect(markup).not.toContain('aria-label="Analytics controls"');
   for (const title of ["Bills by month", "Year-over-year", "Groceries by month", "Groceries by day"]) {
     expect(markup).toContain(`aria-label="Configure ${title}"`);
     expect(markup).toContain(`aria-label="Open ${title} details"`);
   }
   expect(markup).toContain('aria-label="Open Groceries by day details"');
   expect(markup).not.toContain('aria-label="Choose Bills subcategories"');
-  expect(markup).not.toContain('aria-label="Select year-over-year Bill"');
   expect(markup).not.toContain("Budget ₪2,200.00");
   expect(markup).not.toContain("fixture values");
   expect(markup).not.toContain("Daily total");
@@ -391,7 +485,7 @@ it("keeps chart data tables out of the default card view", () => {
 });
 
 it("renders Groceries by day as a total-spend heatmap", () => {
-  const markup = renderToStaticMarkup(<BillsGroceriesDashboard {...dashboardProps} />);
+  const markup = renderToStaticMarkup(<AnalyticsDashboard {...dashboardProps} />);
 
   expect(markup).toContain('aria-label="Groceries by day heatmap"');
   expect(markup).toContain("Total daily spending");
@@ -400,9 +494,7 @@ it("renders Groceries by day as a total-spend heatmap", () => {
 });
 
 it("renders the analytics palette, missing-data guidance, and exact daily values", () => {
-  const markup = renderToStaticMarkup(
-    <BillsGroceriesDashboard data={liveData as never} billIds={["rent"]} billId="rent" period="rolling" />,
-  );
+  const markup = renderToStaticMarkup(<AnalyticsDashboard data={liveData as never} billIds={["rent"]} yoy="rent" period="rolling" />);
 
   expect(markup).toContain("--color-mainRun: var(--analytics-groceries-main-run)");
   expect(markup).toContain("--color-topUps: var(--analytics-groceries-top-ups)");
@@ -417,7 +509,7 @@ it("renders the analytics palette, missing-data guidance, and exact daily values
 });
 
 it("keeps Bills stacks and their equivalent table in stable chart order", () => {
-  mocks.searchParams = new URLSearchParams("bills=water,rent&bill=rent");
+  mocks.searchParams = new URLSearchParams("bills=water,rent&yoy=rent");
   const data = {
     ...liveData,
     bills: {
@@ -428,14 +520,14 @@ it("keeps Bills stacks and their equivalent table in stable chart order", () => 
   };
 
   const markup = renderToStaticMarkup(
-    <BillsGroceriesChartDetail chart="bills" data={data as never} billIds={["rent", "water"]} billId="rent" period="rolling" />,
+    <AnalyticsChartDetail chart="bills" data={data as never} billIds={["rent", "water"]} yoy="rent" period="rolling" />,
   );
   const table = detailTable(markup, "Bills by month");
 
   expect(table.indexOf(">Rent</th>")).toBeLessThan(table.indexOf(">Water</th>"));
 });
 
-it("limits Bills legends to two five-item rows", () => {
+it("caps Bills charts at the standard card height when the legend has two rows", () => {
   const data = {
     ...liveData,
     bills: {
@@ -445,19 +537,14 @@ it("limits Bills legends to two five-item rows", () => {
   } as never;
 
   const markup = renderToStaticMarkup(
-    <BillsGroceriesDashboard
-      data={data}
-      billIds={Array.from({ length: 9 }, (_, index) => `bill-${index}`)}
-      billId="bill-0"
-      period="rolling"
-    />,
+    <AnalyticsDashboard data={data} billIds={Array.from({ length: 9 }, (_, index) => `bill-${index}`)} yoy="bill-0" period="rolling" />,
   );
 
   expect(markup).toContain('data-legend-class="grid w-full grid-cols-5');
   expect(markup).toContain('data-legend-height="68"');
-  expect(markup).toContain("h-[280px] md:hidden");
-  expect(markup).toContain("hidden md:flex md:h-[var(--bills-chart-height)]");
-  expect(markup).toContain("--bills-chart-height:348px");
+  expect(markup).toContain("h-[295px] md:hidden");
+  expect(markup).toContain("hidden md:flex md:h-[calc(295px+var(--bills-legend-height))]");
+  expect(markup).toContain("--bills-legend-height:68px");
 
   for (const color of [
     "var(--analytics-bill-1)",
@@ -474,7 +561,7 @@ it("limits Bills legends to two five-item rows", () => {
   }
 });
 
-it("keeps both desktop legends when eleven Bills are selected", () => {
+it("keeps both desktop legends within the capped Bills chart", () => {
   const data = {
     ...liveData,
     bills: {
@@ -484,12 +571,7 @@ it("keeps both desktop legends when eleven Bills are selected", () => {
   } as never;
 
   const markup = renderToStaticMarkup(
-    <BillsGroceriesDashboard
-      data={data}
-      billIds={Array.from({ length: 11 }, (_, index) => `bill-${index}`)}
-      billId="bill-0"
-      period="rolling"
-    />,
+    <AnalyticsDashboard data={data} billIds={Array.from({ length: 11 }, (_, index) => `bill-${index}`)} yoy="bill-0" period="rolling" />,
   );
 
   expect(markup.match(/data-legend=/g)).toHaveLength(3);
@@ -497,14 +579,14 @@ it("keeps both desktop legends when eleven Bills are selected", () => {
   expect(markup).toContain('data-legend="year-over-year"');
   expect(markup).toContain('data-legend-class="grid w-full grid-cols-5');
   expect(markup).toContain('data-legend-height="96"');
-  expect(markup).toContain("h-[280px] md:hidden");
-  expect(markup).toContain("hidden md:flex md:h-[var(--bills-chart-height)]");
-  expect(markup).toContain("--bills-chart-height:376px");
+  expect(markup).toContain("h-[295px] md:hidden");
+  expect(markup).toContain("hidden md:flex md:h-[calc(295px+var(--bills-legend-height))]");
+  expect(markup).toContain("--bills-legend-height:96px");
 });
 
 it("uses the Groceries analytics heatmap palette with white active-day labels and light idle cells", () => {
   const markup = renderToStaticMarkup(
-    <BillsGroceriesDashboard
+    <AnalyticsDashboard
       data={
         {
           ...liveData,
@@ -515,7 +597,7 @@ it("uses the Groceries analytics heatmap palette with white active-day labels an
         } as never
       }
       billIds={["rent"]}
-      billId="rent"
+      yoy="rent"
       period="rolling"
     />,
   );
@@ -530,12 +612,12 @@ it("renders the Bills empty state instead of a missing-prior-year notice when no
     ...liveData,
     bills: { ...liveData.bills, monthly: [] },
   } as never;
-  const markup = renderToStaticMarkup(<BillsGroceriesDashboard data={data} billIds={["rent"]} billId="rent" period="rolling" />);
+  const markup = renderToStaticMarkup(<AnalyticsDashboard data={data} billIds={["rent"]} yoy="rent" period="rolling" />);
 
   expect(markup.match(/No Bills data yet\./g)).toHaveLength(2);
   expect(markup).not.toContain("No previous-year data");
   const detailMarkup = renderToStaticMarkup(
-    <BillsGroceriesChartDetail chart="bills" data={data} billIds={["rent"]} billId="rent" period="rolling" />,
+    <AnalyticsChartDetail chart="bills" data={data} billIds={["rent"]} yoy="rent" period="rolling" />,
   );
   expect(detailMarkup).toContain("No Bills data yet.");
   expect(detailMarkup).not.toContain('aria-label="Bills by month data table"');
@@ -548,7 +630,7 @@ it("renders the selected Bill's aligned year-over-year agorot values and missing
   ]);
 
   const markup = renderToStaticMarkup(
-    <BillsGroceriesChartDetail
+    <AnalyticsChartDetail
       chart="year-over-year"
       data={
         {
@@ -562,7 +644,7 @@ it("renders the selected Bill's aligned year-over-year agorot values and missing
         } as never
       }
       billIds={["rent"]}
-      billId="water"
+      yoy="water"
       period="rolling"
     />,
   );
@@ -591,16 +673,16 @@ it("omits zero-spend rows from analytics detail tables", () => {
     },
   };
   const billsMarkup = renderToStaticMarkup(
-    <BillsGroceriesChartDetail chart="bills" data={data as never} billIds={["rent"]} billId="rent" period="rolling" />,
+    <AnalyticsChartDetail chart="bills" data={data as never} billIds={["rent"]} yoy="rent" period="rolling" />,
   );
   const yearOverYearMarkup = renderToStaticMarkup(
-    <BillsGroceriesChartDetail chart="year-over-year" data={data as never} billIds={["rent"]} billId="rent" period="rolling" />,
+    <AnalyticsChartDetail chart="year-over-year" data={data as never} billIds={["rent"]} yoy="rent" period="rolling" />,
   );
   const groceriesMarkup = renderToStaticMarkup(
-    <BillsGroceriesChartDetail chart="groceries" data={data as never} billIds={["rent"]} billId="rent" period="rolling" />,
+    <AnalyticsChartDetail chart="groceries" data={data as never} billIds={["rent"]} yoy="rent" period="rolling" />,
   );
   const dailyMarkup = renderToStaticMarkup(
-    <BillsGroceriesChartDetail chart="daily" data={data as never} billIds={["rent"]} billId="rent" period="rolling" />,
+    <AnalyticsChartDetail chart="daily" data={data as never} billIds={["rent"]} yoy="rent" period="rolling" />,
   );
 
   for (const [markup, label, omitted, retained] of [
@@ -615,9 +697,9 @@ it("omits zero-spend rows from analytics detail tables", () => {
   expect(detailTable(dailyMarkup, "Groceries by day")).toContain("₪168.00");
 });
 
-it("renders the configured Groceries budget line without its label", () => {
+it("renders the configured Groceries budget as a hoverable line", () => {
   const markup = renderToStaticMarkup(
-    <BillsGroceriesChartDetail
+    <AnalyticsChartDetail
       chart="groceries"
       data={
         {
@@ -629,12 +711,40 @@ it("renders the configured Groceries budget line without its label", () => {
         } as never
       }
       billIds={["rent"]}
-      billId="rent"
+      yoy="rent"
       period="rolling"
     />,
   );
 
   expect(markup).toContain("--color-budget: var(--color-muted-foreground)");
-  expect(markup).toContain('data-budget-line="2000"');
-  expect(markup).not.toContain("Monthly budget");
+  expect(markup).toContain('data-line="budget" data-stroke-dasharray="4 4" data-stroke-opacity="0.55"');
+  expect(markup).toContain("&quot;budget&quot;:2000");
+});
+
+it("renders Bills and YoY averages as straight, hoverable lines", () => {
+  mocks.alignBillYearOverYear.mockReturnValueOnce([
+    { month: "2026-05", currentAgorot: 10_000, previousAgorot: 5_000 },
+    { month: "2026-06", currentAgorot: 20_000, previousAgorot: 5_000 },
+    { month: "2026-07", currentAgorot: 30_000, previousAgorot: 5_000 },
+  ]);
+  const data = {
+    ...liveData,
+    months: ["2026-05", "2026-06", "2026-07"],
+    bills: {
+      ...liveData.bills,
+      monthly: [
+        { month: "2026-05", subcategoryId: "rent", agorot: 10_000 },
+        { month: "2026-06", subcategoryId: "rent", agorot: 20_000 },
+        { month: "2026-07", subcategoryId: "rent", agorot: 30_000 },
+      ],
+    },
+  } as never;
+
+  const markup = renderToStaticMarkup(<AnalyticsDashboard data={data} billIds={["rent"]} yoy="rent" period="rolling" />);
+
+  expect(markup).not.toContain("data-reference-line");
+  expect(markup).toContain('data-stroke-dasharray="4 4"');
+  expect(markup).toContain('data-line="average" data-stroke-dasharray="4 4" data-stroke-opacity="0.55"');
+  expect(markup).toContain('data-line="currentAverage" data-stroke-dasharray="4 4" data-stroke-opacity="0.55"');
+  expect(markup).toContain("&quot;currentAverage&quot;:200");
 });

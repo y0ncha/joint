@@ -1,20 +1,20 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
 
-import BillsGroceriesPage from "./page";
+import AnalyticsPage from "./page";
 
 const mocks = vi.hoisted(() => ({
-  getBillsGroceriesData: vi.fn(),
+  getAnalyticsData: vi.fn(),
   redirect: vi.fn((url: string): never => {
     throw new Error(`NEXT_REDIRECT:${url}`);
   }),
 }));
 
-vi.mock("@/components/bills-groceries-dashboard", () => ({
-  BillsGroceriesDashboard: () => <output>dashboard</output>,
+vi.mock("@/components/analytics-dashboard", () => ({
+  AnalyticsDashboard: () => <output>dashboard</output>,
 }));
 
-vi.mock("@/lib/bills-groceries-data", () => ({ getBillsGroceriesData: mocks.getBillsGroceriesData }));
+vi.mock("@/lib/analytics-data", () => ({ getAnalyticsData: mocks.getAnalyticsData }));
 
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 
@@ -30,14 +30,14 @@ vi.mock("@/components/workspace-shell", () => ({
 it("keeps route content on the shared page surface", async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-07-31T12:00:00Z"));
-  mocks.getBillsGroceriesData.mockResolvedValue({ bills: { subcategories: [], defaultSubcategoryId: null } });
+  mocks.getAnalyticsData.mockResolvedValue({ bills: { subcategories: [], defaultSubcategoryId: null } });
   const markup = renderToStaticMarkup(
-    await BillsGroceriesPage({
+    await AnalyticsPage({
       searchParams: Promise.resolve({}),
     }),
   );
 
-  expect(markup).toContain("<h1>Bills &amp; Groceries</h1>");
+  expect(markup).toContain("<h1>Analytics</h1>");
   expect(markup).toContain('id="workspace-content"');
   expect(markup).not.toContain("<main");
   expect(markup).toContain("dashboard");
@@ -49,7 +49,7 @@ it("keeps route content on the shared page surface", async () => {
 it("canonicalizes legacy daily range parameters to the approved month without losing valid Bill selections", async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-07-31T12:00:00Z"));
-  mocks.getBillsGroceriesData.mockResolvedValue({
+  mocks.getAnalyticsData.mockResolvedValue({
     bills: {
       subcategories: [
         { id: "electricity", name: "Electricity" },
@@ -60,7 +60,7 @@ it("canonicalizes legacy daily range parameters to the approved month without lo
   });
 
   await expect(
-    BillsGroceriesPage({
+    AnalyticsPage({
       searchParams: Promise.resolve({
         period: "calendar",
         bills: "water",
@@ -69,28 +69,28 @@ it("canonicalizes legacy daily range parameters to the approved month without lo
         groceryTo: "2026-07-01",
       }),
     }),
-  ).rejects.toThrow("NEXT_REDIRECT:/bills-groceries?period=calendar&bills=water");
+  ).rejects.toThrow("NEXT_REDIRECT:/analytics?period=calendar&bills=water");
 
-  expect(mocks.getBillsGroceriesData).toHaveBeenCalledWith({
+  expect(mocks.getAnalyticsData).toHaveBeenCalledWith({
     currentDate: "2026-07-31",
     groceryRange: { from: "2026-06-01", to: "2026-06-30" },
     period: "calendar",
   });
-  expect(mocks.redirect).toHaveBeenCalledWith("/bills-groceries?period=calendar&bills=water");
+  expect(mocks.redirect).toHaveBeenCalledWith("/analytics?period=calendar&bills=water");
   vi.useRealTimers();
 });
 
 it("preserves every repeated unrelated query value in a canonical redirect", async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-07-31T12:00:00Z"));
-  mocks.getBillsGroceriesData.mockResolvedValue({ bills: { subcategories: [], defaultSubcategoryId: null } });
+  mocks.getAnalyticsData.mockResolvedValue({ bills: { subcategories: [], defaultSubcategoryId: null } });
 
   await expect(
-    BillsGroceriesPage({
+    AnalyticsPage({
       searchParams: Promise.resolve({ period: "invalid", source: ["household", "partner"] }),
     }),
-  ).rejects.toThrow("NEXT_REDIRECT:/bills-groceries?source=household&source=partner");
+  ).rejects.toThrow("NEXT_REDIRECT:/analytics?source=household&source=partner");
 
-  expect(mocks.redirect).toHaveBeenLastCalledWith("/bills-groceries?source=household&source=partner");
+  expect(mocks.redirect).toHaveBeenLastCalledWith("/analytics?source=household&source=partner");
   vi.useRealTimers();
 });

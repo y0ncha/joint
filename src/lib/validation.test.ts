@@ -30,10 +30,88 @@ describe("transactionSchema", () => {
   });
 
   it("accepts the blank cadence submitted for no recurrence", () => {
-    expect(transactionSchema.parse({ kind: "expense", ...validTransaction, recurrenceCadence: "", recurrenceInterval: "" })).toMatchObject({
-      recurrenceCadence: null,
-      recurrenceInterval: null,
-    });
+    expect(
+      transactionSchema.parse({
+        kind: "expense",
+        ...validTransaction,
+        recurrenceCadence: "",
+        recurrenceInterval: "",
+        recurrenceScope: "",
+      }),
+    ).toMatchObject({ recurrenceCadence: null, recurrenceInterval: null, recurrenceScope: null });
+  });
+
+  it.each(["income", "expense"] as const)("accepts recurring opt-in for a regular %s transaction", (kind) => {
+    expect(
+      transactionSchema.parse({
+        kind,
+        ...validTransaction,
+        recurrenceCadence: "monthly",
+        recurrenceInterval: "1",
+      }),
+    ).toMatchObject({ kind, recurrenceCadence: "monthly", recurrenceInterval: 1, recurrenceScope: null });
+  });
+
+  it("accepts a selected-row edit without recurrence fields", () => {
+    expect(
+      transactionSchema.parse({
+        kind: "expense",
+        ...validTransaction,
+        recurrenceCadence: "",
+        recurrenceInterval: "",
+        recurrenceScope: "this",
+      }),
+    ).toMatchObject({ recurrenceCadence: null, recurrenceInterval: null, recurrenceScope: "this" });
+  });
+
+  it.each(["future", "all"] as const)("accepts a %s edit with recurrence fields", (recurrenceScope) => {
+    expect(
+      transactionSchema.parse({
+        kind: "expense",
+        ...validTransaction,
+        recurrenceCadence: "custom_weekly",
+        recurrenceInterval: "2",
+        recurrenceScope,
+      }),
+    ).toMatchObject({ recurrenceCadence: "custom_weekly", recurrenceInterval: 2, recurrenceScope });
+  });
+
+  it("rejects an unknown recurrence scope", () => {
+    expect(
+      transactionSchema.safeParse({
+        kind: "expense",
+        ...validTransaction,
+        recurrenceScope: "past",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects recurrence fields for a selected-row edit", () => {
+    expect(
+      transactionSchema.safeParse({
+        kind: "expense",
+        ...validTransaction,
+        recurrenceCadence: "monthly",
+        recurrenceInterval: "1",
+        recurrenceScope: "this",
+      }).success,
+    ).toBe(false);
+  });
+
+  it.each([
+    ["future", { recurrenceCadence: "monthly" }],
+    ["future", { recurrenceInterval: "1" }],
+    ["all", { recurrenceCadence: "monthly" }],
+    ["all", { recurrenceInterval: "1" }],
+  ] as const)("rejects a %s edit with incomplete recurrence fields", (recurrenceScope, recurrence) => {
+    expect(
+      transactionSchema.safeParse({
+        kind: "expense",
+        ...validTransaction,
+        recurrenceScope,
+        ...recurrence,
+      }).success,
+    ).toBe(false);
   });
 
   it.each(["0.07", "0.29", "1.15"])("accepts the exact two-decimal transaction amount %s", (amount) => {

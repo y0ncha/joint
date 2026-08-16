@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 
-import { BillsGroceriesDetailLoading, BillsGroceriesLoading } from "@/components/bills-groceries-loading";
+import { AnalyticsDetailLoading, AnalyticsLoading } from "@/components/analytics-loading";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -19,7 +19,15 @@ export function DashboardActionsLoading() {
   );
 }
 
-export function DashboardCardLoading({ className, title }: { className?: string; title: string }) {
+export function DashboardCardLoading({
+  className,
+  skeletonClassName,
+  title,
+}: {
+  className?: string;
+  skeletonClassName?: string;
+  title: string;
+}) {
   return (
     <Card className={cn("border-white/50 bg-card/90", className)}>
       <CardHeader className="px-5 pt-5 sm:px-6 sm:pt-6">
@@ -32,9 +40,18 @@ export function DashboardCardLoading({ className, title }: { className?: string;
         </span>
       </CardHeader>
       <CardContent className="px-5 pb-5 sm:px-6 sm:pb-6">
-        <Skeleton className="h-8" />
+        <Skeleton className={cn("h-16", skeletonClassName)} />
       </CardContent>
     </Card>
+  );
+}
+
+export function DashboardBudgetsAndGasLoading() {
+  return (
+    <div className="flex h-full min-h-96 flex-col gap-4 lg:min-h-0 lg:col-span-7">
+      <DashboardCardLoading className="flex-1" skeletonClassName="h-24" title="Budgets" />
+      <DashboardCardLoading className="flex-1" skeletonClassName="h-24" title="Gas trend" />
+    </div>
   );
 }
 
@@ -45,9 +62,9 @@ export function DashboardMembershipFallback() {
         <DashboardCardLoading className="h-full lg:col-span-4" title="Income" />
         <DashboardCardLoading className="h-full lg:col-span-4" title="Outgoings" />
         <DashboardCardLoading className="h-full lg:col-span-4" title="Monthly balance" />
-        <DashboardCardLoading className="lg:col-span-5 md:aspect-square" title="Where your money went" />
-        <DashboardCardLoading className="h-full lg:col-span-7" title="Budgets & Goals" />
-        <DashboardCardLoading className="min-h-80 lg:col-span-12" title="Six-month trend" />
+        <DashboardCardLoading className="lg:col-span-5 md:aspect-square" skeletonClassName="h-64 min-h-64" title="Where your money went" />
+        <DashboardBudgetsAndGasLoading />
+        <DashboardCardLoading className="min-h-80 lg:col-span-12" skeletonClassName="h-64" title="Six-month trend" />
       </section>
     </WorkspacePage>
   );
@@ -56,6 +73,6 @@ export function DashboardMembershipFallback() {
 export function RouteMembershipFallback() {
   const pathname = usePathname();
   if (pathname === "/") return <DashboardMembershipFallback />;
-  if (pathname === "/bills-groceries") return <BillsGroceriesLoading />;
-  return pathname.startsWith("/bills-groceries/") ? <BillsGroceriesDetailLoading /> : null;
+  if (pathname === "/analytics") return <AnalyticsLoading />;
+  return pathname.startsWith("/analytics/") ? <AnalyticsDetailLoading /> : null;
 }

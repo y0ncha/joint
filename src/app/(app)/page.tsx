@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, Info, Pencil, Settings2 } from "lucide-react";
 
-import { DashboardActionsLoading, DashboardCardLoading } from "./dashboard-loading";
+import { DashboardActionsLoading, DashboardBudgetsAndGasLoading, DashboardCardLoading } from "./dashboard-loading";
 import { DashboardMonthlyTrend, type DashboardMonthlyTrendRow } from "@/components/dashboard-monthly-trend";
 import { DashboardSpendingCategorySelector } from "@/components/dashboard-spending-category-selector";
 import { DashboardSpendingDonut } from "@/components/dashboard-spending-donut";
@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { sortBudgetUrgency } from "@/lib/budgets-goals";
-import { getBudgetsGoalsData, type BudgetRow, type GoalRow } from "@/lib/budgets-goals-data";
+import { getBudgetsGoalsData, type BudgetRow } from "@/lib/budgets-goals-data";
 import { getDashboardControls, getDashboardMonthlyReview, getDashboardSpending, getDashboardSummary } from "@/lib/dashboard-read-model";
 import { getValidDateRange, isCanonicalIsoMonth, previousMonth, type DateRange } from "@/lib/date-range";
 import { cn } from "@/lib/utils";
@@ -197,20 +197,6 @@ function formatBudgetDetail(row: BudgetRow) {
     : `${row.label}: ${level}; ${spent} spent of ${limit} budget; ${detailCurrency.format(row.progress.remainingAgorot / 100)} remaining`;
 }
 
-function formatGoalDetail(row: GoalRow) {
-  const saved = detailCurrency.format(row.savedAmount);
-  const target = detailCurrency.format(row.targetAmount);
-  const date = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }).format(
-    new Date(`${row.targetDate}T12:00:00`),
-  );
-  const status = row.progress.status === "complete" ? "Complete" : row.progress.status === "overdue" ? "Overdue" : "Active";
-  const monthly =
-    row.progress.monthlyRequiredAgorot === null
-      ? "no monthly saving available"
-      : `save ${detailCurrency.format(row.progress.monthlyRequiredAgorot / 100)} per month`;
-  return `${row.label}: ${saved} saved of ${target} target; needed by ${date}; ${status}; ${monthly}; ${detailCurrency.format(row.progress.remainingAgorot / 100)} remaining`;
-}
-
 function DashboardBudgetRow({ row }: { row: BudgetRow }) {
   const details = formatBudgetDetail(row);
 
@@ -230,49 +216,39 @@ function DashboardBudgetRow({ row }: { row: BudgetRow }) {
   );
 }
 
-function DashboardGoalRow({ row }: { row: GoalRow }) {
-  const status = `${Math.round(row.progress.percentage)}%`;
-  const details = formatGoalDetail(row);
-
-  return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <span className="min-w-0 truncate font-medium">{row.label}</span>
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4">
-        <Progress aria-label={`${row.label}: ${status}`} className="h-2" value={row.progress.barPercentage} />
-        <span className="font-mono text-sm tabular-nums">{status}</span>
-        <DashboardDetailTooltip ariaLabel={details}>{details}</DashboardDetailTooltip>
-      </div>
-    </div>
-  );
-}
-
 export async function BudgetsGoalsWidget({ options }: { options: DashboardReadOptions }) {
   const data = await getBudgetsGoalsData(options);
-  const budgets = sortBudgetUrgency(data.budgets).slice(0, 2);
-  const goal = data.goals.find((candidate) => candidate.progress.status !== "complete");
+  const budgets = sortBudgetUrgency(data.budgets);
 
   return (
     <Card className="h-full border-white/50 bg-card/90 lg:col-span-7">
       <CardHeader>
-        <CardTitle>Budgets &amp; Goals</CardTitle>
+        <CardTitle>Budgets</CardTitle>
+        <CardDescription>Monthly spending limits for this period.</CardDescription>
         <CardAction>
           <Button asChild className="size-11" size="icon" variant="ghost">
-            <Link href="/budgets-goals" aria-label="Edit budgets and goals">
+            <Link href="/budgets-goals" aria-label="Edit budgets">
               <Pencil data-icon="inline-start" aria-hidden="true" />
             </Link>
           </Button>
         </CardAction>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col justify-start gap-4">
-        {budgets.length || goal ? (
+      <CardContent className="flex min-h-0 flex-1 flex-col">
+        {budgets.length ? (
           <TooltipProvider>
-            {budgets.map((row) => (
-              <DashboardBudgetRow key={`${row.targetKind}:${row.id}`} row={row} />
-            ))}
-            {goal ? <DashboardGoalRow row={goal} /> : null}
+            <div
+              aria-label="All monthly budgets"
+              className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain pr-1"
+              role="region"
+              tabIndex={0}
+            >
+              {budgets.map((row) => (
+                <DashboardBudgetRow key={`${row.targetKind}:${row.id}`} row={row} />
+              ))}
+            </div>
           </TooltipProvider>
         ) : (
-          <p className="text-sm text-muted-foreground">No budgets or goals yet.</p>
+          <p className="text-sm text-muted-foreground">No monthly budgets configured yet.</p>
         )}
       </CardContent>
     </Card>
@@ -322,13 +298,21 @@ export default async function HomePage({
         >
           <DashboardMetricCards options={options} />
         </Suspense>
-        <Suspense fallback={<DashboardCardLoading className="lg:col-span-5 md:aspect-square" title="Where your money went" />}>
+        <Suspense
+          fallback={
+            <DashboardCardLoading
+              className="lg:col-span-5 md:aspect-square"
+              skeletonClassName="h-64 min-h-64"
+              title="Where your money went"
+            />
+          }
+        >
           <SpendingCard options={options} />
         </Suspense>
-        <Suspense fallback={<DashboardCardLoading className="h-full lg:col-span-7" title="Budgets & Goals" />}>
+        <Suspense fallback={<DashboardBudgetsAndGasLoading />}>
           <BudgetsGoalsWidget options={options} />
         </Suspense>
-        <Suspense fallback={<DashboardCardLoading className="min-h-80 lg:col-span-12" title="Six-month trend" />}>
+        <Suspense fallback={<DashboardCardLoading className="min-h-80 lg:col-span-12" skeletonClassName="h-64" title="Six-month trend" />}>
           <DashboardTrendCard review={review} />
         </Suspense>
       </section>

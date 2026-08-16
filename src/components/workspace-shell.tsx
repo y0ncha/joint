@@ -14,14 +14,14 @@ import { cn } from "@/lib/utils";
 const navigation = [
   ["/", "Overview", LayoutDashboard],
   ["/transactions", "Transactions", WalletCards],
-  ["/bills-groceries", "Bills & Groceries", PieChart],
+  ["/analytics", "Analytics", PieChart],
   ["/settings", "Settings", Settings],
 ] as const;
 
 const sidebarNavigation = [
   ["/", "Overview", LayoutDashboard],
   ["/transactions", "Transactions", WalletCards],
-  ["/bills-groceries", "Bills & Groceries", PieChart],
+  ["/analytics", "Analytics", PieChart],
   ["/budgets-goals", "Budgets & Goals", Target],
   ["/categories", "Categories", Tags],
   ["/automations", "Automations", WandSparkles],

@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/household", () => ({ getCurrentHouseholdContext: mocks.getCurrentHouseholdContext }));
 
-const billsGroceriesDataModule = await import("./bills-groceries-data");
+const analyticsDataModule = await import("./analytics-data");
 
 const options = {
   currentDate: "2026-07-31",
@@ -101,7 +101,7 @@ it.each(["unauthenticated", "unmatched"] as const)(
   async (status) => {
     mocks.getCurrentHouseholdContext.mockResolvedValue({ status });
 
-    await expect(billsGroceriesDataModule.getBillsGroceriesData(options)).rejects.toEqual(
+    await expect(analyticsDataModule.getAnalyticsData(options)).rejects.toEqual(
       new Error("Create or join a household before viewing the dashboard."),
     );
     expect(mocks.from).not.toHaveBeenCalled();
@@ -132,7 +132,7 @@ it("reads every exact-count Bills transaction page before projecting the chart",
     return { data: [], error: null };
   };
 
-  const data = await billsGroceriesDataModule.getBillsGroceriesData(options);
+  const data = await analyticsDataModule.getAnalyticsData(options);
 
   expect(data.bills.monthly).toContainEqual({ month: "2026-07", subcategoryId: "electricity", agorot: 100100 });
   expect(
@@ -171,7 +171,7 @@ it("reads every exact-count monthly Groceries transaction page before projecting
     return { data: [], error: null };
   };
 
-  const data = await billsGroceriesDataModule.getBillsGroceriesData(options);
+  const data = await analyticsDataModule.getAnalyticsData(options);
 
   expect(data.groceries.monthly.months).toContainEqual({ month: "2026-07", mainRunAgorot: 100100, topUpsAgorot: 0 });
   expect(
@@ -186,6 +186,49 @@ it("reads every exact-count monthly Groceries transaction page before projecting
     { from: 0, to: 999 },
     { from: 1000, to: 1999 },
   ]);
+});
+
+it("discovers active fuel subcategories and returns a household-scoped Gas trend", async () => {
+  respond = (query) => {
+    if (query.table === "categories") {
+      const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
+      return { data: { id: `${systemKey}-id`, name: String(systemKey), color: "#112233" }, error: null };
+    }
+    if (query.table === "subcategories") {
+      const categoryId = query.filters.find((filter) => filter.column === "category_id")?.value;
+      if (categoryId === "bills-id") return { data: [], error: null };
+      if (categoryId === "groceries-id") return { data: [], error: null };
+      return {
+        data: [
+          { id: "bike-fuel", name: "Bike fuel" },
+          { id: "car-gas", name: "Car gas" },
+        ],
+        error: null,
+      };
+    }
+    if (query.table === "transactions" && query.select === "amount, occurred_on, subcategory_id") {
+      return {
+        count: 2,
+        data: [
+          { amount: 20, occurred_on: "2025-07-15", subcategory_id: "bike-fuel" },
+          { amount: 40, occurred_on: "2026-07-15", subcategory_id: "car-gas" },
+        ],
+        error: null,
+      };
+    }
+    return { data: [], error: null };
+  };
+
+  const data = await analyticsDataModule.getAnalyticsData(options);
+
+  expect(data.gas?.months.at(-1)).toMatchObject({ bike: 0, car: 40, previousBike: 20, previousCar: 0, total: 40, previousTotal: 20 });
+  expect(queries.find((query) => query.select === "amount, occurred_on, subcategory_id")).toMatchObject({
+    filters: expect.arrayContaining([
+      { method: "eq", column: "household_id", value: "household-id" },
+      { method: "eq", column: "kind", value: "expense" },
+      { method: "in", column: "subcategory_id", value: ["bike-fuel", "car-gas"] },
+    ]),
+  });
 });
 
 it("aggregates Bills and both Groceries streams after short server-capped pages", async () => {
@@ -217,7 +260,7 @@ it("aggregates Bills and both Groceries streams after short server-capped pages"
     return { data: [], error: null };
   };
 
-  const data = await billsGroceriesDataModule.getBillsGroceriesData(options);
+  const data = await analyticsDataModule.getAnalyticsData(options);
 
   expect(data.bills.monthly).toContainEqual({ month: "2026-07", subcategoryId: "electricity", agorot: 80100 });
   expect(data.groceries.monthly.months).toContainEqual({ month: "2026-07", mainRunAgorot: 160200, topUpsAgorot: 0 });
@@ -274,7 +317,7 @@ it.each(["bills", "monthly", "daily"] as const)(
       return { data: [], error: null };
     };
 
-    await expect(billsGroceriesDataModule.getBillsGroceriesData(options)).rejects.toEqual(new Error("Unable to load BillsGroceries data."));
+    await expect(analyticsDataModule.getAnalyticsData(options)).rejects.toEqual(new Error("Unable to load Analytics data."));
     expect(failed).toBe(true);
   },
 );
@@ -306,7 +349,7 @@ it("rejects a no-progress first Bills page with the sanitized load failure", asy
     return { data: [], error: null };
   };
 
-  await expect(billsGroceriesDataModule.getBillsGroceriesData(options)).rejects.toThrow("Unable to load BillsGroceries data.");
+  await expect(analyticsDataModule.getAnalyticsData(options)).rejects.toThrow("Unable to load Analytics data.");
   expect(billPageReads).toBe(1);
 });
 
@@ -320,7 +363,7 @@ it("reads the protected Groceries budget from the active category", async () => 
     };
   };
 
-  const data = await billsGroceriesDataModule.getBillsGroceriesData(options);
+  const data = await analyticsDataModule.getAnalyticsData(options);
 
   expect(queries.filter((query) => query.table === "categories")).toEqual([
     {
@@ -394,7 +437,7 @@ it("reads the protected Groceries budget from the active category", async () => 
   expect(queries.some((query) => query.table === "transactions")).toBe(false);
 });
 
-it("loads only bounded chart columns and projects current and previous-year BillsGroceries series", async () => {
+it("loads only bounded chart columns and projects current and previous-year Analytics series", async () => {
   respond = (query) => {
     if (query.table === "categories") {
       const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
@@ -493,7 +536,7 @@ it("loads only bounded chart columns and projects current and previous-year Bill
     return { data: [], error: null };
   };
 
-  const data = await billsGroceriesDataModule.getBillsGroceriesData(options);
+  const data = await analyticsDataModule.getAnalyticsData(options);
 
   expect(queries.slice(2)).toEqual([
     {
@@ -516,6 +559,15 @@ it("loads only bounded chart columns and projects current and previous-year Bill
         { method: "in", column: "system_key", value: ["main_run", "top_ups"] },
         { method: "is", column: "archived_at", value: null },
         { method: "order", column: "name", value: null },
+      ],
+      terminal: null,
+    },
+    {
+      table: "subcategories",
+      select: "id, name",
+      filters: [
+        { method: "eq", column: "household_id", value: "household-id" },
+        { method: "is", column: "archived_at", value: null },
       ],
       terminal: null,
     },
@@ -594,33 +646,30 @@ it("loads only bounded chart columns and projects current and previous-year Bill
   expect(data).not.toHaveProperty("transactions");
 });
 
-it.each(["categories", "subcategories", "transactions"])(
-  "surfaces a %s query error as an BillsGroceries load failure",
-  async (failingTable) => {
-    respond = (query) => {
-      if (query.table === failingTable) return { data: null, error: new Error("query failed") };
-      if (query.table === "categories") {
-        const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
-        return { data: { id: `${systemKey}-id`, name: String(systemKey), color: "#112233" }, error: null };
-      }
-      if (query.table === "subcategories") {
-        const categoryId = query.filters.find((filter) => filter.column === "category_id")?.value;
-        return categoryId === "bills-id"
-          ? { data: [{ id: "electricity", name: "Electricity", color: "#abcdef" }], error: null }
-          : {
-              data: [
-                { id: "main-run", name: "Main run", color: "#aabbcc", system_key: "main_run" },
-                { id: "top-ups", name: "Top-ups", color: "#ccbbaa", system_key: "top_ups" },
-              ],
-              error: null,
-            };
-      }
-      return { data: [], error: null };
-    };
+it.each(["categories", "subcategories", "transactions"])("surfaces a %s query error as an Analytics load failure", async (failingTable) => {
+  respond = (query) => {
+    if (query.table === failingTable) return { data: null, error: new Error("query failed") };
+    if (query.table === "categories") {
+      const systemKey = query.filters.find((filter) => filter.column === "system_key")?.value;
+      return { data: { id: `${systemKey}-id`, name: String(systemKey), color: "#112233" }, error: null };
+    }
+    if (query.table === "subcategories") {
+      const categoryId = query.filters.find((filter) => filter.column === "category_id")?.value;
+      return categoryId === "bills-id"
+        ? { data: [{ id: "electricity", name: "Electricity", color: "#abcdef" }], error: null }
+        : {
+            data: [
+              { id: "main-run", name: "Main run", color: "#aabbcc", system_key: "main_run" },
+              { id: "top-ups", name: "Top-ups", color: "#ccbbaa", system_key: "top_ups" },
+            ],
+            error: null,
+          };
+    }
+    return { data: [], error: null };
+  };
 
-    await expect(billsGroceriesDataModule.getBillsGroceriesData(options)).rejects.toThrow("Unable to load BillsGroceries data.");
-  },
-);
+  await expect(analyticsDataModule.getAnalyticsData(options)).rejects.toThrow("Unable to load Analytics data.");
+});
 
 it("uses calendar-year monthly bounds and the matching previous-year Bills comparison range", async () => {
   respond = (query) => {
@@ -643,7 +692,7 @@ it("uses calendar-year monthly bounds and the matching previous-year Bills compa
     return { data: [], error: null };
   };
 
-  const data = await billsGroceriesDataModule.getBillsGroceriesData({ ...options, period: "calendar" });
+  const data = await analyticsDataModule.getAnalyticsData({ ...options, period: "calendar" });
   const transactionQueries = queries.filter((query) => query.table === "transactions");
 
   expect(data.months).toEqual([

@@ -1,8 +1,8 @@
-# Bills & Groceries Analytics
+# Analytics
 
 ## Purpose
 
-Bills & Groceries is a household-scoped analytics view over the existing ledger. It adds a protected taxonomy, optional Bills service periods, and the protected Groceries category's optional recurring budget threshold. It does not replace the stored transaction model: the ledger and shared balance continue to use each transaction's positive stored amount, `kind`, and `occurred_on` posting date.
+Analytics is a household-scoped view over the existing ledger. It adds a protected taxonomy, optional Bills service periods, the protected Groceries category's optional recurring budget threshold, and a derived vehicle-fuel trend. It does not replace the stored transaction model: the ledger and shared balance continue to use each transaction's positive stored amount, `kind`, and `occurred_on` posting date.
 
 ## Trust boundary and persistence
 
@@ -14,9 +14,9 @@ Authenticated member
   → Postgres constraints, triggers, and RLS
 ```
 
-`getBillsGroceriesData` obtains the household ID from `getCurrentHouseholdContext`; it never accepts one from the URL or browser state. It rejects a non-member context before issuing a query. RLS remains the final household-data boundary.
+`getAnalyticsData` obtains the household ID from `getCurrentHouseholdContext`; it never accepts one from the URL or browser state. It rejects a non-member context before issuing a query. RLS remains the final household-data boundary.
 
-The Bills & Groceries threshold is the protected Groceries category's one optional current recurring monthly budget: a positive finite ILS numeric value with at most two decimal places and a value below `10000000000`. The Budgets & Goals page owns this configuration. The Phase 2 migration copies each existing `households.groceries_monthly_budget` value into the protected Groceries category before removing the legacy field and its obsolete persistence contract, preserving the threshold value and its optional unset state.
+The Analytics threshold is the protected Groceries category's one optional current recurring monthly budget: a positive finite ILS numeric value with at most two decimal places and a value below `10000000000`. The Budgets & Goals page owns this configuration. The Phase 2 migration copies each existing `households.groceries_monthly_budget` value into the protected Groceries category before removing the legacy field and its obsolete persistence contract, preserving the threshold value and its optional unset state.
 
 ## Authorized reset and protected taxonomy
 
@@ -44,30 +44,32 @@ The loader uses compact, household-scoped reads instead of `getDashboardData()`:
 - Protected categories and active child IDs are resolved by `system_key`.
 - Bills reads only amount, child ID, and service-period columns whose inclusive periods overlap the displayed window plus its previous-year comparison window.
 - Groceries reads only amount, posting date, and child ID for the displayed monthly range and selected daily month.
+- Gas resolves active `Bike gas`/`Bike fuel` and `Car gas`/`Car fuel` children, then reads only matching expense rows for the current and previous comparison windows. `buildGasTrend` zero-fills missing vehicle segments; one configured vehicle is valid.
 
-The route accepts `period`, `bills`, `bill`, `groceryMonth`, and the client-side daily `grocery` filter. It accepts only `rolling` or `calendar`, valid current Bills child IDs, and a valid calendar month; invalid or empty values fall back to all Bills, the deterministic default child, and the current month. The daily filter accepts `main-run` or `top-ups` and otherwise shows both. Canonical URLs omit default selections, preserve explicit deviations, and remove legacy daily-range parameters, so `/bills-groceries` renders directly without a second server navigation. `src/lib/bills-groceries-navigation.ts` owns client URL construction, presentation-state fallbacks, and navigation classification. Updates containing `period` or `groceryMonth` use Next navigation so the server reloads bounded data; `bills`, `bill`, and `grocery` updates use native history so the existing server payload is filtered in place and browser back/forward remains synchronized. Both paths preserve unrelated and repeated query parameters.
+The route accepts `period`, `bills`, `yoy`, `groceryMonth`, and the client-side daily `grocery` filter. `yoy` is either `gas` or a valid current Bills child ID; invalid or empty values fall back to the deterministic Bill, or Gas when no Bills exist. Canonical URLs remove legacy `bill` and daily-range parameters while preserving unrelated repeated parameters, so `/analytics` renders directly without a second server navigation. `src/lib/analytics-navigation.ts` owns client URL construction, presentation-state fallbacks, and navigation classification. Updates containing `period` or `groceryMonth` use Next navigation so the server reloads bounded data; `bills`, `yoy`, and `grocery` updates use native history so the existing server payload is filtered in place and browser back/forward remains synchronized.
 
 ## Accessible charts and failure behavior
 
-The three Recharts bar charts expose labelled regions, Recharts' accessibility layer, keyboard-inspectable values, and tooltips. Bills keeps its visible text legend at `md` and wider; on smaller screens, the labelled Bills selector and accessible detail table provide the non-color alternatives without consuming the plot area. The daily heatmap is instead a labelled keyboard-focusable grid whose cells expose each date and amount through `title` and `aria-label`, with a text lower-to-higher legend. Each chart's detail route adds an accessible labelled data table; the table is intentionally not rendered in the compact dashboard cards. Empty Bills data and missing prior-year data render explicit text, and an unset Groceries budget links to Budgets & Goals instead of inventing a threshold.
+The Recharts charts expose labelled regions, Recharts' accessibility layer, keyboard-inspectable values, and tooltips. Gas compares side-by-side current and previous columns, each stacked Bike/Car with explicit legend and tooltip labels; its detail table supplies the non-color equivalent. Bills keeps its visible text legend at `md` and wider; on smaller screens, the labelled Bills selector and accessible detail table provide the non-color alternatives without consuming the plot area. The daily heatmap is instead a labelled keyboard-focusable grid whose cells expose each date and amount through `title` and `aria-label`, with a text lower-to-higher legend. Each chart's detail route adds an accessible labelled data table; the table is intentionally not rendered in the compact dashboard cards. Empty Bills data, missing Gas configuration, and missing prior-year data render explicit text, and an unset Groceries budget links to Budgets & Goals instead of inventing a threshold.
 
-Member-context and query failures cause the loader to throw an `Error`; the Bills & Groceries routes do not catch it or define a route-local error boundary. Transaction and budget validation failures return structured field/form errors; persistence failures return sanitized messages and do not revalidate routes. Database constraints and RLS still reject invalid or cross-household writes if application validation is bypassed.
+Member-context and query failures cause the loader to throw an `Error`; the Analytics routes do not catch it or define a route-local error boundary. Transaction and budget validation failures return structured field/form errors; persistence failures return sanitized messages and do not revalidate routes. Database constraints and RLS still reject invalid or cross-household writes if application validation is bypassed.
 
 ## Primary sources
 
 - [`supabase/migrations/20260730125519_essentials_dashboard.sql`](../../supabase/migrations/20260730125519_essentials_dashboard.sql)
-- [`src/lib/bills-groceries-data.ts`](../../src/lib/bills-groceries-data.ts)
-- [`src/lib/bills-groceries.ts`](../../src/lib/bills-groceries.ts)
+- [`src/lib/analytics-data.ts`](../../src/lib/analytics-data.ts)
+- [`src/lib/analytics.ts`](../../src/lib/analytics.ts)
+- [`src/lib/gas-trend.ts`](../../src/lib/gas-trend.ts)
 - [`src/app/actions/transactions.ts`](../../src/app/actions/transactions.ts)
 - [`src/app/actions/profile.ts`](../../src/app/actions/profile.ts)
-- [`src/app/(app)/bills-groceries/page.tsx`](<../../src/app/(app)/bills-groceries/page.tsx>)
-- [`src/components/bills-groceries-dashboard.tsx`](../../src/components/bills-groceries-dashboard.tsx)
+- [`src/app/(app)/analytics/page.tsx`](<../../src/app/(app)/analytics/page.tsx>)
+- [`src/components/analytics-dashboard.tsx`](../../src/components/analytics-dashboard.tsx)
 - [`supabase/tests/shared_balance.sql`](../../supabase/tests/shared_balance.sql)
-- [`src/lib/bills-groceries.test.ts`](../../src/lib/bills-groceries.test.ts)
-- [`src/lib/bills-groceries-data.test.ts`](../../src/lib/bills-groceries-data.test.ts)
+- [`src/lib/analytics.test.ts`](../../src/lib/analytics.test.ts)
+- [`src/lib/analytics-data.test.ts`](../../src/lib/analytics-data.test.ts)
 - [`src/app/actions/transactions.test.ts`](../../src/app/actions/transactions.test.ts)
 - [`src/app/actions/profile.test.ts`](../../src/app/actions/profile.test.ts)
-- [`src/components/bills-groceries-dashboard.test.tsx`](../../src/components/bills-groceries-dashboard.test.tsx)
+- [`src/components/analytics-dashboard.test.tsx`](../../src/components/analytics-dashboard.test.tsx)
 
 ## Non-goals
 

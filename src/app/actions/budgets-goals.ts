@@ -103,7 +103,7 @@ async function updateBudget(household: Household, targetKind: "category" | "subc
 function revalidateBudgetRoutes() {
   revalidatePath("/budgets-goals");
   revalidatePath("/");
-  revalidatePath("/bills-groceries");
+  revalidatePath("/analytics");
 }
 
 function revalidateGoalRoutes() {
