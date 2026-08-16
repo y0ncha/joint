@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
@@ -17,15 +17,18 @@ const mocks = vi.hoisted(() => ({
   categoryChange: undefined as undefined | ((value: string) => void),
   actionState: null as unknown,
   createTransaction: vi.fn(),
-  deleteRecurringTransactionSchedule: vi.fn(),
   dateSelect: undefined as undefined | ((date: Date | undefined) => void),
   formAction: undefined as undefined | ((previousState: unknown, formData: FormData) => unknown),
+  lastSubmittedFormData: undefined as FormData | undefined,
   kindChange: undefined as undefined | ((value: string) => void),
   recurrenceChange: undefined as undefined | ((value: string) => void),
   pauseRecurringTransactionSchedule: vi.fn(),
+  resumeRecurringTransactionSchedule: vi.fn(),
+  stopRecurringTransactionSchedule: vi.fn(),
+  scopeActions: [] as Array<{ label: string; onClick?: () => void }>,
   state: [] as unknown[],
   stateIndex: 0,
-  updateRecurringTransactionSchedule: vi.fn(),
+  updateTransaction: vi.fn(),
 }));
 
 vi.mock("react", async (importOriginal) => {
@@ -35,8 +38,18 @@ vi.mock("react", async (importOriginal) => {
     ...actual,
     useActionState: (action: (previousState: unknown, formData: FormData) => unknown) => {
       mocks.formAction = action;
-      return [mocks.actionState, () => {}, false];
+      return [
+        mocks.actionState,
+        (formData: FormData) => {
+          mocks.lastSubmittedFormData = formData;
+          return action(null, formData);
+        },
+        false,
+      ];
     },
+    useEffect: () => {},
+    useMemo: <T,>(factory: () => T) => factory(),
+    useRef: <T,>(initialValue: T) => ({ current: initialValue }),
     useState: (initialState: unknown | (() => unknown)) => {
       const index = mocks.stateIndex++;
       if (!(index in mocks.state)) mocks.state[index] = typeof initialState === "function" ? initialState() : initialState;
@@ -57,18 +70,19 @@ vi.mock("react", async (importOriginal) => {
         },
       ];
     },
+    useTransition: () => [false, (callback: () => void) => void callback()],
   };
 });
 
 vi.mock("@/app/actions/transactions", () => ({
   createTransaction: mocks.createTransaction,
   deleteTransaction: vi.fn(),
-  updateTransaction: vi.fn(),
+  updateTransaction: mocks.updateTransaction,
 }));
 vi.mock("@/app/actions/recurring-transactions", () => ({
-  deleteRecurringTransactionSchedule: mocks.deleteRecurringTransactionSchedule,
   pauseRecurringTransactionSchedule: mocks.pauseRecurringTransactionSchedule,
-  updateRecurringTransactionSchedule: mocks.updateRecurringTransactionSchedule,
+  resumeRecurringTransactionSchedule: mocks.resumeRecurringTransactionSchedule,
+  stopRecurringTransactionSchedule: mocks.stopRecurringTransactionSchedule,
 }));
 vi.mock("@/components/pill-select", () => ({
   PillSelect: ({
@@ -123,7 +137,14 @@ vi.mock("@/components/ui/popover", () => ({
 }));
 vi.mock("@/components/ui/alert-dialog", () => ({
   AlertDialog: ({ children }: { children: ReactNode }) => <>{children}</>,
-  AlertDialogAction: ({ children }: { children: ReactNode }) => <button>{children}</button>,
+  AlertDialogAction: ({ children, onClick, ...props }: { children: ReactNode; onClick?: () => void }) => {
+    if (typeof children === "string") mocks.scopeActions.push({ label: children, onClick });
+    return (
+      <button {...props} onClick={onClick}>
+        {children}
+      </button>
+    );
+  },
   AlertDialogCancel: ({ children }: { children: ReactNode }) => <button>{children}</button>,
   AlertDialogContent: ({ children }: { children: ReactNode }) => <>{children}</>,
   AlertDialogDescription: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -198,6 +219,50 @@ function renderSheet() {
   );
 }
 
+type TestElement = ReactElement<Record<string, unknown>>;
+
+function findElement(node: ReactNode, predicate: (element: TestElement) => boolean): TestElement | undefined {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const match = findElement(child, predicate);
+      if (match) return match;
+    }
+    return undefined;
+  }
+  if (!isValidElement(node)) return undefined;
+  const element = node as TestElement;
+  if (predicate(element)) return element;
+  if (typeof element.type === "function") {
+    const component = element.type as (props: Record<string, unknown>) => ReactNode;
+    return findElement(component(element.props), predicate);
+  }
+  return findElement(element.props.children as ReactNode, predicate);
+}
+
+function submitForm(form: TestElement, values: Record<string, string>) {
+  const NativeFormData = globalThis.FormData;
+  const formData = new NativeFormData();
+  Object.entries(values).forEach(([key, value]) => formData.set(key, value));
+
+  class FormDataFromForm extends NativeFormData {
+    constructor(source?: unknown) {
+      super();
+      const sourceData = (source as { formData?: FormData } | undefined)?.formData;
+      sourceData?.forEach((value, key) => this.append(key, value));
+    }
+  }
+
+  globalThis.FormData = FormDataFromForm as typeof FormData;
+  const preventDefault = vi.fn();
+  try {
+    const onSubmit = form.props.onSubmit as ((event: { currentTarget: unknown; preventDefault: () => void }) => void) | undefined;
+    onSubmit?.({ currentTarget: { formData }, preventDefault });
+  } finally {
+    globalThis.FormData = NativeFormData;
+  }
+  return preventDefault;
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date(2026, 6, 14, 12));
@@ -208,10 +273,19 @@ beforeEach(() => {
   mocks.categoryChange = undefined;
   mocks.actionState = null;
   mocks.createTransaction.mockReset();
+  mocks.updateTransaction.mockReset();
   mocks.dateSelect = undefined;
   mocks.formAction = undefined;
+  mocks.lastSubmittedFormData = undefined;
   mocks.kindChange = undefined;
   mocks.recurrenceChange = undefined;
+  mocks.pauseRecurringTransactionSchedule.mockReset();
+  mocks.pauseRecurringTransactionSchedule.mockResolvedValue({ status: "success" });
+  mocks.resumeRecurringTransactionSchedule.mockReset();
+  mocks.resumeRecurringTransactionSchedule.mockResolvedValue({ status: "success" });
+  mocks.stopRecurringTransactionSchedule.mockReset();
+  mocks.stopRecurringTransactionSchedule.mockResolvedValue({ status: "success" });
+  mocks.scopeActions = [];
   mocks.state = [];
   mocks.stateIndex = 0;
 });
@@ -288,7 +362,8 @@ it("uses one bottom save for recurring transaction edits", () => {
   expect(markup).toContain('aria-label="Stop future repeats"');
   expect(markup).toMatch(/aria-label="Pause future repeats"[^>]*><svg/);
   expect(markup).toMatch(/aria-label="Stop future repeats"[^>]*><svg/);
-  expect(markup).toContain("lucide-square");
+  expect(markup).toContain("lucide-circle-stop");
+  expect(markup).not.toContain("lucide-square");
   expect(markup).not.toContain(">Repeat<");
   expect(markup).toMatch(/class="[^"]*sr-only[^"]*" for="recurrence-cadence">Recurring cadence<\/label>/);
   expect(markup).toContain("grid-cols-[minmax(0,1fr)_auto] items-end gap-3");
@@ -297,9 +372,128 @@ it("uses one bottom save for recurring transaction edits", () => {
   expect(markup.indexOf("Recurring schedule")).toBeLessThan(markup.indexOf("Note"));
   expect(markup.indexOf("Note")).toBeLessThan(markup.indexOf("Save changes"));
   expect(markup).toMatch(/class="[^"]*h-11[^"]*" type="submit">Save changes/);
+  expect(markup.match(/>Save changes</g)).toHaveLength(1);
   expect(markup).toContain("Apply to this transaction");
   expect(markup).toContain("Apply to future transactions");
   expect(markup).toContain("Apply to all transactions");
+});
+
+it("wires pause, resume, and confirmed stop through the lifecycle adapters", async () => {
+  const transaction = {
+    id: "paused-recurring-transaction",
+    kind: "expense" as const,
+    amount: 125,
+    occurredOn: "2026-07-15",
+    subcategoryId: null,
+    note: "Monthly bill",
+    merchant: "Electricity",
+    source: "manual" as const,
+    recurringScheduleId: "schedule-id",
+    recurringScheduleEnabled: false,
+    recurrenceCadence: "monthly" as const,
+    recurrenceInterval: 1,
+    createdAt: "2026-07-15T08:00:00Z",
+    paidBy: null,
+  };
+  const tree = TransactionSheet({ members: [], transaction });
+  findElement(tree, () => false);
+  const resumeButton = findElement(tree, (element) => element.type === "button" && element.props["aria-label"] === "Resume future repeats");
+  const stopAction = mocks.scopeActions.find(({ label }) => label === "Stop future repeats");
+
+  expect(resumeButton?.props.title).toBe("Resume future repeats");
+  await (resumeButton?.props.onClick as (() => void) | undefined)?.();
+  await stopAction?.onClick?.();
+
+  expect(mocks.resumeRecurringTransactionSchedule).toHaveBeenCalledWith("schedule-id");
+  expect(mocks.pauseRecurringTransactionSchedule).not.toHaveBeenCalled();
+  expect(mocks.stopRecurringTransactionSchedule).toHaveBeenCalledWith("schedule-id");
+});
+
+it.each(["future", "all"] as const)("submits the selected %s scope with stored identity and controlled recurrence", (scope) => {
+  const transaction = {
+    id: "recurring-transaction",
+    kind: "expense" as const,
+    amount: 125,
+    occurredOn: "2026-07-15",
+    subcategoryId: null,
+    note: "Monthly bill",
+    merchant: "Electricity",
+    source: "manual" as const,
+    recurringScheduleId: "schedule-id",
+    recurringScheduleEnabled: true,
+    recurrenceCadence: "monthly" as const,
+    recurrenceInterval: 1,
+    createdAt: "2026-07-15T08:00:00Z",
+    paidBy: null,
+  };
+  const props = { members: [], transaction };
+  const initialTree = TransactionSheet(props);
+  findElement(initialTree, () => false);
+  const form = findElement(initialTree, (element) => element.type === "form");
+
+  expect(form).toBeDefined();
+  submitForm(form!, { kind: "expense", occurredOn: "2026-07-15", recurrenceCadence: "monthly", recurrenceInterval: "1" });
+  expect(mocks.lastSubmittedFormData).toBeUndefined();
+  mocks.scopeActions = [];
+  mocks.stateIndex = 0;
+  renderToStaticMarkup(<TransactionSheet {...props} />);
+  mocks.scopeActions.find(({ label }) => label === `Apply to ${scope} transactions`)?.onClick?.();
+
+  expect(mocks.lastSubmittedFormData?.get("recurrenceScope")).toBe(scope);
+  expect(mocks.lastSubmittedFormData?.get("recurrenceCadence")).toBe("monthly");
+  expect(mocks.lastSubmittedFormData?.get("recurrenceInterval")).toBe("1");
+  expect(mocks.lastSubmittedFormData?.get("kind")).toBe("expense");
+  expect(mocks.lastSubmittedFormData?.get("occurredOn")).toBe("2026-07-15");
+  expect(mocks.updateTransaction).toHaveBeenCalledOnce();
+});
+
+it.each(["kind", "date"] as const)("limits a recurring %s change to this and omits recurrence fields", (change) => {
+  const transaction = {
+    id: "recurring-transaction",
+    kind: "expense" as const,
+    amount: 125,
+    occurredOn: "2026-07-15",
+    subcategoryId: null,
+    note: "Monthly bill",
+    merchant: "Electricity",
+    source: "manual" as const,
+    recurringScheduleId: "schedule-id",
+    recurringScheduleEnabled: true,
+    recurrenceCadence: "monthly" as const,
+    recurrenceInterval: 1,
+    createdAt: "2026-07-15T08:00:00Z",
+    paidBy: null,
+  };
+  const props = { members: [], transaction };
+  const initialTree = TransactionSheet(props);
+  findElement(initialTree, () => false);
+  if (change === "kind") mocks.kindChange?.("income");
+  else mocks.dateSelect?.(new Date(2026, 6, 20, 12));
+
+  mocks.stateIndex = 0;
+  const changedTree = TransactionSheet(props);
+  findElement(changedTree, () => false);
+  const form = findElement(changedTree, (element) => element.type === "form");
+  const changedKind = change === "kind" ? "income" : "expense";
+  const changedDate = change === "date" ? "2026-07-20" : "2026-07-15";
+
+  expect(form).toBeDefined();
+  submitForm(form!, { kind: changedKind, occurredOn: changedDate, recurrenceCadence: "monthly", recurrenceInterval: "1" });
+  expect(mocks.lastSubmittedFormData).toBeUndefined();
+  mocks.scopeActions = [];
+  mocks.stateIndex = 0;
+  const markup = renderToStaticMarkup(<TransactionSheet {...props} />);
+
+  expect(markup).not.toContain("Apply to future transactions");
+  expect(markup).not.toContain("Apply to all transactions");
+  expect(markup).toContain("Apply to this transaction");
+  mocks.scopeActions.find(({ label }) => label === "Apply to this transaction")?.onClick?.();
+
+  expect(mocks.lastSubmittedFormData?.get("recurrenceScope")).toBe("this");
+  expect(mocks.lastSubmittedFormData?.get("recurrenceCadence")).toBeNull();
+  expect(mocks.lastSubmittedFormData?.get("recurrenceInterval")).toBeNull();
+  expect(mocks.lastSubmittedFormData?.get("kind")).toBe(changedKind);
+  expect(mocks.lastSubmittedFormData?.get("occurredOn")).toBe(changedDate);
 });
 
 it("opens a new billing period calendar in the viewed ledger month", () => {
@@ -402,6 +596,9 @@ it("renders the transaction composer with labelled core controls", () => {
   expect(markup).toContain("Custom");
   expect(markup).toContain("Paid by");
   expect(markup).toContain("Choose date");
+  expect(markup).toContain("Recurring schedule");
+  expect(markup.indexOf("Recurring schedule")).toBeLessThan(markup.indexOf("Note"));
+  expect(markup.match(/>Save transaction</g)).toHaveLength(1);
   expect(markup.indexOf("Amount")).toBeLessThan(markup.indexOf("Category"));
   expect(markup.indexOf("Category")).toBeLessThan(markup.indexOf("transaction-date-label"));
   expect(markup.indexOf("transaction-date-label")).toBeLessThan(markup.indexOf("Merchant"));
@@ -520,6 +717,54 @@ it("renders edit mode with saved transaction values and deletion inside the shee
   expect(mocks.categoryOptions).not.toContainEqual({ value: "", label: "Uncategorized" });
 });
 
+it("uses the shared recurring fields for a regular manual edit", () => {
+  const markup = renderToStaticMarkup(
+    <TransactionSheet
+      members={[]}
+      transaction={{
+        id: "manual-recurring-candidate",
+        kind: "expense",
+        amount: 50,
+        occurredOn: "2026-07-14",
+        subcategoryId: null,
+        note: "Saved note",
+        merchant: "Saved merchant",
+        source: "manual",
+        createdAt: "2026-07-14T08:00:00Z",
+        paidBy: null,
+      }}
+    />,
+  );
+
+  expect(markup).toContain("Recurring schedule");
+  expect(markup).toContain('data-select="recurrence-cadence"');
+  expect(markup).toContain("None");
+});
+
+it("uses the shared recurring fields for a regular manual income edit", () => {
+  const markup = renderToStaticMarkup(
+    <TransactionSheet
+      members={[]}
+      transaction={{
+        id: "manual-income-candidate",
+        kind: "income",
+        amount: 500,
+        occurredOn: "2026-07-14",
+        subcategoryId: null,
+        note: "Saved income",
+        merchant: "Salary",
+        source: "manual",
+        createdAt: "2026-07-14T08:00:00Z",
+        paidBy: null,
+      }}
+    />,
+  );
+
+  expect(markup).toContain("Recurring schedule");
+  expect(markup).toContain('data-select="recurrence-cadence"');
+  expect(markup).toContain("None");
+});
+
 it("keeps an imported transaction unassigned while allowing its category to be edited", () => {
   const transaction: ImportedTransaction = {
     id: "imported-id",
@@ -557,6 +802,9 @@ it("keeps an imported transaction unassigned while allowing its category to be e
   expect(markup).toContain('type="hidden" name="subcategoryId" value=""');
   expect(markup).toContain('type="hidden" name="paidBy" value=""');
   expect(mocks.categoryOptions).toContainEqual(expect.objectContaining({ value: "", label: "Uncategorized" }));
+  expect(markup).not.toContain("Recurring schedule");
+  expect(markup).not.toContain('data-select="recurrence-cadence"');
+  expect(markup).not.toContain('name="recurrenceCadence"');
 });
 
 it("exposes only matching subcategories and clears the selection when the type changes", () => {
