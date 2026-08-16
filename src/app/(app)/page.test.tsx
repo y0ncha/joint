@@ -292,6 +292,8 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("Expense categories for this period.");
     expect(markup).toContain("Budgets &amp; Goals");
     expect(markup).toContain('href="/budgets-goals"');
+    expect(markup).toContain('aria-label="Edit budgets and goals"');
+    expect(markup).not.toContain(">Manage<");
     expect(markup).not.toContain("Largest changes");
     expect(markup).toContain("Six-month trend");
     expect(markup).toContain('data-slot="card-header"');
@@ -324,6 +326,8 @@ describe("Joint dashboard", () => {
       'aria-label="Emergency fund: ₪250.00 saved of ₪1,000.00 target; needed by 01/09/2026; Active; save ₪375.00 per month; ₪750.00 remaining"',
     );
     expect(markup).toContain("size-11");
+    expect(markup).toContain("flex flex-1 flex-col justify-start gap-4");
+    expect(markup).toContain("grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2");
     expect(markup).toContain('role="progressbar"');
     expect(markup).toContain('aria-valuenow="100"');
     expect(markup).not.toContain("Shared spending limits for your household.");

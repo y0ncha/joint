@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ArrowDownRight, ArrowUpRight, Info, Settings2 } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Info, Pencil, Settings2 } from "lucide-react";
 
 import { DashboardActionsLoading, DashboardCardLoading } from "./dashboard-loading";
 import { DashboardMonthlyTrend, type DashboardMonthlyTrendRow } from "@/components/dashboard-monthly-trend";
@@ -215,15 +215,17 @@ function DashboardBudgetRow({ row }: { row: BudgetRow }) {
   const details = formatBudgetDetail(row);
 
   return (
-    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-1">
+    <div className="flex min-w-0 flex-col gap-1">
       <span className="min-w-0 truncate font-medium">{row.label}</span>
-      <span className="font-mono text-sm tabular-nums">{Math.round(row.progress.percentage)}%</span>
-      <DashboardDetailTooltip ariaLabel={details}>{details}</DashboardDetailTooltip>
-      <Progress
-        aria-label={`${row.label}: ${Math.round(row.progress.percentage)}% of monthly budget`}
-        className="col-span-2 h-2"
-        value={row.progress.barPercentage}
-      />
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2">
+        <Progress
+          aria-label={`${row.label}: ${Math.round(row.progress.percentage)}% of monthly budget`}
+          className="h-2"
+          value={row.progress.barPercentage}
+        />
+        <span className="font-mono text-sm tabular-nums">{Math.round(row.progress.percentage)}%</span>
+        <DashboardDetailTooltip ariaLabel={details}>{details}</DashboardDetailTooltip>
+      </div>
     </div>
   );
 }
@@ -233,11 +235,13 @@ function DashboardGoalRow({ row }: { row: GoalRow }) {
   const details = formatGoalDetail(row);
 
   return (
-    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-1">
+    <div className="flex min-w-0 flex-col gap-1">
       <span className="min-w-0 truncate font-medium">{row.label}</span>
-      <span className="font-mono text-sm tabular-nums">{status}</span>
-      <DashboardDetailTooltip ariaLabel={details}>{details}</DashboardDetailTooltip>
-      <Progress aria-label={`${row.label}: ${status}`} className="col-span-2 h-2" value={row.progress.barPercentage} />
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2">
+        <Progress aria-label={`${row.label}: ${status}`} className="h-2" value={row.progress.barPercentage} />
+        <span className="font-mono text-sm tabular-nums">{status}</span>
+        <DashboardDetailTooltip ariaLabel={details}>{details}</DashboardDetailTooltip>
+      </div>
     </div>
   );
 }
@@ -252,12 +256,14 @@ export async function BudgetsGoalsWidget({ options }: { options: DashboardReadOp
       <CardHeader>
         <CardTitle>Budgets &amp; Goals</CardTitle>
         <CardAction>
-          <Button asChild className="min-h-11 px-0" size="sm" variant="link">
-            <Link href="/budgets-goals">Manage</Link>
+          <Button asChild className="size-11" size="icon" variant="ghost">
+            <Link href="/budgets-goals" aria-label="Edit budgets and goals">
+              <Pencil data-icon="inline-start" aria-hidden="true" />
+            </Link>
           </Button>
         </CardAction>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col justify-center gap-4">
+      <CardContent className="flex flex-1 flex-col justify-start gap-4">
         {budgets.length || goal ? (
           <TooltipProvider>
             {budgets.map((row) => (
