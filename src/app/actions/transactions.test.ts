@@ -286,7 +286,7 @@ describe("transaction actions", () => {
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ paid_by: null, subcategory_id: "groceries" }));
   });
 
-  it("normalizes and automatically assigns a blank manual destination", async () => {
+  it("requires confirmation before a rule-normalized manual transaction is inserted", async () => {
     configureContextClient();
     mocks.getMerchantAutomationRules.mockResolvedValue([
       { id: "normalize", action: "normalize_merchant", pattern: "corner", replacement: "Corner Market", enabled: true, position: 0 },
@@ -301,9 +301,20 @@ describe("transaction actions", () => {
       },
     ]);
 
-    await expect(transactionsModule.createTransaction(transactionForm({ subcategoryId: "", merchant: "Corner shop" }))).resolves.toEqual({
-      status: "success",
+    const input = transactionForm({ subcategoryId: "", merchant: "Corner shop" });
+    const preview = await transactionsModule.createTransaction(input);
+
+    expect(preview).toMatchObject({
+      status: "automation_confirmation_required",
+      automationPreview: expect.objectContaining({
+        changes: [expect.objectContaining({ expected_merchant: "Corner shop", merchant: "Corner Market", subcategory_id: "groceries" })],
+      }),
     });
+    expect(mocks.insert).not.toHaveBeenCalled();
+
+    if (preview.status !== "automation_confirmation_required") throw new Error("Expected automation preview");
+    input.set("automationFingerprint", preview.automationPreview.fingerprint);
+    await expect(transactionsModule.createTransaction(input)).resolves.toEqual({ status: "success" });
 
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ merchant: "Corner Market", subcategory_id: "groceries" }));
   });
@@ -323,9 +334,11 @@ describe("transaction actions", () => {
       },
     ]);
 
-    await expect(transactionsModule.createTransaction(transactionForm({ subcategoryId: "", merchant: "Power company" }))).resolves.toEqual({
-      status: "success",
-    });
+    const input = transactionForm({ subcategoryId: "", merchant: "Power company" });
+    const preview = await transactionsModule.createTransaction(input);
+    if (preview.status !== "automation_confirmation_required") throw new Error("Expected automation preview");
+    input.set("automationFingerprint", preview.automationPreview.fingerprint);
+    await expect(transactionsModule.createTransaction(input)).resolves.toEqual({ status: "success" });
 
     expect(mocks.insert).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -5,7 +5,12 @@ import { revalidatePath } from "next/cache";
 import { validationError, type ActionResult } from "@/app/actions/result";
 import { getIsoMonthRange } from "@/lib/date-range";
 import { requireCurrentHousehold } from "@/lib/household";
-import { evaluateMerchantAutomations, getMerchantAutomationRules } from "@/lib/merchant-automations";
+import {
+  confirmMerchantAutomationPreview,
+  evaluateMerchantAutomations,
+  getMerchantAutomationRules,
+  previewMerchantAutomations,
+} from "@/lib/merchant-automations";
 import {
   confirmTransactionDuplicatePreview,
   duplicateFormSnapshot,
@@ -66,9 +71,13 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
   }
 
   const household = await requireCurrentHousehold();
-  let automated;
+  let rules;
   try {
-    automated = evaluateMerchantAutomations(
+    rules = (await getMerchantAutomationRules(household.supabase, household.householdId)).filter((rule) => rule.action !== "delete_transaction");
+  } catch {
+    return { status: "error", formError: "Unable to save the transaction. Please try again.", fieldErrors: {} };
+  }
+  const automated = evaluateMerchantAutomations(
       {
         merchant: parsed.data.merchant ?? "",
         note: parsed.data.note,
@@ -77,11 +86,8 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
         categoryId: parsed.data.categoryId,
         subcategoryId: parsed.data.subcategoryId,
       },
-      await getMerchantAutomationRules(household.supabase, household.householdId),
+      rules,
     );
-  } catch {
-    return { status: "error", formError: "Unable to save the transaction. Please try again.", fieldErrors: {} };
-  }
   if (!automated.subcategoryId && !automated.categoryId) {
     return { status: "error", formError: "Check the form details.", fieldErrors: { subcategoryId: "Select a value." } };
   }
@@ -99,6 +105,27 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
       formError: "Choose a household member for this transaction.",
       fieldErrors: { paidBy: "Choose a household member." },
     };
+  }
+  const automationPreview = previewMerchantAutomations(
+    [
+      {
+        id: "manual",
+        merchant: parsed.data.merchant ?? "",
+        kind: parsed.data.kind,
+        amount: parsed.data.amount,
+        note: parsed.data.note,
+        categoryId: parsed.data.categoryId,
+        subcategoryId: parsed.data.subcategoryId,
+        updatedAt: "new",
+      },
+    ],
+    rules,
+  );
+  const automationConfirmation = confirmMerchantAutomationPreview(input, automationPreview);
+  if (!automationConfirmation.confirmed) {
+    if (automationConfirmation.stale)
+      return { status: "error", formError: "This rules preview is stale. Save again to review the current changes.", fieldErrors: {} };
+    return { status: "automation_confirmation_required", automationPreview };
   }
   const candidate = {
     id: "manual",

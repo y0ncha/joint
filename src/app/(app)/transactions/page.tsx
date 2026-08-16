@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { getLedgerData } from "@/lib/dashboard-read-model";
+import { automationPreviewDestinations } from "@/lib/automation-preview-destinations";
 import { formatDateRange, getValidDateRange, isCanonicalIsoMonth, previousMonth } from "@/lib/date-range";
 
 function selectedValues(value: string | undefined) {
@@ -77,7 +78,12 @@ export default async function TransactionsPage({
                 <SheetDescription>Upload a card statement to the shared ledger.</SheetDescription>
               </SheetHeader>
               <div className="px-6 pb-6">
-                <StatementImportForm />
+                <StatementImportForm
+                  automationDestinations={automationPreviewDestinations(
+                    data.subcategories.filter((subcategory) => subcategory.archivedAt === null && subcategory.categoryArchivedAt === null),
+                    data.directCategories,
+                  )}
+                />
               </div>
             </SheetContent>
           </Sheet>

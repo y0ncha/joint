@@ -217,7 +217,7 @@ function DashboardBudgetRow({ row }: { row: BudgetRow }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <span className="min-w-0 truncate font-medium">{row.label}</span>
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4">
         <Progress
           aria-label={`${row.label}: ${Math.round(row.progress.percentage)}% of monthly budget`}
           className="h-2"
@@ -237,7 +237,7 @@ function DashboardGoalRow({ row }: { row: GoalRow }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <span className="min-w-0 truncate font-medium">{row.label}</span>
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4">
         <Progress aria-label={`${row.label}: ${status}`} className="h-2" value={row.progress.barPercentage} />
         <span className="font-mono text-sm tabular-nums">{status}</span>
         <DashboardDetailTooltip ariaLabel={details}>{details}</DashboardDetailTooltip>

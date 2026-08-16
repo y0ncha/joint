@@ -5,7 +5,12 @@ import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/app/actions/result";
 import { getIsoMonthRange } from "@/lib/date-range";
 import { requireCurrentHousehold } from "@/lib/household";
-import { evaluateMerchantAutomations, getMerchantAutomationRules } from "@/lib/merchant-automations";
+import {
+  confirmMerchantAutomationPreview,
+  evaluateMerchantAutomations,
+  getMerchantAutomationRules,
+  previewMerchantAutomations,
+} from "@/lib/merchant-automations";
 import { confirmTransactionDuplicatePreview, loadTransactionDuplicatePreview } from "@/lib/transaction-duplicates";
 import { parseStatementFile } from "@/lib/statement-import";
 
@@ -71,7 +76,7 @@ export async function importStatement(_previousState: ActionResult | null, formD
   const payerByCard = new Map(cardMappings.map(({ last_four, user_id }) => [last_four, user_id]));
   let rules;
   try {
-    rules = await getMerchantAutomationRules(household.supabase, household.householdId);
+    rules = (await getMerchantAutomationRules(household.supabase, household.householdId)).filter((rule) => rule.action !== "delete_transaction");
   } catch {
     return { status: "error", formError: IMPORT_ERROR, fieldErrors: {} };
   }
@@ -98,6 +103,25 @@ export async function importStatement(_previousState: ActionResult | null, formD
       import_row_number: row.importRowNumber,
     };
   });
+  const automationPreview = previewMerchantAutomations(
+    parsedStatement.rows.map((row) => ({
+      id: String(row.importRowNumber),
+      merchant: row.merchant,
+      kind: row.kind,
+      amount: row.amount,
+      note: row.note,
+      categoryId: null,
+      subcategoryId: null,
+      updatedAt: "new",
+    })),
+    rules,
+  );
+  const automationConfirmation = confirmMerchantAutomationPreview(formData, automationPreview);
+  if (!automationConfirmation.confirmed) {
+    if (automationConfirmation.stale)
+      return { status: "error", formError: "This rules preview is stale. Import again to review the current changes.", fieldErrors: {} };
+    return { status: "automation_confirmation_required", automationPreview };
+  }
   let preview;
   try {
     preview = await loadTransactionDuplicatePreview(

@@ -32,6 +32,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { TransactionDuplicatePreviewDialog } from "@/components/transaction-duplicate-preview-dialog";
+import { AutomationPreviewDialog } from "@/components/automation-rules-workspace";
 import { categoryIcon } from "@/lib/category-icons";
 import { Badge } from "@/components/ui/badge";
 import type { ReportTransaction } from "@/lib/financial-report";
@@ -41,6 +42,7 @@ import {
   transactionDraftReducer,
   type TransactionDestination,
 } from "@/lib/transaction-draft";
+import { automationPreviewDestinations } from "@/lib/automation-preview-destinations";
 
 type Subcategory = {
   id: string;
@@ -117,6 +119,7 @@ export function TransactionSheet({
   const formRef = useRef<HTMLFormElement | null>(null);
   const submittedFormData = useRef<FormData | null>(null);
   const [dismissedDuplicatePreview, setDismissedDuplicatePreview] = useState("");
+  const [dismissedAutomationPreview, setDismissedAutomationPreview] = useState("");
   const [recurringUpdate, setRecurringUpdate] = useState<FormData | null>(null);
   const [recurrenceCadence, setRecurrenceCadence] = useState<"" | "weekly" | "monthly" | "custom_weekly" | "custom_monthly">(
     transaction?.recurrenceCadence ?? (isRecurring ? "monthly" : ""),
@@ -187,6 +190,12 @@ export function TransactionSheet({
   const shouldRenderDefaultTrigger = !isEditing && open === undefined && onOpenChange === undefined;
   const duplicatePreview = state?.status === "confirmation_required" ? state.duplicatePreview : null;
   const duplicatePreviewOpen = Boolean(duplicatePreview && dismissedDuplicatePreview !== duplicatePreview.fingerprint);
+  const automationPreview = state?.status === "automation_confirmation_required" ? state.automationPreview : null;
+  const automationPreviewOpen = Boolean(automationPreview && dismissedAutomationPreview !== automationPreview.fingerprint);
+  const automationDestinations = useMemo(
+    () => automationPreviewDestinations(subcategories, directCategories),
+    [directCategories, subcategories],
+  );
 
   function confirmDuplicates(discardedDuplicateIds: string[]) {
     if (!duplicatePreview || !submittedFormData.current) return;
@@ -196,6 +205,14 @@ export function TransactionSheet({
     discardedDuplicateIds.forEach((candidateId) => confirmed.append("discardDuplicateId", candidateId));
     setDismissedDuplicatePreview(duplicatePreview.fingerprint);
     if (!isEditing && discardedDuplicateIds.includes("manual")) resetDiscardedTransaction();
+    startTransition(() => formAction(confirmed));
+  }
+
+  function confirmAutomationPreview() {
+    if (!automationPreview || !submittedFormData.current) return;
+    const confirmed = new FormData();
+    submittedFormData.current.forEach((value, key) => confirmed.append(key, value));
+    confirmed.set("automationFingerprint", automationPreview.fingerprint);
     startTransition(() => formAction(confirmed));
   }
 
@@ -251,6 +268,7 @@ export function TransactionSheet({
           onSubmit={(event) => {
             submittedFormData.current = new FormData(event.currentTarget);
             setDismissedDuplicatePreview("");
+            setDismissedAutomationPreview("");
             if (isRecurring) {
               event.preventDefault();
               setRecurringUpdate(new FormData(event.currentTarget));
@@ -543,7 +561,9 @@ export function TransactionSheet({
                 <p className="font-medium">Recurring schedule</p>
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
                   <Field>
-                    <FieldLabel htmlFor="recurrence-cadence">Repeat</FieldLabel>
+                    <FieldLabel htmlFor="recurrence-cadence" className="sr-only">
+                      Recurring cadence
+                    </FieldLabel>
                     <Select
                       value={recurrenceCadence.startsWith("custom_") ? "custom" : recurrenceCadence || "monthly"}
                       onValueChange={(value) =>
@@ -734,6 +754,17 @@ export function TransactionSheet({
             onOpenChange={(nextOpen) => !nextOpen && setDismissedDuplicatePreview(duplicatePreview.fingerprint)}
             open={duplicatePreviewOpen}
             preview={duplicatePreview}
+          />
+        ) : null}
+        {automationPreview ? (
+          <AutomationPreviewDialog
+            confirmLabel="Confirm & create"
+            destinations={automationDestinations}
+            onConfirm={confirmAutomationPreview}
+            onOpenChange={(nextOpen) => !nextOpen && setDismissedAutomationPreview(automationPreview.fingerprint)}
+            open={automationPreviewOpen}
+            preview={automationPreview}
+            rules={[]}
           />
         ) : null}
       </SheetContent>

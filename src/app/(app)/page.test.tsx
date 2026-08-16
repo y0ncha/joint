@@ -327,7 +327,7 @@ describe("Joint dashboard", () => {
     );
     expect(markup).toContain("size-11");
     expect(markup).toContain("flex flex-1 flex-col justify-start gap-4");
-    expect(markup).toContain("grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2");
+    expect(markup).toContain("grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4");
     expect(markup).toContain('role="progressbar"');
     expect(markup).toContain('aria-valuenow="100"');
     expect(markup).not.toContain("Shared spending limits for your household.");

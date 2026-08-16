@@ -194,7 +194,7 @@ describe("statement import action", () => {
     expect(mocks.transactionInsert).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ paid_by: null })]));
   });
 
-  it("normalizes and assigns every imported row before the one atomic insert", async () => {
+  it("requires confirmation before inserting rule-normalized imported rows", async () => {
     mocks.getMerchantAutomationRules.mockResolvedValue([
       { id: "normalize", action: "normalize_merchant", pattern: "corner", replacement: "Market", enabled: true, position: 0 },
       {
@@ -217,7 +217,22 @@ describe("statement import action", () => {
       },
     ]);
 
-    await expect(actions.importStatement(null, formData(statementFile()))).resolves.toMatchObject({ status: "success" });
+    const input = formData(statementFile());
+    const preview = await actions.importStatement(null, input);
+
+    expect(preview).toMatchObject({
+      status: "automation_confirmation_required",
+      automationPreview: expect.objectContaining({
+        changes: expect.arrayContaining([
+          expect.objectContaining({ expected_merchant: "Corner Market", merchant: "Market", subcategory_id: "groceries" }),
+        ]),
+      }),
+    });
+    expect(mocks.transactionInsert).not.toHaveBeenCalled();
+
+    if (preview.status !== "automation_confirmation_required") throw new Error("Expected automation preview");
+    input.set("automationFingerprint", preview.automationPreview.fingerprint);
+    await expect(actions.importStatement(null, input)).resolves.toMatchObject({ status: "success" });
 
     expect(mocks.transactionInsert).toHaveBeenCalledTimes(1);
     expect(mocks.transactionInsert).toHaveBeenCalledWith(
@@ -242,7 +257,11 @@ describe("statement import action", () => {
       },
     ]);
 
-    await expect(actions.importStatement(null, formData(statementFile()))).resolves.toMatchObject({ status: "success" });
+    const input = formData(statementFile());
+    const preview = await actions.importStatement(null, input);
+    if (preview.status !== "automation_confirmation_required") throw new Error("Expected automation preview");
+    input.set("automationFingerprint", preview.automationPreview.fingerprint);
+    await expect(actions.importStatement(null, input)).resolves.toMatchObject({ status: "success" });
 
     expect(mocks.transactionInsert).toHaveBeenCalledWith(
       expect.arrayContaining([

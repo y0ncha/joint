@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
     value: string;
   }>,
   categoryChange: undefined as undefined | ((value: string) => void),
-  actionState: null as null | { status: "error"; formError: string; fieldErrors: Record<string, string> },
+  actionState: null as unknown,
   createTransaction: vi.fn(),
   deleteRecurringTransactionSchedule: vi.fn(),
   dateSelect: undefined as undefined | ((date: Date | undefined) => void),
@@ -222,6 +222,36 @@ it("opens a new transaction calendar in the viewed ledger month", () => {
   expect(mocks.calendarDefaultMonths[0]?.toISOString()).toContain("2026-03-01");
 });
 
+it("reuses the rules preview before creating a rule-matched transaction", () => {
+  mocks.actionState = {
+    status: "automation_confirmation_required",
+    automationPreview: {
+      changes: [
+        {
+          id: "manual",
+          merchant: "Corner Market",
+          category_id: null,
+          subcategory_id: "groceries",
+          expected_updated_at: "new",
+          expected_merchant: "Corner shop",
+          expected_category_id: null,
+          expected_subcategory_id: null,
+        },
+      ],
+      conflicts: [],
+      fingerprint: "automation-fingerprint",
+      ruleSet: [],
+    },
+  };
+
+  const markup = renderSheet();
+
+  expect(markup).toContain("Preview");
+  expect(markup).toContain("Corner shop");
+  expect(markup).toContain("Corner Market");
+  expect(markup).toContain("Confirm &amp; create");
+});
+
 it("uses a regular dropdown for transaction type without a search field", () => {
   const markup = renderSheet();
 
@@ -259,7 +289,8 @@ it("uses one bottom save for recurring transaction edits", () => {
   expect(markup).toMatch(/aria-label="Pause future repeats"[^>]*><svg/);
   expect(markup).toMatch(/aria-label="Stop future repeats"[^>]*><svg/);
   expect(markup).toContain("lucide-square");
-  expect(markup.indexOf("Repeat")).toBeLessThan(markup.indexOf('aria-label="Pause future repeats"'));
+  expect(markup).not.toContain(">Repeat<");
+  expect(markup).toMatch(/class="[^"]*sr-only[^"]*" for="recurrence-cadence">Recurring cadence<\/label>/);
   expect(markup).toContain("grid-cols-[minmax(0,1fr)_auto] items-end gap-3");
   expect(markup).not.toContain("Save future schedule");
   expect(markup).not.toContain("Manage future repeats from this transaction.");

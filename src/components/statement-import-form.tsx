@@ -10,12 +10,15 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { TransactionDuplicatePreviewDialog } from "@/components/transaction-duplicate-preview-dialog";
+import { AutomationPreviewDialog } from "@/components/automation-rules-workspace";
+import type { AutomationDestination } from "@/lib/merchant-automations";
 
-export function StatementImportForm() {
+export function StatementImportForm({ automationDestinations = [] }: { automationDestinations?: AutomationDestination[] }) {
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const submittedFormData = useRef<FormData | null>(null);
   const [dismissedDuplicatePreview, setDismissedDuplicatePreview] = useState("");
+  const [dismissedAutomationPreview, setDismissedAutomationPreview] = useState("");
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(async (previousState, formData) => {
     if (droppedFile) formData.set("statement", droppedFile);
     return importStatement(previousState, formData);
@@ -27,6 +30,8 @@ export function StatementImportForm() {
   }, [state]);
   const duplicatePreview = state?.status === "confirmation_required" ? state.duplicatePreview : null;
   const duplicatePreviewOpen = Boolean(duplicatePreview && dismissedDuplicatePreview !== duplicatePreview.fingerprint);
+  const automationPreview = state?.status === "automation_confirmation_required" ? state.automationPreview : null;
+  const automationPreviewOpen = Boolean(automationPreview && dismissedAutomationPreview !== automationPreview.fingerprint);
 
   function confirmDuplicates(discardedDuplicateIds: string[]) {
     if (!duplicatePreview || !submittedFormData.current) return;
@@ -35,6 +40,14 @@ export function StatementImportForm() {
     confirmed.set("duplicateFingerprint", duplicatePreview.fingerprint);
     discardedDuplicateIds.forEach((candidateId) => confirmed.append("discardDuplicateId", candidateId));
     setDismissedDuplicatePreview(duplicatePreview.fingerprint);
+    startTransition(() => formAction(confirmed));
+  }
+
+  function confirmAutomationPreview() {
+    if (!automationPreview || !submittedFormData.current) return;
+    const confirmed = new FormData();
+    submittedFormData.current.forEach((value, key) => confirmed.append(key, value));
+    confirmed.set("automationFingerprint", automationPreview.fingerprint);
     startTransition(() => formAction(confirmed));
   }
 
@@ -50,6 +63,7 @@ export function StatementImportForm() {
       onSubmit={(event) => {
         submittedFormData.current = new FormData(event.currentTarget);
         setDismissedDuplicatePreview("");
+        setDismissedAutomationPreview("");
       }}
     >
       <FieldGroup>
@@ -104,6 +118,17 @@ export function StatementImportForm() {
           onOpenChange={(nextOpen) => !nextOpen && setDismissedDuplicatePreview(duplicatePreview.fingerprint)}
           open={duplicatePreviewOpen}
           preview={duplicatePreview}
+        />
+      ) : null}
+      {automationPreview ? (
+        <AutomationPreviewDialog
+          confirmLabel="Confirm & import"
+          destinations={automationDestinations}
+          onConfirm={confirmAutomationPreview}
+          onOpenChange={(nextOpen) => !nextOpen && setDismissedAutomationPreview(automationPreview.fingerprint)}
+          open={automationPreviewOpen}
+          preview={automationPreview}
+          rules={[]}
         />
       ) : null}
     </form>
