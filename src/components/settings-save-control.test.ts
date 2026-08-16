@@ -52,6 +52,7 @@ it("submits Settings descendants through the save form while retaining header co
   const markup = renderToStaticMarkup(createElement(SettingsFormForTest, { userId: "user-id" }, createElement(ActionState)));
 
   expect(markup).toContain('id="settings-save-form"');
+  expect(markup).toMatch(/<form[^>]*id="settings-save-form"[^>]*class="min-w-0 flex-1"/);
   expect(markup).toContain('aria-label="Save changes"');
   expect(markup).toContain('aria-label="Log out"');
   expect(markup).toContain("Enter a display name.");

@@ -131,7 +131,7 @@ export function SettingsForm({ userId, children }: { userId: string; children: R
           }
         }}
       />
-      <form id="settings-save-form" action={formAction}>
+      <form id="settings-save-form" action={formAction} className="min-w-0 flex-1">
         <WorkspacePage
           title="Settings"
           actions={
