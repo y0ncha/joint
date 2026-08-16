@@ -12,12 +12,18 @@ else
 fi
 
 work_dir="$(mktemp -d)"
+# The local Supabase container is named from the project id. Keep this
+# temporary config aligned with the checked-out local `Joint` project so the
+# harness exercises the already-running local database rather than attempting
+# to address a different project namespace.
+supabase_project="$work_dir/Joint"
+supabase_cli=(supabase --workdir "$supabase_project")
 restore_needed=true
 cleanup() {
   status=$?
   if [[ "$restore_needed" == true ]]; then
     set +e
-    SUPABASE_TELEMETRY_DISABLED=1 supabase db reset --local --yes >"$work_dir/restore.log" 2>&1
+    SUPABASE_TELEMETRY_DISABLED=1 "${supabase_cli[@]}" db reset --local --yes >"$work_dir/restore.log" 2>&1
     restore_status=$?
     set -e
     if ((restore_status != 0 && status == 0)); then
@@ -30,13 +36,17 @@ cleanup() {
 }
 trap cleanup EXIT
 
+SUPABASE_TELEMETRY_DISABLED=1 supabase init --workdir "$supabase_project" --force --yes >"$work_dir/init.log" 2>&1
+rm -rf "$supabase_project/supabase/migrations"
+ln -s "$repo_root/supabase/migrations" "$supabase_project/supabase/migrations"
+
 run_sql() {
   "${psql_cmd[@]}" -X -v ON_ERROR_STOP=1 "$@"
 }
 
 reset_to_legacy_schema() {
-  SUPABASE_TELEMETRY_DISABLED=1 supabase db reset --local --yes >"$work_dir/start-reset.log" 2>&1
-  SUPABASE_TELEMETRY_DISABLED=1 supabase migration down --local --last 2 --yes >"$work_dir/migration-down.log" 2>&1
+  SUPABASE_TELEMETRY_DISABLED=1 "${supabase_cli[@]}" db reset --local --yes >"$work_dir/start-reset.log" 2>&1
+  SUPABASE_TELEMETRY_DISABLED=1 "${supabase_cli[@]}" migration down --local --last 2 --yes >"$work_dir/migration-down.log" 2>&1
 }
 
 assert_rollback() {
@@ -69,7 +79,7 @@ expect_migration_abort() {
   local exit_status
 
   set +e
-  SUPABASE_TELEMETRY_DISABLED=1 supabase migration up --local >"$log" 2>&1
+  SUPABASE_TELEMETRY_DISABLED=1 "${supabase_cli[@]}" migration up --local >"$log" 2>&1
   exit_status=$?
   set -e
   if ((exit_status == 0)); then
@@ -234,5 +244,47 @@ delete from public.transactions where id in ('$collision_pointer', '$collision_o
 delete from public.recurring_transaction_schedules where id = '$collision_schedule';
 SQL
 
-SUPABASE_TELEMETRY_DISABLED=1 supabase migration up --local >"$work_dir/migration-success.log" 2>&1
-echo "backfill harness passed: actual migration aborted and rolled back household/source/link mismatch and anchor-collision fixtures, then applied cleanly"
+valid_schedule='00000000-0000-0000-0000-00000000e740'
+valid_occurrence='00000000-0000-0000-0000-00000000e741'
+
+run_sql <<SQL
+insert into public.transactions (
+  id, household_id, created_by, kind, amount, occurred_on, merchant, note,
+  category_id, source
+)
+values (
+  '$valid_occurrence', '$household_one', '$owner_one', 'expense', 15, current_date - 7,
+  'Valid backfill', '', '$category_one', 'manual'
+);
+insert into public.recurring_transaction_schedules (
+  id, household_id, created_by, kind, amount, merchant, note, category_id,
+  anchor_date, cadence, interval_count, next_occurrence_index, next_occurs_on,
+  enabled, first_occurrence_transaction_id
+)
+values (
+  '$valid_schedule', '$household_one', '$owner_one', 'expense', 15, 'Valid backfill', '',
+  '$category_one', current_date - 7, 'weekly', 1, 1, current_date, true, '$valid_occurrence'
+);
+SQL
+
+SUPABASE_TELEMETRY_DISABLED=1 "${supabase_cli[@]}" migration up --local >"$work_dir/migration-success.log" 2>&1
+valid_state="$(run_sql -At -c "
+  select
+    not exists (
+      select 1
+      from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'recurring_transaction_schedules'
+        and column_name = 'first_occurrence_transaction_id'
+    )
+    and (select recurring_schedule_id from public.transactions where id = '$valid_occurrence') = '$valid_schedule'::uuid
+    and (select scheduled_for from public.transactions where id = '$valid_occurrence') = current_date - 7
+    and (select occurred_on from public.transactions where id = '$valid_occurrence') = current_date - 7
+    and (select count(*) from public.transactions where recurring_schedule_id = '$valid_schedule') = 1;")"
+if [[ "$valid_state" != "t" ]]; then
+  cat "$work_dir/migration-success.log"
+  echo "backfill harness failed: valid legacy pointer was not canonically backfilled"
+  exit 1
+fi
+echo "valid backfill: occurrence zero linked to $valid_schedule, pointer removed, and one canonical transaction preserved"
+echo "backfill harness passed: actual migration aborted and rolled back household/source/link mismatch and anchor-collision fixtures, then applied valid legacy backfill cleanly"

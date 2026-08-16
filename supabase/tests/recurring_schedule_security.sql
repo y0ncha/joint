@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(72);
+select extensions.plan(79);
 
 select extensions.ok(
   has_schema_privilege('service_role', 'private', 'USAGE')
@@ -264,13 +264,20 @@ set local role service_role;
 
 select public.process_due_recurring_transaction_schedules(current_date);
 
+set local role postgres;
+
+update public.transactions
+set occurred_on = current_date - 9
+where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Future utility bill')
+  and scheduled_for = current_date - 7;
+
 set local role authenticated;
 
-select public.update_recurring_transaction_occurrence(
+select public.save_recurring_transaction_occurrence(
   (select id from public.transactions where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Future utility bill') and scheduled_for = current_date),
-  'future', 35, 'Future utility bill updated', '', null, null,
+  'future', 'expense', 35, current_date, 'Future utility bill updated', '', null, null,
   (select id from public.subcategories where household_id = '00000000-0000-0000-0000-000000000610' and name = 'Recurring utilities'),
-  current_date - 6, current_date
+  current_date - 6, current_date, 'custom_weekly', 2
 );
 
 select extensions.ok(
@@ -278,16 +285,35 @@ select extensions.ok(
     select count(*) = 3
       and bool_and(amount = 20)
       and bool_and(merchant = 'Future utility bill')
-      and bool_and(occurred_on = scheduled_for)
+      and (
+        select occurred_on = current_date - 9
+        from public.transactions
+        where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Future utility bill updated')
+          and scheduled_for = current_date - 7
+      )
     from public.transactions
     where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Future utility bill updated')
   ),
   'future-scope edits preserve every existing generated transaction'
 );
 
+select extensions.ok(
+  (
+    select cadence::text = 'custom_weekly'
+      and interval_count = 2
+      and next_occurrence_index = 2
+      and next_occurs_on = current_date + 14
+      and service_period_start = current_date - 20
+      and service_period_end = current_date - 14
+    from public.recurring_transaction_schedules
+    where merchant = 'Future utility bill updated'
+  ),
+  'future-scope cadence changes rebase the template from the old occurrence index'
+);
+
 set local role service_role;
 
-select public.process_due_recurring_transaction_schedules(current_date + 7);
+select public.process_due_recurring_transaction_schedules(current_date + 14);
 
 set local role postgres;
 
@@ -296,13 +322,20 @@ select extensions.ok(
     select 1
     from public.transactions
     where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Future utility bill updated')
-      and scheduled_for = current_date + 7
+      and scheduled_for = current_date + 14
       and amount = 35
-      and service_period_start = current_date + 1
-      and service_period_end = current_date + 7
+      and service_period_start = current_date + 8
+      and service_period_end = current_date + 14
   ),
   'future-scope edits apply to the next generated Bills transaction'
 );
+
+set local role postgres;
+
+update public.transactions
+set occurred_on = current_date - 9
+where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Recurring utility bill')
+  and scheduled_for = current_date - 7;
 
 set local role authenticated;
 
@@ -315,13 +348,84 @@ select public.update_recurring_transaction_occurrence(
 
 select extensions.ok(
   (
-    select count(*) = 4
+    select count(*) = 5
       and bool_and(amount = 25)
-      and bool_and(occurred_on = scheduled_for)
+      and (
+        select occurred_on = current_date - 9
+        from public.transactions
+        where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Updated utility bill')
+          and scheduled_for = current_date - 7
+      )
     from public.transactions
     where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Updated utility bill')
   ),
   'all-scope recurring edits update generated values without changing posting dates'
+);
+
+set local role postgres;
+
+alter table public.transactions disable trigger transactions_protect_recurring_metadata;
+select set_config('joint.recurring_write', 'on', true);
+
+insert into public.transactions (
+  id, household_id, created_by, kind, amount, occurred_on, merchant, note,
+  subcategory_id, service_period_start, service_period_end, source,
+  recurring_schedule_id, scheduled_for
+)
+values (
+  '00000000-0000-0000-0000-000000000673',
+  '00000000-0000-0000-0000-000000000610',
+  '00000000-0000-0000-0000-000000000601', 'expense', 25, current_date - 13,
+  'Updated utility bill', '',
+  (select id from public.subcategories where household_id = '00000000-0000-0000-0000-000000000610' and name = 'Recurring utilities'),
+  current_date - 13, current_date - 13, 'manual',
+  (select id from public.recurring_transaction_schedules where merchant = 'Updated utility bill'),
+  current_date - 13
+);
+
+select set_config('joint.recurring_write', 'off', true);
+alter table public.transactions enable trigger transactions_protect_recurring_metadata;
+
+set local role authenticated;
+
+select extensions.throws_like(
+  $$
+    select public.save_recurring_transaction_occurrence(
+      (select id from public.transactions where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Updated utility bill') and scheduled_for = current_date),
+      'all', 'expense', 99, current_date, 'Rollback candidate', '', null, null,
+      (select id from public.subcategories where household_id = '00000000-0000-0000-0000-000000000610' and name = 'Recurring utilities'),
+      current_date - 6, current_date, 'weekly', 1
+    )
+  $$,
+  '%Transaction does not belong to this recurring schedule%',
+  'an invalid all-scope occurrence rejects the whole candidate save'
+);
+
+select extensions.ok(
+  (
+    select amount = 25
+      and merchant = 'Updated utility bill'
+      and cadence::text = 'weekly'
+      and interval_count = 1
+      and service_period_start = current_date - 20
+      and service_period_end = current_date - 14
+    from public.recurring_transaction_schedules
+    where merchant = 'Updated utility bill'
+  )
+  and (
+    select count(*) = 6
+      and bool_and(amount = 25)
+      and bool_and(merchant = 'Updated utility bill')
+    from public.transactions
+    where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Updated utility bill')
+  )
+  and (
+    select occurred_on = current_date - 9
+    from public.transactions
+    where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Updated utility bill')
+      and scheduled_for = current_date - 7
+  ),
+  'failed all-scope saves roll back template and occurrence writes'
 );
 
 select extensions.ok(
@@ -411,6 +515,14 @@ select extensions.ok(
   and exists (
     select 1
     from pg_catalog.pg_index
+    where indrelid = 'public.transactions'::regclass
+      and indisunique
+      and pg_catalog.pg_get_indexdef(indexrelid) like '%(recurring_schedule_id, scheduled_for)%'
+      and pg_catalog.pg_get_expr(indpred, indrelid) like '%recurring_schedule_id IS NOT NULL%'
+  )
+  and exists (
+    select 1
+    from pg_catalog.pg_index
     where indrelid = 'public.recurring_transaction_schedules'::regclass
       and pg_catalog.pg_get_indexdef(indexrelid) like '%category_id%'
       and pg_catalog.pg_get_expr(indpred, indrelid) like '%category_id IS NOT NULL%'
@@ -422,7 +534,7 @@ select extensions.ok(
       and pg_catalog.pg_get_indexdef(indexrelid) like '%subcategory_id%'
       and pg_catalog.pg_get_expr(indpred, indrelid) like '%subcategory_id IS NOT NULL%'
   ),
-  'schedule household identity and destination foreign-key indexes exist'
+  'schedule household identity, unique occurrence, and destination indexes exist'
 );
 
 select extensions.ok(
@@ -573,6 +685,16 @@ select extensions.ok(
   'conversion preserves one ledger row as canonical occurrence zero'
 );
 
+select extensions.is(
+  (
+    select next_occurs_on
+    from public.recurring_transaction_schedules
+    where id = (select recurring_schedule_id from public.transactions where id = '00000000-0000-0000-0000-000000000630')
+  ),
+  current_date + 5,
+  'expense conversion calculates the next occurrence after the current posting date'
+);
+
 select public.set_recurring_transaction_schedule_status(
   (select recurring_schedule_id from public.transactions where id = '00000000-0000-0000-0000-000000000630'),
   'paused'
@@ -617,6 +739,17 @@ select extensions.is(
   'the compatibility delete adapter stops without deleting schedule history'
 );
 
+select extensions.ok(
+  (
+    select count(*) = 1
+      and bool_and(recurring_schedule_id = (select recurring_schedule_id from public.transactions where id = '00000000-0000-0000-0000-000000000630'))
+      and bool_and(scheduled_for = current_date - 2)
+    from public.transactions
+    where id = '00000000-0000-0000-0000-000000000630'
+  ),
+  'stopping a schedule preserves its canonical occurrence lineage'
+);
+
 select extensions.throws_like(
   $$
     select public.set_recurring_transaction_schedule_status(
@@ -626,6 +759,32 @@ select extensions.throws_like(
   $$,
   '%terminal%',
   'stopped schedules cannot resume'
+);
+
+select public.create_recurring_transaction_schedule(
+  '00000000-0000-0000-0000-000000000610', null, 'expense', 16, current_date,
+  'Paused stop probe', '',
+  (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_expense'),
+  null, null, null, 'weekly', 1
+);
+
+select public.set_recurring_transaction_schedule_status(
+  (select id from public.recurring_transaction_schedules where merchant = 'Paused stop probe'),
+  'paused'
+);
+select public.set_recurring_transaction_schedule_status(
+  (select id from public.recurring_transaction_schedules where merchant = 'Paused stop probe'),
+  'stopped'
+);
+
+select extensions.ok(
+  (
+    select status::text = 'stopped'
+      and (select count(*) = 2 from public.recurring_transaction_schedule_events where schedule_id = schedule.id)
+    from public.recurring_transaction_schedules as schedule
+    where merchant = 'Paused stop probe'
+  ),
+  'paused-to-stopped is allowed and writes exactly one event per transition'
 );
 
 select extensions.throws_like(
@@ -798,6 +957,27 @@ select extensions.throws_like(
   $$,
   '%transactions_recurring_metadata_pair_check%',
   'scheduled_for cannot be persisted without a recurring schedule link'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (
+      id, household_id, created_by, kind, amount, occurred_on, merchant, note,
+      category_id, source, import_file_hash, import_row_number,
+      recurring_schedule_id, scheduled_for
+    ) values (
+      '00000000-0000-0000-0000-000000000657',
+      '00000000-0000-0000-0000-000000000610',
+      '00000000-0000-0000-0000-000000000601', 'expense', 9, current_date,
+      'Imported linked occurrence', '',
+      (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_expense'),
+      'statement_import', repeat('c', 64), 2,
+      (select id from public.recurring_transaction_schedules where merchant = 'Legitimate bounded schedule'),
+      date '2099-01-05'
+    )
+  $$,
+  '%transactions_recurring_schedule_source_check%',
+  'linked statement-import rows are rejected by the manual-source constraint'
 );
 
 select set_config('joint.recurring_write', 'off', true);
