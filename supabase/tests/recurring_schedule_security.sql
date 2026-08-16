@@ -277,7 +277,7 @@ select public.save_recurring_transaction_occurrence(
   (select id from public.transactions where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Future utility bill') and scheduled_for = current_date),
   'future', 'expense', 35, current_date, 'Future utility bill updated', '', null, null,
   (select id from public.subcategories where household_id = '00000000-0000-0000-0000-000000000610' and name = 'Recurring utilities'),
-  current_date - 6, current_date, 'custom_weekly', 2
+  current_date - 6, current_date, 'custom_weekly', 3
 );
 
 select extensions.ok(
@@ -300,9 +300,9 @@ select extensions.ok(
 select extensions.ok(
   (
     select cadence::text = 'custom_weekly'
-      and interval_count = 2
-      and next_occurrence_index = 2
-      and next_occurs_on = current_date + 14
+      and interval_count = 3
+      and next_occurrence_index = 1
+      and next_occurs_on = current_date + 7
       and service_period_start = current_date - 20
       and service_period_end = current_date - 14
     from public.recurring_transaction_schedules
@@ -322,10 +322,10 @@ select extensions.ok(
     select 1
     from public.transactions
     where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Future utility bill updated')
-      and scheduled_for = current_date + 14
+      and scheduled_for = current_date + 7
       and amount = 35
-      and service_period_start = current_date + 8
-      and service_period_end = current_date + 14
+      and service_period_start = current_date + 1
+      and service_period_end = current_date + 7
   ),
   'future-scope edits apply to the next generated Bills transaction'
 );
@@ -375,16 +375,46 @@ insert into public.transactions (
 values (
   '00000000-0000-0000-0000-000000000673',
   '00000000-0000-0000-0000-000000000610',
-  '00000000-0000-0000-0000-000000000601', 'expense', 25, current_date - 13,
+  '00000000-0000-0000-0000-000000000601', 'expense', 25, current_date + 7,
   'Updated utility bill', '',
   (select id from public.subcategories where household_id = '00000000-0000-0000-0000-000000000610' and name = 'Recurring utilities'),
-  current_date - 13, current_date - 13, 'manual',
+  current_date + 1, current_date + 7, 'manual',
   (select id from public.recurring_transaction_schedules where merchant = 'Updated utility bill'),
-  current_date - 13
-);
+  current_date + 7
+)
+on conflict (recurring_schedule_id, scheduled_for) where recurring_schedule_id is not null do nothing;
 
 select set_config('joint.recurring_write', 'off', true);
 alter table public.transactions enable trigger transactions_protect_recurring_metadata;
+
+create temporary table task27_schedule_before on commit drop as
+select id, amount, merchant, note, paid_by, kind, category_id, subcategory_id,
+       anchor_date, service_period_start, service_period_end, cadence,
+       interval_count, next_occurrence_index, next_occurs_on, status,
+       status_reason, enabled
+from public.recurring_transaction_schedules
+where merchant = 'Updated utility bill';
+
+create temporary table task27_occurrences_before on commit drop as
+select id, recurring_schedule_id, scheduled_for, occurred_on, kind, amount,
+       merchant, note, paid_by, category_id, subcategory_id,
+       service_period_start, service_period_end
+from public.transactions
+where recurring_schedule_id = (select id from task27_schedule_before);
+
+create function public.task27_fail_after_schedule_update()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise exception 'task27 forced recurring schedule update failure';
+end;
+$$;
+
+create trigger task27_fail_after_schedule_update
+after update on public.recurring_transaction_schedules
+for each row execute function public.task27_fail_after_schedule_update();
 
 set local role authenticated;
 
@@ -397,35 +427,61 @@ select extensions.throws_like(
       current_date - 6, current_date, 'weekly', 1
     )
   $$,
-  '%Transaction does not belong to this recurring schedule%',
-  'an invalid all-scope occurrence rejects the whole candidate save'
+  '%task27 forced recurring schedule update failure%',
+  'a post-template-update failure rejects the whole candidate save'
 );
+
+set local role postgres;
+drop trigger task27_fail_after_schedule_update on public.recurring_transaction_schedules;
+drop function public.task27_fail_after_schedule_update();
 
 select extensions.ok(
   (
-    select amount = 25
-      and merchant = 'Updated utility bill'
-      and cadence::text = 'weekly'
-      and interval_count = 1
-      and service_period_start = current_date - 20
-      and service_period_end = current_date - 14
-    from public.recurring_transaction_schedules
-    where merchant = 'Updated utility bill'
+    select count(*) = 1
+      and not exists (
+        select 1
+        from task27_schedule_before as snapshot
+        left join public.recurring_transaction_schedules as schedule on schedule.id = snapshot.id
+        where schedule.id is null
+          or row(
+            schedule.amount, schedule.merchant, schedule.note, schedule.paid_by,
+            schedule.kind, schedule.category_id, schedule.subcategory_id,
+            schedule.anchor_date, schedule.service_period_start, schedule.service_period_end,
+            schedule.cadence, schedule.interval_count, schedule.next_occurrence_index,
+            schedule.next_occurs_on, schedule.status, schedule.status_reason, schedule.enabled
+          ) is distinct from row(
+            snapshot.amount, snapshot.merchant, snapshot.note, snapshot.paid_by,
+            snapshot.kind, snapshot.category_id, snapshot.subcategory_id,
+            snapshot.anchor_date, snapshot.service_period_start, snapshot.service_period_end,
+            snapshot.cadence, snapshot.interval_count, snapshot.next_occurrence_index,
+            snapshot.next_occurs_on, snapshot.status, snapshot.status_reason, snapshot.enabled
+          )
+      )
+    from task27_schedule_before
   )
   and (
-    select count(*) = 6
-      and bool_and(amount = 25)
-      and bool_and(merchant = 'Updated utility bill')
+    select count(*) = (select count(*) from task27_occurrences_before)
+      and not exists (
+        select 1
+        from task27_occurrences_before as snapshot
+        left join public.transactions as transaction on transaction.id = snapshot.id
+        where transaction.id is null
+          or row(
+            transaction.recurring_schedule_id, transaction.scheduled_for, transaction.occurred_on,
+            transaction.kind, transaction.amount, transaction.merchant, transaction.note,
+            transaction.paid_by, transaction.category_id, transaction.subcategory_id,
+            transaction.service_period_start, transaction.service_period_end
+          ) is distinct from row(
+            snapshot.recurring_schedule_id, snapshot.scheduled_for, snapshot.occurred_on,
+            snapshot.kind, snapshot.amount, snapshot.merchant, snapshot.note,
+            snapshot.paid_by, snapshot.category_id, snapshot.subcategory_id,
+            snapshot.service_period_start, snapshot.service_period_end
+          )
+      )
     from public.transactions
-    where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Updated utility bill')
-  )
-  and (
-    select occurred_on = current_date - 9
-    from public.transactions
-    where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Updated utility bill')
-      and scheduled_for = current_date - 7
+    where recurring_schedule_id = (select id from task27_schedule_before)
   ),
-  'failed all-scope saves roll back template and occurrence writes'
+  'post-template failures roll back occurrence writes and schedule template/cursor changes'
 );
 
 select extensions.ok(
@@ -781,6 +837,16 @@ select extensions.ok(
   (
     select status::text = 'stopped'
       and (select count(*) = 2 from public.recurring_transaction_schedule_events where schedule_id = schedule.id)
+      and (select count(*) = 1
+           from public.recurring_transaction_schedule_events
+           where schedule_id = schedule.id
+             and previous_status::text = 'active'
+             and new_status::text = 'paused')
+      and (select count(*) = 1
+           from public.recurring_transaction_schedule_events
+           where schedule_id = schedule.id
+             and previous_status::text = 'paused'
+             and new_status::text = 'stopped')
     from public.recurring_transaction_schedules as schedule
     where merchant = 'Paused stop probe'
   ),
