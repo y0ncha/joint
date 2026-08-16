@@ -49,7 +49,7 @@ end;
 $$;
 
 alter table public.recurring_transaction_schedules
-  drop constraint if exists recurring_transaction_schedul_first_occurrence_transaction_fkey,
+  drop constraint if exists recurring_transaction_schedules_first_occurrence_transaction_id_fkey,
   drop constraint if exists recurring_transaction_schedules_first_occurrence_transaction_id_key,
   drop column if exists first_occurrence_transaction_id;
 
@@ -290,6 +290,91 @@ begin
 end;
 $$;
 
+create or replace function private.recurring_occurrence_destination_is_valid(
+  target_household_id uuid,
+  target_paid_by uuid,
+  target_kind public.transaction_kind,
+  target_category_id uuid,
+  target_subcategory_id uuid,
+  target_service_period_start date,
+  target_service_period_end date
+)
+returns boolean
+language plpgsql
+volatile
+set search_path = ''
+as $$
+begin
+  if target_category_id is not null then
+    perform 1
+    from public.categories as category
+    where category.household_id = target_household_id
+      and category.id = target_category_id
+    for share;
+  elsif target_subcategory_id is not null then
+    perform 1
+    from public.subcategories as subcategory
+    join public.categories as category
+      on category.id = subcategory.category_id
+     and category.household_id = subcategory.household_id
+    where subcategory.household_id = target_household_id
+      and subcategory.id = target_subcategory_id
+    for share of subcategory, category;
+  end if;
+
+  return private.recurring_destination_is_valid(
+    target_household_id,
+    target_paid_by,
+    target_kind,
+    target_category_id,
+    target_subcategory_id,
+    target_service_period_start,
+    target_service_period_end
+  );
+end;
+$$;
+
+create or replace function private.validate_recurring_occurrence_destination()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  if new.recurring_schedule_id is null then
+    return new;
+  end if;
+  if tg_op = 'UPDATE'
+    and new.category_id is null
+    and new.subcategory_id is null
+    and (old.category_id is not null or old.subcategory_id is not null)
+  then
+    return new;
+  end if;
+  if not private.recurring_occurrence_destination_is_valid(
+    new.household_id,
+    new.paid_by,
+    new.kind,
+    new.category_id,
+    new.subcategory_id,
+    new.service_period_start,
+    new.service_period_end
+  ) then
+    raise exception using
+      errcode = 'P0001',
+      message = 'recurring_destination: occurrence destination is unavailable';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists transactions_validate_recurring_destination on public.transactions;
+create trigger transactions_validate_recurring_destination
+before insert or update of household_id, paid_by, kind, category_id, subcategory_id,
+  service_period_start, service_period_end, recurring_schedule_id
+on public.transactions
+for each row execute function private.validate_recurring_occurrence_destination();
+
 create or replace function private.validate_recurring_schedule_destination()
 returns trigger
 language plpgsql
@@ -305,7 +390,10 @@ begin
     return new;
   end if;
 
-  if new.status <> 'blocked'::public.recurring_schedule_status
+  if new.status not in (
+    'blocked'::public.recurring_schedule_status,
+    'stopped'::public.recurring_schedule_status
+  )
     and not private.recurring_destination_is_valid(
       new.household_id,
       new.paid_by,
@@ -410,7 +498,6 @@ begin
     else null
   end;
 
-  perform pg_catalog.set_config('joint.recurring_write', 'on', true);
   update public.recurring_transaction_schedules
   set status = target_status,
       status_reason = transition_reason
@@ -436,7 +523,7 @@ begin
   if auth.uid() is not null and not private.is_household_member(new.household_id) then
     raise exception 'Not a household member';
   end if;
-  if new.status = 'active'::public.recurring_schedule_status
+  if new.status <> 'stopped'::public.recurring_schedule_status
     and not private.recurring_destination_is_valid(
       new.household_id,
       new.paid_by,
@@ -473,7 +560,7 @@ security invoker
 set search_path = ''
 as $$
 begin
-  if current_user in ('postgres', 'service_role') then
+  if coalesce(pg_catalog.current_setting('joint.recurring_write', true), 'off') = 'on' then
     return new;
   end if;
   if tg_op = 'INSERT'
@@ -584,6 +671,7 @@ begin
       recurring_schedule_id = schedule_id,
       scheduled_for = target_occurred_on
   where id = occurrence.id;
+  perform pg_catalog.set_config('joint.recurring_write', 'off', true);
 
   return schedule_id;
 end;
@@ -685,6 +773,7 @@ begin
       target_category_id, target_subcategory_id, target_service_period_start,
       target_service_period_end, schedule_id, target_occurred_on
     );
+    perform pg_catalog.set_config('joint.recurring_write', 'off', true);
   end if;
   return schedule_id;
 end;
@@ -894,9 +983,9 @@ begin
             service_period_end = row_end
         where id = row_to_update.id;
       end loop;
+      perform pg_catalog.set_config('joint.recurring_write', 'off', true);
     end if;
 
-    perform pg_catalog.set_config('joint.recurring_write', 'on', true);
     update public.recurring_transaction_schedules
     set amount = target_amount,
         merchant = coalesce(target_merchant, ''),
@@ -926,6 +1015,7 @@ begin
         service_period_start = target_service_period_start,
         service_period_end = target_service_period_end
     where id = occurrence.id;
+    perform pg_catalog.set_config('joint.recurring_write', 'off', true);
   end if;
 end;
 $$;
@@ -981,7 +1071,6 @@ begin
   from private.recurring_occurrence_after(
     schedule.anchor_date, target_cadence, target_interval_count, current_date
   );
-  perform pg_catalog.set_config('joint.recurring_write', 'on', true);
   update public.recurring_transaction_schedules
   set amount = target_amount,
       merchant = coalesce(target_merchant, ''),
@@ -1012,19 +1101,33 @@ security definer
 set search_path = ''
 as $$
 declare
+  schedule_id uuid;
   occurrence public.transactions%rowtype;
   schedule public.recurring_transaction_schedules%rowtype;
 begin
-  select * into occurrence from public.transactions where id = target_transaction_id;
-  select * into schedule from public.recurring_transaction_schedules where id = occurrence.recurring_schedule_id;
-  if occurrence.id is null
-    or schedule.id is null
-    or not private.is_household_member(schedule.household_id)
-  then
+  select recurring_schedule_id into schedule_id
+  from public.transactions
+  where id = target_transaction_id;
+  if schedule_id is null then
+    raise exception 'Transaction is not a recurring occurrence';
+  end if;
+  select * into schedule
+  from public.recurring_transaction_schedules
+  where id = schedule_id
+  for update;
+  if not found or not private.is_household_member(schedule.household_id) then
     raise exception 'Not a household member';
   end if;
+  select * into occurrence
+  from public.transactions
+  where id = target_transaction_id
+    and recurring_schedule_id = schedule.id
+  for update;
+  if not found then
+    raise exception 'Transaction is not a recurring occurrence';
+  end if;
   perform public.save_recurring_transaction_occurrence(
-    target_transaction_id, target_scope, schedule.kind, target_amount, occurrence.occurred_on,
+    target_transaction_id, target_scope, occurrence.kind, target_amount, occurrence.occurred_on,
     target_merchant, target_note, target_paid_by, target_category_id, target_subcategory_id,
     target_service_period_start, target_service_period_end, schedule.cadence, schedule.interval_count
   );
@@ -1092,7 +1195,7 @@ declare
   is_bills boolean;
   created_count integer := 0;
   blocked_count integer := 0;
-  next_occurrence record;
+  schedule_created_count integer;
 begin
   for schedule in
     select *
@@ -1102,12 +1205,6 @@ begin
     order by next_occurs_on, id
     for update skip locked
   loop
-    select * into next_occurrence
-    from private.recurring_occurrence_after_from(
-      schedule.anchor_date, schedule.cadence, schedule.interval_count,
-      target_today, schedule.next_occurrence_index
-    );
-
     if not private.recurring_destination_is_valid(
       schedule.household_id, schedule.paid_by, schedule.kind,
       schedule.category_id, schedule.subcategory_id,
@@ -1121,49 +1218,71 @@ begin
       continue;
     end if;
 
-    while schedule.next_occurs_on <= target_today loop
-      occurrence := schedule.next_occurs_on;
-      select coalesce(category.system_key = 'bills', false)
-      into is_bills
-      from public.subcategories as subcategory
-      join public.categories as category
-        on category.id = subcategory.category_id
-       and category.household_id = subcategory.household_id
-      where subcategory.household_id = schedule.household_id
-        and subcategory.id = schedule.subcategory_id;
+    schedule_created_count := 0;
+    begin
+      perform private.recurring_occurrence_after_from(
+        schedule.anchor_date, schedule.cadence, schedule.interval_count,
+        target_today, schedule.next_occurrence_index
+      );
 
-      insert into public.transactions (
-        household_id, created_by, paid_by, kind, amount, occurred_on, merchant, note,
-        category_id, subcategory_id, service_period_start, service_period_end,
-        recurring_schedule_id, scheduled_for
-      ) values (
-        schedule.household_id, schedule.created_by, schedule.paid_by, schedule.kind,
-        schedule.amount, occurrence, schedule.merchant, schedule.note,
-        schedule.category_id, schedule.subcategory_id,
-        case when is_bills then private.recurring_occurrence_date(
-          schedule.service_period_start, schedule.cadence, schedule.interval_count,
-          schedule.next_occurrence_index
-        ) else null end,
-        case when is_bills then private.recurring_occurrence_date(
-          schedule.service_period_end, schedule.cadence, schedule.interval_count,
-          schedule.next_occurrence_index
-        ) else null end,
-        schedule.id, occurrence
-      ) on conflict (recurring_schedule_id, scheduled_for) where recurring_schedule_id is not null do nothing;
-      if found then
-        created_count := created_count + 1;
-      end if;
+      while schedule.next_occurs_on <= target_today loop
+        occurrence := schedule.next_occurs_on;
+        select coalesce(category.system_key = 'bills', false)
+        into is_bills
+        from public.subcategories as subcategory
+        join public.categories as category
+          on category.id = subcategory.category_id
+         and category.household_id = subcategory.household_id
+        where subcategory.household_id = schedule.household_id
+          and subcategory.id = schedule.subcategory_id;
 
-      update public.recurring_transaction_schedules
-      set next_occurrence_index = schedule.next_occurrence_index + 1,
-          next_occurs_on = private.recurring_occurrence_date(
-            schedule.anchor_date, schedule.cadence, schedule.interval_count,
-            schedule.next_occurrence_index + 1
-          ),
-          status_reason = null
-      where id = schedule.id
-      returning * into schedule;
-    end loop;
+        perform pg_catalog.set_config('joint.recurring_write', 'on', true);
+        insert into public.transactions (
+          household_id, created_by, paid_by, kind, amount, occurred_on, merchant, note,
+          category_id, subcategory_id, service_period_start, service_period_end,
+          recurring_schedule_id, scheduled_for
+        ) values (
+          schedule.household_id, schedule.created_by, schedule.paid_by, schedule.kind,
+          schedule.amount, occurrence, schedule.merchant, schedule.note,
+          schedule.category_id, schedule.subcategory_id,
+          case when is_bills then private.recurring_occurrence_date(
+            schedule.service_period_start, schedule.cadence, schedule.interval_count,
+            schedule.next_occurrence_index
+          ) else null end,
+          case when is_bills then private.recurring_occurrence_date(
+            schedule.service_period_end, schedule.cadence, schedule.interval_count,
+            schedule.next_occurrence_index
+          ) else null end,
+          schedule.id, occurrence
+        ) on conflict (recurring_schedule_id, scheduled_for) where recurring_schedule_id is not null do nothing;
+        if found then
+          schedule_created_count := schedule_created_count + 1;
+        end if;
+        perform pg_catalog.set_config('joint.recurring_write', 'off', true);
+
+        update public.recurring_transaction_schedules
+        set next_occurrence_index = schedule.next_occurrence_index + 1,
+            next_occurs_on = private.recurring_occurrence_date(
+              schedule.anchor_date, schedule.cadence, schedule.interval_count,
+              schedule.next_occurrence_index + 1
+            ),
+            status_reason = null
+        where id = schedule.id
+        returning * into schedule;
+      end loop;
+      created_count := created_count + schedule_created_count;
+    exception
+      when sqlstate 'P0001' then
+        if sqlerrm not like 'recurring_destination:%' then
+          raise;
+        end if;
+        perform pg_catalog.set_config('joint.recurring_write', 'off', true);
+        perform private.transition_recurring_schedule_status(
+          schedule.id, 'blocked'::public.recurring_schedule_status,
+          'destination_unavailable', true
+        );
+        blocked_count := blocked_count + 1;
+    end;
   end loop;
 
   return jsonb_build_object(
@@ -1177,7 +1296,9 @@ revoke execute on function private.recurring_occurrence_date_with_offset(date, p
 revoke execute on function private.recurring_occurrence_date(date, public.recurring_schedule_cadence, integer, integer) from public, anon, authenticated;
 revoke execute on function private.recurring_occurrence_index(date, public.recurring_schedule_cadence, integer, date) from public, anon, authenticated;
 revoke execute on function private.recurring_destination_is_valid(uuid, uuid, public.transaction_kind, uuid, uuid, date, date) from public, anon, authenticated;
+revoke execute on function private.recurring_occurrence_destination_is_valid(uuid, uuid, public.transaction_kind, uuid, uuid, date, date) from public, anon, authenticated;
 revoke execute on function private.validate_recurring_schedule_destination() from public, anon, authenticated;
+revoke execute on function private.validate_recurring_occurrence_destination() from public, anon, authenticated;
 revoke execute on function private.transition_recurring_schedule_status(uuid, public.recurring_schedule_status, text, boolean) from public, anon, authenticated;
 revoke execute on function private.recurring_schedule_destination_after_change() from public, anon, authenticated;
 revoke execute on function private.protect_recurring_transaction_metadata() from public, anon, authenticated;

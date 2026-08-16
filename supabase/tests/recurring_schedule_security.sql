@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(49);
+select extensions.plan(71);
 
 select extensions.ok(
   has_schema_privilege('service_role', 'private', 'USAGE')
@@ -731,6 +731,366 @@ select extensions.is(
   ),
   'blocked',
   'destination deletion transitions the durable schedule to blocked'
+);
+
+set local role postgres;
+
+insert into auth.users (id, email, email_confirmed_at, raw_app_meta_data)
+values ('00000000-0000-0000-0000-000000000651', 'recurring-other@example.test', now(), '{"provider":"google"}');
+insert into public.households (id, name, created_by)
+values ('00000000-0000-0000-0000-000000000650', 'Other recurring household', '00000000-0000-0000-0000-000000000651');
+
+select set_config('joint.recurring_write', 'on', true);
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (
+      id, household_id, created_by, kind, amount, occurred_on, merchant, note,
+      category_id, source, recurring_schedule_id, scheduled_for
+    ) values (
+      '00000000-0000-0000-0000-000000000652',
+      '00000000-0000-0000-0000-000000000650',
+      '00000000-0000-0000-0000-000000000651', 'expense', 9, current_date,
+      'Cross household link', '',
+      (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000650' and system_key = 'other_expense'),
+      'manual',
+      (select id from public.recurring_transaction_schedules where merchant = 'Legitimate bounded schedule'),
+      date '2099-01-01'
+    )
+  $$,
+  '%foreign key%',
+  'a recurring occurrence cannot cross household ownership boundaries'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (
+      id, household_id, created_by, kind, amount, occurred_on, merchant, note,
+      category_id, source, recurring_schedule_id
+    ) values (
+      '00000000-0000-0000-0000-000000000653',
+      '00000000-0000-0000-0000-000000000610',
+      '00000000-0000-0000-0000-000000000601', 'expense', 9, current_date,
+      'Half metadata schedule', '',
+      (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_expense'),
+      'manual',
+      (select id from public.recurring_transaction_schedules where merchant = 'Legitimate bounded schedule')
+    )
+  $$,
+  '%transactions_recurring_metadata_pair_check%',
+  'a recurring schedule link cannot omit scheduled_for'
+);
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (
+      id, household_id, created_by, kind, amount, occurred_on, merchant, note,
+      category_id, source, scheduled_for
+    ) values (
+      '00000000-0000-0000-0000-000000000654',
+      '00000000-0000-0000-0000-000000000610',
+      '00000000-0000-0000-0000-000000000601', 'expense', 9, current_date,
+      'Half metadata date', '',
+      (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_expense'),
+      'manual', current_date
+    )
+  $$,
+  '%transactions_recurring_metadata_pair_check%',
+  'scheduled_for cannot be persisted without a recurring schedule link'
+);
+
+select set_config('joint.recurring_write', 'off', true);
+
+insert into public.transactions (
+  id, household_id, created_by, kind, amount, occurred_on, merchant, note,
+  category_id, source, import_file_hash, import_row_number
+)
+values (
+  '00000000-0000-0000-0000-000000000655',
+  '00000000-0000-0000-0000-000000000610',
+  '00000000-0000-0000-0000-000000000601', 'expense', 14, current_date - 1,
+  'Imported conversion', '',
+  (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_expense'),
+  'statement_import', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 1
+);
+
+set local role authenticated;
+
+select extensions.throws_like(
+  $$
+    select public.convert_transaction_to_recurring_schedule(
+      '00000000-0000-0000-0000-000000000655', null, 'expense', 14,
+      current_date - 1, 'Imported conversion', '',
+      (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_expense'),
+      null, null, null, 'weekly', 1
+    )
+  $$,
+  '%Only an unlinked manual%',
+  'statement-import transactions cannot be converted to recurring schedules'
+);
+
+select extensions.throws_like(
+  $$
+    select public.convert_transaction_to_recurring_schedule(
+      '00000000-0000-0000-0000-000000000630', null, 'expense', 47,
+      current_date - 2, 'Converted merchant', 'Converted note',
+      (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_expense'),
+      null, null, null, 'weekly', 1
+    )
+  $$,
+  '%Only an unlinked manual%',
+  'already-linked transactions cannot be converted twice'
+);
+
+set local role postgres;
+
+insert into public.transactions (
+  id, household_id, created_by, kind, amount, occurred_on, merchant, note,
+  category_id, source
+)
+values (
+  '00000000-0000-0000-0000-000000000656',
+  '00000000-0000-0000-0000-000000000610',
+  '00000000-0000-0000-0000-000000000601', 'income', 80, current_date - 1,
+  'Income conversion', '',
+  (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_income'),
+  'manual'
+);
+
+set local role authenticated;
+
+select extensions.lives_ok(
+  $$
+    select public.convert_transaction_to_recurring_schedule(
+      '00000000-0000-0000-0000-000000000656', null, 'income', 80,
+      current_date - 1, 'Income conversion', '',
+      (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_income'),
+      null, null, null, 'weekly', 1
+    )
+  $$,
+  'an unlinked manual income transaction can be converted'
+);
+
+select extensions.ok(
+  (
+    select kind = 'income' and recurring_schedule_id is not null and scheduled_for = occurred_on
+    from public.transactions
+    where id = '00000000-0000-0000-0000-000000000656'
+  ),
+  'income conversion preserves the income kind on canonical occurrence zero'
+);
+
+select public.save_recurring_transaction_occurrence(
+  '00000000-0000-0000-0000-000000000656',
+  'this', 'expense', 81, current_date, 'Adapter kind probe', '', null,
+  (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_expense'),
+  null, null, null, null, null
+);
+
+select extensions.lives_ok(
+  $$
+    select public.update_recurring_transaction_occurrence(
+      '00000000-0000-0000-0000-000000000656',
+      'this', 82, 'Adapter kind preserved', '', null,
+      (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_expense'),
+      null, null, null
+    )
+  $$,
+  'the compatibility occurrence adapter accepts the current occurrence kind'
+);
+
+select extensions.is(
+  (select kind::text from public.transactions where id = '00000000-0000-0000-0000-000000000656'),
+  'expense',
+  'the compatibility occurrence adapter uses the current occurrence kind for this-scope edits'
+);
+
+select extensions.ok(
+  exists (
+    select 1
+    from public.recurring_transaction_schedule_events
+    where schedule_id = (select recurring_schedule_id from public.transactions where id = '00000000-0000-0000-0000-000000000630')
+      and household_id = '00000000-0000-0000-0000-000000000610'
+      and actor_id = '00000000-0000-0000-0000-000000000601'
+      and previous_status = 'active'
+      and new_status = 'paused'
+      and reason = 'paused_by_member'
+      and created_at is not null
+  ),
+  'lifecycle events preserve the full member transition payload'
+);
+
+set local role postgres;
+
+insert into public.categories (id, household_id, name, kind, color)
+values (
+  '00000000-0000-0000-0000-000000000660',
+  '00000000-0000-0000-0000-000000000610', 'Paused deletion category', 'expense', '#ccebef'
+);
+insert into public.subcategories (id, household_id, category_id, name)
+values (
+  '00000000-0000-0000-0000-000000000661',
+  '00000000-0000-0000-0000-000000000610', '00000000-0000-0000-0000-000000000660', 'Paused deletion destination'
+);
+
+set local role authenticated;
+
+select extensions.lives_ok(
+  $$
+    select public.create_recurring_transaction_schedule(
+      '00000000-0000-0000-0000-000000000610', null, 'expense', 17, current_date,
+      'Paused destination deletion', '', null, '00000000-0000-0000-0000-000000000661',
+      null, null, 'weekly', 1
+    )
+  $$,
+  'a schedule can be prepared for paused destination deletion'
+);
+
+select public.set_recurring_transaction_schedule_status(
+  (select id from public.recurring_transaction_schedules where merchant = 'Paused destination deletion'),
+  'paused'
+);
+
+select extensions.is(
+  (select status::text from public.recurring_transaction_schedules where merchant = 'Paused destination deletion'),
+  'paused',
+  'the compatibility paused state is persisted before destination deletion'
+);
+
+select extensions.lives_ok(
+  $$ delete from public.categories where id = '00000000-0000-0000-0000-000000000660' $$,
+  'deleting a paused schedule destination succeeds'
+);
+
+select extensions.is(
+  (select status::text from public.recurring_transaction_schedules where merchant = 'Paused destination deletion'),
+  'blocked',
+  'paused schedules with deleted destinations transition to blocked'
+);
+
+set local role postgres;
+
+insert into public.categories (id, household_id, name, kind, color)
+values (
+  '00000000-0000-0000-0000-000000000640',
+  '00000000-0000-0000-0000-000000000610', 'Repaired recurring category', 'expense', '#ccebef'
+);
+insert into public.subcategories (id, household_id, category_id, name)
+values (
+  '00000000-0000-0000-0000-000000000641',
+  '00000000-0000-0000-0000-000000000610', '00000000-0000-0000-0000-000000000640', 'Repaired recurring destination'
+);
+
+set local role authenticated;
+
+select extensions.lives_ok(
+  $$
+    select public.save_recurring_transaction_occurrence(
+      (select id from public.transactions where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Deletable destination') limit 1),
+      'future', 'expense', 12, current_date, 'Repaired destination', '', null, null,
+      '00000000-0000-0000-0000-000000000641', null, null, 'weekly', 1
+    )
+  $$,
+  'a blocked schedule can be repaired without implicitly resuming'
+);
+
+select extensions.is(
+  (select status::text from public.recurring_transaction_schedules where merchant = 'Repaired destination'),
+  'blocked',
+  'repairing a blocked destination does not silently resume the schedule'
+);
+
+select extensions.lives_ok(
+  $$
+    select public.set_recurring_transaction_schedule_status(
+      (select id from public.recurring_transaction_schedules where merchant = 'Repaired destination'),
+      'active'
+    )
+  $$,
+  'an authenticated member can explicitly resume a repaired blocked schedule'
+);
+
+select extensions.is(
+  (select status::text from public.recurring_transaction_schedules where merchant = 'Repaired destination'),
+  'active',
+  'explicit resume activates the repaired schedule'
+);
+
+set local role postgres;
+
+alter table public.recurring_transaction_schedules disable trigger recurring_transaction_schedules_validate_destination;
+alter table public.recurring_transaction_schedules disable trigger recurring_transaction_schedules_block_invalid_destination;
+insert into public.recurring_transaction_schedules (
+  id, household_id, created_by, kind, amount, merchant, note,
+  anchor_date, cadence, interval_count, next_occurrence_index, next_occurs_on, status
+)
+values (
+  '00000000-0000-0000-0000-000000000670',
+  '00000000-0000-0000-0000-000000000610',
+  '00000000-0000-0000-0000-000000000601', 'expense', 13, 'Processor blocked count', '',
+  current_date - 7, 'weekly', 1, 1, current_date, 'active'
+);
+alter table public.recurring_transaction_schedules enable trigger recurring_transaction_schedules_validate_destination;
+alter table public.recurring_transaction_schedules enable trigger recurring_transaction_schedules_block_invalid_destination;
+
+set local role service_role;
+
+select extensions.is(
+  (public.process_due_recurring_transaction_schedules(current_date)->>'blocked_count')::integer,
+  1,
+  'the processor reports one blocked schedule for an invalid due destination'
+);
+
+set local role postgres;
+
+select extensions.is(
+  (select status::text from public.recurring_transaction_schedules where id = '00000000-0000-0000-0000-000000000670'),
+  'blocked',
+  'processor destination classification persists the blocked state'
+);
+
+set local role service_role;
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (
+      id, household_id, created_by, kind, amount, occurred_on, merchant, note,
+      category_id, source, recurring_schedule_id, scheduled_for
+    ) values (
+      '00000000-0000-0000-0000-000000000671',
+      '00000000-0000-0000-0000-000000000610',
+      '00000000-0000-0000-0000-000000000601', 'expense', 8, current_date,
+      'Direct service metadata', '',
+      (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_expense'),
+      'manual',
+      (select recurring_schedule_id from public.transactions where id = '00000000-0000-0000-0000-000000000630'),
+      date '2099-01-02'
+    )
+  $$,
+  '%recurrence metadata%',
+  'service_role table DML cannot bypass protected recurrence metadata context'
+);
+
+set local role postgres;
+
+select extensions.throws_like(
+  $$
+    insert into public.transactions (
+      id, household_id, created_by, kind, amount, occurred_on, merchant, note,
+      category_id, source, recurring_schedule_id, scheduled_for
+    ) values (
+      '00000000-0000-0000-0000-000000000672',
+      '00000000-0000-0000-0000-000000000610',
+      '00000000-0000-0000-0000-000000000601', 'expense', 8, current_date,
+      'Direct postgres metadata', '',
+      (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_expense'),
+      'manual',
+      (select recurring_schedule_id from public.transactions where id = '00000000-0000-0000-0000-000000000630'),
+      date '2099-01-03'
+    )
+  $$,
+  '%recurrence metadata%',
+  'postgres table DML cannot bypass protected recurrence metadata context'
 );
 
 select * from extensions.finish();
