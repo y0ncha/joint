@@ -69,8 +69,7 @@ the 366-occurrence catch-up cap.
 
 Due processing returns exact integer `created_count` and `blocked_count`
 results. Classified destination failures block the schedule and contribute to
-`blocked_count`; unexpected failures are surfaced by the cron adapter as HTTP 500. The unique key and row locking make overlapping or duplicate cron calls
-idempotent (REQ-008).
+`blocked_count`; unexpected failures are surfaced by the cron adapter as HTTP 500. Vercel may start an overlapping invocation and may occasionally deliver the same cron event more than once; the unique occurrence key and `FOR UPDATE SKIP LOCKED` row locking make those invocations idempotent (REQ-008).
 
 For one release, legacy `enabled` reads and legacy lifecycle RPC names
 `set_recurring_transaction_schedule_enabled` and
