@@ -511,70 +511,74 @@ export function TransactionSheet({
                 <p className="font-medium">Recurring schedule</p>
                 <RecurringScheduleFields
                   actions={
-                    isRecurring && transaction?.recurringScheduleId ? (
+                    isRecurring && transaction?.recurringScheduleId && transaction.recurringScheduleStatus ? (
                       <>
-                        <Button
-                          disabled={isSchedulePending}
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="size-11"
-                          aria-label={transaction.recurringScheduleEnabled === false ? "Resume future repeats" : "Pause future repeats"}
-                          title={transaction.recurringScheduleEnabled === false ? "Resume future repeats" : "Pause future repeats"}
-                          onClick={() =>
-                            startScheduleTransition(async () => {
-                              const lifecycleAction =
-                                transaction.recurringScheduleEnabled === false
-                                  ? resumeRecurringTransactionSchedule
-                                  : pauseRecurringTransactionSchedule;
-                              const result = await lifecycleAction(transaction.recurringScheduleId!);
-                              if (result.status === "error") {
-                                toast.error(result.formError, { id: `schedule-${transaction.recurringScheduleId}` });
-                              }
-                            })
-                          }
-                        >
-                          {transaction.recurringScheduleEnabled === false ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              disabled={isSchedulePending}
-                              type="button"
-                              variant="destructive"
-                              size="icon"
-                              className="size-11"
-                              aria-label="Stop future repeats"
-                              title="Stop future repeats"
-                            >
-                              <CircleStop aria-hidden="true" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Stop future repeats?</AlertDialogTitle>
-                              <AlertDialogDescription>Existing transactions will stay in the shared ledger.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
+                        {transaction.recurringScheduleStatus !== "stopped" ? (
+                          <Button
+                            disabled={isSchedulePending}
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="size-11"
+                            aria-label={transaction.recurringScheduleStatus === "active" ? "Pause future repeats" : "Resume future repeats"}
+                            title={transaction.recurringScheduleStatus === "active" ? "Pause future repeats" : "Resume future repeats"}
+                            onClick={() =>
+                              startScheduleTransition(async () => {
+                                const lifecycleAction =
+                                  transaction.recurringScheduleStatus === "active"
+                                    ? pauseRecurringTransactionSchedule
+                                    : resumeRecurringTransactionSchedule;
+                                const result = await lifecycleAction(transaction.recurringScheduleId!);
+                                if (result.status === "error") {
+                                  toast.error(result.formError, { id: `schedule-${transaction.recurringScheduleId}` });
+                                }
+                              })
+                            }
+                          >
+                            {transaction.recurringScheduleStatus === "active" ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+                          </Button>
+                        ) : null}
+                        {transaction.recurringScheduleStatus === "active" || transaction.recurringScheduleStatus === "paused" ? (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
                                 disabled={isSchedulePending}
                                 type="button"
                                 variant="destructive"
-                                onClick={() =>
-                                  startScheduleTransition(async () => {
-                                    const result = await stopRecurringTransactionSchedule(transaction.recurringScheduleId!);
-                                    if (result.status === "error") {
-                                      toast.error(result.formError, { id: `schedule-${transaction.recurringScheduleId}` });
-                                    }
-                                  })
-                                }
+                                size="icon"
+                                className="size-11"
+                                aria-label="Stop future repeats"
+                                title="Stop future repeats"
                               >
-                                Stop future repeats
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                                <CircleStop aria-hidden="true" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Stop future repeats?</AlertDialogTitle>
+                                <AlertDialogDescription>Existing transactions will stay in the shared ledger.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  disabled={isSchedulePending}
+                                  type="button"
+                                  variant="destructive"
+                                  onClick={() =>
+                                    startScheduleTransition(async () => {
+                                      const result = await stopRecurringTransactionSchedule(transaction.recurringScheduleId!);
+                                      if (result.status === "error") {
+                                        toast.error(result.formError, { id: `schedule-${transaction.recurringScheduleId}` });
+                                      }
+                                    })
+                                  }
+                                >
+                                  Stop future repeats
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        ) : null}
                       </>
                     ) : undefined
                   }

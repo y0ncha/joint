@@ -375,6 +375,7 @@ it("uses one bottom save for recurring transaction edits", () => {
         note: "Monthly bill",
         merchant: "Electricity",
         recurringScheduleId: "schedule-id",
+        recurringScheduleStatus: "active",
         createdAt: "2026-07-15T08:00:00Z",
         paidBy: null,
       }}
@@ -414,13 +415,13 @@ it("wires pause, resume, and confirmed stop through the lifecycle adapters", asy
     merchant: "Electricity",
     source: "manual" as const,
     recurringScheduleId: "schedule-id",
-    recurringScheduleEnabled: false,
+    recurringScheduleStatus: "paused" as const,
     recurrenceCadence: "monthly" as const,
     recurrenceInterval: 1,
     createdAt: "2026-07-15T08:00:00Z",
     paidBy: null,
   };
-  const activeTree = TransactionSheet({ members: [], transaction: { ...transaction, recurringScheduleEnabled: true } });
+  const activeTree = TransactionSheet({ members: [], transaction: { ...transaction, recurringScheduleStatus: "active" } });
   findElement(activeTree, () => false);
   const pauseButton = findElement(
     activeTree,
@@ -473,6 +474,35 @@ it("wires pause, resume, and confirmed stop through the lifecycle adapters", asy
   expect(mocks.stopRecurringTransactionSchedule).toHaveBeenCalledWith("schedule-id");
 });
 
+it.each([
+  ["blocked", ["Resume future repeats"], ["Pause future repeats", "Stop future repeats"]],
+  ["stopped", [], ["Pause future repeats", "Resume future repeats", "Stop future repeats"]],
+] as const)("aligns %s lifecycle controls with canonical schedule status", (status, visibleLabels, hiddenLabels) => {
+  const tree = TransactionSheet({
+    members: [],
+    transaction: {
+      id: "recurring-transaction",
+      kind: "expense",
+      amount: 125,
+      occurredOn: "2026-07-15",
+      subcategoryId: null,
+      note: "Monthly bill",
+      merchant: "Electricity",
+      source: "manual",
+      recurringScheduleId: "schedule-id",
+      recurringScheduleStatus: status,
+      recurrenceCadence: "monthly",
+      recurrenceInterval: 1,
+      createdAt: "2026-07-15T08:00:00Z",
+      paidBy: null,
+    },
+  });
+  const markup = renderToStaticMarkup(tree);
+
+  for (const label of visibleLabels) expect(markup).toContain(`aria-label="${label}"`);
+  for (const label of hiddenLabels) expect(markup).not.toContain(`aria-label="${label}"`);
+});
+
 it("disables lifecycle controls while a schedule transition is pending", () => {
   mocks.transitionPending = true;
   const transaction = {
@@ -485,7 +515,7 @@ it("disables lifecycle controls while a schedule transition is pending", () => {
     merchant: "Electricity",
     source: "manual" as const,
     recurringScheduleId: "schedule-id",
-    recurringScheduleEnabled: true,
+    recurringScheduleStatus: "active" as const,
     recurrenceCadence: "monthly" as const,
     recurrenceInterval: 1,
     createdAt: "2026-07-15T08:00:00Z",
@@ -517,7 +547,7 @@ it.each(["future", "all"] as const)("submits the selected %s scope with stored i
     merchant: "Electricity",
     source: "manual" as const,
     recurringScheduleId: "schedule-id",
-    recurringScheduleEnabled: true,
+    recurringScheduleStatus: "active" as const,
     recurrenceCadence: "monthly" as const,
     recurrenceInterval: 1,
     createdAt: "2026-07-15T08:00:00Z",
@@ -570,7 +600,7 @@ it.each(["kind", "date"] as const)("limits a recurring %s change to this and omi
     merchant: "Electricity",
     source: "manual" as const,
     recurringScheduleId: "schedule-id",
-    recurringScheduleEnabled: true,
+    recurringScheduleStatus: "active" as const,
     recurrenceCadence: "monthly" as const,
     recurrenceInterval: 1,
     createdAt: "2026-07-15T08:00:00Z",

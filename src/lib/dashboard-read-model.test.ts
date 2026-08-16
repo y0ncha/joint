@@ -59,7 +59,7 @@ const mocks = vi.hoisted(() => {
         amount: 125,
         category_id: null,
         created_at: "2026-07-14T08:00:00Z",
-        id: "transaction-id",
+        id: "occurrence-zero",
         kind: "expense",
         merchant: "Market",
         note: "Groceries",
@@ -70,7 +70,24 @@ const mocks = vi.hoisted(() => {
         source: "manual",
         subcategory_id: "groceries",
         recurring_schedule_id: "schedule-id",
-        recurring_transaction_schedules: { enabled: true, cadence: "monthly", interval_count: 1 },
+        recurring_transaction_schedules: { status: "active", cadence: "monthly", interval_count: 1 },
+      },
+      {
+        amount: 125,
+        category_id: null,
+        created_at: "2026-07-21T08:00:00Z",
+        id: "later-occurrence",
+        kind: "expense",
+        merchant: "Market",
+        note: "Groceries",
+        occurred_on: "2026-07-21",
+        paid_by: "member-id",
+        service_period_end: "2026-07-31",
+        service_period_start: "2026-07-01",
+        source: "manual",
+        subcategory_id: "groceries",
+        recurring_schedule_id: "schedule-id",
+        recurring_transaction_schedules: { status: "active", cadence: "monthly", interval_count: 1 },
       },
     ]),
   };
@@ -227,11 +244,11 @@ it("passes a selected category to the authenticated spending projection", async 
   });
 });
 
-it("loads bounded ledger rows with recurring metadata", async () => {
+it("projects canonical recurring status and cadence for the anchor and later occurrences", async () => {
   const data = await getLedgerData({ month: "2026-07" });
 
   expect(mocks.selects.transactions).toHaveBeenCalledWith(
-    "id, kind, amount, occurred_on, merchant, note, category_id, subcategory_id, service_period_start, service_period_end, source, created_at, paid_by, recurring_schedule_id, recurring_transaction_schedules!transactions_recurring_schedule_id_fkey(enabled, cadence, interval_count)",
+    "id, kind, amount, occurred_on, merchant, note, category_id, subcategory_id, service_period_start, service_period_end, source, created_at, paid_by, recurring_schedule_id, recurring_transaction_schedules!transactions_recurring_schedule_id_fkey(status, cadence, interval_count)",
   );
   expect(mocks.transactions.gte).toHaveBeenCalledWith("occurred_on", "2026-07-01");
   expect(mocks.transactions.lte).toHaveBeenCalledWith("occurred_on", "2026-07-31");
@@ -239,12 +256,21 @@ it("loads bounded ledger rows with recurring metadata", async () => {
   expect(data.transactions).toEqual([
     expect.objectContaining({
       amount: 125,
-      id: "transaction-id",
+      id: "occurrence-zero",
       occurredOn: "2026-07-14",
       recurringScheduleId: "schedule-id",
-      recurringScheduleEnabled: true,
+      recurringScheduleStatus: "active",
+      recurrenceCadence: "monthly",
+      recurrenceInterval: 1,
       servicePeriodEnd: "2026-07-31",
       servicePeriodStart: "2026-07-01",
+    }),
+    expect.objectContaining({
+      id: "later-occurrence",
+      recurringScheduleId: "schedule-id",
+      recurringScheduleStatus: "active",
+      recurrenceCadence: "monthly",
+      recurrenceInterval: 1,
     }),
   ]);
 });
