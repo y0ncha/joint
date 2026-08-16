@@ -71,6 +71,10 @@ select extensions.throws_like(
   'omitted recurring arguments fail immediately instead of entering a null loop'
 );
 
+set local role service_role;
+select public.process_due_recurring_transaction_schedules(current_date);
+set local role authenticated;
+
 select extensions.lives_ok(
   $$
     select public.create_recurring_transaction_schedule(
