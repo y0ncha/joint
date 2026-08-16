@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useActionState, useEffect, useMemo, useReducer, useRef, useState, useTransition, type ReactNode } from "react";
-import { CalendarRange, Plus, Trash2 } from "lucide-react";
+import { CalendarRange, CircleOff, Pause, Play, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { createTransaction, deleteTransaction, updateTransaction } from "@/app/actions/transactions";
@@ -201,20 +201,27 @@ export function TransactionSheet({
 
   function submitRecurringScope(scope: "this" | "future" | "all") {
     if (!recurringUpdate) return;
-    recurringUpdate.set("recurrenceScope", scope);
+    const update = recurringUpdate;
     setRecurringUpdate(null);
-    startTransition(() => formAction(recurringUpdate));
-  }
-
-  function saveFutureSchedule() {
-    if (!transaction?.recurringScheduleId || !formRef.current || !recurrenceCadence) return;
-    const formData = new FormData(formRef.current);
-    formData.set("cadence", recurrenceCadence);
-    formData.set("intervalCount", recurrenceCadence.startsWith("custom_") ? recurrenceInterval : "1");
-    startScheduleTransition(async () => {
-      const result = await updateRecurringTransactionSchedule(transaction.recurringScheduleId!, formData);
-      if (result.status === "error") toast.error(result.formError, { id: `schedule-${transaction.recurringScheduleId}` });
-    });
+    const repeatChanged =
+      recurrenceCadence !== (transaction?.recurrenceCadence ?? "monthly") ||
+      Number(recurrenceInterval) !== (transaction?.recurrenceInterval ?? 1);
+    if ((scope === "future" || scope === "all") && transaction?.recurringScheduleId && repeatChanged) {
+      update.set("cadence", recurrenceCadence);
+      update.set("intervalCount", recurrenceCadence.startsWith("custom_") ? recurrenceInterval : "1");
+      startScheduleTransition(async () => {
+        const result = await updateRecurringTransactionSchedule(transaction.recurringScheduleId!, update);
+        if (result.status === "error") {
+          toast.error(result.formError, { id: `schedule-${transaction.recurringScheduleId}` });
+          return;
+        }
+        update.set("recurrenceScope", scope);
+        startTransition(() => formAction(update));
+      });
+      return;
+    }
+    update.set("recurrenceScope", scope);
+    startTransition(() => formAction(update));
   }
 
   return (
@@ -531,6 +538,125 @@ export function TransactionSheet({
                 ) : null}
               </Field>
             ) : null}
+            {isRecurring && transaction?.recurringScheduleId ? (
+              <FieldGroup className="gap-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">Recurring schedule</p>
+                    <Badge variant="secondary">{transaction.recurringScheduleEnabled === false ? "Paused" : "Active"}</Badge>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      disabled={isSchedulePending}
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="size-11"
+                      aria-label={transaction.recurringScheduleEnabled === false ? "Resume future repeats" : "Pause future repeats"}
+                      title={transaction.recurringScheduleEnabled === false ? "Resume future repeats" : "Pause future repeats"}
+                      onClick={() =>
+                        startScheduleTransition(async () => {
+                          const result = await pauseRecurringTransactionSchedule(
+                            transaction.recurringScheduleId!,
+                            transaction.recurringScheduleEnabled === false,
+                          );
+                          if (result.status === "error") {
+                            toast.error(result.formError, { id: `schedule-${transaction.recurringScheduleId}` });
+                          }
+                        })
+                      }
+                    >
+                      {transaction.recurringScheduleEnabled === false ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="size-11"
+                          aria-label="Stop future repeats"
+                          title="Stop future repeats"
+                        >
+                          <CircleOff aria-hidden="true" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Stop future repeats?</AlertDialogTitle>
+                          <AlertDialogDescription>Existing transactions will stay in the shared ledger.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            type="button"
+                            variant="destructive"
+                            onClick={() =>
+                              startTransition(async () => {
+                                const result = await deleteRecurringTransactionSchedule(transaction.recurringScheduleId!);
+                                if (result.status === "error") {
+                                  toast.error(result.formError, { id: `schedule-${transaction.recurringScheduleId}` });
+                                }
+                              })
+                            }
+                          >
+                            Stop future repeats
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+                <Field>
+                  <FieldLabel htmlFor="recurrence-cadence">Repeat</FieldLabel>
+                  <Select
+                    value={recurrenceCadence.startsWith("custom_") ? "custom" : recurrenceCadence || "monthly"}
+                    onValueChange={(value) =>
+                      setRecurrenceCadence(value === "custom" ? "custom_weekly" : (value as typeof recurrenceCadence))
+                    }
+                  >
+                    <SelectTrigger id="recurrence-cadence" className="w-full rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="custom">Custom</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {recurrenceCadence.startsWith("custom_") ? (
+                  <FieldGroup className="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
+                    <Field>
+                      <FieldLabel htmlFor="recurrence-interval" className="sr-only">
+                        Repeat every
+                      </FieldLabel>
+                      <Input
+                        id="recurrence-interval"
+                        inputMode="numeric"
+                        min="1"
+                        type="number"
+                        value={recurrenceInterval}
+                        onChange={(event) => setRecurrenceInterval(event.target.value)}
+                      />
+                    </Field>
+                    <Select value={recurrenceCadence} onValueChange={(value) => setRecurrenceCadence(value as typeof recurrenceCadence)}>
+                      <SelectTrigger aria-label="Recurrence unit" className="w-full rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value="custom_weekly">Weeks</SelectItem>
+                          <SelectItem value="custom_monthly">Months</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </FieldGroup>
+                ) : null}
+              </FieldGroup>
+            ) : null}
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.note)}>
               <FieldLabel htmlFor="note">Note</FieldLabel>
               <Textarea
@@ -543,118 +669,11 @@ export function TransactionSheet({
               />
               {state?.status === "error" ? <FieldError>{state.fieldErrors.note}</FieldError> : null}
             </Field>
-            <Button disabled={isPending} type="submit" className="rounded-xl">
+            <Button disabled={isPending || isSchedulePending} type="submit" className="h-11 rounded-xl">
               {isEditing ? "Save changes" : "Save transaction"}
             </Button>
           </FieldGroup>
         </form>
-        {isRecurring && transaction?.recurringScheduleId ? (
-          <div className="px-6 pb-6">
-            <div className="flex items-center justify-between gap-3">
-              <p className="font-medium">Recurring schedule</p>
-              <Badge variant="secondary">{transaction.recurringScheduleEnabled === false ? "Paused" : "Active"}</Badge>
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">Manage future repeats from this transaction.</p>
-            <FieldGroup className="mt-4">
-              <Field>
-                <FieldLabel htmlFor="recurrence-cadence">Repeat</FieldLabel>
-                <Select
-                  value={recurrenceCadence.startsWith("custom_") ? "custom" : recurrenceCadence || "monthly"}
-                  onValueChange={(value) =>
-                    setRecurrenceCadence(value === "custom" ? "custom_weekly" : (value as typeof recurrenceCadence))
-                  }
-                >
-                  <SelectTrigger id="recurrence-cadence" className="w-full rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                      <SelectItem value="custom">Custom</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-              {recurrenceCadence.startsWith("custom_") ? (
-                <FieldGroup className="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
-                  <Field>
-                    <FieldLabel htmlFor="recurrence-interval" className="sr-only">
-                      Repeat every
-                    </FieldLabel>
-                    <Input
-                      id="recurrence-interval"
-                      inputMode="numeric"
-                      min="1"
-                      type="number"
-                      value={recurrenceInterval}
-                      onChange={(event) => setRecurrenceInterval(event.target.value)}
-                    />
-                  </Field>
-                  <Select value={recurrenceCadence} onValueChange={(value) => setRecurrenceCadence(value as typeof recurrenceCadence)}>
-                    <SelectTrigger aria-label="Recurrence unit" className="w-full rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="custom_weekly">Weeks</SelectItem>
-                        <SelectItem value="custom_monthly">Months</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </FieldGroup>
-              ) : null}
-              <Button disabled={isSchedulePending} type="button" variant="outline" onClick={saveFutureSchedule}>
-                Save future schedule
-              </Button>
-            </FieldGroup>
-            <Button
-              disabled={isSchedulePending}
-              type="button"
-              variant="outline"
-              className="mt-3"
-              onClick={() =>
-                startScheduleTransition(async () => {
-                  const result = await pauseRecurringTransactionSchedule(
-                    transaction.recurringScheduleId!,
-                    transaction.recurringScheduleEnabled === false,
-                  );
-                  if (result.status === "error") toast.error(result.formError, { id: `schedule-${transaction.recurringScheduleId}` });
-                })
-              }
-            >
-              {transaction.recurringScheduleEnabled === false ? "Resume future repeats" : "Pause future repeats"}
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button type="button" variant="ghost" className="mt-3 text-destructive">
-                  Stop future repeats
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Stop future repeats?</AlertDialogTitle>
-                  <AlertDialogDescription>Existing transactions will stay in the shared ledger.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    type="button"
-                    variant="destructive"
-                    onClick={() =>
-                      startTransition(async () => {
-                        const result = await deleteRecurringTransactionSchedule(transaction.recurringScheduleId!);
-                        if (result.status === "error") toast.error(result.formError, { id: `schedule-${transaction.recurringScheduleId}` });
-                      })
-                    }
-                  >
-                    Stop future repeats
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        ) : null}
         <AlertDialog
           open={Boolean(recurringUpdate)}
           onOpenChange={(open) => {
@@ -665,7 +684,8 @@ export function TransactionSheet({
             <AlertDialogHeader>
               <AlertDialogTitle>Apply these changes to recurring transactions?</AlertDialogTitle>
               <AlertDialogDescription>
-                Future and all scopes keep each occurrence’s posting date. Date and type changes apply only to this transaction.
+                Future and all scopes update the repeat schedule while keeping each occurrence’s posting date. Date and type changes apply
+                only to this transaction.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

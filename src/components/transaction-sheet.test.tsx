@@ -233,7 +233,7 @@ it("uses a regular dropdown for transaction type without a search field", () => 
   expect(markup).toContain("border-positive/20 bg-positive/10 text-positive");
 });
 
-it("keeps recurring schedule controls in the transaction edit sheet", () => {
+it("uses one bottom save for recurring transaction edits", () => {
   const markup = renderToStaticMarkup(
     <TransactionSheet
       members={[]}
@@ -254,12 +254,18 @@ it("keeps recurring schedule controls in the transaction edit sheet", () => {
 
   expect(markup).toContain("Recurring schedule");
   expect(markup).toContain("Active");
-  expect(markup).toContain("Pause future repeats");
-  expect(markup).toContain("Save future schedule");
+  expect(markup).toContain('aria-label="Pause future repeats"');
+  expect(markup).toContain('aria-label="Stop future repeats"');
+  expect(markup).toMatch(/aria-label="Pause future repeats"[^>]*><svg/);
+  expect(markup).toMatch(/aria-label="Stop future repeats"[^>]*><svg/);
+  expect(markup).not.toContain("Save future schedule");
+  expect(markup).not.toContain("Manage future repeats from this transaction.");
+  expect(markup.indexOf("Recurring schedule")).toBeLessThan(markup.indexOf("Note"));
+  expect(markup.indexOf("Note")).toBeLessThan(markup.indexOf("Save changes"));
+  expect(markup).toMatch(/class="[^"]*h-11[^"]*" type="submit">Save changes/);
   expect(markup).toContain("Apply to this transaction");
   expect(markup).toContain("Apply to future transactions");
   expect(markup).toContain("Apply to all transactions");
-  expect(markup).toContain("Stop future repeats");
 });
 
 it("opens a new billing period calendar in the viewed ledger month", () => {
