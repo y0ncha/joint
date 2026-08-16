@@ -30,6 +30,10 @@ export type ReportTransaction = {
   note: string;
   merchant?: string;
   source?: "manual" | "statement_import";
+  recurringScheduleId?: string | null;
+  recurringScheduleEnabled?: boolean | null;
+  recurrenceCadence?: "weekly" | "monthly" | "custom_weekly" | "custom_monthly" | null;
+  recurrenceInterval?: number | null;
   createdAt: string;
   paidBy: string | null;
 };

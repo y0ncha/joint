@@ -227,7 +227,7 @@ function CategoryEditor({
                   <input name="kind" type="hidden" value={category.kind} />
                   <Field>
                     <FieldLabel htmlFor={`category-name-${category.id}`}>Name</FieldLabel>
-                    <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+                    <div className="flex h-11 overflow-hidden rounded-xl border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
                       <DisabledControl message="Built-in categories cannot be renamed, have their type changed, or be deleted.">
                         <Input
                           id={`category-name-${category.id}`}
@@ -257,7 +257,7 @@ function CategoryEditor({
               ) : (
                 <Field>
                   <FieldLabel htmlFor={`category-name-${category.id}`}>Name</FieldLabel>
-                  <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+                  <div className="flex h-11 overflow-hidden rounded-xl border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
                     <Input
                       id={`category-name-${category.id}`}
                       name="name"

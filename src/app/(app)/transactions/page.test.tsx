@@ -49,7 +49,18 @@ describe("Transactions page", () => {
       currentUserId: "member-id",
       members: [{ id: "member-id", label: "You" }],
       paidByIds: [],
-      schedules: [],
+      schedules: [
+        {
+          id: "schedule-id",
+          amount: 10,
+          cadence: "monthly",
+          enabled: true,
+          merchant: "Electricity",
+          next_occurs_on: "2026-07-15",
+          note: "",
+          interval_count: 1,
+        },
+      ],
       transactions: [
         {
           id: "outside",
@@ -104,6 +115,7 @@ describe("Transactions page", () => {
     expect(markup.match(/<button[^>]*aria-label="Select ledger month"[^>]*>/)?.[0]).toContain("min-h-11");
     expect(markup.match(/<button[^>]*aria-label="Select ledger year"[^>]*>/)?.[0]).toContain("min-h-11");
     expect(markup.match(/<button[^>]*aria-label="Choose custom date range"[^>]*>/)?.[0]).toContain("min-h-11");
+    expect(markup).not.toContain("Recurring schedules");
   });
 
   it("opens the import sidebar without replacing the transactions page", async () => {

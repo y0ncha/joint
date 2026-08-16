@@ -15,14 +15,17 @@ const mocks = vi.hoisted(() => ({
     value: string;
   }>,
   categoryChange: undefined as undefined | ((value: string) => void),
-  actionState: null as null | { status: "error"; formError: string; fieldErrors: Record<string, string> },
+  actionState: null as unknown,
   createTransaction: vi.fn(),
+  deleteRecurringTransactionSchedule: vi.fn(),
   dateSelect: undefined as undefined | ((date: Date | undefined) => void),
   formAction: undefined as undefined | ((previousState: unknown, formData: FormData) => unknown),
   kindChange: undefined as undefined | ((value: string) => void),
   recurrenceChange: undefined as undefined | ((value: string) => void),
+  pauseRecurringTransactionSchedule: vi.fn(),
   state: [] as unknown[],
   stateIndex: 0,
+  updateRecurringTransactionSchedule: vi.fn(),
 }));
 
 vi.mock("react", async (importOriginal) => {
@@ -61,6 +64,11 @@ vi.mock("@/app/actions/transactions", () => ({
   createTransaction: mocks.createTransaction,
   deleteTransaction: vi.fn(),
   updateTransaction: vi.fn(),
+}));
+vi.mock("@/app/actions/recurring-transactions", () => ({
+  deleteRecurringTransactionSchedule: mocks.deleteRecurringTransactionSchedule,
+  pauseRecurringTransactionSchedule: mocks.pauseRecurringTransactionSchedule,
+  updateRecurringTransactionSchedule: mocks.updateRecurringTransactionSchedule,
 }));
 vi.mock("@/components/pill-select", () => ({
   PillSelect: ({
@@ -126,18 +134,18 @@ vi.mock("@/components/ui/alert-dialog", () => ({
 }));
 
 vi.mock("@/components/ui/select", () => ({
-  Select: ({ children, onValueChange }: { children: ReactNode; onValueChange: (value: string) => void }) => {
-    mocks.recurrenceChange = onValueChange;
-    return (
-      <button data-select="recurrence-cadence" type="button">
-        {children}
-      </button>
-    );
+  Select: ({ children, onValueChange, value }: { children: ReactNode; onValueChange: (value: string) => void; value?: string }) => {
+    const isTypeSelector = value === "income" || value === "expense";
+    if (isTypeSelector) mocks.kindChange = onValueChange;
+    else mocks.recurrenceChange = onValueChange;
+    return <div data-select={isTypeSelector ? "transaction-kind" : "recurrence-cadence"}>{children}</div>;
   },
   SelectContent: ({ children }: { children: ReactNode }) => children,
   SelectGroup: ({ children }: { children: ReactNode }) => children,
   SelectItem: ({ children }: { children: ReactNode }) => children,
-  SelectTrigger: ({ children }: { children: ReactNode }) => children,
+  SelectTrigger: ({ children, ...props }: { children: ReactNode } & React.ComponentProps<"button">) => (
+    <button {...props}>{children}</button>
+  ),
   SelectValue: ({ placeholder }: { placeholder?: string }) => placeholder,
 }));
 
@@ -212,6 +220,86 @@ it("opens a new transaction calendar in the viewed ledger month", () => {
   renderToStaticMarkup(<TransactionSheet defaultMonth="2026-03" members={[]} />);
 
   expect(mocks.calendarDefaultMonths[0]?.toISOString()).toContain("2026-03-01");
+});
+
+it("reuses the rules preview before creating a rule-matched transaction", () => {
+  mocks.actionState = {
+    status: "automation_confirmation_required",
+    automationPreview: {
+      changes: [
+        {
+          id: "manual",
+          merchant: "Corner Market",
+          category_id: null,
+          subcategory_id: "groceries",
+          expected_updated_at: "new",
+          expected_merchant: "Corner shop",
+          expected_category_id: null,
+          expected_subcategory_id: null,
+        },
+      ],
+      conflicts: [],
+      fingerprint: "automation-fingerprint",
+      ruleSet: [],
+    },
+  };
+
+  const markup = renderSheet();
+
+  expect(markup).toContain("Preview");
+  expect(markup).toContain("Corner shop");
+  expect(markup).toContain("Corner Market");
+  expect(markup).toContain("Confirm &amp; create");
+});
+
+it("uses a regular dropdown for transaction type without a search field", () => {
+  const markup = renderSheet();
+
+  expect(markup).toContain('data-select="transaction-kind"');
+  expect(markup).toContain('id="transaction-kind"');
+  expect(markup).not.toContain('aria-label="Type"');
+  expect(markup).not.toContain("Search type…");
+  expect(markup).toContain("border-negative/20 bg-negative/10 text-negative");
+  expect(markup).toContain("border-positive/20 bg-positive/10 text-positive");
+});
+
+it("uses one bottom save for recurring transaction edits", () => {
+  const markup = renderToStaticMarkup(
+    <TransactionSheet
+      members={[]}
+      transaction={{
+        id: "recurring-transaction",
+        kind: "expense",
+        amount: 125,
+        occurredOn: "2026-07-15",
+        subcategoryId: null,
+        note: "Monthly bill",
+        merchant: "Electricity",
+        recurringScheduleId: "schedule-id",
+        createdAt: "2026-07-15T08:00:00Z",
+        paidBy: null,
+      }}
+    />,
+  );
+
+  expect(markup).toContain("Recurring schedule");
+  expect(markup).not.toContain(">Active<");
+  expect(markup).toContain('aria-label="Pause future repeats"');
+  expect(markup).toContain('aria-label="Stop future repeats"');
+  expect(markup).toMatch(/aria-label="Pause future repeats"[^>]*><svg/);
+  expect(markup).toMatch(/aria-label="Stop future repeats"[^>]*><svg/);
+  expect(markup).toContain("lucide-square");
+  expect(markup).not.toContain(">Repeat<");
+  expect(markup).toMatch(/class="[^"]*sr-only[^"]*" for="recurrence-cadence">Recurring cadence<\/label>/);
+  expect(markup).toContain("grid-cols-[minmax(0,1fr)_auto] items-end gap-3");
+  expect(markup).not.toContain("Save future schedule");
+  expect(markup).not.toContain("Manage future repeats from this transaction.");
+  expect(markup.indexOf("Recurring schedule")).toBeLessThan(markup.indexOf("Note"));
+  expect(markup.indexOf("Note")).toBeLessThan(markup.indexOf("Save changes"));
+  expect(markup).toMatch(/class="[^"]*h-11[^"]*" type="submit">Save changes/);
+  expect(markup).toContain("Apply to this transaction");
+  expect(markup).toContain("Apply to future transactions");
+  expect(markup).toContain("Apply to all transactions");
 });
 
 it("opens a new billing period calendar in the viewed ledger month", () => {
@@ -305,7 +393,7 @@ it("renders the transaction composer with labelled core controls", () => {
     />,
   );
   expect(markup).toContain('aria-label="Add transaction"');
-  expect(markup).toContain('aria-label="Type"');
+  expect(markup).toContain('id="transaction-kind"');
   expect(markup).toContain("Expense");
   expect(markup).toContain('data-select="recurrence-cadence"');
   expect(markup).toContain("None");
@@ -318,8 +406,8 @@ it("renders the transaction composer with labelled core controls", () => {
   expect(markup.indexOf("Category")).toBeLessThan(markup.indexOf("transaction-date-label"));
   expect(markup.indexOf("transaction-date-label")).toBeLessThan(markup.indexOf("Merchant"));
   expect(markup.indexOf("Merchant")).toBeLessThan(markup.indexOf("Paid by"));
-  expect(markup.indexOf("Paid by")).toBeLessThan(markup.indexOf('aria-label="Type"'));
-  expect(markup.indexOf('aria-label="Type"')).toBeLessThan(markup.indexOf("Note"));
+  expect(markup.indexOf("Paid by")).toBeLessThan(markup.indexOf('id="transaction-kind"'));
+  expect(markup.indexOf('id="transaction-kind"')).toBeLessThan(markup.indexOf("Note"));
 });
 
 it("uses a dropdown for custom cadence units", () => {

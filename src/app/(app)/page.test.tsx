@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   getDashboardMonthlyReview: vi.fn(),
   getDashboardSpending: vi.fn(),
   getDashboardSummary: vi.fn(),
+  getBudgetsGoalsData: vi.fn(),
   transactionSheetProps: null as null | {
     currentUserId: string;
     directCategories: Array<{ id: string }>;
@@ -20,6 +21,7 @@ vi.mock("@/lib/dashboard-read-model", () => ({
   getDashboardSpending: mocks.getDashboardSpending,
   getDashboardSummary: mocks.getDashboardSummary,
 }));
+vi.mock("@/lib/budgets-goals-data", () => ({ getBudgetsGoalsData: mocks.getBudgetsGoalsData }));
 vi.mock("@/components/transaction-sheet", () => ({
   TransactionSheet: (props: NonNullable<typeof mocks.transactionSheetProps>) => {
     mocks.transactionSheetProps = props;
@@ -32,7 +34,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-import Home, { BudgetsPlaceholder, DashboardActions, DashboardMetricCards, DashboardTrendCard, SpendingCard } from "./page";
+import Home, { BudgetsGoalsWidget, DashboardActions, DashboardMetricCards, DashboardTrendCard, SpendingCard } from "./page";
 
 const options = { month: "2026-07" };
 const summary = {
@@ -50,6 +52,115 @@ const monthlyReview = [
   { month: "2026-06-01", income: 10000, expenses: 8000, savings: 2000 },
   { month: "2026-07-01", income: 12000, expenses: 9000, savings: 3000 },
 ];
+const budgetsGoalsData = {
+  budgets: [
+    {
+      id: "rent",
+      label: "Rent",
+      name: "Rent",
+      monthlyBudget: 1000,
+      spent: 1500,
+      targetKind: "category" as const,
+      progress: {
+        spentAgorot: 150000,
+        budgetAgorot: 100000,
+        percentage: 150,
+        barPercentage: 100,
+        remainingAgorot: 0,
+        overBudgetAgorot: 50000,
+      },
+    },
+    {
+      id: "groceries",
+      label: "Groceries",
+      name: "Groceries",
+      monthlyBudget: 500,
+      spent: 400,
+      targetKind: "subcategory" as const,
+      progress: {
+        spentAgorot: 40000,
+        budgetAgorot: 50000,
+        percentage: 80,
+        barPercentage: 80,
+        remainingAgorot: 10000,
+        overBudgetAgorot: 0,
+      },
+    },
+    {
+      id: "other",
+      label: "Other",
+      name: "Other",
+      monthlyBudget: 200,
+      spent: 20,
+      targetKind: "category" as const,
+      progress: {
+        spentAgorot: 2000,
+        budgetAgorot: 20000,
+        percentage: 10,
+        barPercentage: 10,
+        remainingAgorot: 18000,
+        overBudgetAgorot: 0,
+      },
+    },
+  ],
+  goals: [
+    {
+      id: "soon",
+      label: "Emergency fund",
+      name: "Emergency fund",
+      savedAmount: 250,
+      targetAmount: 1000,
+      targetDate: "2026-09-01",
+      progress: {
+        targetAgorot: 100000,
+        savedAgorot: 25000,
+        percentage: 25,
+        barPercentage: 25,
+        remainingAgorot: 75000,
+        monthlyRequiredAgorot: 37500,
+        remainingMonths: 2,
+        status: "active" as const,
+      },
+    },
+    {
+      id: "later",
+      label: "Holiday",
+      name: "Holiday",
+      savedAmount: 0,
+      targetAmount: 500,
+      targetDate: "2027-01-01",
+      progress: {
+        targetAgorot: 50000,
+        savedAgorot: 0,
+        percentage: 0,
+        barPercentage: 0,
+        remainingAgorot: 50000,
+        monthlyRequiredAgorot: 10000,
+        remainingMonths: 5,
+        status: "active" as const,
+      },
+    },
+    {
+      id: "done",
+      label: "Finished",
+      name: "Finished",
+      savedAmount: 100,
+      targetAmount: 100,
+      targetDate: "2026-01-01",
+      progress: {
+        targetAgorot: 10000,
+        savedAgorot: 10000,
+        percentage: 100,
+        barPercentage: 100,
+        remainingAgorot: 0,
+        monthlyRequiredAgorot: 0,
+        remainingMonths: null,
+        status: "complete" as const,
+      },
+    },
+  ],
+  targets: { categories: [], subcategories: [] },
+};
 
 function renderHome(
   searchParams: { from?: string; month?: string; spendingCategories?: string; spendingGranularity?: string; to?: string } = {},
@@ -123,6 +234,7 @@ describe("Joint dashboard", () => {
     mocks.getDashboardSpending.mockResolvedValue({
       categoryTotals: [{ categoryId: "home-category-id", categoryName: "Home", amount: 4280 }],
     });
+    mocks.getBudgetsGoalsData.mockResolvedValue(budgetsGoalsData);
   });
 
   it("keeps the dashboard frame visible while controls and cards wait for focused reads", async () => {
@@ -136,7 +248,7 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("Loading Outgoings");
     expect(markup).toContain("Loading Monthly balance");
     expect(markup).toContain("Loading Where your money went");
-    expect(markup).toContain("Budgets are coming soon.");
+    expect(markup).toContain("Loading Budgets &amp; Goals");
     expect(markup).toContain("Loading Six-month trend");
     expect(markup).not.toContain("Latest activity");
   });
@@ -166,7 +278,7 @@ describe("Joint dashboard", () => {
     const markup = [
       renderToStaticMarkup(await DashboardMetricCards({ options })),
       renderToStaticMarkup(await SpendingCard({ options })),
-      renderToStaticMarkup(<BudgetsPlaceholder />),
+      renderToStaticMarkup(await BudgetsGoalsWidget({ options })),
       renderToStaticMarkup(await DashboardTrendCard({ review })),
     ].join("");
 
@@ -178,8 +290,10 @@ describe("Joint dashboard", () => {
     expect(markup).toContain("5% above previous 3-month average");
     expect(markup).toContain("Where your money went");
     expect(markup).toContain("Expense categories for this period.");
-    expect(markup).toContain("Budgets");
-    expect(markup).toContain("Budgets are coming soon.");
+    expect(markup).toContain("Budgets &amp; Goals");
+    expect(markup).toContain('href="/budgets-goals"');
+    expect(markup).toContain('aria-label="Edit budgets and goals"');
+    expect(markup).not.toContain(">Manage<");
     expect(markup).not.toContain("Largest changes");
     expect(markup).toContain("Six-month trend");
     expect(markup).toContain('data-slot="card-header"');
@@ -194,6 +308,88 @@ describe("Joint dashboard", () => {
     expect(mocks.getDashboardSummary).toHaveBeenCalledWith(options);
     expect(mocks.getDashboardSummary).toHaveBeenCalledTimes(1);
     expect(mocks.getDashboardSpending).toHaveBeenCalledWith(options);
+    expect(mocks.getBudgetsGoalsData).toHaveBeenCalledWith(options);
+  });
+
+  it("shows two most urgent budgets, nearest incomplete goal, and tooltip-only details", async () => {
+    const markup = renderToStaticMarkup(await BudgetsGoalsWidget({ options }));
+
+    expect(markup).toContain("Rent");
+    expect(markup).toContain("Groceries");
+    expect(markup).not.toContain(">Other<");
+    expect(markup).toContain("Emergency fund");
+    expect(markup).not.toContain(">Holiday<");
+    expect(markup).not.toContain(">Finished<");
+    expect(markup).toContain('aria-label="Rent: Category; ₪1,500.00 spent of ₪1,000.00 budget; ₪500.00 over budget"');
+    expect(markup).toContain('aria-label="Groceries: Subcategory; ₪400.00 spent of ₪500.00 budget; ₪100.00 remaining"');
+    expect(markup).toContain(
+      'aria-label="Emergency fund: ₪250.00 saved of ₪1,000.00 target; needed by 01/09/2026; Active; save ₪375.00 per month; ₪750.00 remaining"',
+    );
+    expect(markup).toContain("size-11");
+    expect(markup).toContain("flex flex-1 flex-col justify-start gap-4");
+    expect(markup).toContain("grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4");
+    expect(markup).toContain('role="progressbar"');
+    expect(markup).toContain('aria-valuenow="100"');
+    expect(markup).not.toContain("Shared spending limits for your household.");
+  });
+
+  it("keeps overdue status in goal details while showing progress directly", async () => {
+    mocks.getBudgetsGoalsData.mockResolvedValue({
+      ...budgetsGoalsData,
+      budgets: [],
+      goals: [
+        {
+          ...budgetsGoalsData.goals[0],
+          progress: {
+            ...budgetsGoalsData.goals[0].progress,
+            monthlyRequiredAgorot: null,
+            remainingMonths: null,
+            status: "overdue" as const,
+          },
+        },
+      ],
+    });
+
+    const markup = renderToStaticMarkup(await BudgetsGoalsWidget({ options }));
+
+    expect(markup).toContain(">25%<");
+    expect(markup).not.toContain(">Overdue<");
+    expect(markup).toContain("; Overdue; no monthly saving available;");
+  });
+
+  it("keeps cents in tooltip amounts", async () => {
+    mocks.getBudgetsGoalsData.mockResolvedValue({
+      ...budgetsGoalsData,
+      budgets: [
+        {
+          ...budgetsGoalsData.budgets[0],
+          monthlyBudget: 1234.56,
+          spent: 1234.56,
+          progress: {
+            ...budgetsGoalsData.budgets[0].progress,
+            percentage: 100,
+            barPercentage: 100,
+            overBudgetAgorot: 0,
+            remainingAgorot: 0,
+          },
+        },
+      ],
+      goals: [],
+    });
+
+    const markup = renderToStaticMarkup(await BudgetsGoalsWidget({ options }));
+
+    expect(markup).toContain('aria-label="Rent: Category; ₪1,234.56 spent of ₪1,234.56 budget; ₪0.00 remaining"');
+  });
+
+  it("keeps the dashboard widget concise when no budgets or goals exist", async () => {
+    mocks.getBudgetsGoalsData.mockResolvedValue({ budgets: [], goals: [], targets: { categories: [], subcategories: [] } });
+
+    const markup = renderToStaticMarkup(await BudgetsGoalsWidget({ options }));
+
+    expect(markup).toContain("No budgets or goals yet.");
+    expect(markup).toContain('href="/budgets-goals"');
+    expect(markup).not.toContain('role="progressbar"');
   });
 
   it("keeps the dashboard headline amounts in the default foreground", async () => {

@@ -27,6 +27,12 @@ it("starts with the category creation mode", () => {
   expect(markup).not.toContain("First subcategory");
 });
 
+it("keeps the compound category name control at the shared sheet height", () => {
+  const markup = categoryFormModule ? renderToStaticMarkup(<categoryFormModule.CategoryCreationPreview />) : "";
+
+  expect(markup).toMatch(/<div class="[^"]*h-11[^"]*rounded-xl[^"]*">\s*<input/);
+});
+
 it("labels the category creation trigger", () => {
   const markup = categoryFormModule ? renderToStaticMarkup(<categoryFormModule.CategorySheet />) : "";
 

@@ -107,7 +107,7 @@ export function CategoryCreationPreview({
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="category-name">Name</FieldLabel>
-              <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+              <div className="flex h-11 overflow-hidden rounded-xl border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
                 <Input
                   id="category-name"
                   name="name"
@@ -167,7 +167,7 @@ export function CategoryCreationPreview({
             </Field>
             <Field>
               <FieldLabel htmlFor="subcategory-name">Name</FieldLabel>
-              <div className="flex overflow-hidden rounded-lg border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+              <div className="flex h-11 overflow-hidden rounded-xl border border-input bg-white/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
                 <Input
                   id="subcategory-name"
                   name="name"

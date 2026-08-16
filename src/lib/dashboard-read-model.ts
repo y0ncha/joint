@@ -175,7 +175,7 @@ export async function getLedgerData({
   const transactionsQuery = household.supabase
     .from("transactions")
     .select(
-      "id, kind, amount, occurred_on, merchant, note, category_id, subcategory_id, service_period_start, service_period_end, source, created_at, paid_by",
+      "id, kind, amount, occurred_on, merchant, note, category_id, subcategory_id, service_period_start, service_period_end, source, created_at, paid_by, recurring_schedule_id, recurring_transaction_schedules!transactions_recurring_schedule_id_fkey(enabled, cadence, interval_count)",
     )
     .eq("household_id", household.householdId)
     .gte("occurred_on", ledgerRange.from)
@@ -213,33 +213,34 @@ export async function getLedgerData({
   }
   transactionsQuery.order("created_at", { ascending: sort === "date-asc" });
 
-  const schedulesQuery = household.supabase
-    .from("recurring_transaction_schedules")
-    .select("id, amount, cadence, enabled, merchant, next_occurs_on, note, interval_count")
-    .eq("household_id", household.householdId)
-    .order("next_occurs_on");
-  const [transactionsResult, schedulesResult] = await Promise.all([transactionsQuery, schedulesQuery]);
-  if (transactionsResult.error || schedulesResult.error) throw new Error("Unable to load ledger data.");
+  const transactionsResult = await transactionsQuery;
+  if (transactionsResult.error) throw new Error("Unable to load ledger data.");
 
   return {
     ...controls,
     categoryIds,
     paidByIds,
-    schedules: schedulesResult.data ?? [],
-    transactions: (transactionsResult.data ?? []).map((row) => ({
-      id: row.id,
-      kind: row.kind,
-      amount: money(row.amount),
-      occurredOn: row.occurred_on,
-      merchant: row.merchant,
-      note: row.note,
-      categoryId: row.category_id,
-      subcategoryId: row.subcategory_id,
-      servicePeriodStart: row.service_period_start,
-      servicePeriodEnd: row.service_period_end,
-      source: row.source,
-      createdAt: row.created_at,
-      paidBy: row.paid_by,
-    })),
+    transactions: (transactionsResult.data ?? []).map((row) => {
+      const schedule = row.recurring_transaction_schedules;
+      return {
+        id: row.id,
+        kind: row.kind,
+        amount: money(row.amount),
+        occurredOn: row.occurred_on,
+        merchant: row.merchant,
+        note: row.note,
+        categoryId: row.category_id,
+        subcategoryId: row.subcategory_id,
+        servicePeriodStart: row.service_period_start,
+        servicePeriodEnd: row.service_period_end,
+        source: row.source,
+        recurringScheduleId: row.recurring_schedule_id,
+        recurringScheduleEnabled: schedule?.enabled ?? null,
+        recurrenceCadence: schedule?.cadence ?? null,
+        recurrenceInterval: schedule?.interval_count ?? null,
+        createdAt: row.created_at,
+        paidBy: row.paid_by,
+      };
+    }),
   };
 }

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
-import { ArrowDownRight, ArrowUpRight, Settings2 } from "lucide-react";
+import Link from "next/link";
+import { ArrowDownRight, ArrowUpRight, Info, Pencil, Settings2 } from "lucide-react";
 
 import { DashboardActionsLoading, DashboardCardLoading } from "./dashboard-loading";
 import { DashboardMonthlyTrend, type DashboardMonthlyTrendRow } from "@/components/dashboard-monthly-trend";
@@ -7,15 +8,20 @@ import { DashboardSpendingCategorySelector } from "@/components/dashboard-spendi
 import { DashboardSpendingDonut } from "@/components/dashboard-spending-donut";
 import { LedgerMonthSelector } from "@/components/ledger-month-selector";
 import { TransactionSheet } from "@/components/transaction-sheet";
-import { WorkspacePage } from "@/components/workspace-shell";
 import { Button } from "@/components/ui/button";
+import { WorkspacePage } from "@/components/workspace-shell";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { sortBudgetUrgency } from "@/lib/budgets-goals";
+import { getBudgetsGoalsData, type BudgetRow, type GoalRow } from "@/lib/budgets-goals-data";
 import { getDashboardControls, getDashboardMonthlyReview, getDashboardSpending, getDashboardSummary } from "@/lib/dashboard-read-model";
 import { getValidDateRange, isCanonicalIsoMonth, previousMonth, type DateRange } from "@/lib/date-range";
 import { cn } from "@/lib/utils";
 
 const currency = new Intl.NumberFormat("en-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
+const detailCurrency = new Intl.NumberFormat("en-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 2 });
 type DashboardReadOptions = Parameters<typeof getDashboardSummary>[0];
 
 function comparisonLabel(change: number | null, range?: DateRange) {
@@ -167,15 +173,107 @@ export async function DashboardTrendCard({ review }: { review: Promise<Dashboard
   return <DashboardMonthlyTrend data={await review} />;
 }
 
-export function BudgetsPlaceholder() {
+function DashboardDetailTooltip({ ariaLabel, children }: { ariaLabel: string; children: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button aria-label={ariaLabel} className="size-11" size="icon" type="button" variant="ghost">
+          <Info aria-hidden="true" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent className="break-words motion-reduce:animate-none" side="left">
+        {children}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function formatBudgetDetail(row: BudgetRow) {
+  const spent = detailCurrency.format(row.spent);
+  const limit = detailCurrency.format(row.monthlyBudget);
+  const level = row.targetKind === "category" ? "Category" : "Subcategory";
+  return row.progress.overBudgetAgorot > 0
+    ? `${row.label}: ${level}; ${spent} spent of ${limit} budget; ${detailCurrency.format(row.progress.overBudgetAgorot / 100)} over budget`
+    : `${row.label}: ${level}; ${spent} spent of ${limit} budget; ${detailCurrency.format(row.progress.remainingAgorot / 100)} remaining`;
+}
+
+function formatGoalDetail(row: GoalRow) {
+  const saved = detailCurrency.format(row.savedAmount);
+  const target = detailCurrency.format(row.targetAmount);
+  const date = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }).format(
+    new Date(`${row.targetDate}T12:00:00`),
+  );
+  const status = row.progress.status === "complete" ? "Complete" : row.progress.status === "overdue" ? "Overdue" : "Active";
+  const monthly =
+    row.progress.monthlyRequiredAgorot === null
+      ? "no monthly saving available"
+      : `save ${detailCurrency.format(row.progress.monthlyRequiredAgorot / 100)} per month`;
+  return `${row.label}: ${saved} saved of ${target} target; needed by ${date}; ${status}; ${monthly}; ${detailCurrency.format(row.progress.remainingAgorot / 100)} remaining`;
+}
+
+function DashboardBudgetRow({ row }: { row: BudgetRow }) {
+  const details = formatBudgetDetail(row);
+
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="min-w-0 truncate font-medium">{row.label}</span>
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4">
+        <Progress
+          aria-label={`${row.label}: ${Math.round(row.progress.percentage)}% of monthly budget`}
+          className="h-2"
+          value={row.progress.barPercentage}
+        />
+        <span className="font-mono text-sm tabular-nums">{Math.round(row.progress.percentage)}%</span>
+        <DashboardDetailTooltip ariaLabel={details}>{details}</DashboardDetailTooltip>
+      </div>
+    </div>
+  );
+}
+
+function DashboardGoalRow({ row }: { row: GoalRow }) {
+  const status = `${Math.round(row.progress.percentage)}%`;
+  const details = formatGoalDetail(row);
+
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="min-w-0 truncate font-medium">{row.label}</span>
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4">
+        <Progress aria-label={`${row.label}: ${status}`} className="h-2" value={row.progress.barPercentage} />
+        <span className="font-mono text-sm tabular-nums">{status}</span>
+        <DashboardDetailTooltip ariaLabel={details}>{details}</DashboardDetailTooltip>
+      </div>
+    </div>
+  );
+}
+
+export async function BudgetsGoalsWidget({ options }: { options: DashboardReadOptions }) {
+  const data = await getBudgetsGoalsData(options);
+  const budgets = sortBudgetUrgency(data.budgets).slice(0, 2);
+  const goal = data.goals.find((candidate) => candidate.progress.status !== "complete");
+
   return (
     <Card className="h-full border-white/50 bg-card/90 lg:col-span-7">
       <CardHeader>
-        <CardTitle>Budgets</CardTitle>
-        <CardDescription>Shared spending limits for your household.</CardDescription>
+        <CardTitle>Budgets &amp; Goals</CardTitle>
+        <CardAction>
+          <Button asChild className="size-11" size="icon" variant="ghost">
+            <Link href="/budgets-goals" aria-label="Edit budgets and goals">
+              <Pencil data-icon="inline-start" aria-hidden="true" />
+            </Link>
+          </Button>
+        </CardAction>
       </CardHeader>
-      <CardContent className="flex flex-1 items-center justify-center">
-        <p className="text-sm text-muted-foreground">Budgets are coming soon.</p>
+      <CardContent className="flex flex-1 flex-col justify-start gap-4">
+        {budgets.length || goal ? (
+          <TooltipProvider>
+            {budgets.map((row) => (
+              <DashboardBudgetRow key={`${row.targetKind}:${row.id}`} row={row} />
+            ))}
+            {goal ? <DashboardGoalRow row={goal} /> : null}
+          </TooltipProvider>
+        ) : (
+          <p className="text-sm text-muted-foreground">No budgets or goals yet.</p>
+        )}
       </CardContent>
     </Card>
   );
@@ -227,7 +325,9 @@ export default async function HomePage({
         <Suspense fallback={<DashboardCardLoading className="lg:col-span-5 md:aspect-square" title="Where your money went" />}>
           <SpendingCard options={options} />
         </Suspense>
-        <BudgetsPlaceholder />
+        <Suspense fallback={<DashboardCardLoading className="h-full lg:col-span-7" title="Budgets & Goals" />}>
+          <BudgetsGoalsWidget options={options} />
+        </Suspense>
         <Suspense fallback={<DashboardCardLoading className="min-h-80 lg:col-span-12" title="Six-month trend" />}>
           <DashboardTrendCard review={review} />
         </Suspense>

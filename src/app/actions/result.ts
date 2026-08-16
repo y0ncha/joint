@@ -1,9 +1,11 @@
 import type { DuplicatePreview } from "@/lib/transaction-duplicates";
+import type { MerchantAutomationPreview } from "@/lib/merchant-automations";
 
 export type ActionResult =
   | { status: "success"; data?: Record<string, string> }
   | { status: "confirmation_required"; duplicatePreview: DuplicatePreview }
-  | { status: "error"; formError: string; fieldErrors: Record<string, string> };
+  | { status: "automation_confirmation_required"; automationPreview: MerchantAutomationPreview }
+  | { status: "error"; formError: string; fieldErrors: Record<string, string>; data?: Record<string, string> };
 
 export function validationError(issues: Array<{ path: PropertyKey[]; message: string }>): ActionResult {
   return {

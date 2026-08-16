@@ -14,6 +14,8 @@ tags: [feature, bills-groceries, bills, groceries, analytics, charts, migration,
 
 This plan replaces the earlier prorated-ledger design with an `Bills & Groceries` analytics route. The ledger and shared balance remain exact snapshots of stored transaction amounts and posting dates. Bills additionally store an inclusive service period used only for prorated Bills & Groceries analytics. Groceries analytics use actual posting dates, one optional fixed monthly household budget, and the protected `Main run` and `Top-ups` subcategories.
 
+> **Supersession note (2026-08-15):** This completed plan's `households.groceries_monthly_budget` and Settings clauses record the historical Bills & Groceries delivery. The current ownership contract is [`budgets-goals-management.md`](budgets-goals-management.md): Groceries budget configuration belongs to `/budgets-goals`, with legacy-value migration and threshold preservation defined there. The completed requirements and task history below remain historical evidence, not current UI authorization.
+
 ## 1. Requirements & Constraints
 
 - **REQ-001**: Every household MUST have exactly one active protected expense category with `categories.system_key = 'bills'`, `name = 'Bills'`, icon `receipt`, and exactly one active protected expense category with `categories.system_key = 'groceries'`, `name = 'Groceries'`, icon `shopping-basket`.

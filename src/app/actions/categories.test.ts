@@ -49,6 +49,7 @@ describe("category actions", () => {
       category_color: "#ccebef",
       category_icon: "utensils",
     });
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/budgets-goals");
   });
   it("deletes only a category in the verified household through its request client", async () => {
     mocks.eq.mockResolvedValue({ error: null });
@@ -60,6 +61,7 @@ describe("category actions", () => {
     expect(mocks.delete).toHaveBeenCalledOnce();
     expect(mocks.eq).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/budgets-goals");
   });
 
   it("accepts an anchor color while updating only the verified household category", async () => {
@@ -75,6 +77,7 @@ describe("category actions", () => {
     expect(mocks.from).toHaveBeenCalledWith("categories");
     expect(mocks.update).toHaveBeenCalledWith({ name: "Meals", kind: "expense", color: "#ccebef", icon: "utensils" });
     expect(mocks.eq).toHaveBeenCalledWith("household_id", "household-id");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/budgets-goals");
   });
 
   it("rejects a child color before touching data", async () => {
@@ -128,10 +131,11 @@ describe("subcategory actions", () => {
       color: "#c5e8f7",
       icon: "shopping-basket",
     });
-    expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(4);
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/categories");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/budgets-goals");
   });
 
   it("rejects an invalid subcategory icon before touching data", async () => {
@@ -171,10 +175,11 @@ describe("subcategory actions", () => {
     });
     expect(eqId).toHaveBeenCalledWith("id", "subcategory-id");
     expect(eqHousehold).toHaveBeenCalledWith("household_id", "household-id");
-    expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(4);
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/categories");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/budgets-goals");
   });
 
   it("deletes only the verified household subcategory", async () => {
@@ -188,9 +193,10 @@ describe("subcategory actions", () => {
     expect(mocks.delete).toHaveBeenCalledOnce();
     expect(eqId).toHaveBeenCalledWith("id", "subcategory-id");
     expect(eqHousehold).toHaveBeenCalledWith("household_id", "household-id");
-    expect(mocks.revalidatePath).toHaveBeenCalledTimes(3);
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(4);
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/categories");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/budgets-goals");
   });
 });

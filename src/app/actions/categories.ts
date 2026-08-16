@@ -29,6 +29,7 @@ export async function createCategory(input: FormData): Promise<ActionResult> {
   revalidatePath("/");
   revalidatePath("/transactions");
   revalidatePath("/categories");
+  revalidatePath("/budgets-goals");
   return { status: "success" };
 }
 
@@ -48,6 +49,7 @@ export async function updateCategory(categoryId: string, input: FormData): Promi
   if (error) return { status: "error", formError: "Unable to update the category. Please try again.", fieldErrors: {} };
   revalidatePath("/");
   revalidatePath("/categories");
+  revalidatePath("/budgets-goals");
   return { status: "success" };
 }
 
@@ -58,6 +60,7 @@ export async function deleteCategory(categoryId: string): Promise<ActionResult> 
   revalidatePath("/");
   revalidatePath("/transactions");
   revalidatePath("/categories");
+  revalidatePath("/budgets-goals");
   return { status: "success" };
 }
 
@@ -76,6 +79,7 @@ export async function createSubcategory(categoryId: string, input: FormData): Pr
   revalidatePath("/");
   revalidatePath("/transactions");
   revalidatePath("/categories");
+  revalidatePath("/budgets-goals");
   return { status: "success" };
 }
 
@@ -96,6 +100,7 @@ export async function updateSubcategory(subcategoryId: string, input: FormData):
   revalidatePath("/");
   revalidatePath("/transactions");
   revalidatePath("/categories");
+  revalidatePath("/budgets-goals");
   return { status: "success" };
 }
 
@@ -110,5 +115,6 @@ export async function deleteSubcategory(subcategoryId: string): Promise<ActionRe
   revalidatePath("/");
   revalidatePath("/transactions");
   revalidatePath("/categories");
+  revalidatePath("/budgets-goals");
   return { status: "success" };
 }

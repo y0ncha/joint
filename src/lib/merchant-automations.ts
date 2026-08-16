@@ -197,6 +197,12 @@ export function fingerprintAutomationPreview(changes: readonly AutomationPreview
   });
 }
 
+export function confirmMerchantAutomationPreview(input: FormData, preview: MerchantAutomationPreview) {
+  const fingerprint = input.get("automationFingerprint");
+  if (!preview.changes.length && !fingerprint) return { confirmed: true as const };
+  return { confirmed: typeof fingerprint === "string" && fingerprint === preview.fingerprint, stale: Boolean(fingerprint) };
+}
+
 export function previewMerchantAutomations(
   transactions: readonly PreviewTransaction[],
   rules: MerchantAutomationRule[],

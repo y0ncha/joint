@@ -837,12 +837,14 @@ function AutomationPreviewChangeSummary({
 }
 
 function AutomationPreviewList({
+  canApplyIndividually = true,
   changes,
   destinations,
   isPending,
   label,
   onApply,
 }: {
+  canApplyIndividually?: boolean;
   changes: MerchantAutomationPreview["changes"];
   destinations: AutomationDestination[];
   isPending: boolean;
@@ -859,17 +861,19 @@ function AutomationPreviewList({
           <div className="min-w-0 flex-1">
             <AutomationPreviewChangeSummary change={change} destinations={destinations} />
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="size-11 shrink-0"
-            aria-label={`Apply change for ${change.expected_merchant}`}
-            disabled={isPending}
-            onClick={() => onApply(change.id)}
-          >
-            <Check aria-hidden="true" />
-          </Button>
+          {canApplyIndividually ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="size-11 shrink-0"
+              aria-label={`Apply change for ${change.expected_merchant}`}
+              disabled={isPending}
+              onClick={() => onApply(change.id)}
+            >
+              <Check aria-hidden="true" />
+            </Button>
+          ) : null}
         </li>
       ))}
     </ul>
@@ -877,15 +881,21 @@ function AutomationPreviewList({
 }
 
 export function AutomationPreviewDialog({
+  confirmLabel,
   destinations,
+  onConfirm,
   onOpenChange,
   open,
+  pending = false,
   preview,
   rules,
 }: {
+  confirmLabel?: string;
   destinations: AutomationDestination[];
+  onConfirm?: () => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  pending?: boolean;
   preview: MerchantAutomationPreview;
   rules: MerchantAutomationRule[];
 }) {
@@ -895,6 +905,7 @@ export function AutomationPreviewDialog({
   );
   const [isApplyingChange, startApplyingChange] = useTransition();
   const changeCount = preview.changes.length;
+  const previewPending = isPending || isApplyingChange || pending;
   const applyChange = (changeId: string) => {
     startApplyingChange(async () => {
       const result = await applyAutomationResult(preview.fingerprint, changeId);
@@ -920,7 +931,9 @@ export function AutomationPreviewDialog({
       <AlertDialogContent className="min-w-0 w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] overflow-hidden sm:w-[calc(100vw-4rem)] data-[size=default]:sm:max-w-5xl">
         <AlertDialogHeader className="min-w-0 w-full">
           <AlertDialogTitle className="text-xl">Preview</AlertDialogTitle>
-          <AlertDialogDescription className="sr-only">Review and apply existing transaction changes.</AlertDialogDescription>
+          <AlertDialogDescription className="sr-only">
+            {onConfirm ? "Review and confirm applied rule changes." : "Review and apply existing transaction changes."}
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogCancel
           type="button"
@@ -932,10 +945,11 @@ export function AutomationPreviewDialog({
           <X aria-hidden="true" />
         </AlertDialogCancel>
         <AutomationPreviewList
+          canApplyIndividually={!onConfirm}
           changes={preview.changes}
           destinations={destinations}
-          isPending={isPending || isApplyingChange}
-          label="Existing transaction changes"
+          isPending={previewPending}
+          label={onConfirm ? "Applied rule changes" : "Existing transaction changes"}
           onApply={applyChange}
         />
         {preview.conflicts.length > 0 ? (
@@ -960,12 +974,19 @@ export function AutomationPreviewDialog({
         ) : null}
         {state?.status === "error" ? <FieldError aria-live="polite">{state.formError}</FieldError> : null}
         <AlertDialogFooter>
-          <form action={formAction} className="flex w-full justify-end">
-            <Button type="submit" className="min-h-11" disabled={isPending || isApplyingChange}>
+          {onConfirm ? (
+            <Button type="button" className="min-h-11" disabled={previewPending} onClick={onConfirm}>
               <Check data-icon="inline-start" aria-hidden="true" />
-              Apply all {changeCount}
+              {confirmLabel ?? `Confirm ${changeCount}`}
             </Button>
-          </form>
+          ) : (
+            <form action={formAction} className="flex w-full justify-end">
+              <Button type="submit" className="min-h-11" disabled={previewPending}>
+                <Check data-icon="inline-start" aria-hidden="true" />
+                Apply all {changeCount}
+              </Button>
+            </form>
+          )}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

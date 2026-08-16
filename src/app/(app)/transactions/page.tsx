@@ -3,13 +3,13 @@ import { LedgerControls, type LedgerFilterKind, type LedgerSort } from "@/compon
 import { StatementImportForm } from "@/components/statement-import-form";
 import { TransactionLedger } from "@/components/transaction-ledger";
 import { TransactionSheet } from "@/components/transaction-sheet";
-import { RecurringScheduleList } from "@/components/recurring-schedule-list";
 import { WorkspacePage } from "@/components/workspace-shell";
 import { FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { getLedgerData } from "@/lib/dashboard-read-model";
+import { automationPreviewDestinations } from "@/lib/automation-preview-destinations";
 import { formatDateRange, getValidDateRange, isCanonicalIsoMonth, previousMonth } from "@/lib/date-range";
 
 function selectedValues(value: string | undefined) {
@@ -78,7 +78,12 @@ export default async function TransactionsPage({
                 <SheetDescription>Upload a card statement to the shared ledger.</SheetDescription>
               </SheetHeader>
               <div className="px-6 pb-6">
-                <StatementImportForm />
+                <StatementImportForm
+                  automationDestinations={automationPreviewDestinations(
+                    data.subcategories.filter((subcategory) => subcategory.archivedAt === null && subcategory.categoryArchivedAt === null),
+                    data.directCategories,
+                  )}
+                />
               </div>
             </SheetContent>
           </Sheet>
@@ -124,7 +129,6 @@ export default async function TransactionsPage({
           />
         </CardContent>
       </Card>
-      <RecurringScheduleList schedules={data.schedules} />
     </WorkspacePage>
   );
 }

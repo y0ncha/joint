@@ -66,7 +66,7 @@ function configureContextClient({
   }>;
   payer?: { user_id: string } | null;
   transactionError?: unknown;
-  existingTransaction?: { source: "manual" | "statement_import" } | null;
+  existingTransaction?: { source: "manual" | "statement_import"; recurring_schedule_id?: string | null } | null;
   subcategory?: { categories: { system_key: string | null } } | null;
 } = {}) {
   const payerMaybeSingle = vi.fn().mockResolvedValue({ data: payer, error: null });
@@ -95,7 +95,7 @@ function configureContextClient({
     throw new Error(`Unexpected table: ${table}`);
   });
 
-  mocks.select.mockImplementation((columns: string) => (columns === "source" ? { eq: sourceEqId } : { eq: duplicateHouseholdEq }));
+  mocks.select.mockImplementation((columns: string) => (columns.startsWith("source") ? { eq: sourceEqId } : { eq: duplicateHouseholdEq }));
   mocks.subcategorySelect.mockReturnValue({ eq: subcategoryEqId });
 
   return {
@@ -154,7 +154,8 @@ describe("transaction actions", () => {
     });
     expect(mocks.from).not.toHaveBeenCalledWith("accounts");
     expect(payerEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
-    expect(mocks.revalidatePath).toHaveBeenCalledTimes(4);
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(5);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/budgets-goals");
   });
 
   it("creates a schedule atomically when recurrence is configured", async () => {
@@ -285,7 +286,7 @@ describe("transaction actions", () => {
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ paid_by: null, subcategory_id: "groceries" }));
   });
 
-  it("normalizes and automatically assigns a blank manual destination", async () => {
+  it("requires confirmation before a rule-normalized manual transaction is inserted", async () => {
     configureContextClient();
     mocks.getMerchantAutomationRules.mockResolvedValue([
       { id: "normalize", action: "normalize_merchant", pattern: "corner", replacement: "Corner Market", enabled: true, position: 0 },
@@ -300,9 +301,20 @@ describe("transaction actions", () => {
       },
     ]);
 
-    await expect(transactionsModule.createTransaction(transactionForm({ subcategoryId: "", merchant: "Corner shop" }))).resolves.toEqual({
-      status: "success",
+    const input = transactionForm({ subcategoryId: "", merchant: "Corner shop" });
+    const preview = await transactionsModule.createTransaction(input);
+
+    expect(preview).toMatchObject({
+      status: "automation_confirmation_required",
+      automationPreview: expect.objectContaining({
+        changes: [expect.objectContaining({ expected_merchant: "Corner shop", merchant: "Corner Market", subcategory_id: "groceries" })],
+      }),
     });
+    expect(mocks.insert).not.toHaveBeenCalled();
+
+    if (preview.status !== "automation_confirmation_required") throw new Error("Expected automation preview");
+    input.set("automationFingerprint", preview.automationPreview.fingerprint);
+    await expect(transactionsModule.createTransaction(input)).resolves.toEqual({ status: "success" });
 
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ merchant: "Corner Market", subcategory_id: "groceries" }));
   });
@@ -322,9 +334,11 @@ describe("transaction actions", () => {
       },
     ]);
 
-    await expect(transactionsModule.createTransaction(transactionForm({ subcategoryId: "", merchant: "Power company" }))).resolves.toEqual({
-      status: "success",
-    });
+    const input = transactionForm({ subcategoryId: "", merchant: "Power company" });
+    const preview = await transactionsModule.createTransaction(input);
+    if (preview.status !== "automation_confirmation_required") throw new Error("Expected automation preview");
+    input.set("automationFingerprint", preview.automationPreview.fingerprint);
+    await expect(transactionsModule.createTransaction(input)).resolves.toEqual({ status: "success" });
 
     expect(mocks.insert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -417,7 +431,33 @@ describe("transaction actions", () => {
     expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(payerEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.from).not.toHaveBeenCalledWith("accounts");
-    expect(mocks.revalidatePath).toHaveBeenCalledTimes(4);
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(5);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/budgets-goals");
+  });
+
+  it("applies recurring future edits through the atomic schedule RPC", async () => {
+    configureContextClient({ existingTransaction: { source: "manual", recurring_schedule_id: "schedule-id" } });
+
+    await expect(
+      transactionsModule.updateTransaction(
+        "transaction-id",
+        transactionForm({ recurrenceScope: "future", amount: "51", paidBy: "member-id" }),
+      ),
+    ).resolves.toEqual({ status: "success" });
+
+    expect(mocks.rpc).toHaveBeenCalledWith("update_recurring_transaction_occurrence", {
+      target_amount: 51,
+      target_category_id: null,
+      target_merchant: "",
+      target_note: "Groceries",
+      target_paid_by: "member-id",
+      target_scope: "future",
+      target_service_period_end: null,
+      target_service_period_start: null,
+      target_subcategory_id: "groceries",
+      target_transaction_id: "transaction-id",
+    });
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 
   it("keeps imported transactions uncategorized and unassigned when editing", async () => {
@@ -432,7 +472,7 @@ describe("transaction actions", () => {
     });
 
     expect(mocks.from).not.toHaveBeenCalledWith("household_members");
-    expect(mocks.select).toHaveBeenCalledWith("source");
+    expect(mocks.select).toHaveBeenCalledWith("source, recurring_schedule_id");
     expect(sourceEqId).toHaveBeenCalledWith("id", "transaction-id");
     expect(sourceEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ subcategory_id: null, paid_by: null }));
@@ -453,7 +493,7 @@ describe("transaction actions", () => {
       fieldErrors: { subcategoryId: "Select a value." },
     });
 
-    expect(mocks.select).toHaveBeenCalledWith("source");
+    expect(mocks.select).toHaveBeenCalledWith("source, recurring_schedule_id");
     expect(sourceEqId).toHaveBeenCalledWith("id", "transaction-id");
     expect(sourceEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.update).not.toHaveBeenCalled();
@@ -476,7 +516,8 @@ describe("transaction actions", () => {
 
     expect(transactionEqId).toHaveBeenCalledWith("id", "transaction-id");
     expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
-    expect(mocks.revalidatePath).toHaveBeenCalledTimes(4);
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(5);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/budgets-goals");
   });
 
   it("sanitizes delete database failures", async () => {
@@ -496,7 +537,8 @@ describe("transaction actions", () => {
 
     expect(transactionIn).toHaveBeenCalledWith("id", ["transaction-a", "transaction-b"]);
     expect(transactionEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
-    expect(mocks.revalidatePath).toHaveBeenCalledTimes(4);
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(5);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/budgets-goals");
   });
 
   it("rejects transfer submissions at the validation boundary", async () => {

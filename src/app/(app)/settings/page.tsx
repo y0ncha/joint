@@ -3,7 +3,6 @@ import Link from "next/link";
 import { AccentPicker } from "@/components/accent-picker";
 import { MemberCardSettingsControl } from "@/components/member-card-settings-control";
 import { MemberColorSettingsControl } from "@/components/member-color-settings-control";
-import { GroceriesBudgetSettingsControl } from "@/components/groceries-budget-settings-control";
 import { MemberManagementSheet, type PartnerAccessState } from "@/components/partner-access-control";
 import { SettingsForm } from "@/components/settings-save-control";
 import { Button } from "@/components/ui/button";
@@ -16,9 +15,9 @@ import {
   House,
   Palette,
   Pencil,
-  ShoppingBasket,
   SwatchBook,
   Tags,
+  Target,
   UserRound,
   UsersRound,
   WandSparkles,
@@ -105,7 +104,7 @@ export default async function SettingsPage() {
       .select("user_id, role, color, joined_at")
       .eq("household_id", household.householdId)
       .order("joined_at"),
-    household.supabase.from("households").select("name, groceries_monthly_budget").eq("id", household.householdId).maybeSingle(),
+    household.supabase.from("households").select("name").eq("id", household.householdId).maybeSingle(),
   ]);
   if (cardMappingError || profileError || membersError || householdError) throw new Error("Unable to load account settings.");
   const currentCardLastFour = cardMapping?.last_four ?? null;
@@ -180,12 +179,16 @@ export default async function SettingsPage() {
                   />
                 ) : null}
               </SettingsRow>
-              <SettingsRow icon={ShoppingBasket} label="Groceries budget">
-                <GroceriesBudgetSettingsControl budget={householdRecord?.groceries_monthly_budget ?? null} />
-              </SettingsRow>
               <SettingsRow icon={Tags} label="Categories" description="Manage categories & subcategories.">
                 <Button asChild variant="ghost" size="icon" className="size-11">
                   <Link href="/categories" aria-label="Edit categories">
+                    <Pencil data-icon="inline-start" aria-hidden="true" />
+                  </Link>
+                </Button>
+              </SettingsRow>
+              <SettingsRow icon={Target} label="Budgets & Goals" description="Manage household budgets and goals.">
+                <Button asChild variant="ghost" size="icon" className="size-11">
+                  <Link href="/budgets-goals" aria-label="Edit budgets and goals">
                     <Pencil data-icon="inline-start" aria-hidden="true" />
                   </Link>
                 </Button>

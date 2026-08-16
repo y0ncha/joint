@@ -297,14 +297,24 @@ set local request.jwt.claim.email = 'first-owner@example.test';
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000401","email":"first-owner@example.test"}';
 
 select extensions.lives_ok(
-  $$ select public.save_current_settings(1250.50::numeric) $$,
-  'a household owner can set the shared Groceries budget'
+  $$
+    update public.categories
+    set monthly_budget = 1250.50::numeric
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'groceries'
+  $$,
+  'a household owner can set the protected Groceries category budget'
 );
 
 select extensions.is(
-  (select groceries_monthly_budget from public.households where id = '00000000-0000-0000-0000-000000000410'),
+  (
+    select monthly_budget
+    from public.categories
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'groceries'
+  ),
   1250.50::numeric,
-  'an owner budget update persists exactly'
+  'an owner Groceries budget update persists exactly'
 );
 
 set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000402';
@@ -312,80 +322,135 @@ set local request.jwt.claim.email = 'first-member@example.test';
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000402","email":"first-member@example.test"}';
 
 select extensions.lives_ok(
-  $$ select public.save_current_settings(900.25::numeric) $$,
-  'a non-owner household member can set the shared Groceries budget'
+  $$
+    update public.categories
+    set monthly_budget = 900.25::numeric
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'groceries'
+  $$,
+  'a non-owner household member can set the protected Groceries category budget'
 );
 
 select extensions.is(
-  (select groceries_monthly_budget from public.households where id = '00000000-0000-0000-0000-000000000410'),
+  (
+    select monthly_budget
+    from public.categories
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'groceries'
+  ),
   900.25::numeric,
-  'a member budget update persists exactly'
-);
-
-select extensions.is_empty(
-  $$
-    update public.households
-    set groceries_monthly_budget = 1
-    where id = '00000000-0000-0000-0000-000000000410'
-    returning 1
-  $$,
-  'a non-owner member cannot bypass the settings function to update the budget directly'
+  'a member Groceries budget update persists exactly'
 );
 
 select extensions.lives_ok(
-  $$ select public.save_current_settings(null::numeric, null, null, null, null) $$,
-  'a household member can clear the shared Groceries budget'
+  $$
+    update public.categories
+    set monthly_budget = 1
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'groceries'
+  $$,
+  'a member can update the protected Groceries budget directly through its category row'
+);
+
+select extensions.lives_ok(
+  $$
+    update public.categories
+    set monthly_budget = null
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'groceries'
+  $$,
+  'a household member can clear the protected Groceries budget'
 );
 
 select extensions.is(
-  (select groceries_monthly_budget from public.households where id = '00000000-0000-0000-0000-000000000410'),
+  (
+    select monthly_budget
+    from public.categories
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'groceries'
+  ),
   null::numeric,
-  'clearing the shared Groceries budget persists NULL'
+  'clearing the protected Groceries budget persists NULL'
 );
 
 select extensions.throws_like(
-  $$ select public.save_current_settings(0::numeric) $$,
-  '%households_groceries_monthly_budget_check%',
-  'the shared Groceries budget rejects zero'
+  $$
+    update public.categories
+    set monthly_budget = 0::numeric
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'groceries'
+  $$,
+  '%categories_monthly_budget_check%',
+  'the protected Groceries budget rejects zero'
 );
 
 select extensions.throws_like(
-  $$ select public.save_current_settings((-1)::numeric) $$,
-  '%households_groceries_monthly_budget_check%',
-  'the shared Groceries budget rejects negative values'
+  $$
+    update public.categories
+    set monthly_budget = (-1)::numeric
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'groceries'
+  $$,
+  '%categories_monthly_budget_check%',
+  'the protected Groceries budget rejects negative values'
 );
 
 select extensions.throws_like(
-  $$ select public.save_current_settings(1.001::numeric) $$,
-  '%households_groceries_monthly_budget_check%',
-  'the shared Groceries budget rejects more than two decimal places'
+  $$
+    update public.categories
+    set monthly_budget = 1.001::numeric
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'groceries'
+  $$,
+  '%categories_monthly_budget_check%',
+  'the protected Groceries budget rejects more than two decimal places'
 );
 
 select extensions.throws_like(
-  $$ select public.save_current_settings('NaN'::numeric) $$,
-  '%households_groceries_monthly_budget_check%',
-  'the shared Groceries budget rejects NaN'
+  $$
+    update public.categories
+    set monthly_budget = 'NaN'::numeric
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'groceries'
+  $$,
+  '%categories_monthly_budget_check%',
+  'the protected Groceries budget rejects NaN'
 );
 
 select extensions.throws_like(
-  $$ select public.save_current_settings('Infinity'::numeric) $$,
-  '%households_groceries_monthly_budget_check%',
-  'the shared Groceries budget rejects infinity'
+  $$
+    update public.categories
+    set monthly_budget = 'Infinity'::numeric
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'groceries'
+  $$,
+  '%categories_monthly_budget_check%',
+  'the protected Groceries budget rejects infinity'
 );
 
 select extensions.throws_like(
-  $$ select public.save_current_settings(10000000000::numeric) $$,
-  '%households_groceries_monthly_budget_check%',
-  'the shared Groceries budget rejects the exclusive magnitude boundary'
+  $$
+    update public.categories
+    set monthly_budget = 10000000000::numeric
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'groceries'
+  $$,
+  '%categories_monthly_budget_check%',
+  'the protected Groceries budget rejects the exclusive magnitude boundary'
 );
 
 set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000405';
 set local request.jwt.claim.email = 'outsider@example.test';
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000405","email":"outsider@example.test"}';
 
-select extensions.throws_like(
-  $$ select public.save_current_settings(500::numeric) $$,
-  '%Not allowed%',
+select extensions.is_empty(
+  $$
+    update public.categories
+    set monthly_budget = 500::numeric
+    where household_id = '00000000-0000-0000-0000-000000000410'
+      and system_key = 'groceries'
+    returning id
+  $$,
   'an authenticated non-member cannot change a household budget'
 );
 
@@ -1743,9 +1808,9 @@ select extensions.has_column(
 
 select extensions.has_column(
   'public',
-  'households',
-  'groceries_monthly_budget',
-  'households expose the optional Groceries budget'
+  'categories',
+  'monthly_budget',
+  'categories expose the current monthly budget'
 );
 
 select extensions.ok(
@@ -1753,11 +1818,11 @@ select extensions.ok(
     select attribute.atttypid = 'numeric'::regtype
       and attribute.atttypmod = -1
     from pg_catalog.pg_attribute as attribute
-    where attribute.attrelid = 'public.households'::regclass
-      and attribute.attname = 'groceries_monthly_budget'
+    where attribute.attrelid = 'public.categories'::regclass
+      and attribute.attname = 'monthly_budget'
       and not attribute.attisdropped
   ),
-  'the Groceries budget uses unconstrained numeric storage'
+  'the category budget uses unconstrained numeric storage'
 );
 
 select extensions.is(
@@ -1771,17 +1836,21 @@ select extensions.is(
       'public.households'::regclass
     )
       and constraint_meta.conname in (
+        'categories_monthly_budget_check',
+        'categories_monthly_budget_kind_check',
         'categories_system_key_check',
+        'subcategories_monthly_budget_check',
         'subcategories_system_key_check',
         'transactions_service_period_pair_check',
         'transactions_service_period_order_check',
-        'transactions_service_period_length_check',
-        'households_groceries_monthly_budget_check'
+        'transactions_service_period_length_check'
       )
   ),
   array[
+    'categories_monthly_budget_check',
+    'categories_monthly_budget_kind_check',
     'categories_system_key_check',
-    'households_groceries_monthly_budget_check',
+    'subcategories_monthly_budget_check',
     'subcategories_system_key_check',
     'transactions_service_period_length_check',
     'transactions_service_period_order_check',
@@ -1832,7 +1901,7 @@ select extensions.ok(
 
 select extensions.ok(
   (
-    select count(*) = 4
+    select count(*) = 6
     from pg_catalog.pg_trigger as trigger_meta
     where not trigger_meta.tgisinternal
       and (
@@ -1856,6 +1925,16 @@ select extensions.ok(
           and trigger_meta.tgname = 'on_household_created'
           and trigger_meta.tgfoid = 'public.add_household_owner()'::regprocedure
         )
+        or (
+          trigger_meta.tgrelid = 'public.categories'::regclass
+          and trigger_meta.tgname = 'categories_validate_monthly_budget'
+          and trigger_meta.tgfoid = 'private.validate_category_monthly_budget()'::regprocedure
+        )
+        or (
+          trigger_meta.tgrelid = 'public.subcategories'::regclass
+          and trigger_meta.tgname = 'subcategories_validate_monthly_budget'
+          and trigger_meta.tgfoid = 'private.validate_subcategory_monthly_budget()'::regprocedure
+        )
       )
   ),
   'the planned protection, validation, and future-provisioning triggers are present'
@@ -1863,9 +1942,9 @@ select extensions.ok(
 
 select extensions.ok(
   (
-    select count(*) = 6
+    select count(*) = 7
       and bool_and(coalesce(function_meta.proconfig, array[]::text[]) @> array['search_path=""'])
-      and count(*) filter (where function_meta.prosecdef) = 2
+      and count(*) filter (where function_meta.prosecdef) = 1
     from pg_catalog.pg_proc as function_meta
     where function_meta.oid = any(array[
       'private.protect_essential_category()'::regprocedure,
@@ -1873,10 +1952,11 @@ select extensions.ok(
       'private.seed_essential_categories(uuid)'::regprocedure,
       'private.validate_transaction_subcategory()'::regprocedure,
       'public.add_household_owner()'::regprocedure,
-      'public.save_current_settings(numeric,text,text,text,text)'::regprocedure
+      'private.validate_category_monthly_budget()'::regprocedure,
+      'private.validate_subcategory_monthly_budget()'::regprocedure
     ])
   ),
-  'Essentials functions pin an empty search path and only trusted entry points are security definers'
+  'Essentials and budget functions pin an empty search path and only trusted entry points are security definers'
 );
 
 select extensions.ok(
@@ -1897,17 +1977,8 @@ select extensions.ok(
 );
 
 select extensions.ok(
-  has_function_privilege(
-    'authenticated',
-    'public.save_current_settings(numeric,text,text,text,text)',
-    'EXECUTE'
-  )
-    and not has_function_privilege(
-      'anon',
-      'public.save_current_settings(numeric,text,text,text,text)',
-      'EXECUTE'
-    ),
-  'only authenticated callers can execute the Groceries-budget settings function'
+  to_regprocedure('public.save_current_settings(numeric,text,text,text,text)') is null,
+  'the obsolete numeric Groceries-budget settings overload is removed'
 );
 
 select extensions.ok(

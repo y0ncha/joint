@@ -12,6 +12,7 @@ household
   ├─ categories
   │   └─ subcategories
   ├─ automation_rules
+  ├─ savings_goals
   └─ transactions
 ```
 
@@ -21,14 +22,15 @@ household
 
 | Record                            | Implemented purpose                                                                                                                                                                                                                       |
 | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `households`                      | Shared container with a signed `opening_balance` and optional shared Groceries monthly threshold.                                                                                                                                         |
+| `households`                      | Shared container with a signed `opening_balance`; the existing optional Groceries threshold is migrated into the protected Groceries category's current recurring budget by the Budgets & Goals plan.                                     |
 | `household_members`               | Household membership and `owner` or `member` role.                                                                                                                                                                                        |
-| `categories`                      | Household-owned `income` or `expense` parent categories with a registered family color and icon.                                                                                                                                          |
-| `subcategories`                   | Household-owned children with a persisted color from the parent category's database family palette and an optional icon override.                                                                                                         |
+| `categories`                      | Household-owned `income` or `expense` parent categories with a registered family color, icon, and optional current recurring monthly budget for active expense categories.                                                                |
+| `subcategories`                   | Household-owned children with a persisted color from the parent category's database family palette, an optional icon override, and an optional current recurring monthly budget when the parent is an active expense category.            |
 | `member_cards`                    | Optional household-scoped mapping of a member to one card's last four digits.                                                                                                                                                             |
 | `automation_rules`                | Household-owned, enabled or disabled normalization, category-assignment, and preview-confirmed deletion rules with one persisted order; each rule may use validated Merchant, Note, and Amount conditions with per-row AND/OR connectors. |
+| `savings_goals`                   | Household-owned manual goals with a name, positive target amount, nonnegative saved amount, and needed-by date; completed goals remain until explicitly deleted.                                                                          |
 | `transactions`                    | Positive ILS amount, date, `income` or `expense` direction, creator, optional payer and `subcategory_id`, source, merchant, optional note, and optional Bills service period.                                                             |
-| `recurring_transaction_schedules` | Household-owned transaction templates with an immutable anchor and database-owned next-occurrence cursor.                                                                                                                                 |
+| `recurring_transaction_schedules` | Household-owned transaction templates with an immutable anchor, database-owned next-occurrence cursor, and optional Bills service-period template.                                                                                        |
 
 - The opening balance may be positive, zero, or negative.
 - Transaction amounts are positive ILS values with at most two decimal places; direction comes only from `kind`.
@@ -38,7 +40,10 @@ household
 - A non-null `paid_by` must identify a member of the same household. Imported transactions may be unassigned when their card has no household mapping.
 - Imported transactions retain their `statement_import` source, merchant, SHA-256 file hash, and source-row number. The hash and row number prevent retrying identical source bytes from duplicating rows within a household; source files are not stored.
 - Browser input never selects household ownership, transaction creator, or membership role.
-- A recurring schedule creates its first ledger entry immediately, then the protected cron creates later idempotent occurrences. A schedule whose category or subcategory is deleted is paused; historical ledger entries remain valid.
+- A recurring schedule creates its first ledger entry immediately, then the protected cron creates later idempotent occurrences. A Bills schedule shifts both saved service-period endpoints by its weekly or monthly cadence for every generated occurrence. Recurring rows stay in the ledger and are marked there; edits can affect that row, future rows, or all generated rows, while posting dates remain fixed for future/all edits. A schedule whose category or subcategory is deleted is paused; historical ledger entries remain valid.
+- Each active expense category or subcategory may have one current recurring monthly budget with a positive finite ILS limit using the existing precision and upper-bound rules. Parent and child budgets may overlap, remain independent, and are never aggregated into one budget or progress row.
+- Savings goals are manually maintained using a name, positive finite target amount, nonnegative finite saved amount, and needed-by date under the existing precision and upper-bound rules. `calendarMonthsUntilTarget` uses UTC ISO calendar months: `(targetYear - currentYear) * 12 + targetMonth - currentMonth`; a non-overdue target in the current month uses a minimum of `1`, while a target date before today's UTC ISO date is overdue. Required monthly saving is `ceil(max(targetAgorot - savedAgorot, 0) / max(calendarMonthsUntilTarget, 1))`. Saved amount may exceed the target; completion is derived from the stored values, completed goals remain visible until deletion, and transaction-derived progress is deferred.
+- Historical budget versions, allocation periods, goal contributions, savings or investment transaction types, and automatic budget or goal derivation are outside this contract.
 
 ## Balance and reporting
 
@@ -66,9 +71,9 @@ Household identity is derived from the authenticated server session, never brows
 
 ## Bills & Groceries subset
 
-Bills & Groceries is an implemented, narrow analytics subset, not a generalized budget or obligations model. Each household has protected `Bills` and `Groceries` expense categories identified by stable system keys. Groceries has exactly the protected `Main run` and `Top-ups` children; Bills may have household-managed children.
+Bills & Groceries is an implemented, narrow analytics subset and not an obligations model. Each household has protected `Bills` and `Groceries` expense categories identified by stable system keys. Groceries has exactly the protected `Main run` and `Top-ups` children; Bills may have household-managed children.
 
-Only Bills transactions may have an optional inclusive `service_period_start` and `service_period_end`. Those dates are used solely to prorate the transaction's stored amount for Bills analytics; they never change the ledger row, `occurred_on` posting date, stored amount, or shared-balance calculation. `households.groceries_monthly_budget` is one optional shared monthly Groceries threshold, not a general budget facility. [`bills-groceries-analytics.md`](bills-groceries-analytics.md) records the complete analytics mechanism.
+Only Bills transactions may have an optional inclusive `service_period_start` and `service_period_end`. Those dates are used solely to prorate the transaction's stored amount for Bills analytics; they never change the ledger row, `occurred_on` posting date, stored amount, or shared-balance calculation. The protected Groceries category's one optional current recurring monthly budget supplies the Bills & Groceries threshold; the legacy `households.groceries_monthly_budget` value is copied into that category by the Budgets & Goals migration. [`bills-groceries-analytics.md`](bills-groceries-analytics.md) records the complete analytics mechanism.
 
 `src/lib/transaction-draft.ts` owns the transaction Sheet's pure kind, destination, posting-date, payer, and Bills service-period transitions plus canonical hidden-field projection. A kind change permanently clears category, subcategory, and service-period state; choosing Bills initializes a same-day period, while every non-Bills destination clears it. Calendar popover visibility remains browser-local component state.
 
@@ -110,5 +115,5 @@ Only Bills transactions may have an optional inclusive `service_period_start` an
 ## Non-goals
 
 - Merchant rules are the only implemented automatic categorization. There is no general event/action engine, arbitrary action payload, sequential rule pipeline, database-trigger matching, edit-time automation, scheduled recategorization, or configurable service-period inference; Bills assignments use the fixed calendar-month default.
-- No double-entry ledger, bank connection, financial credential, attachment, generalized budget, manually maintained obligation, upcoming/overdue state, expected-versus-recorded analysis, or audit-history model is implemented. CSV/XLSX statement import is supported, but source files and full card details are never stored.
+- No double-entry ledger, bank connection, financial credential, attachment, historical budget version, budget contribution, savings or investment transaction type, transaction-derived goal progress, automatic budget or goal derivation, manually maintained obligation, upcoming/overdue obligation state, expected-versus-recorded analysis, or audit-history model is implemented. CSV/XLSX statement import is supported, but source files and full card details are never stored.
 - The directional roadmap does not change these invariants.
