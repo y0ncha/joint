@@ -76,7 +76,9 @@ export async function importStatement(_previousState: ActionResult | null, formD
   const payerByCard = new Map(cardMappings.map(({ last_four, user_id }) => [last_four, user_id]));
   let rules;
   try {
-    rules = (await getMerchantAutomationRules(household.supabase, household.householdId)).filter((rule) => rule.action !== "delete_transaction");
+    rules = (await getMerchantAutomationRules(household.supabase, household.householdId)).filter(
+      (rule) => rule.action !== "delete_transaction",
+    );
   } catch {
     return { status: "error", formError: IMPORT_ERROR, fieldErrors: {} };
   }

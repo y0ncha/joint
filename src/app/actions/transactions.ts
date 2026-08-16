@@ -73,21 +73,23 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
   const household = await requireCurrentHousehold();
   let rules;
   try {
-    rules = (await getMerchantAutomationRules(household.supabase, household.householdId)).filter((rule) => rule.action !== "delete_transaction");
+    rules = (await getMerchantAutomationRules(household.supabase, household.householdId)).filter(
+      (rule) => rule.action !== "delete_transaction",
+    );
   } catch {
     return { status: "error", formError: "Unable to save the transaction. Please try again.", fieldErrors: {} };
   }
   const automated = evaluateMerchantAutomations(
-      {
-        merchant: parsed.data.merchant ?? "",
-        note: parsed.data.note,
-        amount: parsed.data.amount,
-        kind: parsed.data.kind,
-        categoryId: parsed.data.categoryId,
-        subcategoryId: parsed.data.subcategoryId,
-      },
-      rules,
-    );
+    {
+      merchant: parsed.data.merchant ?? "",
+      note: parsed.data.note,
+      amount: parsed.data.amount,
+      kind: parsed.data.kind,
+      categoryId: parsed.data.categoryId,
+      subcategoryId: parsed.data.subcategoryId,
+    },
+    rules,
+  );
   if (!automated.subcategoryId && !automated.categoryId) {
     return { status: "error", formError: "Check the form details.", fieldErrors: { subcategoryId: "Select a value." } };
   }

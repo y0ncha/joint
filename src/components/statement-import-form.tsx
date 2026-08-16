@@ -127,6 +127,7 @@ export function StatementImportForm({ automationDestinations = [] }: { automatio
           onConfirm={confirmAutomationPreview}
           onOpenChange={(nextOpen) => !nextOpen && setDismissedAutomationPreview(automationPreview.fingerprint)}
           open={automationPreviewOpen}
+          pending={isPending}
           preview={automationPreview}
           rules={[]}
         />
