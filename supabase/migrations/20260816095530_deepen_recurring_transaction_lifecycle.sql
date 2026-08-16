@@ -560,7 +560,16 @@ security invoker
 set search_path = ''
 as $$
 begin
-  if coalesce(pg_catalog.current_setting('joint.recurring_write', true), 'off') = 'on' then
+  if coalesce(pg_catalog.current_setting('joint.recurring_write', true), 'off') = 'on'
+    and current_user = pg_catalog.pg_get_userbyid(
+      (
+        select proowner
+        from pg_catalog.pg_proc
+        where oid = 'private.protect_recurring_transaction_metadata()'::pg_catalog.regprocedure
+      )
+    )
+    and pg_catalog.current_setting('role', true) is distinct from current_user
+  then
     return new;
   end if;
   if tg_op = 'INSERT'

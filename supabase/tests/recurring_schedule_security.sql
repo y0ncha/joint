@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(71);
+select extensions.plan(72);
 
 select extensions.ok(
   has_schema_privilege('service_role', 'private', 'USAGE')
@@ -740,6 +740,7 @@ values ('00000000-0000-0000-0000-000000000651', 'recurring-other@example.test', 
 insert into public.households (id, name, created_by)
 values ('00000000-0000-0000-0000-000000000650', 'Other recurring household', '00000000-0000-0000-0000-000000000651');
 
+alter table public.transactions disable trigger transactions_protect_recurring_metadata;
 select set_config('joint.recurring_write', 'on', true);
 
 select extensions.throws_like(
@@ -800,6 +801,7 @@ select extensions.throws_like(
 );
 
 select set_config('joint.recurring_write', 'off', true);
+alter table public.transactions enable trigger transactions_protect_recurring_metadata;
 
 insert into public.transactions (
   id, household_id, created_by, kind, amount, occurred_on, merchant, note,
@@ -1050,6 +1052,7 @@ select extensions.is(
 );
 
 set local role service_role;
+select set_config('joint.recurring_write', 'on', true);
 
 select extensions.throws_like(
   $$
@@ -1070,6 +1073,8 @@ select extensions.throws_like(
   '%recurrence metadata%',
   'service_role table DML cannot bypass protected recurrence metadata context'
 );
+
+select set_config('joint.recurring_write', 'off', true);
 
 set local role postgres;
 
@@ -1092,6 +1097,22 @@ select extensions.throws_like(
   '%recurrence metadata%',
   'postgres table DML cannot bypass protected recurrence metadata context'
 );
+
+set local role authenticated;
+select set_config('joint.recurring_write', 'on', true);
+
+select extensions.throws_like(
+  $$
+    update public.transactions
+    set recurring_schedule_id = (select recurring_schedule_id from public.transactions where id = '00000000-0000-0000-0000-000000000630'),
+        scheduled_for = date '2099-01-04'
+    where id = '00000000-0000-0000-0000-000000000631'
+  $$,
+  '%recurrence metadata%',
+  'authenticated cannot forge the protected writer context with set_config'
+);
+
+select set_config('joint.recurring_write', 'off', true);
 
 select * from extensions.finish();
 
