@@ -27,7 +27,7 @@ export function RecurringScheduleFields({
   onCadenceChange,
   onIntervalChange,
 }: RecurringScheduleFieldsProps) {
-  const hasActions = actions !== undefined;
+  const hasActions = actions != null;
   const cadenceValue = cadence === "" ? (allowNone ? "none" : "monthly") : cadence.startsWith("custom_") ? "custom" : cadence;
 
   function handleCadenceChange(value: string) {
