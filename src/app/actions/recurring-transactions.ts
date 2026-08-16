@@ -2,44 +2,36 @@
 
 import { revalidatePath } from "next/cache";
 
-import { validationError, type ActionResult } from "@/app/actions/result";
+import type { ActionResult } from "@/app/actions/result";
 import { requireCurrentHousehold } from "@/lib/household";
-import { recurringScheduleSchema } from "@/lib/validation";
 
 const SAVE_ERROR = "Unable to save the recurring schedule. Please try again.";
 
-export async function pauseRecurringTransactionSchedule(scheduleId: string, enabled: boolean): Promise<ActionResult> {
+async function setRecurringTransactionScheduleStatus(scheduleId: string, status: "paused" | "active" | "stopped"): Promise<ActionResult> {
   const household = await requireCurrentHousehold();
-  const { error } = await household.supabase.rpc("set_recurring_transaction_schedule_enabled", {
-    target_enabled: enabled,
+
+  const rpc = household.supabase.rpc as unknown as (
+    functionName: "set_recurring_transaction_schedule_status",
+    args: { target_schedule_id: string; target_status: "paused" | "active" | "stopped" },
+  ) => Promise<{ error: unknown }>;
+  const { error } = await rpc("set_recurring_transaction_schedule_status", {
     target_schedule_id: scheduleId,
+    target_status: status,
   });
+
   if (error) return { status: "error", formError: SAVE_ERROR, fieldErrors: {} };
   revalidatePath("/transactions");
   return { status: "success" };
 }
 
-export async function deleteRecurringTransactionSchedule(scheduleId: string): Promise<ActionResult> {
-  const household = await requireCurrentHousehold();
-  const { error } = await household.supabase.rpc("delete_recurring_transaction_schedule", { target_schedule_id: scheduleId });
-  if (error) return { status: "error", formError: "Unable to delete the recurring schedule. Please try again.", fieldErrors: {} };
-  revalidatePath("/transactions");
-  return { status: "success" };
+export async function pauseRecurringTransactionSchedule(scheduleId: string): Promise<ActionResult> {
+  return setRecurringTransactionScheduleStatus(scheduleId, "paused");
 }
 
-export async function updateRecurringTransactionSchedule(scheduleId: string, input: FormData): Promise<ActionResult> {
-  const parsed = recurringScheduleSchema.safeParse(Object.fromEntries(input));
-  if (!parsed.success) return validationError(parsed.error.issues);
-  const household = await requireCurrentHousehold();
-  const { error } = await household.supabase.rpc("update_recurring_transaction_schedule", {
-    target_amount: parsed.data.amount,
-    target_cadence: parsed.data.cadence,
-    target_interval_count: parsed.data.intervalCount,
-    target_merchant: parsed.data.merchant,
-    target_note: parsed.data.note,
-    target_schedule_id: scheduleId,
-  });
-  if (error) return { status: "error", formError: SAVE_ERROR, fieldErrors: {} };
-  revalidatePath("/transactions");
-  return { status: "success" };
+export async function resumeRecurringTransactionSchedule(scheduleId: string): Promise<ActionResult> {
+  return setRecurringTransactionScheduleStatus(scheduleId, "active");
+}
+
+export async function stopRecurringTransactionSchedule(scheduleId: string): Promise<ActionResult> {
+  return setRecurringTransactionScheduleStatus(scheduleId, "stopped");
 }
