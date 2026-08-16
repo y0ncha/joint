@@ -464,6 +464,7 @@ it("wires pause, resume, and confirmed stop through the lifecycle adapters", asy
   expect(stopButton?.props.className).toContain("size-11");
   expect(stopTrigger).toBeDefined();
   expect(stopConfirmation).toBeDefined();
+  expect(renderToStaticMarkup(inactiveTree)).toContain("Existing transactions will stay in the shared ledger.");
   expect(stopButton?.props.onClick).toBeUndefined();
   await (resumeButton?.props.onClick as (() => void) | undefined)?.();
   await (stopConfirmation?.props.onClick as (() => void) | undefined)?.();
@@ -525,10 +526,25 @@ it.each(["future", "all"] as const)("submits the selected %s scope with stored i
   const props = { members: [], transaction };
   const initialTree = TransactionSheet(props);
   findElement(initialTree, () => false);
-  const form = findElement(initialTree, (element) => element.type === "form");
+  mocks.recurrenceChange?.("custom");
+
+  mocks.stateIndex = 0;
+  const customTree = TransactionSheet(props);
+  findElement(customTree, () => false);
+  const recurrenceInterval = findElement(customTree, (element) => element.type === "input" && element.props.id === "recurrence-interval");
+  (recurrenceInterval?.props.onChange as ((event: { target: { value: string } }) => void) | undefined)?.({ target: { value: "3" } });
+
+  mocks.stateIndex = 0;
+  const changedTree = TransactionSheet(props);
+  findElement(changedTree, () => false);
+  const form = findElement(changedTree, (element) => element.type === "form");
 
   expect(form).toBeDefined();
-  submitForm(form!, { kind: "expense", occurredOn: "2026-07-15", recurrenceCadence: "monthly", recurrenceInterval: "1" });
+  const renderedFormData = collectNamedFormData(form!);
+  expect(renderedFormData.get("recurrenceCadence")).toBe("custom_weekly");
+  expect(renderedFormData.get("recurrenceInterval")).toBe("3");
+  const preventDefault = submitForm(form!, renderedFormData);
+  expect(preventDefault).toHaveBeenCalledOnce();
   expect(mocks.lastSubmittedFormData).toBeUndefined();
   mocks.scopeActions = [];
   mocks.stateIndex = 0;
@@ -536,8 +552,8 @@ it.each(["future", "all"] as const)("submits the selected %s scope with stored i
   mocks.scopeActions.find(({ label }) => label === `Apply to ${scope} transactions`)?.onClick?.();
 
   expect(mocks.lastSubmittedFormData?.get("recurrenceScope")).toBe(scope);
-  expect(mocks.lastSubmittedFormData?.get("recurrenceCadence")).toBe("monthly");
-  expect(mocks.lastSubmittedFormData?.get("recurrenceInterval")).toBe("1");
+  expect(mocks.lastSubmittedFormData?.get("recurrenceCadence")).toBe("custom_weekly");
+  expect(mocks.lastSubmittedFormData?.get("recurrenceInterval")).toBe("3");
   expect(mocks.lastSubmittedFormData?.get("kind")).toBe("expense");
   expect(mocks.lastSubmittedFormData?.get("occurredOn")).toBe("2026-07-15");
   expect(mocks.updateTransaction).toHaveBeenCalledOnce();
