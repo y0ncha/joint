@@ -216,7 +216,7 @@ export async function updateTransaction(transactionId: string, input: FormData):
   const household = await requireCurrentHousehold();
   const { data: existingTransaction, error: sourceError } = await household.supabase
     .from("transactions")
-    .select("source, recurring_schedule_id")
+    .select("source, recurring_schedule_id, kind, occurred_on")
     .eq("id", transactionId)
     .eq("household_id", household.householdId)
     .maybeSingle();
@@ -243,20 +243,67 @@ export async function updateTransaction(transactionId: string, input: FormData):
     };
   }
 
-  const recurrenceScope = input.get("recurrenceScope");
-  if ((recurrenceScope === "future" || recurrenceScope === "all") && existingTransaction.recurring_schedule_id) {
-    const { error } = await household.supabase.rpc("update_recurring_transaction_occurrence", {
-      target_amount: parsed.data.amount,
-      target_category_id: parsed.data.categoryId || null,
-      target_merchant: parsed.data.merchant ?? "",
-      target_note: parsed.data.note,
-      target_paid_by: parsed.data.paidBy || null,
-      target_scope: recurrenceScope,
-      target_service_period_end: servicePeriods.service_period_end,
-      target_service_period_start: servicePeriods.service_period_start,
-      target_subcategory_id: parsed.data.subcategoryId || null,
-      target_transaction_id: transactionId,
-    } as never);
+  const recurrenceScope = parsed.data.recurrenceScope;
+  if (existingTransaction.recurring_schedule_id) {
+    if (!recurrenceScope) {
+      return validationError([{ path: ["recurrenceScope"], message: "Choose how to apply recurring changes." }]);
+    }
+    if (recurrenceScope !== "this") {
+      const issues = [];
+      if (parsed.data.kind !== existingTransaction.kind) {
+        issues.push({ path: ["kind"], message: "Change kind only for this occurrence." });
+      }
+      if (parsed.data.occurredOn !== existingTransaction.occurred_on) {
+        issues.push({ path: ["occurredOn"], message: "Change the posting date only for this occurrence." });
+      }
+      if (issues.length > 0) return validationError(issues);
+    }
+    const { error } = await household.supabase.rpc(
+      "save_recurring_transaction_occurrence" as never,
+      {
+        target_transaction_id: transactionId,
+        target_scope: recurrenceScope,
+        target_kind: parsed.data.kind,
+        target_amount: parsed.data.amount,
+        target_occurred_on: parsed.data.occurredOn,
+        target_merchant: parsed.data.merchant ?? "",
+        target_note: parsed.data.note,
+        target_paid_by: parsed.data.paidBy || null,
+        target_category_id: parsed.data.categoryId || null,
+        target_subcategory_id: parsed.data.subcategoryId || null,
+        target_service_period_start: servicePeriods.service_period_start,
+        target_service_period_end: servicePeriods.service_period_end,
+        target_cadence: recurrenceScope === "this" ? null : parsed.data.recurrenceCadence,
+        target_interval_count: recurrenceScope === "this" ? null : parsed.data.recurrenceInterval,
+      } as never,
+    );
+    if (error) return { status: "error", formError: "Unable to update the recurring schedule. Please try again.", fieldErrors: {} };
+    for (const path of ["/", "/transactions", "/categories", "/bills-groceries", "/budgets-goals"]) revalidatePath(path);
+    return { status: "success" };
+  }
+
+  if (parsed.data.recurrenceCadence && parsed.data.recurrenceInterval) {
+    if (existingTransaction.source !== "manual") {
+      return { status: "error", formError: "Unable to update the transaction. Please try again.", fieldErrors: {} };
+    }
+    const { error } = await household.supabase.rpc(
+      "convert_transaction_to_recurring_schedule" as never,
+      {
+        target_transaction_id: transactionId,
+        target_paid_by: parsed.data.paidBy || null,
+        target_kind: parsed.data.kind,
+        target_amount: parsed.data.amount,
+        target_occurred_on: parsed.data.occurredOn,
+        target_merchant: parsed.data.merchant ?? "",
+        target_note: parsed.data.note,
+        target_category_id: parsed.data.categoryId || null,
+        target_subcategory_id: parsed.data.subcategoryId || null,
+        target_service_period_start: servicePeriods.service_period_start,
+        target_service_period_end: servicePeriods.service_period_end,
+        target_cadence: parsed.data.recurrenceCadence,
+        target_interval_count: parsed.data.recurrenceInterval,
+      } as never,
+    );
     if (error) return { status: "error", formError: "Unable to update the recurring schedule. Please try again.", fieldErrors: {} };
     for (const path of ["/", "/transactions", "/categories", "/bills-groceries", "/budgets-goals"]) revalidatePath(path);
     return { status: "success" };

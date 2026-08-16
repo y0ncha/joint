@@ -53,7 +53,7 @@ function configureContextClient({
   }>,
   payer = { user_id: "partner-id" },
   transactionError = null,
-  existingTransaction = { source: "manual" },
+  existingTransaction = { source: "manual", kind: "expense", occurred_on: "2026-07-14" },
   subcategory = { categories: { system_key: null } },
 }: {
   duplicates?: Array<{
@@ -66,7 +66,12 @@ function configureContextClient({
   }>;
   payer?: { user_id: string } | null;
   transactionError?: unknown;
-  existingTransaction?: { source: "manual" | "statement_import"; recurring_schedule_id?: string | null } | null;
+  existingTransaction?: {
+    source: "manual" | "statement_import";
+    recurring_schedule_id?: string | null;
+    kind?: "income" | "expense";
+    occurred_on?: string;
+  } | null;
   subcategory?: { categories: { system_key: string | null } } | null;
 } = {}) {
   const payerMaybeSingle = vi.fn().mockResolvedValue({ data: payer, error: null });
@@ -435,34 +440,226 @@ describe("transaction actions", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/budgets-goals");
   });
 
-  it("applies recurring future edits through the atomic schedule RPC", async () => {
-    configureContextClient({ existingTransaction: { source: "manual", recurring_schedule_id: "schedule-id" } });
+  it.each([
+    ["expense", "expense"],
+    ["income", "income"],
+  ] as const)("converts an unlinked manual %s through the atomic conversion RPC", async (_label, kind) => {
+    configureContextClient({ existingTransaction: { source: "manual", kind, occurred_on: "2026-07-14" } });
 
     await expect(
       transactionsModule.updateTransaction(
         "transaction-id",
-        transactionForm({ recurrenceScope: "future", amount: "51", paidBy: "member-id" }),
+        transactionForm({ kind, merchant: "Updated merchant", recurrenceCadence: "monthly", recurrenceInterval: "1" }),
       ),
     ).resolves.toEqual({ status: "success" });
 
-    expect(mocks.rpc).toHaveBeenCalledWith("update_recurring_transaction_occurrence", {
-      target_amount: 51,
+    expect(mocks.rpc).toHaveBeenCalledWith("convert_transaction_to_recurring_schedule", {
+      target_transaction_id: "transaction-id",
+      target_paid_by: "partner-id",
+      target_kind: kind,
+      target_amount: 50,
+      target_occurred_on: "2026-07-14",
+      target_merchant: "Updated merchant",
+      target_note: "Groceries",
       target_category_id: null,
+      target_subcategory_id: "groceries",
+      target_service_period_start: null,
+      target_service_period_end: null,
+      target_cadence: "monthly",
+      target_interval_count: 1,
+    });
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(5);
+  });
+
+  it("rejects recurrence conversion for an imported transaction without mutating it", async () => {
+    configureContextClient({ existingTransaction: { source: "statement_import", kind: "expense", occurred_on: "2026-07-14" } });
+
+    await expect(
+      transactionsModule.updateTransaction("transaction-id", transactionForm({ recurrenceCadence: "monthly", recurrenceInterval: "1" })),
+    ).resolves.toMatchObject({ status: "error" });
+
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("applies recurring this edits through the atomic occurrence RPC with null cadence fields", async () => {
+    configureContextClient({
+      existingTransaction: { source: "manual", recurring_schedule_id: "schedule-id", kind: "expense", occurred_on: "2026-07-14" },
+    });
+
+    await expect(
+      transactionsModule.updateTransaction(
+        "transaction-id",
+        transactionForm({
+          recurrenceScope: "this",
+          kind: "income",
+          amount: "51",
+          occurredOn: "2026-07-15",
+          merchant: "Updated merchant",
+          categoryId: "income-category",
+          subcategoryId: "salary",
+          paidBy: "member-id",
+          note: "Updated",
+        }),
+      ),
+    ).resolves.toEqual({ status: "success" });
+
+    expect(mocks.rpc).toHaveBeenCalledWith("save_recurring_transaction_occurrence", {
+      target_transaction_id: "transaction-id",
+      target_scope: "this",
+      target_kind: "income",
+      target_amount: 51,
+      target_occurred_on: "2026-07-15",
+      target_merchant: "Updated merchant",
+      target_note: "Updated",
+      target_paid_by: "member-id",
+      target_category_id: "income-category",
+      target_subcategory_id: "salary",
+      target_service_period_start: null,
+      target_service_period_end: null,
+      target_cadence: null,
+      target_interval_count: null,
+    });
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("applies recurring future edits through the atomic occurrence RPC", async () => {
+    configureContextClient({
+      existingTransaction: { source: "manual", recurring_schedule_id: "schedule-id", kind: "expense", occurred_on: "2026-07-14" },
+    });
+
+    await expect(
+      transactionsModule.updateTransaction(
+        "transaction-id",
+        transactionForm({
+          recurrenceScope: "future",
+          recurrenceCadence: "monthly",
+          recurrenceInterval: "1",
+          amount: "51",
+          paidBy: "member-id",
+        }),
+      ),
+    ).resolves.toEqual({ status: "success" });
+
+    expect(mocks.rpc).toHaveBeenCalledWith("save_recurring_transaction_occurrence", {
+      target_transaction_id: "transaction-id",
+      target_scope: "future",
+      target_kind: "expense",
+      target_amount: 51,
+      target_occurred_on: "2026-07-14",
       target_merchant: "",
       target_note: "Groceries",
       target_paid_by: "member-id",
-      target_scope: "future",
+      target_category_id: null,
       target_service_period_end: null,
       target_service_period_start: null,
       target_subcategory_id: "groceries",
-      target_transaction_id: "transaction-id",
+      target_cadence: "monthly",
+      target_interval_count: 1,
     });
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("applies recurring all edits through the atomic occurrence RPC", async () => {
+    configureContextClient({
+      existingTransaction: { source: "manual", recurring_schedule_id: "schedule-id", kind: "expense", occurred_on: "2026-07-14" },
+    });
+
+    await expect(
+      transactionsModule.updateTransaction(
+        "transaction-id",
+        transactionForm({ recurrenceScope: "all", recurrenceCadence: "custom_weekly", recurrenceInterval: "2" }),
+      ),
+    ).resolves.toEqual({ status: "success" });
+
+    expect(mocks.rpc).toHaveBeenCalledWith("save_recurring_transaction_occurrence", {
+      target_transaction_id: "transaction-id",
+      target_scope: "all",
+      target_kind: "expense",
+      target_amount: 50,
+      target_occurred_on: "2026-07-14",
+      target_merchant: "",
+      target_note: "Groceries",
+      target_paid_by: "partner-id",
+      target_category_id: null,
+      target_subcategory_id: "groceries",
+      target_service_period_start: null,
+      target_service_period_end: null,
+      target_cadence: "custom_weekly",
+      target_interval_count: 2,
+    });
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("requires a scope when editing a linked recurring transaction", async () => {
+    configureContextClient({
+      existingTransaction: { source: "manual", recurring_schedule_id: "schedule-id", kind: "expense", occurred_on: "2026-07-14" },
+    });
+
+    await expect(transactionsModule.updateTransaction("transaction-id", transactionForm())).resolves.toMatchObject({ status: "error" });
+
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["future", { kind: "income" }, "kind"],
+    ["all", { kind: "income" }, "kind"],
+    ["future", { occurredOn: "2026-07-15" }, "occurredOn"],
+    ["all", { occurredOn: "2026-07-15" }, "occurredOn"],
+  ] as const)("rejects a %s recurring edit when %s changes", async (scope, override, field) => {
+    configureContextClient({
+      existingTransaction: { source: "manual", recurring_schedule_id: "schedule-id", kind: "expense", occurred_on: "2026-07-14" },
+    });
+
+    const result = await transactionsModule.updateTransaction(
+      "transaction-id",
+      transactionForm({ recurrenceScope: scope, recurrenceCadence: "monthly", recurrenceInterval: "1", ...override }),
+    );
+
+    expect(result).toMatchObject({ status: "error", fieldErrors: { [field]: expect.any(String) } });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("sanitizes conversion RPC failures", async () => {
+    configureContextClient({ existingTransaction: { source: "manual", kind: "expense", occurred_on: "2026-07-14" } });
+    mocks.rpc.mockResolvedValue({ error: { message: "database details" } });
+
+    await expect(
+      transactionsModule.updateTransaction("transaction-id", transactionForm({ recurrenceCadence: "monthly", recurrenceInterval: "1" })),
+    ).resolves.toEqual({
+      status: "error",
+      formError: "Unable to update the recurring schedule. Please try again.",
+      fieldErrors: {},
+    });
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("sanitizes recurring occurrence RPC failures", async () => {
+    configureContextClient({
+      existingTransaction: { source: "manual", recurring_schedule_id: "schedule-id", kind: "expense", occurred_on: "2026-07-14" },
+    });
+    mocks.rpc.mockResolvedValue({ error: { message: "database details" } });
+
+    await expect(transactionsModule.updateTransaction("transaction-id", transactionForm({ recurrenceScope: "this" }))).resolves.toEqual({
+      status: "error",
+      formError: "Unable to update the recurring schedule. Please try again.",
+      fieldErrors: {},
+    });
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
     expect(mocks.update).not.toHaveBeenCalled();
   });
 
   it("keeps imported transactions uncategorized and unassigned when editing", async () => {
     const { sourceEqHousehold, sourceEqId, transactionEqHousehold, transactionEqId } = configureContextClient({
-      existingTransaction: { source: "statement_import" },
+      existingTransaction: { source: "statement_import", kind: "expense", occurred_on: "2026-07-14" },
     });
 
     await expect(
@@ -472,7 +669,7 @@ describe("transaction actions", () => {
     });
 
     expect(mocks.from).not.toHaveBeenCalledWith("household_members");
-    expect(mocks.select).toHaveBeenCalledWith("source, recurring_schedule_id");
+    expect(mocks.select).toHaveBeenCalledWith("source, recurring_schedule_id, kind, occurred_on");
     expect(sourceEqId).toHaveBeenCalledWith("id", "transaction-id");
     expect(sourceEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ subcategory_id: null, paid_by: null }));
@@ -483,7 +680,9 @@ describe("transaction actions", () => {
   });
 
   it.each(["", undefined])("rejects a %s subcategory when updating a stored manual transaction", async (subcategoryId) => {
-    const { sourceEqHousehold, sourceEqId } = configureContextClient({ existingTransaction: { source: "manual" } });
+    const { sourceEqHousehold, sourceEqId } = configureContextClient({
+      existingTransaction: { source: "manual", kind: "expense", occurred_on: "2026-07-14" },
+    });
     const input = transactionForm({ paidBy: "member-id" });
     if (subcategoryId === undefined) input.delete("subcategoryId");
     else input.set("subcategoryId", subcategoryId);
@@ -493,7 +692,7 @@ describe("transaction actions", () => {
       fieldErrors: { subcategoryId: "Select a value." },
     });
 
-    expect(mocks.select).toHaveBeenCalledWith("source, recurring_schedule_id");
+    expect(mocks.select).toHaveBeenCalledWith("source, recurring_schedule_id, kind, occurred_on");
     expect(sourceEqId).toHaveBeenCalledWith("id", "transaction-id");
     expect(sourceEqHousehold).toHaveBeenCalledWith("household_id", "household-id");
     expect(mocks.update).not.toHaveBeenCalled();
