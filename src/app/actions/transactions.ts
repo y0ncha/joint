@@ -151,7 +151,6 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
   const recurringScheduleArgs =
     parsed.data.recurrenceCadence && parsed.data.recurrenceInterval
       ? {
-          target_household_id: household.householdId,
           target_kind: parsed.data.kind,
           target_amount: parsed.data.amount,
           target_occurred_on: parsed.data.occurredOn,

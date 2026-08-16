@@ -475,7 +475,7 @@ it("wires pause, resume, and confirmed stop through the lifecycle adapters", asy
 });
 
 it.each([
-  ["blocked", ["Resume future repeats"], ["Pause future repeats", "Stop future repeats"]],
+  ["blocked", ["Resume future repeats", "Stop future repeats"], ["Pause future repeats"]],
   ["stopped", [], ["Pause future repeats", "Resume future repeats", "Stop future repeats"]],
 ] as const)("aligns %s lifecycle controls with canonical schedule status", (status, visibleLabels, hiddenLabels) => {
   const tree = TransactionSheet({

@@ -538,7 +538,7 @@ export function TransactionSheet({
                             {transaction.recurringScheduleStatus === "active" ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
                           </Button>
                         ) : null}
-                        {transaction.recurringScheduleStatus === "active" || transaction.recurringScheduleStatus === "paused" ? (
+                        {transaction.recurringScheduleStatus !== "stopped" ? (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button

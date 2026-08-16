@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(81);
+select extensions.plan(84);
 
 select extensions.ok(
   has_schema_privilege('service_role', 'private', 'USAGE')
@@ -38,7 +38,7 @@ set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000601"}';
 select extensions.throws_like(
   $$
     select public.create_recurring_transaction_schedule(
-      '00000000-0000-0000-0000-000000000610', null, 'expense', 10, date '0001-01-01',
+      null, 'expense', 10, date '0001-01-01',
       'Ancient', '', (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_expense'),
       null, null, null, 'weekly', 1
     )
@@ -56,7 +56,7 @@ select extensions.is(
 select extensions.throws_like(
   $$
     select public.create_recurring_transaction_schedule(
-      '00000000-0000-0000-0000-000000000610', null, 'expense', 10, current_date,
+      null, 'expense', 10, current_date,
       'Too frequent', '', (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_expense'),
       null, null, null, 'weekly', 366
     )
@@ -66,7 +66,7 @@ select extensions.throws_like(
 );
 
 select extensions.throws_like(
-  $$ select public.create_recurring_transaction_schedule('00000000-0000-0000-0000-000000000610') $$,
+  $$ select public.create_recurring_transaction_schedule() $$,
   '%anchor, cadence, and target date are required%',
   'omitted recurring arguments fail immediately instead of entering a null loop'
 );
@@ -78,7 +78,7 @@ set local role authenticated;
 select extensions.lives_ok(
   $$
     select public.create_recurring_transaction_schedule(
-      '00000000-0000-0000-0000-000000000610', null, 'expense', 10, current_date - 14,
+      null, 'expense', 10, current_date - 14,
       'Legitimate bounded schedule', '', (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_expense'),
       null, null, null, 'weekly', 1
     )
@@ -104,7 +104,7 @@ set local role authenticated;
 select extensions.throws_like(
   $$
     select public.create_recurring_transaction_schedule(
-      '00000000-0000-0000-0000-000000000610', null, 'expense', 10, date '2026-02-30',
+      null, 'expense', 10, date '2026-02-30',
       'Invalid date', '', (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_expense'),
       null, null, null, 'weekly', 1
     )
@@ -130,8 +130,8 @@ set local role authenticated;
 
 select extensions.throws_like(
   $$ select public.update_recurring_transaction_schedule('00000000-0000-0000-0000-000000000620', 11, 'Edited', '', 'weekly', 1) $$,
-  '%maximum of 366%',
-  'editing an ancient existing schedule is bounded before the cursor loop'
+  '%function public.update_recurring_transaction_schedule%',
+  'the standalone recurring schedule update RPC is not callable by authenticated members'
 );
 
 set local role service_role;
@@ -187,7 +187,7 @@ where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'bi
 select extensions.lives_ok(
   $$
     select public.create_recurring_transaction_schedule(
-      '00000000-0000-0000-0000-000000000610', null, 'expense', 20, current_date - 14,
+      null, 'expense', 20, current_date - 14,
       'Recurring utility bill', '', null,
       (select id from public.subcategories where household_id = '00000000-0000-0000-0000-000000000610' and name = 'Recurring utilities'),
       current_date - 20, current_date - 14, 'weekly', 1
@@ -223,7 +223,7 @@ set local role authenticated;
 select extensions.lives_ok(
   $$
     select public.create_recurring_transaction_schedule(
-      '00000000-0000-0000-0000-000000000610', null, 'expense', 30, date '2026-01-31',
+      null, 'expense', 30, date '2026-01-31',
       'Month-end utility bill', '', null,
       (select id from public.subcategories where household_id = '00000000-0000-0000-0000-000000000610' and name = 'Recurring utilities'),
       date '2026-01-01', date '2026-01-31', 'monthly', 1
@@ -255,7 +255,7 @@ set local role authenticated;
 select extensions.lives_ok(
   $$
     select public.create_recurring_transaction_schedule(
-      '00000000-0000-0000-0000-000000000610', null, 'expense', 20, current_date - 14,
+      null, 'expense', 20, current_date - 14,
       'Future utility bill', '', null,
       (select id from public.subcategories where household_id = '00000000-0000-0000-0000-000000000610' and name = 'Recurring utilities'),
       current_date - 20, current_date - 14, 'weekly', 1
@@ -634,6 +634,46 @@ select extensions.ok(
 );
 
 select extensions.ok(
+  to_regprocedure('public.create_recurring_transaction_schedule(uuid, public.transaction_kind, numeric, date, text, text, uuid, uuid, date, date, public.recurring_schedule_cadence, integer)') is not null
+  and to_regprocedure('public.create_recurring_transaction_schedule_after_duplicate(uuid, public.transaction_kind, numeric, date, text, text, uuid, uuid, date, date, public.recurring_schedule_cadence, integer, uuid)') is not null
+  and to_regprocedure('public.create_recurring_transaction_schedule(uuid, uuid, public.transaction_kind, numeric, date, text, text, uuid, uuid, date, date, public.recurring_schedule_cadence, integer)') is null
+  and to_regprocedure('public.create_recurring_transaction_schedule_after_duplicate(uuid, uuid, public.transaction_kind, numeric, date, text, text, uuid, uuid, date, date, public.recurring_schedule_cadence, integer, uuid)') is null,
+  'recurring creation RPCs derive household ownership from authenticated context'
+);
+
+select extensions.lives_ok(
+  $$
+    select public.create_recurring_transaction_schedule(
+      target_paid_by => null,
+      target_kind => 'expense',
+      target_amount => 17,
+      target_occurred_on => current_date,
+      target_merchant => 'Authenticated household ownership',
+      target_note => '',
+      target_category_id => (
+        select id
+        from public.categories
+        where household_id = '00000000-0000-0000-0000-000000000610'
+          and system_key = 'other_expense'
+      ),
+      target_cadence => 'weekly',
+      target_interval_count => 1
+    )
+  $$,
+  'authenticated recurring creation succeeds without a browser household argument'
+);
+
+select extensions.is(
+  (
+    select household_id
+    from public.recurring_transaction_schedules
+    where merchant = 'Authenticated household ownership'
+  ),
+  '00000000-0000-0000-0000-000000000610'::uuid,
+  'authenticated recurring creation persists in the session household'
+);
+
+select extensions.ok(
   (
     select p.prorettype = 'jsonb'::regtype
     from pg_catalog.pg_proc as p
@@ -822,7 +862,7 @@ select extensions.throws_like(
 );
 
 select public.create_recurring_transaction_schedule(
-  '00000000-0000-0000-0000-000000000610', null, 'expense', 16, current_date,
+  null, 'expense', 16, current_date,
   'Paused stop probe', '',
   (select id from public.categories where household_id = '00000000-0000-0000-0000-000000000610' and system_key = 'other_expense'),
   null, null, null, 'weekly', 1
@@ -939,7 +979,7 @@ set local role authenticated;
 select extensions.lives_ok(
   $$
     select public.create_recurring_transaction_schedule(
-      '00000000-0000-0000-0000-000000000610', null, 'expense', 12, current_date,
+      null, 'expense', 12, current_date,
       'Deletable destination', '', null, '00000000-0000-0000-0000-000000000641',
       null, null, 'weekly', 1
     )
@@ -1243,7 +1283,7 @@ set local role authenticated;
 select extensions.lives_ok(
   $$
     select public.create_recurring_transaction_schedule(
-      '00000000-0000-0000-0000-000000000610', null, 'expense', 17, current_date,
+      null, 'expense', 17, current_date,
       'Paused destination deletion', '', null, '00000000-0000-0000-0000-000000000661',
       null, null, 'weekly', 1
     )
