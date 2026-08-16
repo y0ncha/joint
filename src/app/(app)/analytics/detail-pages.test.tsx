@@ -1,10 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import BillsGroceriesDetailPage from "./[chart]/page";
+import AnalyticsDetailPage from "./[chart]/page";
 
 const mocks = vi.hoisted(() => ({
-  loadBillsGroceriesPage: vi.fn(),
+  loadAnalyticsPage: vi.fn(),
   notFound: vi.fn(() => {
     throw new Error("NOT_FOUND");
   }),
@@ -15,27 +15,27 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound, redirect: mocks.redirect }));
 
-vi.mock("@/components/bills-groceries-dashboard", () => ({
-  BillsGroceriesChartDetail: ({
+vi.mock("@/components/analytics-dashboard", () => ({
+  AnalyticsChartDetail: ({
     chart,
     data,
     billIds,
-    billId,
+    yoy,
     period,
   }: {
     chart: string;
     data?: { marker: string };
     billIds?: string[];
-    billId?: string | null;
+    yoy?: string | null;
     period?: string;
-  }) => <output>{[chart, data?.marker, billIds?.join(","), billId, period].join("|")}</output>,
+  }) => <output>{[chart, data?.marker, billIds?.join(","), yoy, period].join("|")}</output>,
 }));
 
-vi.mock("@/lib/bills-groceries-chart-ids", () => ({
-  billsGroceriesChartIds: ["bills", "year-over-year", "groceries", "daily"],
+vi.mock("@/lib/analytics-chart-ids", () => ({
+  analyticsChartIds: ["bills", "year-over-year", "groceries", "daily"],
 }));
 
-vi.mock("@/lib/bills-groceries-page", () => ({ loadBillsGroceriesPage: mocks.loadBillsGroceriesPage }));
+vi.mock("@/lib/analytics-page", () => ({ loadAnalyticsPage: mocks.loadAnalyticsPage }));
 
 vi.mock("@/components/workspace-shell", () => ({
   WorkspacePage: ({ title, opaqueContent, children }: { title?: string; opaqueContent?: boolean; children: React.ReactNode }) => (
@@ -48,25 +48,25 @@ vi.mock("@/components/workspace-shell", () => ({
 }));
 
 beforeEach(() => {
-  mocks.loadBillsGroceriesPage.mockReset();
+  mocks.loadAnalyticsPage.mockReset();
   mocks.notFound.mockClear();
   mocks.redirect.mockClear();
 });
 
 it.each(["bills", "year-over-year", "groceries", "daily"] as const)("renders %s as a header-free live chart detail page", async (chart) => {
   const currentMonth = new Date().toISOString().slice(0, 7);
-  mocks.loadBillsGroceriesPage.mockResolvedValue({
-    canonical: new URLSearchParams(`period=rolling&bills=rent&bill=rent&groceryMonth=${currentMonth}`),
+  mocks.loadAnalyticsPage.mockResolvedValue({
+    canonical: new URLSearchParams(`period=rolling&bills=rent&yoy=rent&groceryMonth=${currentMonth}`),
     data: { marker: "live" },
-    params: new URLSearchParams(`period=rolling&bills=rent&bill=rent&groceryMonth=${currentMonth}`),
+    params: new URLSearchParams(`period=rolling&bills=rent&yoy=rent&groceryMonth=${currentMonth}`),
     selected: {
       billIds: ["rent"],
-      billId: "rent",
+      yoy: "rent",
       period: "rolling",
     },
   });
   const markup = renderToStaticMarkup(
-    await BillsGroceriesDetailPage({
+    await AnalyticsDetailPage({
       params: Promise.resolve({ chart }),
       searchParams: Promise.resolve({
         period: "rolling",
@@ -80,7 +80,7 @@ it.each(["bills", "year-over-year", "groceries", "daily"] as const)("renders %s 
   expect(markup).not.toContain("<h1>");
   expect(markup).toContain("<output>true</output>");
   expect(markup).toContain(`<output>${chart}|live|rent|rent|rolling</output>`);
-  expect(mocks.loadBillsGroceriesPage).toHaveBeenLastCalledWith({
+  expect(mocks.loadAnalyticsPage).toHaveBeenLastCalledWith({
     bill: "rent",
     bills: "rent",
     groceryMonth: currentMonth,
@@ -91,48 +91,48 @@ it.each(["bills", "year-over-year", "groceries", "daily"] as const)("renders %s 
 
 it.each(["yoy", "unknown"])("calls notFound for the invalid %s chart segment", async (chart) => {
   await expect(
-    BillsGroceriesDetailPage({
+    AnalyticsDetailPage({
       params: Promise.resolve({ chart }),
       searchParams: Promise.resolve({}),
     }),
   ).rejects.toThrow("NOT_FOUND");
 
   expect(mocks.notFound).toHaveBeenCalledOnce();
-  expect(mocks.loadBillsGroceriesPage).not.toHaveBeenCalled();
+  expect(mocks.loadAnalyticsPage).not.toHaveBeenCalled();
 });
 
 it("redirects a valid detail chart to its canonical query before rendering", async () => {
-  mocks.loadBillsGroceriesPage.mockResolvedValue({
+  mocks.loadAnalyticsPage.mockResolvedValue({
     canonical: new URLSearchParams("period=rolling&bills=rent&groceryMonth=2026-07&source=household"),
     data: { marker: "live" },
     params: new URLSearchParams("period=calendar&bills=rent&groceryMonth=2026-07&source=household"),
-    selected: { billIds: ["rent"], billId: "rent", period: "rolling" },
+    selected: { billIds: ["rent"], yoy: "rent", period: "rolling" },
   });
 
   await expect(
-    BillsGroceriesDetailPage({
+    AnalyticsDetailPage({
       params: Promise.resolve({ chart: "bills" }),
       searchParams: Promise.resolve({ period: "calendar", bills: "rent", groceryMonth: "2026-07", source: "household" }),
     }),
-  ).rejects.toThrow("NEXT_REDIRECT:/bills-groceries/bills?period=rolling&bills=rent&groceryMonth=2026-07&source=household");
+  ).rejects.toThrow("NEXT_REDIRECT:/analytics/bills?period=rolling&bills=rent&groceryMonth=2026-07&source=household");
 
-  expect(mocks.redirect).toHaveBeenCalledWith("/bills-groceries/bills?period=rolling&bills=rent&groceryMonth=2026-07&source=household");
+  expect(mocks.redirect).toHaveBeenCalledWith("/analytics/bills?period=rolling&bills=rent&groceryMonth=2026-07&source=household");
 });
 
 it("redirects an invalid month on the year-over-year detail route before rendering", async () => {
-  mocks.loadBillsGroceriesPage.mockResolvedValue({
-    canonical: new URLSearchParams("period=rolling&bills=rent&bill=rent&groceryMonth=2026-07"),
+  mocks.loadAnalyticsPage.mockResolvedValue({
+    canonical: new URLSearchParams("period=rolling&bills=rent&yoy=rent&groceryMonth=2026-07"),
     data: { marker: "live" },
-    params: new URLSearchParams("period=rolling&bills=rent&bill=rent&groceryMonth=2026-13"),
-    selected: { billIds: ["rent"], billId: "rent", period: "rolling" },
+    params: new URLSearchParams("period=rolling&bills=rent&yoy=rent&groceryMonth=2026-13"),
+    selected: { billIds: ["rent"], yoy: "rent", period: "rolling" },
   });
 
   await expect(
-    BillsGroceriesDetailPage({
+    AnalyticsDetailPage({
       params: Promise.resolve({ chart: "year-over-year" }),
       searchParams: Promise.resolve({ period: "rolling", bills: "rent", bill: "rent", groceryMonth: "2026-13" }),
     }),
-  ).rejects.toThrow("NEXT_REDIRECT:/bills-groceries/year-over-year?period=rolling&bills=rent&bill=rent&groceryMonth=2026-07");
+  ).rejects.toThrow("NEXT_REDIRECT:/analytics/year-over-year?period=rolling&bills=rent&yoy=rent&groceryMonth=2026-07");
 
-  expect(mocks.redirect).toHaveBeenCalledWith("/bills-groceries/year-over-year?period=rolling&bills=rent&bill=rent&groceryMonth=2026-07");
+  expect(mocks.redirect).toHaveBeenCalledWith("/analytics/year-over-year?period=rolling&bills=rent&yoy=rent&groceryMonth=2026-07");
 });

@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { type CSSProperties, type ReactNode } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from "recharts";
+import { type CSSProperties, type ReactNode, useMemo, useState } from "react";
+import { Bar, BarChart, CartesianGrid, Cell, Line, XAxis, YAxis } from "recharts";
 import { ArrowLeft, ChevronDown, Maximize2, Settings2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ChartContainer,
@@ -18,28 +19,38 @@ import {
 } from "@/components/ui/chart";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { alignBillYearOverYear } from "@/lib/bills-groceries";
-import type { BillsGroceriesChartId } from "@/lib/bills-groceries-chart-ids";
+import { alignBillYearOverYear } from "@/lib/analytics";
+import type { AnalyticsChartId } from "@/lib/analytics-chart-ids";
 import {
-  billsGroceriesNavigationKind,
-  buildBillsGroceriesUrl,
-  parseBillsGroceriesPresentationState,
-  type BillsGroceriesUrlUpdates,
+  analyticsNavigationKind,
+  buildAnalyticsUrl,
+  parseAnalyticsPresentationState,
+  type AnalyticsUrlUpdates,
   type GroceryPresentationFilter,
-} from "@/lib/bills-groceries-navigation";
+} from "@/lib/analytics-navigation";
 import { cn } from "@/lib/utils";
-import type { getBillsGroceriesData } from "@/lib/bills-groceries-data";
+import type { getAnalyticsData } from "@/lib/analytics-data";
 
-export { billsGroceriesChartIds, type BillsGroceriesChartId } from "@/lib/bills-groceries-chart-ids";
+export { analyticsChartIds, type AnalyticsChartId } from "@/lib/analytics-chart-ids";
 
 type BillKey = string;
 type Period = "rolling" | "calendar";
 type MonthlyChartDatum = { month: string } & Record<string, string | number>;
-type GroceryMonthlyDatum = { month: string; mainRun: number; topUps: number };
+type GroceryMonthlyDatum = { month: string; mainRun: number; topUps: number; budget?: number };
+type YearOverYearDatum = {
+  bike?: number;
+  car?: number;
+  current: number;
+  month: string;
+  previous?: number;
+  previousBike?: number;
+  previousCar?: number;
+};
 
 export function groceryTransactionsForDate<Transaction extends { occurredOn: string; subcategoryKey: "main_run" | "top_ups" }>(
   transactions: Transaction[],
@@ -92,7 +103,15 @@ export function dailyHeatmapLevel(total: number) {
   return total === 0 ? 0 : Math.min(4, Math.ceil((total / dailyHeatmapScaleMax) * 4));
 }
 
-function ExactTooltip({ labels, totalLabel }: { labels: Record<string, string>; totalLabel?: string }) {
+function ExactTooltip({
+  labels,
+  mutedKeys = [],
+  totalLabel,
+}: {
+  labels: Record<string, string>;
+  mutedKeys?: readonly string[];
+  totalLabel?: string;
+}) {
   return (
     <ChartTooltip
       cursor={{ fill: "var(--muted)", opacity: 0.35 }}
@@ -102,12 +121,17 @@ function ExactTooltip({ labels, totalLabel }: { labels: Record<string, string>; 
           className="border-border bg-popover text-popover-foreground shadow-sm"
           totalLabel={totalLabel}
           totalFormatter={(value) => currency.format(value)}
-          formatter={(value, name) => (
-            <>
-              <span className="text-muted-foreground">{labels[String(name)] ?? String(name)}</span>
-              <span className="ml-auto font-mono font-medium tabular-nums text-foreground">{currency.format(Number(value))}</span>
-            </>
-          )}
+          formatter={(value, name) => {
+            const muted = mutedKeys.includes(String(name));
+            return (
+              <>
+                <span className={muted ? "text-muted-foreground" : "text-foreground"}>{labels[String(name)] ?? String(name)}</span>
+                <span className={cn("ml-auto font-mono font-medium tabular-nums", muted ? "text-muted-foreground" : "text-foreground")}>
+                  {currency.format(Number(value))}
+                </span>
+              </>
+            );
+          }}
         />
       }
     />
@@ -178,56 +202,74 @@ function BillOptions({
   bills: options,
   selectedBills,
   toggleBill,
-  single = false,
+  selectOnlyBill,
 }: {
   bills: Array<{ value: BillKey; label: string; color: string }>;
   selectedBills: BillKey[];
   toggleBill: (value: BillKey) => void;
-  single?: boolean;
+  selectOnlyBill?: (value: BillKey) => void;
 }) {
-  if (single) {
-    return (
-      <Field>
-        <FieldLabel htmlFor="year-over-year-bill">Bill</FieldLabel>
-        <Select value={selectedBills[0]} onValueChange={(value) => toggleBill(value as BillKey)}>
-          <SelectTrigger id="year-over-year-bill" className="min-h-11 w-full" aria-label="Select Bill">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {options.map((bill) => (
-                <SelectItem key={bill.value} value={bill.value}>
-                  {bill.label}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </Field>
-    );
-  }
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const visibleBills = useMemo(
+    () =>
+      options
+        .filter((bill) => bill.label.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
+        .sort((left, right) => left.label.localeCompare(right.label)),
+    [options, query],
+  );
 
   return (
     <Field>
       <FieldLabel>Bills shown</FieldLabel>
-      <Popover>
+      <Popover
+        open={open}
+        onOpenChange={(nextOpen) => {
+          setOpen(nextOpen);
+          if (!nextOpen) setQuery("");
+        }}
+      >
         <PopoverTrigger asChild>
-          <Button type="button" variant="outline" className="min-h-11 w-full justify-between" aria-label="Select Bills shown">
-            {selectedBills.length === options.length
-              ? "All bills"
-              : selectedBills.map((bill) => options.find((item) => item.value === bill)?.label).join(", ")}
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 w-full justify-between gap-2 text-left"
+            aria-label="Select Bills shown"
+          >
+            <span className="min-w-0 flex-1 truncate">
+              {selectedBills.length === options.length
+                ? "All bills"
+                : `${selectedBills.length} ${selectedBills.length === 1 ? "Bill" : "Bills"} selected`}
+            </span>
             <ChevronDown data-icon="inline-end" aria-hidden="true" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-56 p-3">
-          <FieldSet className="gap-3">
+        <PopoverContent align="start" className="w-(--radix-popover-trigger-width) p-2">
+          <Input
+            aria-label="Search Bills"
+            autoComplete="off"
+            name="bill-search"
+            placeholder="Search Bills…"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <FieldSet className="mx-0.5 mb-2 max-h-56 overflow-y-auto">
             <FieldLegend variant="label" className="sr-only">
               Bills shown
             </FieldLegend>
-            {options.map((bill) => {
+            {visibleBills.map((bill) => {
               const selected = selectedBills.includes(bill.value);
               return (
-                <Field key={bill.value} orientation="horizontal" data-disabled={selected && selectedBills.length === 1}>
+                <Field
+                  key={bill.value}
+                  id={`bills-option-${bill.value}`}
+                  orientation="horizontal"
+                  data-disabled={selected && selectedBills.length === 1}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    selectOnlyBill?.(bill.value);
+                  }}
+                >
                   <Checkbox
                     id={`bills-${bill.value}`}
                     checked={selected}
@@ -235,15 +277,48 @@ function BillOptions({
                     onCheckedChange={() => toggleBill(bill.value)}
                   />
                   <FieldLabel htmlFor={`bills-${bill.value}`}>
-                    <span className="size-2.5 rounded-full" style={{ backgroundColor: bill.color }} aria-hidden="true" />
-                    {bill.label}
+                    <Badge variant="outline" color={bill.color} className="max-w-full truncate">
+                      {bill.label}
+                    </Badge>
                   </FieldLabel>
                 </Field>
               );
             })}
+            {visibleBills.length === 0 ? <p className="px-2 py-3 text-sm text-muted-foreground">No matching Bills.</p> : null}
           </FieldSet>
         </PopoverContent>
       </Popover>
+    </Field>
+  );
+}
+
+function YearOverYearOptions({
+  bills,
+  value,
+  onValueChange,
+}: {
+  bills: Array<{ value: BillKey; label: string }>;
+  value: string;
+  onValueChange: (value: string) => void;
+}) {
+  return (
+    <Field>
+      <FieldLabel htmlFor="year-over-year-series">Compare</FieldLabel>
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger id="year-over-year-series" className="min-h-11 w-full" aria-label="Select comparison series">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectItem value="gas">Gas</SelectItem>
+            {bills.map((bill) => (
+              <SelectItem key={bill.value} value={bill.value}>
+                {bill.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
     </Field>
   );
 }
@@ -259,7 +334,7 @@ function ChartCard({
   backHref,
   detail,
 }: {
-  id: BillsGroceriesChartId;
+  id: AnalyticsChartId;
   title: string;
   description: string;
   action?: ReactNode;
@@ -269,7 +344,7 @@ function ChartCard({
   backHref?: string;
   detail?: boolean;
 }) {
-  const content = <div className={cn("flex flex-col gap-6", !detail && "h-full")}>{children}</div>;
+  const content = <div className={cn("flex flex-col gap-6", !detail && id !== "bills" && "h-full")}>{children}</div>;
 
   return (
     <Card
@@ -303,14 +378,14 @@ function ChartCard({
           {action}
           {!detail ? (
             <Button asChild size="icon" variant="ghost" className="size-11">
-              <Link href={`/bills-groceries/${id}${detailSuffix}`} aria-label={`Open ${title} details`}>
+              <Link href={`/analytics/${id}${detailSuffix}`} aria-label={`Open ${title} details`}>
                 <Maximize2 aria-hidden="true" />
               </Link>
             </Button>
           ) : null}
           {backHref ? (
             <Button asChild size="icon" variant="ghost" className="size-11">
-              <Link href={backHref} aria-label="Back to Bills & Groceries">
+              <Link href={backHref} aria-label="Back to Analytics">
                 <ArrowLeft data-icon="inline-start" aria-hidden="true" />
               </Link>
             </Button>
@@ -322,42 +397,43 @@ function ChartCard({
   );
 }
 
-type BillsGroceriesData = Awaited<ReturnType<typeof getBillsGroceriesData>>;
+type AnalyticsData = Awaited<ReturnType<typeof getAnalyticsData>>;
 
-function BillsGroceriesCharts({
+function AnalyticsCharts({
   detailChart,
   data,
   initialBillIds,
-  initialBillId,
+  initialYoy,
   initialPeriod,
 }: {
-  detailChart?: BillsGroceriesChartId;
-  data: BillsGroceriesData;
+  detailChart?: AnalyticsChartId;
+  data: AnalyticsData;
   initialBillIds: string[];
-  initialBillId: string | null;
+  initialYoy: string;
   initialPeriod: Period;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const detail = detailChart !== undefined;
-  const chartHeightClass = detail ? "h-[320px]" : "h-[280px]";
+  const chartHeightClass = detail ? "h-[320px]" : "h-[295px]";
   const period = initialPeriod;
   const chartBills = data.bills.subcategories.map((bill, index) => ({
     value: bill.id,
     label: bill.name,
     color: billsChartColors[index % billsChartColors.length],
   }));
-  const presentation = parseBillsGroceriesPresentationState(new URLSearchParams(searchParams), {
+  const presentation = parseAnalyticsPresentationState(new URLSearchParams(searchParams), {
     availableBillIds: chartBills.map((bill) => bill.value),
     fallbackBillIds: initialBillIds,
-    fallbackBillId: initialBillId ?? data.bills.defaultSubcategoryId,
+    fallbackYoy: initialYoy,
   });
   const selectedBills = presentation.billIds;
   const orderedSelectedBills = chartBills.filter((bill) => selectedBills.includes(bill.value));
   const showBillsLegends = orderedSelectedBills.length > 0;
   const billsLegendHeight = showBillsLegends ? Math.ceil(orderedSelectedBills.length / 5) * 28 + 12 : 0;
-  const yearOverYearBill = presentation.billId;
+  const yearOverYearSelection = presentation.yoy;
+  const isGasYearOverYear = yearOverYearSelection === "gas";
   const groceryFilter = presentation.grocery;
   const billMonthlyData: MonthlyChartDatum[] = data.months.map((month) => ({
     month,
@@ -369,10 +445,20 @@ function BillsGroceriesCharts({
     ),
   }));
   const billTableData = billMonthlyData.filter((month) => selectedBills.some((bill) => Number(month[bill] ?? 0) > 0));
+  const billsAverage =
+    billTableData.length > 0
+      ? billMonthlyData.reduce(
+          (total, month) => total + orderedSelectedBills.reduce((monthTotal, bill) => monthTotal + Number(month[bill.value] ?? 0), 0),
+          0,
+        ) / billMonthlyData.length
+      : null;
+  const billsChartData = billMonthlyData.map((month) => ({ ...month, average: billsAverage }));
+  const groceryBudgetAgorot = data.groceries.monthly.budgetAgorot;
   const groceryMonthlyData: GroceryMonthlyDatum[] = data.groceries.monthly.months.map((month) => ({
     month: month.month,
     mainRun: month.mainRunAgorot / 100,
     topUps: month.topUpsAgorot / 100,
+    ...(groceryBudgetAgorot == null ? {} : { budget: groceryBudgetAgorot / 100 }),
   }));
   const groceryMonthlyTableData = groceryMonthlyData.filter((month) => month.mainRun + month.topUps > 0);
   const mainRun = data.groceries.subcategories.mainRun;
@@ -381,28 +467,44 @@ function BillsGroceriesCharts({
   const groceryChartConfig = {
     mainRun: { label: mainRun?.name ?? "Main run", color: "var(--analytics-groceries-main-run)" },
     topUps: { label: topUps?.name ?? "Top-ups", color: "var(--analytics-groceries-top-ups)" },
-    budget: { color: "var(--color-muted-foreground)" },
+    budget: { label: "Monthly budget", color: "var(--color-muted-foreground)" },
   } satisfies ChartConfig;
-  const groceryBudgetAgorot = data.groceries.monthly.budgetAgorot;
-  const yearOverYearBillDetails = chartBills.find((bill) => bill.value === yearOverYearBill) ?? chartBills[0];
-  const yearOverYearData = alignBillYearOverYear(data.months, data.bills.monthly, yearOverYearBill).map(
-    ({ month, currentAgorot, previousAgorot }) => ({
-      month,
-      current: currentAgorot / 100,
-      ...(previousAgorot === undefined ? {} : { previous: previousAgorot / 100 }),
-    }),
-  );
+  const yearOverYearBillDetails = chartBills.find((bill) => bill.value === yearOverYearSelection) ?? chartBills[0];
+  const yearOverYearBaseData: YearOverYearDatum[] = isGasYearOverYear
+    ? (data.gas?.months ?? []).map(({ bike, car, month, previousBike, previousCar, previousTotal, total }) => ({
+        bike,
+        car,
+        current: total,
+        month,
+        previous: previousTotal,
+        previousBike,
+        previousCar,
+      }))
+    : alignBillYearOverYear(data.months, data.bills.monthly, yearOverYearSelection).map(({ month, currentAgorot, previousAgorot }) => ({
+        month,
+        current: currentAgorot / 100,
+        ...(previousAgorot === undefined ? {} : { previous: previousAgorot / 100 }),
+      }));
+  const yearOverYearAverage = yearOverYearBaseData.some((month) => month.current > 0)
+    ? yearOverYearBaseData.slice(-3).reduce((total, month) => total + month.current, 0) / Math.min(yearOverYearBaseData.length, 3)
+    : null;
+  const yearOverYearData = yearOverYearBaseData.map((value) => ({ ...value, currentAverage: yearOverYearAverage }));
   const hasYearOverYearData = yearOverYearData.some((month) => month.current > 0 || month.previous !== undefined);
   const yearOverYearTableData = yearOverYearData.filter((month) => month.current > 0 || (month.previous ?? 0) > 0);
   const yearOverYearChartConfig = {
     current: {
-      label: `${yearOverYearBillDetails?.label ?? "Bills"} · current year`,
+      label: isGasYearOverYear ? "Gas · current year" : `${yearOverYearBillDetails?.label ?? "Bills"} · current year`,
       color: "var(--analytics-year-over-year-current)",
     },
     previous: {
-      label: `${yearOverYearBillDetails?.label ?? "Bills"} · previous year`,
+      label: isGasYearOverYear ? "Gas · previous year" : `${yearOverYearBillDetails?.label ?? "Bills"} · previous year`,
       color: "var(--analytics-year-over-year-previous)",
     },
+    currentAverage: { label: "3-month average", color: "var(--color-muted-foreground)" },
+    bike: { label: "Bike · current year", color: "var(--analytics-bill-1)" },
+    car: { label: "Car · current year", color: "var(--analytics-bill-11)" },
+    previousBike: { label: "Bike · previous year", color: "var(--analytics-bill-1)" },
+    previousCar: { label: "Car · previous year", color: "var(--analytics-bill-11)" },
   } satisfies ChartConfig;
   const dailyData = data.groceries.daily
     .map((day) => ({
@@ -436,9 +538,9 @@ function BillsGroceriesCharts({
   );
   const dailyTableRows = dailyTableData.filter((day) => day.total > 0);
 
-  function navigate(updates: BillsGroceriesUrlUpdates) {
-    const url = buildBillsGroceriesUrl(pathname, new URLSearchParams(searchParams), updates);
-    if (billsGroceriesNavigationKind(updates) === "data") router.push(url);
+  function navigate(updates: AnalyticsUrlUpdates) {
+    const url = buildAnalyticsUrl(pathname, new URLSearchParams(searchParams), updates);
+    if (analyticsNavigationKind(updates) === "data") router.push(url);
     else window.history.pushState(null, "", url);
   }
 
@@ -455,44 +557,70 @@ function BillsGroceriesCharts({
     navigate({ bills: next.join(",") });
   }
 
+  function selectOnlyBill(value: BillKey) {
+    navigate({ bills: value });
+  }
+
   const detailQuery = new URLSearchParams(searchParams).toString();
   const detailSuffix = detailQuery ? `?${detailQuery}` : "";
 
   return (
-    <section aria-label="Bills & Groceries charts" className={cn("grid gap-4", detail ? "mt-0" : "mt-6 xl:grid-cols-2")}>
+    <section aria-label="Analytics charts" className={cn("grid gap-4", detail ? "mt-0" : "mt-6 xl:grid-cols-2")}>
       {(!detailChart || detailChart === "bills") && (
         <ChartCard
           id="bills"
+          layoutClassName="xl:col-span-2 xl:self-start"
           title="Bills by month"
           description="Prorated totals by billing period."
           detailSuffix={detailSuffix}
-          backHref={detail ? `/bills-groceries${detailSuffix}` : undefined}
+          backHref={detail ? `/analytics${detailSuffix}` : undefined}
           detail={detail}
           action={
             <ChartConfig label="Bills by month" period={period} setPeriod={changePeriod}>
-              <BillOptions bills={chartBills} selectedBills={selectedBills} toggleBill={toggleBill} />
+              <BillOptions bills={chartBills} selectedBills={selectedBills} toggleBill={toggleBill} selectOnlyBill={selectOnlyBill} />
             </ChartConfig>
           }
         >
           {[false, true].map((withLegend) => (
             <ChartContainer
               key={String(withLegend)}
-              config={Object.fromEntries(chartBills.map((bill) => [bill.value, { label: bill.label, color: bill.color }]))}
+              config={Object.fromEntries([
+                ...chartBills.map((bill) => [bill.value, { label: bill.label, color: bill.color }]),
+                ["average", { label: "Average", color: "var(--color-muted-foreground)" }],
+              ])}
               className={cn(
                 "w-full shrink-0 aspect-auto",
-                withLegend ? "hidden md:flex md:h-[var(--bills-chart-height)]" : `${chartHeightClass} md:hidden`,
+                withLegend
+                  ? detail
+                    ? "hidden md:flex h-[320px]"
+                    : "hidden md:flex md:h-[calc(295px+var(--bills-legend-height))]"
+                  : `${chartHeightClass} md:hidden`,
               )}
-              style={
-                withLegend ? ({ "--bills-chart-height": `${(detail ? 320 : 280) + billsLegendHeight}px` } as CSSProperties) : undefined
-              }
+              style={withLegend ? ({ "--bills-legend-height": `${billsLegendHeight}px` } as CSSProperties) : undefined}
               role="region"
               aria-label="Stacked monthly Bills chart, use arrow keys to inspect values"
             >
-              <BarChart accessibilityLayer data={billMonthlyData} margin={chartMargin}>
+              <BarChart accessibilityLayer data={billsChartData} margin={chartMargin}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
                 <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value) => `₪${value}`} />
-                <ExactTooltip labels={Object.fromEntries(chartBills.map((bill) => [bill.value, bill.label]))} totalLabel="Total" />
+                <ExactTooltip
+                  labels={{ ...Object.fromEntries(chartBills.map((bill) => [bill.value, bill.label])), average: "Average" }}
+                  totalLabel="Total"
+                />
+                {billsAverage != null ? (
+                  <Line
+                    dataKey="average"
+                    type="linear"
+                    stroke="var(--color-muted-foreground)"
+                    strokeDasharray="4 4"
+                    strokeOpacity={0.55}
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 6 }}
+                    isAnimationActive={false}
+                  />
+                ) : null}
                 {withLegend && showBillsLegends && (
                   <ChartLegend
                     height={billsLegendHeight}
@@ -556,57 +684,149 @@ function BillsGroceriesCharts({
       {(!detailChart || detailChart === "year-over-year") && (
         <ChartCard
           id="year-over-year"
+          layoutClassName="xl:col-span-2 xl:self-start"
           title="Year-over-year"
-          description="Current and previous year for one Bills subcategory."
+          description="Current and previous year comparison."
           detailSuffix={detailSuffix}
-          backHref={detail ? `/bills-groceries${detailSuffix}` : undefined}
+          backHref={detail ? `/analytics${detailSuffix}` : undefined}
           detail={detail}
           action={
             <ChartConfig label="Year-over-year" period={period} setPeriod={changePeriod}>
-              <BillOptions
-                bills={chartBills}
-                selectedBills={[yearOverYearBill]}
-                toggleBill={(value) => {
-                  navigate({ bill: value });
-                }}
-                single
-              />
+              <YearOverYearOptions bills={chartBills} value={yearOverYearSelection} onValueChange={(value) => navigate({ yoy: value })} />
             </ChartConfig>
           }
         >
           <ChartContainer
             config={yearOverYearChartConfig}
-            className={cn(chartHeightClass, "w-full", !detail && "flex-1")}
+            className={cn(chartHeightClass, "w-full")}
             role="region"
-            aria-label={`${yearOverYearBillDetails?.label ?? "Bills"} year-over-year chart, use arrow keys to inspect values`}
+            aria-label={`${isGasYearOverYear ? "Gas" : (yearOverYearBillDetails?.label ?? "Bills")} year-over-year chart, use arrow keys to inspect values`}
           >
             <BarChart accessibilityLayer data={yearOverYearData} margin={chartMargin}>
               <CartesianGrid vertical={false} />
               <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
               <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value) => `₪${value}`} />
-              <ExactTooltip labels={{ current: "Current year", previous: "Previous year" }} />
+              <ExactTooltip
+                labels={
+                  isGasYearOverYear
+                    ? {
+                        bike: "Bike · current year",
+                        car: "Car · current year",
+                        previousBike: "Bike · previous year",
+                        previousCar: "Car · previous year",
+                        currentAverage: "3-month average",
+                      }
+                    : { current: "Current year", previous: "Previous year", currentAverage: "3-month average" }
+                }
+                mutedKeys={isGasYearOverYear ? ["previousBike", "previousCar"] : ["previous"]}
+              />
               <ChartLegend content={<ChartLegendContent />} />
-              <Bar dataKey="previous" fill="var(--color-previous)" fillOpacity={0.38} radius={[3, 3, 0, 0]} />
-              <Bar dataKey="current" fill="var(--color-current)" radius={[3, 3, 0, 0]} />
+              {isGasYearOverYear ? (
+                <>
+                  {(["previousBike", "previousCar", "bike", "car"] as const).map((key, index) => {
+                    const stack = key.startsWith("previous") ? "previous" : "current";
+                    const segmentIndex = stack === "previous" ? index : index - 2;
+                    return (
+                      <Bar
+                        key={key}
+                        dataKey={key}
+                        fill={`var(--color-${key})`}
+                        fillOpacity={stack === "previous" ? 0.38 : 1}
+                        stackId={stack}
+                      >
+                        {yearOverYearData.map((month) => (
+                          <Cell
+                            key={month.month}
+                            radius={
+                              stackedBarRadius(
+                                stack === "previous"
+                                  ? [Number(month.previousBike ?? 0), Number(month.previousCar ?? 0)]
+                                  : [Number(month.bike ?? 0), Number(month.car ?? 0)],
+                                segmentIndex,
+                              ) as unknown as number
+                            }
+                          />
+                        ))}
+                      </Bar>
+                    );
+                  })}
+                </>
+              ) : (
+                <>
+                  <Bar dataKey="previous" fill="var(--color-previous)" fillOpacity={0.38} radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="current" fill="var(--color-current)" radius={[3, 3, 0, 0]} />
+                </>
+              )}
+              {yearOverYearAverage != null ? (
+                <Line
+                  dataKey="currentAverage"
+                  type="linear"
+                  stroke="var(--color-currentAverage)"
+                  strokeDasharray="4 4"
+                  strokeOpacity={0.55}
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                  isAnimationActive={false}
+                />
+              ) : null}
             </BarChart>
           </ChartContainer>
-          {chartBills.length === 0 || !hasYearOverYearData ? <p className="text-sm text-muted-foreground">No Bills data yet.</p> : null}
+          {!hasYearOverYearData ? (
+            <p className="text-sm text-muted-foreground">
+              {isGasYearOverYear
+                ? data.gas
+                  ? "No Gas data yet."
+                  : "Add an active Car or Bike fuel subcategory to see this trend."
+                : "No Bills data yet."}
+            </p>
+          ) : null}
           {detailChart === "year-over-year" && yearOverYearTableData.length > 0 && (
             <ChartTable label="Year-over-year">
               <TableHeader>
                 <TableRow>
                   <TableHead>Month</TableHead>
-                  <TableHead>Current year</TableHead>
-                  <TableHead>Previous year</TableHead>
+                  {isGasYearOverYear ? (
+                    <>
+                      <TableHead>Current Bike</TableHead>
+                      <TableHead>Current Car</TableHead>
+                      <TableHead>Current total</TableHead>
+                      <TableHead>Previous Bike</TableHead>
+                      <TableHead>Previous Car</TableHead>
+                      <TableHead>Previous total</TableHead>
+                    </>
+                  ) : (
+                    <>
+                      <TableHead>Current year</TableHead>
+                      <TableHead>Previous year</TableHead>
+                    </>
+                  )}
+                  <TableHead>3-month average</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {yearOverYearTableData.map((month) => (
                   <TableRow key={month.month}>
                     <TableCell>{month.month}</TableCell>
-                    <TableCell className="tabular-nums">{currency.format(month.current)}</TableCell>
+                    {isGasYearOverYear ? (
+                      <>
+                        <TableCell className="tabular-nums">{currency.format(Number(month.bike ?? 0))}</TableCell>
+                        <TableCell className="tabular-nums">{currency.format(Number(month.car ?? 0))}</TableCell>
+                        <TableCell className="font-medium tabular-nums">{currency.format(month.current)}</TableCell>
+                        <TableCell className="tabular-nums">{currency.format(Number(month.previousBike ?? 0))}</TableCell>
+                        <TableCell className="tabular-nums">{currency.format(Number(month.previousCar ?? 0))}</TableCell>
+                        <TableCell className="font-medium tabular-nums">{currency.format(Number(month.previous ?? 0))}</TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell className="tabular-nums">{currency.format(month.current)}</TableCell>
+                        <TableCell className="tabular-nums">
+                          {month.previous === undefined ? "No previous-year data" : currency.format(month.previous)}
+                        </TableCell>
+                      </>
+                    )}
                     <TableCell className="tabular-nums">
-                      {month.previous === undefined ? "No previous-year data" : currency.format(month.previous)}
+                      {month.currentAverage == null ? "—" : currency.format(month.currentAverage)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -624,7 +844,7 @@ function BillsGroceriesCharts({
               title="Groceries by month"
               description="Posting-date totals by month."
               detailSuffix={detailSuffix}
-              backHref={detail ? `/bills-groceries${detailSuffix}` : undefined}
+              backHref={detail ? `/analytics${detailSuffix}` : undefined}
               detail={detail}
               action={<ChartConfig label="Groceries by month" period={period} setPeriod={changePeriod} />}
             >
@@ -638,10 +858,23 @@ function BillsGroceriesCharts({
                   <CartesianGrid vertical={false} />
                   <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
                   <YAxis tickLine={false} axisLine={false} width={58} tickFormatter={(value) => `₪${value}`} />
-                  <ExactTooltip labels={{ mainRun: mainRun?.name ?? "Main run", topUps: topUps?.name ?? "Top-ups" }} totalLabel="Total" />
+                  <ExactTooltip
+                    labels={{ mainRun: mainRun?.name ?? "Main run", topUps: topUps?.name ?? "Top-ups", budget: "Monthly budget" }}
+                    totalLabel="Total"
+                  />
                   <ChartLegend content={<ChartLegendContent />} />
                   {groceryBudgetAgorot != null ? (
-                    <ReferenceLine y={groceryBudgetAgorot / 100} stroke="var(--color-budget)" strokeDasharray="4 4" />
+                    <Line
+                      dataKey="budget"
+                      type="linear"
+                      stroke="var(--color-budget)"
+                      strokeDasharray="4 4"
+                      strokeOpacity={0.55}
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 6 }}
+                      isAnimationActive={false}
+                    />
                   ) : null}
                   <Bar dataKey="mainRun" stackId="groceries" fill="var(--color-mainRun)">
                     {groceryMonthlyData.map((month) => (
@@ -689,7 +922,7 @@ function BillsGroceriesCharts({
               title="Groceries by day"
               description="Daily spending, including no-spend days."
               detailSuffix={detailSuffix}
-              backHref={detail ? `/bills-groceries${detailSuffix}` : undefined}
+              backHref={detail ? `/analytics${detailSuffix}` : undefined}
               detail={detail}
               action={
                 <Popover>
@@ -899,32 +1132,32 @@ function BillsGroceriesCharts({
   );
 }
 
-export function BillsGroceriesDashboard({
+export function AnalyticsDashboard({
   data,
   billIds,
-  billId,
+  yoy,
   period,
 }: {
-  data: BillsGroceriesData;
+  data: AnalyticsData;
   billIds: string[];
-  billId: string | null;
+  yoy: string;
   period: Period;
 }) {
-  return <BillsGroceriesCharts data={data} initialBillIds={billIds} initialBillId={billId} initialPeriod={period} />;
+  return <AnalyticsCharts data={data} initialBillIds={billIds} initialPeriod={period} initialYoy={yoy} />;
 }
 
-export function BillsGroceriesChartDetail({
+export function AnalyticsChartDetail({
   chart,
   data,
   billIds,
-  billId,
+  yoy,
   period,
 }: {
-  chart: BillsGroceriesChartId;
-  data: BillsGroceriesData;
+  chart: AnalyticsChartId;
+  data: AnalyticsData;
   billIds: string[];
-  billId: string | null;
+  yoy: string;
   period: Period;
 }) {
-  return <BillsGroceriesCharts detailChart={chart} data={data} initialBillIds={billIds} initialBillId={billId} initialPeriod={period} />;
+  return <AnalyticsCharts detailChart={chart} data={data} initialBillIds={billIds} initialPeriod={period} initialYoy={yoy} />;
 }

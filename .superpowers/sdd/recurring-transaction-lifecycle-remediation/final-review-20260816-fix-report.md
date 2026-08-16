@@ -2,7 +2,7 @@
 
 Date: 2026-08-16
 Scope: `SEC-001`, standalone recurring schedule-update RPC removal, and blocked-schedule stop control.
-Commit SHA: pending final commit
+Commit SHA: `94c218457367ffd44cc5595814b1618e80922454`
 
 ## Files changed
 

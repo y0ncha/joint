@@ -5,35 +5,46 @@ import {
   buildMonthlyRange,
   consolidateBillsByMonth,
   pickDefaultBillSubcategory,
-} from "@/lib/bills-groceries";
+} from "@/lib/analytics";
+import { buildGasTrend, type GasTrend } from "@/lib/gas-trend";
 import { getIsoMonthRange, shiftIsoMonth } from "@/lib/date-range";
 import { getCurrentHouseholdContext } from "@/lib/household";
 
-type BillsGroceriesDataOptions = {
+type AnalyticsDataOptions = {
   currentDate: string;
   groceryRange: { from: string; to: string };
   period: "rolling" | "calendar";
 };
+
+function normalizedName(value: string) {
+  return value.trim().replaceAll(/\s+/g, " ").toLocaleLowerCase("en");
+}
+
+function finiteAmount(value: number | string | null) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) throw new Error("Invalid monetary value from the database.");
+  return amount;
+}
 
 async function readAllPages<Row>(
   loadPage: (from: number, to: number) => PromiseLike<{ count: number | null; data: Row[] | null; error: unknown }>,
 ) {
   const firstPage = await loadPage(0, 999);
   if (firstPage.error || firstPage.count === null || (firstPage.count > 0 && !firstPage.data?.length)) {
-    throw new Error("Unable to load BillsGroceries data.");
+    throw new Error("Unable to load Analytics data.");
   }
 
   const rows = [...(firstPage.data ?? [])];
   while (rows.length < firstPage.count) {
     const page = await loadPage(rows.length, rows.length + 999);
-    if (page.error || !page.data?.length) throw new Error("Unable to load BillsGroceries data.");
+    if (page.error || !page.data?.length) throw new Error("Unable to load Analytics data.");
     rows.push(...page.data);
   }
 
   return rows.slice(0, firstPage.count);
 }
 
-export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) {
+export async function getAnalyticsData(options: AnalyticsDataOptions) {
   const household = await getCurrentHouseholdContext();
 
   if (household.status !== "member") throw new Error("Create or join a household before viewing the dashboard.");
@@ -56,13 +67,13 @@ export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) 
   ]);
 
   if (billsCategoryResult.error || groceriesCategoryResult.error) {
-    throw new Error("Unable to load BillsGroceries data.");
+    throw new Error("Unable to load Analytics data.");
   }
 
   const months = buildMonthlyRange(options.period, options.currentDate);
   const displayedRange = { from: `${months[0]}-01`, to: getIsoMonthRange(months[months.length - 1])!.to };
   const billsRange = { from: `${shiftIsoMonth(months[0], -12)}-01`, to: displayedRange.to };
-  const [billSubcategoriesResult, grocerySubcategoriesResult] = await Promise.all([
+  const [billSubcategoriesResult, grocerySubcategoriesResult, gasSubcategoriesResult] = await Promise.all([
     billsCategoryResult.data
       ? household.supabase
           .from("subcategories")
@@ -82,20 +93,28 @@ export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) 
           .is("archived_at", null)
           .order("name")
       : Promise.resolve({ data: [], error: null }),
+    household.supabase.from("subcategories").select("id, name").eq("household_id", household.householdId).is("archived_at", null),
   ]);
 
-  if (billSubcategoriesResult.error || grocerySubcategoriesResult.error) {
-    throw new Error("Unable to load BillsGroceries data.");
+  if (billSubcategoriesResult.error || grocerySubcategoriesResult.error || gasSubcategoriesResult.error) {
+    throw new Error("Unable to load Analytics data.");
   }
 
   const billSubcategories = billSubcategoriesResult.data ?? [];
   const grocerySubcategories = grocerySubcategoriesResult.data ?? [];
+  const gasSubcategories = new Map(
+    (gasSubcategoriesResult.data ?? []).map((subcategory) => [normalizedName(subcategory.name), subcategory.id]),
+  );
+  const bikeGasId = gasSubcategories.get("bike gas") ?? gasSubcategories.get("bike fuel");
+  const carGasId = gasSubcategories.get("car gas") ?? gasSubcategories.get("car fuel");
+  const gasSubcategoryIds = [bikeGasId, carGasId].filter((id): id is string => id !== undefined);
   const groceryIds = grocerySubcategories.map((subcategory) => subcategory.id);
   let billTransactions;
   let groceryMonthlyTransactions;
   let groceryDailyTransactions;
+  let gasTransactions;
   try {
-    [billTransactions, groceryMonthlyTransactions, groceryDailyTransactions] = await Promise.all([
+    [billTransactions, groceryMonthlyTransactions, groceryDailyTransactions, gasTransactions] = await Promise.all([
       billSubcategories.length
         ? readAllPages((from, to) =>
             household.supabase
@@ -138,9 +157,23 @@ export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) 
               .range(from, to),
           )
         : Promise.resolve([]),
+      gasSubcategoryIds.length
+        ? readAllPages((from, to) =>
+            household.supabase
+              .from("transactions")
+              .select("amount, occurred_on, subcategory_id", { count: "exact" })
+              .eq("household_id", household.householdId)
+              .eq("kind", "expense")
+              .in("subcategory_id", gasSubcategoryIds)
+              .gte("occurred_on", billsRange.from)
+              .lte("occurred_on", billsRange.to)
+              .order("id")
+              .range(from, to),
+          )
+        : Promise.resolve([]),
     ]);
   } catch {
-    throw new Error("Unable to load BillsGroceries data.");
+    throw new Error("Unable to load Analytics data.");
   }
 
   const monthlyBills = consolidateBillsByMonth(
@@ -173,8 +206,24 @@ export async function getBillsGroceriesData(options: BillsGroceriesDataOptions) 
     });
   const mainRun = grocerySubcategories.find((subcategory) => subcategory.system_key === "main_run");
   const topUps = grocerySubcategories.find((subcategory) => subcategory.system_key === "top_ups");
+  const gas: GasTrend | null =
+    gasSubcategoryIds.length === 0
+      ? null
+      : buildGasTrend(
+          months,
+          gasTransactions.flatMap<{ amount: number; kind: "bike" | "car"; occurredOn: string }>((transaction) => {
+            if (bikeGasId && transaction.subcategory_id === bikeGasId) {
+              return [{ amount: finiteAmount(transaction.amount), kind: "bike" as const, occurredOn: transaction.occurred_on }];
+            }
+            if (carGasId && transaction.subcategory_id === carGasId) {
+              return [{ amount: finiteAmount(transaction.amount), kind: "car" as const, occurredOn: transaction.occurred_on }];
+            }
+            return [];
+          }),
+        );
 
   return {
+    gas,
     months,
     bills: {
       category: billsCategoryResult.data,

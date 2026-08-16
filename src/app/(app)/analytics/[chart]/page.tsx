@@ -1,30 +1,30 @@
 import { notFound, redirect } from "next/navigation";
 
-import { BillsGroceriesChartDetail } from "@/components/bills-groceries-dashboard";
-import { billsGroceriesChartIds, type BillsGroceriesChartId } from "@/lib/bills-groceries-chart-ids";
+import { AnalyticsChartDetail } from "@/components/analytics-dashboard";
+import { analyticsChartIds, type AnalyticsChartId } from "@/lib/analytics-chart-ids";
 import { WorkspacePage } from "@/components/workspace-shell";
-import { loadBillsGroceriesPage, type BillsGroceriesSearchParams } from "@/lib/bills-groceries-page";
+import { loadAnalyticsPage, type AnalyticsSearchParams } from "@/lib/analytics-page";
 
-export default async function BillsGroceriesDetailPage({
+export default async function AnalyticsDetailPage({
   params,
   searchParams,
 }: {
   params: Promise<{ chart: string }>;
-  searchParams: Promise<BillsGroceriesSearchParams>;
+  searchParams: Promise<AnalyticsSearchParams>;
 }) {
   const [{ chart }, requested] = await Promise.all([params, searchParams]);
-  if (!billsGroceriesChartIds.includes(chart as BillsGroceriesChartId)) notFound();
+  if (!analyticsChartIds.includes(chart as AnalyticsChartId)) notFound();
 
-  const { canonical, data, params: requestedParams, selected } = await loadBillsGroceriesPage(requested);
-  if (canonical.toString() !== requestedParams.toString()) redirect(`/bills-groceries/${chart}?${canonical}`);
+  const { canonical, data, params: requestedParams, selected } = await loadAnalyticsPage(requested);
+  if (canonical.toString() !== requestedParams.toString()) redirect(`/analytics/${chart}?${canonical}`);
 
   return (
     <WorkspacePage opaqueContent>
-      <BillsGroceriesChartDetail
-        chart={chart as BillsGroceriesChartId}
+      <AnalyticsChartDetail
+        chart={chart as AnalyticsChartId}
         data={data}
         billIds={selected.billIds}
-        billId={selected.billId}
+        yoy={selected.yoy}
         period={selected.period}
       />
     </WorkspacePage>

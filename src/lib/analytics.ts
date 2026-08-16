@@ -148,7 +148,7 @@ export function buildGroceriesDaily(range: DateRange, transactions: GroceryInput
   }));
 }
 
-export function parseBillsGroceriesUrlDefaults(
+export function parseAnalyticsUrlDefaults(
   params: { get(name: string): string | null },
   options: {
     bills: Array<{ id: string; name: string }>;
@@ -160,7 +160,7 @@ export function parseBillsGroceriesUrlDefaults(
   const validBillIds = new Set(allBillIds);
   const billsParam = params.get("bills");
   const selectedBills = billsParam?.split(",") ?? [];
-  const billParam = params.get("bill");
+  const yoyParam = params.get("yoy");
   const groceryRange = params.get("groceryMonth") ? getIsoMonthRange(params.get("groceryMonth")!) : undefined;
 
   return {
@@ -171,7 +171,7 @@ export function parseBillsGroceriesUrlDefaults(
         : selectedBills.length > 0 && selectedBills.every((id) => validBillIds.has(id))
           ? [...new Set(selectedBills)]
           : allBillIds,
-    billId: billParam !== null && validBillIds.has(billParam) ? billParam : options.defaultBillId,
+    yoy: yoyParam === "gas" || (yoyParam !== null && validBillIds.has(yoyParam)) ? yoyParam : (options.defaultBillId ?? "gas"),
     groceryRange: groceryRange ?? getIsoMonthRange(shiftIsoMonth(options.currentDate.slice(0, 7), -1))!,
   };
 }

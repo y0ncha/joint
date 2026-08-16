@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/bills-groceries",
+  usePathname: () => "/analytics",
   useRouter: () => ({ push: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -12,6 +12,9 @@ vi.mock("recharts", () => ({
   BarChart: ({ children }: { children: ReactNode }) => <>{children}</>,
   CartesianGrid: () => null,
   Cell: () => null,
+  ReferenceLine: () => null,
+  Line: () => null,
+  Tooltip: () => null,
   XAxis: () => null,
   YAxis: () => null,
 }));
@@ -23,12 +26,12 @@ vi.mock("@/components/ui/chart", () => ({
   ChartTooltipContent: () => null,
 }));
 
-import { BillsGroceriesDashboard } from "./bills-groceries-dashboard";
+import { AnalyticsDashboard } from "./analytics-dashboard";
 
 it("hides a nine-Bill legend below the mobile breakpoint", () => {
   const bills = Array.from({ length: 9 }, (_, index) => ({ id: `bill-${index}`, name: `Bill ${index + 1}`, color: "#123456" }));
   const markup = renderToStaticMarkup(
-    <BillsGroceriesDashboard
+    <AnalyticsDashboard
       data={
         {
           months: ["2026-07"],
@@ -48,11 +51,11 @@ it("hides a nine-Bill legend below the mobile breakpoint", () => {
         } as never
       }
       billIds={bills.map((bill) => bill.id)}
-      billId="bill-0"
+      yoy="bill-0"
       period="rolling"
     />,
   );
 
-  expect(markup).toContain("h-[280px] md:hidden");
-  expect(markup).toContain("hidden md:flex md:h-[var(--bills-chart-height)]");
+  expect(markup).toContain("h-[295px] md:hidden");
+  expect(markup).toContain("hidden md:flex md:h-[calc(295px+var(--bills-legend-height))]");
 });

@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 
 import { categoryFromRow, subcategoryFromRow, transactionFromRow } from "./finance-types";
 
-it("maps BillsGroceries system keys and Bills service periods", () => {
+it("maps Analytics system keys and Bills service periods", () => {
   expect({
     category: categoryFromRow({
       id: "bills",

@@ -71,11 +71,11 @@ Existing transactions change or delete only through the `/automations` review di
 
 Household identity is derived from the authenticated server session, never browser input. RLS limits rule CRUD to household members; `anon` and `public` privileges are revoked. The reorder and bulk-apply RPCs use pinned search paths, explicit membership checks, and invoker security. Reordering also takes a household transaction advisory lock and requires every household rule ID exactly once. RE2 provides linear-time matching for user-authored patterns.
 
-## Bills & Groceries subset
+## Analytics subset
 
-Bills & Groceries is an implemented, narrow analytics subset and not an obligations model. Each household has protected `Bills` and `Groceries` expense categories identified by stable system keys. Groceries has exactly the protected `Main run` and `Top-ups` children; Bills may have household-managed children.
+Analytics is an implemented, narrow subset and not an obligations model. Each household has protected `Bills` and `Groceries` expense categories identified by stable system keys. Groceries has exactly the protected `Main run` and `Top-ups` children; Bills may have household-managed children.
 
-Only Bills transactions may have an optional inclusive `service_period_start` and `service_period_end`. Those dates are used solely to prorate the transaction's stored amount for Bills analytics; they never change the ledger row, `occurred_on` posting date, stored amount, or shared-balance calculation. The protected Groceries category's one optional current recurring monthly budget supplies the Bills & Groceries threshold; the legacy `households.groceries_monthly_budget` value is copied into that category by the Budgets & Goals migration. [`bills-groceries-analytics.md`](bills-groceries-analytics.md) records the complete analytics mechanism.
+Only Bills transactions may have an optional inclusive `service_period_start` and `service_period_end`. Those dates are used solely to prorate the transaction's stored amount for Bills analytics; they never change the ledger row, `occurred_on` posting date, stored amount, or shared-balance calculation. The protected Groceries category's one optional current recurring monthly budget supplies the Analytics threshold; the legacy `households.groceries_monthly_budget` value is copied into that category by the Budgets & Goals migration. [`analytics.md`](analytics.md) records the complete analytics mechanism.
 
 `src/lib/transaction-draft.ts` owns the transaction Sheet's pure kind, destination, posting-date, payer, and Bills service-period transitions plus canonical hidden-field projection. A kind change permanently clears category, subcategory, and service-period state; choosing Bills initializes a same-day period, while every non-Bills destination clears it. Calendar popover visibility remains browser-local component state.
 

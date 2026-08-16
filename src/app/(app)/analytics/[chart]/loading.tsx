@@ -1,5 +1,5 @@
-import { BillsGroceriesDetailLoading as BillsGroceriesDetailLoadingFallback } from "@/components/bills-groceries-loading";
+import { AnalyticsDetailLoading as AnalyticsDetailLoadingFallback } from "@/components/analytics-loading";
 
-export default function BillsGroceriesDetailLoading() {
-  return <BillsGroceriesDetailLoadingFallback />;
+export default function AnalyticsDetailLoading() {
+  return <AnalyticsDetailLoadingFallback />;
 }

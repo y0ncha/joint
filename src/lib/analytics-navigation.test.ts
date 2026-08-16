@@ -1,53 +1,51 @@
 import { describe, expect, it } from "vitest";
 
-import { billsGroceriesNavigationKind, buildBillsGroceriesUrl, parseBillsGroceriesPresentationState } from "./bills-groceries-navigation";
+import { analyticsNavigationKind, buildAnalyticsUrl, parseAnalyticsPresentationState } from "./analytics-navigation";
 
-describe("Bills & Groceries navigation", () => {
+describe("Analytics navigation", () => {
   it.each([
     [{ period: "calendar" }, "data"],
     [{ groceryMonth: "2026-07" }, "data"],
     [{ bills: "rent,water" }, "presentation"],
-    [{ bill: "water", grocery: "top-ups" }, "presentation"],
+    [{ yoy: "water", grocery: "top-ups" }, "presentation"],
     [{ bills: "rent", period: "rolling" }, "data"],
   ] as const)("classifies %o updates as %s navigation", (updates, expected) => {
-    expect(billsGroceriesNavigationKind(updates)).toBe(expected);
+    expect(analyticsNavigationKind(updates)).toBe(expected);
   });
 
   it("updates owned keys without losing unknown or repeated parameters", () => {
-    const params = new URLSearchParams("source=household&source=partner&period=rolling&bill=rent");
+    const params = new URLSearchParams("source=household&source=partner&period=rolling&yoy=rent");
 
-    expect(buildBillsGroceriesUrl("/bills-groceries", params, { period: "calendar", grocery: "main-run" })).toBe(
-      "/bills-groceries?source=household&source=partner&period=calendar&bill=rent&grocery=main-run",
+    expect(buildAnalyticsUrl("/analytics", params, { period: "calendar", grocery: "main-run" })).toBe(
+      "/analytics?source=household&source=partner&period=calendar&yoy=rent&grocery=main-run",
     );
-    expect(buildBillsGroceriesUrl("/bills-groceries", params, { bill: null })).toBe(
-      "/bills-groceries?source=household&source=partner&period=rolling",
-    );
+    expect(buildAnalyticsUrl("/analytics", params, { yoy: null })).toBe("/analytics?source=household&source=partner&period=rolling");
   });
 
   it("parses valid presentation selections and removes duplicate Bills", () => {
     expect(
-      parseBillsGroceriesPresentationState(new URLSearchParams("bills=water,rent,water&bill=water&grocery=top-ups"), {
+      parseAnalyticsPresentationState(new URLSearchParams("bills=water,rent,water&yoy=water&grocery=top-ups"), {
         availableBillIds: ["rent", "water"],
         fallbackBillIds: ["rent"],
-        fallbackBillId: "rent",
+        fallbackYoy: "rent",
       }),
-    ).toEqual({ billIds: ["water", "rent"], billId: "water", grocery: "top-ups" });
+    ).toEqual({ billIds: ["water", "rent"], yoy: "water", grocery: "top-ups" });
   });
 
   it("falls back atomically for invalid or empty presentation selections", () => {
     expect(
-      parseBillsGroceriesPresentationState(new URLSearchParams("bills=rent,deleted&bill=deleted&grocery=unknown"), {
+      parseAnalyticsPresentationState(new URLSearchParams("bills=rent,deleted&yoy=deleted&grocery=unknown"), {
         availableBillIds: ["rent", "water"],
         fallbackBillIds: ["rent"],
-        fallbackBillId: "water",
+        fallbackYoy: "water",
       }),
-    ).toEqual({ billIds: ["rent"], billId: "water", grocery: "all" });
+    ).toEqual({ billIds: ["rent"], yoy: "water", grocery: "all" });
     expect(
-      parseBillsGroceriesPresentationState(new URLSearchParams("bills="), {
+      parseAnalyticsPresentationState(new URLSearchParams("bills="), {
         availableBillIds: ["rent"],
         fallbackBillIds: ["rent"],
-        fallbackBillId: null,
+        fallbackYoy: "rent",
       }),
-    ).toEqual({ billIds: ["rent"], billId: "rent", grocery: "all" });
+    ).toEqual({ billIds: ["rent"], yoy: "rent", grocery: "all" });
   });
 });

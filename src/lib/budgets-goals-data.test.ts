@@ -4,6 +4,9 @@ import { previousMonth } from "./date-range";
 
 type Query = {
   eq: ReturnType<typeof vi.fn>;
+  gte: ReturnType<typeof vi.fn>;
+  in: ReturnType<typeof vi.fn>;
+  lte: ReturnType<typeof vi.fn>;
   order: ReturnType<typeof vi.fn>;
   select: ReturnType<typeof vi.fn>;
   then: Promise<unknown>["then"];
@@ -59,12 +62,27 @@ function query(table: string, response: Response): Query {
   const result = response.reject ? Promise.reject(response.reject) : Promise.resolve({ data: response.data, error: response.error });
   const builder = {
     eq: vi.fn(),
+    gte: vi.fn(),
+    in: vi.fn(),
+    lte: vi.fn(),
     order: vi.fn(),
     select: vi.fn(),
     then: result.then.bind(result),
   } as unknown as Query;
   builder.eq.mockImplementation((column: string, value: unknown) => {
     record.filters.push({ column, method: "eq", value });
+    return builder;
+  });
+  builder.gte.mockImplementation((column: string, value: unknown) => {
+    record.filters.push({ column, method: "gte", value });
+    return builder;
+  });
+  builder.in.mockImplementation((column: string, value: unknown) => {
+    record.filters.push({ column, method: "in", value });
+    return builder;
+  });
+  builder.lte.mockImplementation((column: string, value: unknown) => {
+    record.filters.push({ column, method: "lte", value });
     return builder;
   });
   builder.order.mockImplementation((column: string, value: unknown) => {
@@ -215,6 +233,108 @@ it("passes dashboard ranges and zero-fills missing spending totals", async () =>
   });
   expect(data.budgets[0]).toMatchObject({ id: "food", spent: 0 });
   expect(data.budgets[0].progress.spentAgorot).toBe(0);
+});
+
+it("groups the past six months of Car gas and Bike gas spending with a monthly average", async () => {
+  mocks.responses.categories = {
+    data: [
+      {
+        archived_at: null,
+        color: "#d9f0fa",
+        id: "transportation",
+        kind: "expense",
+        monthly_budget: null,
+        name: "Transportation",
+        system_key: null,
+      },
+    ],
+    error: null,
+  };
+  mocks.responses.subcategories = {
+    data: [
+      { archived_at: null, category_id: "transportation", color: "#d9f0fa", id: "car-gas", monthly_budget: null, name: "Car fuel" },
+      { archived_at: null, category_id: "transportation", color: "#cadae0", id: "bike-gas", monthly_budget: null, name: "BIKE FUEL" },
+    ],
+    error: null,
+  };
+  mocks.responses.transactions = {
+    data: [
+      { amount: 20, occurred_on: "2026-03-12", subcategory_id: "car-gas" },
+      { amount: 10, occurred_on: "2026-03-18", subcategory_id: "bike-gas" },
+      { amount: 20, occurred_on: "2026-04-01", subcategory_id: "car-gas" },
+      { amount: 60, occurred_on: "2026-06-02", subcategory_id: "bike-gas" },
+      { amount: 40, occurred_on: "2026-06-30", subcategory_id: "car-gas" },
+      { amount: 999, occurred_on: "2026-06-30", subcategory_id: "other" },
+    ],
+    error: null,
+  };
+
+  const data = await getBudgetsGoalsData({ month: "2026-07", today: "2026-08-15" });
+
+  expect(data.gasTrend).toMatchObject({
+    average: 25,
+    months: [
+      { bike: 10, car: 20, month: "2026-03", total: 30 },
+      { bike: 0, car: 20, month: "2026-04", total: 20 },
+      { bike: 0, car: 0, month: "2026-05", total: 0 },
+      { bike: 60, car: 40, month: "2026-06", total: 100 },
+      { bike: 0, car: 0, month: "2026-07", total: 0 },
+      { bike: 0, car: 0, month: "2026-08", total: 0 },
+    ],
+  });
+  expect(mocks.queryRecords).toContainEqual({
+    filters: [
+      { column: "household_id", method: "eq", value: "household-id" },
+      { column: "kind", method: "eq", value: "expense" },
+      { column: "subcategory_id", method: "in", value: ["bike-gas", "car-gas"] },
+      { column: "occurred_on", method: "gte", value: "2025-03-01" },
+      { column: "occurred_on", method: "lte", value: "2026-08-31" },
+    ],
+    select: "amount, occurred_on, subcategory_id",
+    table: "transactions",
+  });
+});
+
+it("shows a Car gas trend when Bike gas is not configured", async () => {
+  mocks.responses.categories = {
+    data: [
+      {
+        archived_at: null,
+        color: "#d9f0fa",
+        id: "transportation",
+        kind: "expense",
+        monthly_budget: null,
+        name: "Transportation",
+        system_key: null,
+      },
+    ],
+    error: null,
+  };
+  mocks.responses.subcategories = {
+    data: [{ archived_at: null, category_id: "transportation", color: "#d9f0fa", id: "car-gas", monthly_budget: null, name: "Car gas" }],
+    error: null,
+  };
+  mocks.responses.transactions = {
+    data: [{ amount: 30, occurred_on: "2026-03-12", subcategory_id: "car-gas" }],
+    error: null,
+  };
+
+  const data = await getBudgetsGoalsData({ month: "2026-07", today: "2026-08-15" });
+
+  expect(data.gasTrend).toMatchObject({
+    average: 5,
+    months: [
+      { bike: 0, car: 30, month: "2026-03", total: 30 },
+      { bike: 0, car: 0, month: "2026-04", total: 0 },
+      { bike: 0, car: 0, month: "2026-05", total: 0 },
+      { bike: 0, car: 0, month: "2026-06", total: 0 },
+      { bike: 0, car: 0, month: "2026-07", total: 0 },
+      { bike: 0, car: 0, month: "2026-08", total: 0 },
+    ],
+  });
+  expect(mocks.queryRecords).toContainEqual(
+    expect.objectContaining({ filters: expect.arrayContaining([{ column: "subcategory_id", method: "in", value: ["car-gas"] }]) }),
+  );
 });
 
 it("defaults to the previous completed month", async () => {

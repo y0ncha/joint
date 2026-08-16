@@ -1,16 +1,16 @@
-import { BillsGroceriesDashboard } from "@/components/bills-groceries-dashboard";
+import { AnalyticsDashboard } from "@/components/analytics-dashboard";
 import { WorkspacePage } from "@/components/workspace-shell";
-import { loadBillsGroceriesPage, type BillsGroceriesSearchParams } from "@/lib/bills-groceries-page";
+import { loadAnalyticsPage, type AnalyticsSearchParams } from "@/lib/analytics-page";
 import { redirect } from "next/navigation";
 
-export default async function BillsGroceriesPage({ searchParams }: { searchParams: Promise<BillsGroceriesSearchParams> }) {
+export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<AnalyticsSearchParams> }) {
   const requested = await searchParams;
-  const { canonical, data, params, selected } = await loadBillsGroceriesPage(requested);
-  if (canonical.toString() !== params.toString()) redirect(`/bills-groceries?${canonical}`);
+  const { canonical, data, params, selected } = await loadAnalyticsPage(requested);
+  if (canonical.toString() !== params.toString()) redirect(`/analytics?${canonical}`);
 
   return (
-    <WorkspacePage title="Bills & Groceries" description="Bills and groceries, without losing the daily detail.">
-      <BillsGroceriesDashboard data={data} billIds={selected.billIds} billId={selected.billId} period={selected.period} />
+    <WorkspacePage title="Analytics" description="Bills, groceries, and fuel without losing the daily detail.">
+      <AnalyticsDashboard data={data} billIds={selected.billIds} yoy={selected.yoy} period={selected.period} />
     </WorkspacePage>
   );
 }

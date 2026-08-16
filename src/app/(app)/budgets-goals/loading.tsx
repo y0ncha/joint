@@ -13,7 +13,7 @@ export default function BudgetsGoalsLoading() {
       </div>
       <section aria-label="Budgets and goals" className="mt-6 flex flex-col gap-4">
         {sections.map((title) => (
-          <Card key={title} className="min-h-52 border-white/50 bg-card/90">
+          <Card key={title} className="min-h-52 border-white/50 bg-card/90 [--card-spacing:--spacing(6)]">
             <CardHeader>
               <CardTitle>{title}</CardTitle>
               <CardAction>

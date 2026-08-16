@@ -17,7 +17,7 @@ exception
 end;
 $$;
 
-select extensions.plan(42);
+select extensions.plan(44);
 
 select extensions.hasnt_table('private', 'app_access', 'has no global app-access registry');
 select extensions.hasnt_table('public', 'household_partner_authorizations', 'has no second partner-authorization table');
@@ -34,6 +34,10 @@ values
   ('00000000-0000-0000-0000-000000000306', 'other-owner@example.test', now(), '{"provider":"google"}'),
   ('00000000-0000-0000-0000-000000000307', 'cross@example.test', now(), '{"provider":"google"}'),
   ('00000000-0000-0000-0000-000000000308', 'unmatched@example.test', now(), '{"provider":"google"}');
+
+update public.profiles
+set full_name = 'Owner Name'
+where id = '00000000-0000-0000-0000-000000000301';
 
 insert into public.households (id, name, created_by, opening_balance)
 values
@@ -153,6 +157,17 @@ select extensions.lives_ok(
     values ('00000000-0000-0000-0000-000000000310', '00000000-0000-0000-0000-000000000302', 'member')
   $$,
   'the matching partner can join only as themself'
+);
+
+select extensions.is(
+  (select full_name from public.profiles where id = '00000000-0000-0000-0000-000000000301'),
+  'Owner Name',
+  'a joined partner can read the owner profile'
+);
+
+select extensions.ok(
+  (select color is not null from public.household_members where user_id = '00000000-0000-0000-0000-000000000301'),
+  'a joined partner can read the owner member color'
 );
 
 reset role;

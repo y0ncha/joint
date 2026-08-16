@@ -1,5 +1,6 @@
 import type { DateRange } from "@/lib/date-range";
-import { previousMonth } from "@/lib/date-range";
+import { getIsoMonthRange, previousMonth, shiftIsoMonth } from "@/lib/date-range";
+import { buildGasTrend, type GasTrend } from "@/lib/gas-trend";
 import { getCurrentHouseholdContext } from "@/lib/household";
 
 import {
@@ -61,6 +62,7 @@ export type GoalRow = {
 
 export type BudgetsGoalsData = {
   budgets: BudgetRow[];
+  gasTrend?: GasTrend;
   goals: GoalRow[];
   targets: {
     categories: BudgetTarget[];
@@ -84,6 +86,10 @@ function spendingRpcArgs(month: string, range: DateRange | undefined, subcategor
     ...(range ? { p_range_from: range.from, p_range_to: range.to } : {}),
     p_subcategories: subcategories,
   };
+}
+
+function normalizedName(value: string) {
+  return value.trim().replaceAll(/\s+/g, " ").toLocaleLowerCase("en");
 }
 
 export async function getBudgetsGoalsData(options: BudgetsGoalsReadOptions = {}): Promise<BudgetsGoalsData> {
@@ -158,6 +164,27 @@ export async function getBudgetsGoalsData(options: BudgetsGoalsReadOptions = {})
       })
       .sort((left, right) => compareText(left.label, right.label) || compareText(left.id, right.id));
 
+    const gasSubcategories = new Map(subcategoryTargets.map((subcategory) => [normalizedName(subcategory.name), subcategory.id]));
+    const bikeGasId = gasSubcategories.get("bike gas") ?? gasSubcategories.get("bike fuel");
+    const carGasId = gasSubcategories.get("car gas") ?? gasSubcategories.get("car fuel");
+    const gasSubcategoryIds = [bikeGasId, carGasId].filter((id): id is string => id !== undefined);
+    const gasMonths = Array.from({ length: 6 }, (_, index) => shiftIsoMonth(today.slice(0, 7), index - 5));
+    const previousGasMonths = gasMonths.map((month) => shiftIsoMonth(month, -12));
+    const gasRange = getIsoMonthRange(gasMonths.at(-1) ?? "");
+    const gasTransactionsResult =
+      gasSubcategoryIds.length && gasRange
+        ? await household.supabase
+            .from("transactions")
+            .select("amount, occurred_on, subcategory_id")
+            .eq("household_id", household.householdId)
+            .eq("kind", "expense")
+            .in("subcategory_id", gasSubcategoryIds)
+            .gte("occurred_on", `${previousGasMonths[0]}-01`)
+            .lte("occurred_on", gasRange.to)
+        : null;
+
+    if (gasTransactionsResult?.error || gasTransactionsResult?.data === null) throw new Error("Gas spending read failed.");
+
     const parentSpending = new Map(parentSpendingResult.data.map((row) => [row.category_id, finiteAmount(row.amount)]));
     const childSpending = new Map(childSpendingResult.data.map((row) => [row.category_id, finiteAmount(row.amount)]));
     const budgets = [...categoryTargets, ...subcategoryTargets]
@@ -189,7 +216,22 @@ export async function getBudgetsGoalsData(options: BudgetsGoalsReadOptions = {})
       progress: calculateGoalProgress(goal, today),
     }));
 
-    return { budgets, goals, targets: { categories: categoryTargets, subcategories: subcategoryTargets } };
+    const gasTrend = gasSubcategoryIds.length
+      ? buildGasTrend(
+          gasMonths,
+          (gasTransactionsResult?.data ?? []).flatMap<{ amount: number; kind: "bike" | "car"; occurredOn: string }>((transaction) => {
+            if (bikeGasId && transaction.subcategory_id === bikeGasId) {
+              return [{ amount: finiteAmount(transaction.amount), kind: "bike" as const, occurredOn: transaction.occurred_on }];
+            }
+            if (carGasId && transaction.subcategory_id === carGasId) {
+              return [{ amount: finiteAmount(transaction.amount), kind: "car" as const, occurredOn: transaction.occurred_on }];
+            }
+            return [];
+          }),
+        )
+      : undefined;
+
+    return { budgets, gasTrend, goals, targets: { categories: categoryTargets, subcategories: subcategoryTargets } };
   } catch {
     throw new Error(LOAD_ERROR);
   }

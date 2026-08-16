@@ -1,36 +1,36 @@
 import { expect, it } from "vitest";
 
-import { canonicalBillsGroceriesParams } from "@/lib/bills-groceries-page";
+import { canonicalAnalyticsParams } from "@/lib/analytics-page";
 
-it("keeps only non-default Bills and Groceries selections without losing unrelated query parameters", () => {
+it("keeps only non-default Analytics selections without losing unrelated query parameters", () => {
   expect(
-    canonicalBillsGroceriesParams(
+    canonicalAnalyticsParams(
       new URLSearchParams(
-        "view=table&period=year&bills=deleted&bill=deleted&groceryMonth=2026-13&groceryFrom=2026-06-30&groceryTo=2026-07-01",
+        "view=table&period=year&bills=deleted&yoy=deleted&groceryMonth=2026-13&groceryFrom=2026-06-30&groceryTo=2026-07-01",
       ),
       {
         period: "rolling",
         billIds: ["electricity", "water"],
-        billId: "water",
+        yoy: "water",
         groceryRange: { from: "2026-07-01", to: "2026-07-31" },
       },
       {
         period: "rolling",
         billIds: ["electricity", "water"],
-        billId: "electricity",
+        yoy: "electricity",
         groceryRange: { from: "2026-06-01", to: "2026-06-30" },
       },
     ).toString(),
-  ).toBe("view=table&bill=water&groceryMonth=2026-07");
+  ).toBe("view=table&yoy=water&groceryMonth=2026-07");
 });
 
-it("keeps the default Bills and Groceries route bare", () => {
+it("keeps the default Analytics route bare", () => {
   const defaults = {
     period: "rolling" as const,
     billIds: ["electricity", "water"],
-    billId: "electricity",
+    yoy: "electricity",
     groceryRange: { from: "2026-06-01", to: "2026-06-30" },
   };
 
-  expect(canonicalBillsGroceriesParams(new URLSearchParams(), defaults, defaults).toString()).toBe("");
+  expect(canonicalAnalyticsParams(new URLSearchParams(), defaults, defaults).toString()).toBe("");
 });
