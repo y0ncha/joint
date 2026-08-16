@@ -10,11 +10,7 @@ const SAVE_ERROR = "Unable to save the recurring schedule. Please try again.";
 async function setRecurringTransactionScheduleStatus(scheduleId: string, status: "paused" | "active" | "stopped"): Promise<ActionResult> {
   const household = await requireCurrentHousehold();
 
-  const rpc = household.supabase.rpc as unknown as (
-    functionName: "set_recurring_transaction_schedule_status",
-    args: { target_schedule_id: string; target_status: "paused" | "active" | "stopped" },
-  ) => Promise<{ error: unknown }>;
-  const { error } = await rpc("set_recurring_transaction_schedule_status", {
+  const { error } = await household.supabase.rpc("set_recurring_transaction_schedule_status", {
     target_schedule_id: scheduleId,
     target_status: status,
   });

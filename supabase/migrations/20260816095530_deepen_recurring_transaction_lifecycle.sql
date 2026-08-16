@@ -595,18 +595,18 @@ for each row execute function private.protect_recurring_transaction_metadata();
 
 create or replace function public.convert_transaction_to_recurring_schedule(
   target_transaction_id uuid,
-  target_paid_by uuid,
-  target_kind public.transaction_kind,
-  target_amount numeric,
-  target_occurred_on date,
-  target_merchant text,
-  target_note text,
-  target_category_id uuid,
-  target_subcategory_id uuid,
-  target_service_period_start date,
-  target_service_period_end date,
-  target_cadence public.recurring_schedule_cadence,
-  target_interval_count integer
+  target_paid_by uuid default null,
+  target_kind public.transaction_kind default null,
+  target_amount numeric default null,
+  target_occurred_on date default null,
+  target_merchant text default null,
+  target_note text default null,
+  target_category_id uuid default null,
+  target_subcategory_id uuid default null,
+  target_service_period_start date default null,
+  target_service_period_end date default null,
+  target_cadence public.recurring_schedule_cadence default null,
+  target_interval_count integer default null
 )
 returns uuid
 language plpgsql
@@ -857,17 +857,17 @@ $$;
 
 create function public.save_recurring_transaction_occurrence(
   target_transaction_id uuid,
-  target_scope text,
-  target_kind public.transaction_kind,
-  target_amount numeric,
-  target_occurred_on date,
-  target_merchant text,
-  target_note text,
-  target_paid_by uuid,
-  target_category_id uuid,
-  target_subcategory_id uuid,
-  target_service_period_start date,
-  target_service_period_end date,
+  target_scope text default null,
+  target_kind public.transaction_kind default null,
+  target_amount numeric default null,
+  target_occurred_on date default null,
+  target_merchant text default null,
+  target_note text default null,
+  target_paid_by uuid default null,
+  target_category_id uuid default null,
+  target_subcategory_id uuid default null,
+  target_service_period_start date default null,
+  target_service_period_end date default null,
   target_cadence public.recurring_schedule_cadence default null,
   target_interval_count integer default null
 )

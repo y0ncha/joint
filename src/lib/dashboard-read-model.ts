@@ -11,12 +11,6 @@ type DashboardReadOptions = {
   spendingGranularity?: "categories" | "subcategories";
 };
 
-type RecurringScheduleProjection = {
-  status: "active" | "paused" | "stopped" | "blocked";
-  cadence: "weekly" | "monthly" | "custom_weekly" | "custom_monthly";
-  interval_count: number;
-};
-
 export type DashboardSummary = {
   income: number;
   expenses: number;
@@ -227,7 +221,7 @@ export async function getLedgerData({
     categoryIds,
     paidByIds,
     transactions: (transactionsResult.data ?? []).map((row) => {
-      const schedule = row.recurring_transaction_schedules as unknown as RecurringScheduleProjection | null;
+      const schedule = row.recurring_transaction_schedules;
       return {
         id: row.id,
         kind: row.kind,

@@ -461,10 +461,7 @@ describe("transaction actions", () => {
       target_occurred_on: "2026-07-14",
       target_merchant: "Updated merchant",
       target_note: "Groceries",
-      target_category_id: null,
       target_subcategory_id: "groceries",
-      target_service_period_start: null,
-      target_service_period_end: null,
       target_cadence: "monthly",
       target_interval_count: 1,
     });
@@ -517,10 +514,6 @@ describe("transaction actions", () => {
       target_paid_by: "member-id",
       target_category_id: "income-category",
       target_subcategory_id: "salary",
-      target_service_period_start: null,
-      target_service_period_end: null,
-      target_cadence: null,
-      target_interval_count: null,
     });
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
     expect(mocks.update).not.toHaveBeenCalled();
@@ -553,9 +546,6 @@ describe("transaction actions", () => {
       target_merchant: "",
       target_note: "Groceries",
       target_paid_by: "member-id",
-      target_category_id: null,
-      target_service_period_end: null,
-      target_service_period_start: null,
       target_subcategory_id: "groceries",
       target_cadence: "monthly",
       target_interval_count: 1,
@@ -585,10 +575,7 @@ describe("transaction actions", () => {
       target_merchant: "",
       target_note: "Groceries",
       target_paid_by: "partner-id",
-      target_category_id: null,
       target_subcategory_id: "groceries",
-      target_service_period_start: null,
-      target_service_period_end: null,
       target_cadence: "custom_weekly",
       target_interval_count: 2,
     });
