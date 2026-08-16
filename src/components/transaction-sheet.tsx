@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useActionState, useEffect, useMemo, useReducer, useRef, useState, useTransition, type ReactNode } from "react";
-import { CalendarRange, CircleOff, Pause, Play, Plus, Trash2 } from "lucide-react";
+import { CalendarRange, Pause, Play, Plus, Square, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { createTransaction, deleteTransaction, updateTransaction } from "@/app/actions/transactions";
@@ -540,11 +540,28 @@ export function TransactionSheet({
             ) : null}
             {isRecurring && transaction?.recurringScheduleId ? (
               <FieldGroup className="gap-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium">Recurring schedule</p>
-                    <Badge variant="secondary">{transaction.recurringScheduleEnabled === false ? "Paused" : "Active"}</Badge>
-                  </div>
+                <p className="font-medium">Recurring schedule</p>
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
+                  <Field>
+                    <FieldLabel htmlFor="recurrence-cadence">Repeat</FieldLabel>
+                    <Select
+                      value={recurrenceCadence.startsWith("custom_") ? "custom" : recurrenceCadence || "monthly"}
+                      onValueChange={(value) =>
+                        setRecurrenceCadence(value === "custom" ? "custom_weekly" : (value as typeof recurrenceCadence))
+                      }
+                    >
+                      <SelectTrigger id="recurrence-cadence" className="w-full rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="custom">Custom</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </Field>
                   <div className="flex gap-2">
                     <Button
                       disabled={isSchedulePending}
@@ -578,7 +595,7 @@ export function TransactionSheet({
                           aria-label="Stop future repeats"
                           title="Stop future repeats"
                         >
-                          <CircleOff aria-hidden="true" />
+                          <Square aria-hidden="true" />
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
@@ -607,26 +624,6 @@ export function TransactionSheet({
                     </AlertDialog>
                   </div>
                 </div>
-                <Field>
-                  <FieldLabel htmlFor="recurrence-cadence">Repeat</FieldLabel>
-                  <Select
-                    value={recurrenceCadence.startsWith("custom_") ? "custom" : recurrenceCadence || "monthly"}
-                    onValueChange={(value) =>
-                      setRecurrenceCadence(value === "custom" ? "custom_weekly" : (value as typeof recurrenceCadence))
-                    }
-                  >
-                    <SelectTrigger id="recurrence-cadence" className="w-full rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="custom">Custom</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </Field>
                 {recurrenceCadence.startsWith("custom_") ? (
                   <FieldGroup className="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
                     <Field>

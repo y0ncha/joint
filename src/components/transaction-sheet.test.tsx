@@ -253,11 +253,14 @@ it("uses one bottom save for recurring transaction edits", () => {
   );
 
   expect(markup).toContain("Recurring schedule");
-  expect(markup).toContain("Active");
+  expect(markup).not.toContain(">Active<");
   expect(markup).toContain('aria-label="Pause future repeats"');
   expect(markup).toContain('aria-label="Stop future repeats"');
   expect(markup).toMatch(/aria-label="Pause future repeats"[^>]*><svg/);
   expect(markup).toMatch(/aria-label="Stop future repeats"[^>]*><svg/);
+  expect(markup).toContain("lucide-square");
+  expect(markup.indexOf("Repeat")).toBeLessThan(markup.indexOf('aria-label="Pause future repeats"'));
+  expect(markup).toContain("grid-cols-[minmax(0,1fr)_auto] items-end gap-3");
   expect(markup).not.toContain("Save future schedule");
   expect(markup).not.toContain("Manage future repeats from this transaction.");
   expect(markup.indexOf("Recurring schedule")).toBeLessThan(markup.indexOf("Note"));
