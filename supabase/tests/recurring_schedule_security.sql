@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(79);
+select extensions.plan(80);
 
 select extensions.ok(
   has_schema_privilege('service_role', 'private', 'USAGE')
@@ -1130,6 +1130,16 @@ select extensions.ok(
     where id = '00000000-0000-0000-0000-000000000656'
   ),
   'income conversion preserves the income kind on canonical occurrence zero'
+);
+
+select extensions.is(
+  (
+    select next_occurs_on
+    from public.recurring_transaction_schedules
+    where id = (select recurring_schedule_id from public.transactions where id = '00000000-0000-0000-0000-000000000656')
+  ),
+  current_date + 6,
+  'income conversion calculates the next occurrence after the current posting date'
 );
 
 select public.save_recurring_transaction_occurrence(
