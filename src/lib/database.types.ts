@@ -703,6 +703,7 @@ export type Database = {
           target_amount?: number
           target_cadence?: Database["public"]["Enums"]["recurring_schedule_cadence"]
           target_category_id?: string
+          target_household_id?: string
           target_interval_count?: number
           target_kind?: Database["public"]["Enums"]["transaction_kind"]
           target_merchant?: string
@@ -721,6 +722,7 @@ export type Database = {
           target_cadence?: Database["public"]["Enums"]["recurring_schedule_cadence"]
           target_category_id?: string
           target_existing_transaction_id?: string
+          target_household_id?: string
           target_interval_count?: number
           target_kind?: Database["public"]["Enums"]["transaction_kind"]
           target_merchant?: string
