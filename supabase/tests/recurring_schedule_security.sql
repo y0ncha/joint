@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(20);
+select extensions.plan(25);
 
 select extensions.ok(
   has_schema_privilege('service_role', 'private', 'USAGE')
@@ -209,6 +209,92 @@ select extensions.ok(
 
 set local role authenticated;
 
+select extensions.lives_ok(
+  $$
+    select public.create_recurring_transaction_schedule(
+      '00000000-0000-0000-0000-000000000610', null, 'expense', 30, date '2026-01-31',
+      'Month-end utility bill', '', null,
+      (select id from public.subcategories where household_id = '00000000-0000-0000-0000-000000000610' and name = 'Recurring utilities'),
+      date '2026-01-01', date '2026-01-31', 'monthly', 1
+    )
+  $$,
+  'a month-end Bills schedule remains creatable'
+);
+
+set local role service_role;
+
+select public.process_due_recurring_transaction_schedules(date '2026-03-31');
+
+select extensions.ok(
+  exists (
+    select 1
+    from public.transactions
+    where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Month-end utility bill')
+      and scheduled_for = date '2026-03-31'
+      and service_period_start = date '2026-03-01'
+      and service_period_end = date '2026-03-31'
+  ),
+  'a monthly month-end Bills occurrence clips and shifts both service-period endpoints'
+);
+
+set local role authenticated;
+
+select extensions.lives_ok(
+  $$
+    select public.create_recurring_transaction_schedule(
+      '00000000-0000-0000-0000-000000000610', null, 'expense', 20, current_date - 14,
+      'Future utility bill', '', null,
+      (select id from public.subcategories where household_id = '00000000-0000-0000-0000-000000000610' and name = 'Recurring utilities'),
+      current_date - 20, current_date - 14, 'weekly', 1
+    )
+  $$,
+  'a schedule is available for future-scope history preservation'
+);
+
+set local role service_role;
+
+select public.process_due_recurring_transaction_schedules(current_date);
+
+set local role authenticated;
+
+select public.update_recurring_transaction_occurrence(
+  (select id from public.transactions where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Future utility bill') and scheduled_for = current_date),
+  'future', 35, 'Future utility bill updated', '', null, null,
+  (select id from public.subcategories where household_id = '00000000-0000-0000-0000-000000000610' and name = 'Recurring utilities'),
+  current_date - 6, current_date
+);
+
+select extensions.ok(
+  (
+    select count(*) = 3
+      and bool_and(amount = 20)
+      and bool_and(merchant = 'Future utility bill')
+      and bool_and(occurred_on = scheduled_for)
+    from public.transactions
+    where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Future utility bill updated')
+  ),
+  'future-scope edits preserve every existing generated transaction'
+);
+
+set local role service_role;
+
+select public.process_due_recurring_transaction_schedules(current_date + 7);
+
+select extensions.ok(
+  exists (
+    select 1
+    from public.transactions
+    where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Future utility bill updated')
+      and scheduled_for = current_date + 7
+      and amount = 35
+      and service_period_start = current_date + 1
+      and service_period_end = current_date + 7
+  ),
+  'future-scope edits apply to the next generated Bills transaction'
+);
+
+set local role authenticated;
+
 select public.update_recurring_transaction_occurrence(
   (select id from public.transactions where recurring_schedule_id = (select id from public.recurring_transaction_schedules where merchant = 'Recurring utility bill') and scheduled_for = current_date),
   'all', 25, 'Updated utility bill', '', null, null,
@@ -218,7 +304,7 @@ select public.update_recurring_transaction_occurrence(
 
 select extensions.ok(
   (
-    select count(*) = 3
+    select count(*) = 4
       and bool_and(amount = 25)
       and bool_and(occurred_on = scheduled_for)
     from public.transactions

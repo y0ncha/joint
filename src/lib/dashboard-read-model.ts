@@ -175,7 +175,7 @@ export async function getLedgerData({
   const transactionsQuery = household.supabase
     .from("transactions")
     .select(
-      "id, kind, amount, occurred_on, merchant, note, category_id, subcategory_id, service_period_start, service_period_end, source, created_at, paid_by, recurring_schedule_id, recurring_transaction_schedules(enabled, cadence, interval_count)",
+      "id, kind, amount, occurred_on, merchant, note, category_id, subcategory_id, service_period_start, service_period_end, source, created_at, paid_by, recurring_schedule_id, recurring_transaction_schedules!transactions_recurring_schedule_id_fkey(enabled, cadence, interval_count)",
     )
     .eq("household_id", household.householdId)
     .gte("occurred_on", ledgerRange.from)

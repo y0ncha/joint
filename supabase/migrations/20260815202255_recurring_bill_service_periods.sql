@@ -9,16 +9,20 @@ alter table public.recurring_transaction_schedules
     check (service_period_start is null or service_period_end - service_period_start <= 365);
 
 update public.recurring_transaction_schedules as schedule
-set service_period_start = template.service_period_start,
-    service_period_end = template.service_period_end
-from lateral (
+set (service_period_start, service_period_end) = (
   select transaction.service_period_start, transaction.service_period_end
   from public.transactions as transaction
   where (transaction.recurring_schedule_id = schedule.id or transaction.id = schedule.first_occurrence_transaction_id)
     and transaction.service_period_start is not null
   order by (transaction.id = schedule.first_occurrence_transaction_id) desc, transaction.scheduled_for nulls last, transaction.created_at
   limit 1
-) as template;
+)
+where exists (
+  select 1
+  from public.transactions as transaction
+  where (transaction.recurring_schedule_id = schedule.id or transaction.id = schedule.first_occurrence_transaction_id)
+    and transaction.service_period_start is not null
+);
 
 create or replace function private.recurring_occurrence_date_with_offset(
   anchor_date date,

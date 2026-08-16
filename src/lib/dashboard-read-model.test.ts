@@ -231,7 +231,7 @@ it("loads bounded ledger rows with recurring metadata", async () => {
   const data = await getLedgerData({ month: "2026-07" });
 
   expect(mocks.selects.transactions).toHaveBeenCalledWith(
-    "id, kind, amount, occurred_on, merchant, note, category_id, subcategory_id, service_period_start, service_period_end, source, created_at, paid_by, recurring_schedule_id, recurring_transaction_schedules(enabled, cadence, interval_count)",
+    "id, kind, amount, occurred_on, merchant, note, category_id, subcategory_id, service_period_start, service_period_end, source, created_at, paid_by, recurring_schedule_id, recurring_transaction_schedules!transactions_recurring_schedule_id_fkey(enabled, cadence, interval_count)",
   );
   expect(mocks.transactions.gte).toHaveBeenCalledWith("occurred_on", "2026-07-01");
   expect(mocks.transactions.lte).toHaveBeenCalledWith("occurred_on", "2026-07-31");

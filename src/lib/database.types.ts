@@ -307,6 +307,8 @@ export type Database = {
           note: string
           paid_by: string | null
           paused_reason: string | null
+          service_period_end: string | null
+          service_period_start: string | null
           subcategory_id: string | null
           updated_at: string
         }
@@ -329,6 +331,8 @@ export type Database = {
           note?: string
           paid_by?: string | null
           paused_reason?: string | null
+          service_period_end?: string | null
+          service_period_start?: string | null
           subcategory_id?: string | null
           updated_at?: string
         }
@@ -351,6 +355,8 @@ export type Database = {
           note?: string
           paid_by?: string | null
           paused_reason?: string | null
+          service_period_end?: string | null
+          service_period_start?: string | null
           subcategory_id?: string | null
           updated_at?: string
         }
@@ -736,6 +742,21 @@ export type Database = {
       }
       set_recurring_transaction_schedule_enabled: {
         Args: { target_enabled: boolean; target_schedule_id: string }
+        Returns: undefined
+      }
+      update_recurring_transaction_occurrence: {
+        Args: {
+          target_amount: number
+          target_category_id: string
+          target_merchant: string
+          target_note: string
+          target_paid_by: string
+          target_scope: string
+          target_service_period_end: string
+          target_service_period_start: string
+          target_subcategory_id: string
+          target_transaction_id: string
+        }
         Returns: undefined
       }
       update_recurring_transaction_schedule: {
