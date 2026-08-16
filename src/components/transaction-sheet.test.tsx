@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => ({
   scopeActions: [] as Array<{ label: string; onClick?: () => void }>,
   state: [] as unknown[],
   stateIndex: 0,
+  transitionPending: false,
   updateTransaction: vi.fn(),
 }));
 
@@ -70,7 +71,7 @@ vi.mock("react", async (importOriginal) => {
         },
       ];
     },
-    useTransition: () => [false, (callback: () => void) => void callback()],
+    useTransition: () => [mocks.transitionPending, (callback: () => void) => void callback()],
   };
 });
 
@@ -140,7 +141,7 @@ vi.mock("@/components/ui/alert-dialog", () => ({
   AlertDialogAction: ({ children, onClick, ...props }: { children: ReactNode; onClick?: () => void }) => {
     if (typeof children === "string") mocks.scopeActions.push({ label: children, onClick });
     return (
-      <button {...props} onClick={onClick}>
+      <button {...props} data-alert-dialog-confirmation={typeof children === "string" ? children : undefined} onClick={onClick}>
         {children}
       </button>
     );
@@ -151,7 +152,7 @@ vi.mock("@/components/ui/alert-dialog", () => ({
   AlertDialogFooter: ({ children }: { children: ReactNode }) => <>{children}</>,
   AlertDialogHeader: ({ children }: { children: ReactNode }) => <>{children}</>,
   AlertDialogTitle: ({ children }: { children: ReactNode }) => <>{children}</>,
-  AlertDialogTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  AlertDialogTrigger: ({ children }: { children: ReactNode }) => <div data-alert-dialog-trigger>{children}</div>,
 }));
 
 vi.mock("@/components/ui/select", () => ({
@@ -221,28 +222,51 @@ function renderSheet() {
 
 type TestElement = ReactElement<Record<string, unknown>>;
 
-function findElement(node: ReactNode, predicate: (element: TestElement) => boolean): TestElement | undefined {
+function visitElements(node: ReactNode, visit: (element: TestElement) => void) {
   if (Array.isArray(node)) {
-    for (const child of node) {
-      const match = findElement(child, predicate);
-      if (match) return match;
-    }
-    return undefined;
+    node.forEach((child) => visitElements(child, visit));
+    return;
   }
   if (!isValidElement(node)) return undefined;
   const element = node as TestElement;
-  if (predicate(element)) return element;
+  visit(element);
   if (typeof element.type === "function") {
     const component = element.type as (props: Record<string, unknown>) => ReactNode;
-    return findElement(component(element.props), predicate);
+    visitElements(component(element.props), visit);
+    return;
   }
-  return findElement(element.props.children as ReactNode, predicate);
+  visitElements(element.props.children as ReactNode, visit);
 }
 
-function submitForm(form: TestElement, values: Record<string, string>) {
+function findElements(node: ReactNode, predicate: (element: TestElement) => boolean) {
+  const matches: TestElement[] = [];
+  visitElements(node, (element) => {
+    if (predicate(element)) matches.push(element);
+  });
+  return matches;
+}
+
+function findElement(node: ReactNode, predicate: (element: TestElement) => boolean): TestElement | undefined {
+  return findElements(node, predicate)[0];
+}
+
+function collectNamedFormData(form: TestElement) {
+  const formData = new FormData();
+  visitElements(form, (element) => {
+    if (element.type !== "input" && element.type !== "textarea") return;
+    const name = element.props.name;
+    if (typeof name !== "string") return;
+    const value = element.props.value ?? element.props.defaultValue ?? element.props.children ?? "";
+    formData.append(name, String(value));
+  });
+  return formData;
+}
+
+function submitForm(form: TestElement, values: Record<string, string> | FormData) {
   const NativeFormData = globalThis.FormData;
   const formData = new NativeFormData();
-  Object.entries(values).forEach(([key, value]) => formData.set(key, value));
+  if (values instanceof NativeFormData) values.forEach((value, key) => formData.append(key, value));
+  else Object.entries(values).forEach(([key, value]) => formData.set(key, value));
 
   class FormDataFromForm extends NativeFormData {
     constructor(source?: unknown) {
@@ -288,6 +312,7 @@ beforeEach(() => {
   mocks.scopeActions = [];
   mocks.state = [];
   mocks.stateIndex = 0;
+  mocks.transitionPending = false;
 });
 
 it("opens a new transaction calendar in the viewed ledger month", () => {
@@ -395,18 +420,89 @@ it("wires pause, resume, and confirmed stop through the lifecycle adapters", asy
     createdAt: "2026-07-15T08:00:00Z",
     paidBy: null,
   };
-  const tree = TransactionSheet({ members: [], transaction });
-  findElement(tree, () => false);
-  const resumeButton = findElement(tree, (element) => element.type === "button" && element.props["aria-label"] === "Resume future repeats");
-  const stopAction = mocks.scopeActions.find(({ label }) => label === "Stop future repeats");
+  const activeTree = TransactionSheet({ members: [], transaction: { ...transaction, recurringScheduleEnabled: true } });
+  findElement(activeTree, () => false);
+  const pauseButton = findElement(
+    activeTree,
+    (element) => element.type === "button" && element.props["aria-label"] === "Pause future repeats",
+  );
+  await (pauseButton?.props.onClick as (() => void) | undefined)?.();
+
+  expect(mocks.pauseRecurringTransactionSchedule).toHaveBeenCalledWith("schedule-id");
+
+  mocks.scopeActions = [];
+  mocks.stateIndex = 0;
+  const inactiveTree = TransactionSheet({ members: [], transaction });
+  findElement(inactiveTree, () => false);
+  const resumeButton = findElement(
+    inactiveTree,
+    (element) => element.type === "button" && element.props["aria-label"] === "Resume future repeats",
+  );
+  const stopButton = findElement(
+    inactiveTree,
+    (element) => element.type === "button" && element.props["aria-label"] === "Stop future repeats",
+  );
+  const stopTrigger = findElements(
+    inactiveTree,
+    (element) =>
+      element.type === "div" &&
+      element.props["data-alert-dialog-trigger"] === true &&
+      Boolean(
+        findElement(
+          element.props.children as ReactNode,
+          (child) => child.type === "button" && child.props["aria-label"] === "Stop future repeats",
+        ),
+      ),
+  )[0];
+  const stopConfirmation = findElement(
+    inactiveTree,
+    (element) => element.type === "button" && element.props["data-alert-dialog-confirmation"] === "Stop future repeats",
+  );
 
   expect(resumeButton?.props.title).toBe("Resume future repeats");
+  expect(stopButton?.props.title).toBe("Stop future repeats");
+  expect(stopButton?.props.className).toContain("size-11");
+  expect(stopTrigger).toBeDefined();
+  expect(stopConfirmation).toBeDefined();
+  expect(stopButton?.props.onClick).toBeUndefined();
   await (resumeButton?.props.onClick as (() => void) | undefined)?.();
-  await stopAction?.onClick?.();
+  await (stopConfirmation?.props.onClick as (() => void) | undefined)?.();
 
   expect(mocks.resumeRecurringTransactionSchedule).toHaveBeenCalledWith("schedule-id");
-  expect(mocks.pauseRecurringTransactionSchedule).not.toHaveBeenCalled();
   expect(mocks.stopRecurringTransactionSchedule).toHaveBeenCalledWith("schedule-id");
+});
+
+it("disables lifecycle controls while a schedule transition is pending", () => {
+  mocks.transitionPending = true;
+  const transaction = {
+    id: "recurring-transaction",
+    kind: "expense" as const,
+    amount: 125,
+    occurredOn: "2026-07-15",
+    subcategoryId: null,
+    note: "Monthly bill",
+    merchant: "Electricity",
+    source: "manual" as const,
+    recurringScheduleId: "schedule-id",
+    recurringScheduleEnabled: true,
+    recurrenceCadence: "monthly" as const,
+    recurrenceInterval: 1,
+    createdAt: "2026-07-15T08:00:00Z",
+    paidBy: null,
+  };
+  const tree = TransactionSheet({ members: [], transaction });
+  findElement(tree, () => false);
+  const pauseButton = findElement(tree, (element) => element.type === "button" && element.props["aria-label"] === "Pause future repeats");
+  const stopButton = findElement(tree, (element) => element.type === "button" && element.props["aria-label"] === "Stop future repeats");
+  const stopConfirmation = findElement(
+    tree,
+    (element) => element.type === "button" && element.props["data-alert-dialog-confirmation"] === "Stop future repeats",
+  );
+
+  expect(pauseButton?.props.disabled).toBe(true);
+  expect(stopButton?.props.disabled).toBe(true);
+  expect(stopButton?.props.className).toContain("size-11");
+  expect(stopConfirmation?.props.disabled).toBe(true);
 });
 
 it.each(["future", "all"] as const)("submits the selected %s scope with stored identity and controlled recurrence", (scope) => {
@@ -469,6 +565,13 @@ it.each(["kind", "date"] as const)("limits a recurring %s change to this and omi
   findElement(initialTree, () => false);
   if (change === "kind") mocks.kindChange?.("income");
   else mocks.dateSelect?.(new Date(2026, 6, 20, 12));
+  mocks.recurrenceChange?.("custom");
+
+  mocks.stateIndex = 0;
+  const customTree = TransactionSheet(props);
+  findElement(customTree, () => false);
+  const recurrenceInterval = findElement(customTree, (element) => element.type === "input" && element.props.id === "recurrence-interval");
+  (recurrenceInterval?.props.onChange as ((event: { target: { value: string } }) => void) | undefined)?.({ target: { value: "4" } });
 
   mocks.stateIndex = 0;
   const changedTree = TransactionSheet(props);
@@ -478,7 +581,10 @@ it.each(["kind", "date"] as const)("limits a recurring %s change to this and omi
   const changedDate = change === "date" ? "2026-07-20" : "2026-07-15";
 
   expect(form).toBeDefined();
-  submitForm(form!, { kind: changedKind, occurredOn: changedDate, recurrenceCadence: "monthly", recurrenceInterval: "1" });
+  const renderedFormData = collectNamedFormData(form!);
+  expect(renderedFormData.get("recurrenceCadence")).toBe("custom_weekly");
+  expect(renderedFormData.get("recurrenceInterval")).toBe("4");
+  submitForm(form!, renderedFormData);
   expect(mocks.lastSubmittedFormData).toBeUndefined();
   mocks.scopeActions = [];
   mocks.stateIndex = 0;
