@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(80);
+select extensions.plan(81);
 
 select extensions.ok(
   has_schema_privilege('service_role', 'private', 'USAGE')
@@ -960,6 +960,49 @@ select extensions.is(
   ),
   'blocked',
   'destination deletion transitions the durable schedule to blocked'
+);
+
+select extensions.lives_ok(
+  $$
+    do $blocked_delete$
+    declare
+      schedule_id uuid;
+    begin
+      begin
+        select id
+        into schedule_id
+        from public.recurring_transaction_schedules
+        where merchant = 'Deletable destination';
+
+        perform public.delete_recurring_transaction_schedule(schedule_id);
+
+        if not exists (
+          select 1
+          from public.recurring_transaction_schedules
+          where id = schedule_id
+            and status = 'stopped'::public.recurring_schedule_status
+        ) then
+          raise exception 'blocked schedule was not stopped by the compatibility adapter';
+        end if;
+        if not exists (
+          select 1
+          from public.transactions
+          where recurring_schedule_id = schedule_id
+        ) then
+          raise exception 'stopping the blocked schedule removed its occurrence lineage';
+        end if;
+
+        raise exception using
+          errcode = 'PZ001',
+          message = 'rollback successful blocked-delete compatibility verification';
+      exception
+        when sqlstate 'PZ001' then
+          null;
+      end;
+    end
+    $blocked_delete$
+  $$,
+  'the compatibility delete adapter stops a blocked schedule and preserves its occurrence lineage'
 );
 
 set local role postgres;
