@@ -47,15 +47,14 @@ function GasTrendTooltip({
       <p className="font-medium">{month.format(monthDate(label))}</p>
       <dl className="grid gap-1.5">
         {[
-          ["Bike · current year", value.bike],
-          ["Car · current year", value.car],
-          ["Total · current year", value.total],
-          ["Bike · previous year", value.previousBike],
-          ["Car · previous year", value.previousCar],
-          ["Total · previous year", value.previousTotal],
-          ["Average monthly gas", average],
-        ].map(([name, amount]) => {
-          const emphasis = String(name).startsWith("Total ·");
+          ["Bike · current year", value.bike, false],
+          ["Car · current year", value.car, false],
+          ["Total · current year", value.total, true],
+          ["Bike · previous year", value.previousBike, false],
+          ["Car · previous year", value.previousCar, false],
+          ["Total · previous year", value.previousTotal, true],
+          ["Average monthly gas", average, false],
+        ].map(([name, amount, emphasis]) => {
           return (
             <div key={String(name)} className="flex items-center justify-between gap-4">
               <dt className={emphasis ? "font-bold text-primary" : "text-muted-foreground"}>{name}</dt>
