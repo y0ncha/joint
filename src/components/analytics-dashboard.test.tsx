@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { isValidElement } from "react";
+import { cloneElement, isValidElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 
@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   searchParams: new URLSearchParams(),
   selectChanges: new Map<string, (value: string) => void>(),
   showPopoverContent: false,
+  tooltipPayload: undefined as
+    undefined | Array<{ color?: string; dataKey: string; name: string; payload?: Record<string, unknown>; type?: string; value?: number }>,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -66,7 +68,14 @@ vi.mock("recharts", async (importOriginal) => {
         data-reference-width={strokeWidth ?? "1"}
       />
     ),
-    Tooltip: () => null,
+    Tooltip: ({ content }: { content?: ReactNode }) =>
+      mocks.tooltipPayload && isValidElement(content)
+        ? cloneElement(content as ReactElement<{ active?: boolean; label?: string; payload?: unknown[] }>, {
+            active: true,
+            label: "2026-07",
+            payload: mocks.tooltipPayload,
+          })
+        : null,
     XAxis: () => null,
     YAxis: () => null,
   };
@@ -219,6 +228,7 @@ beforeEach(() => {
   mocks.searchParams = new URLSearchParams();
   mocks.selectChanges.clear();
   mocks.showPopoverContent = false;
+  mocks.tooltipPayload = undefined;
   vi.stubGlobal("window", { history: { pushState: mocks.historyPushState } });
 });
 
@@ -508,6 +518,67 @@ it("renders the analytics palette, missing-data guidance, and exact daily values
   expect(markup).toContain("2026-07-02: ₪168.00");
 });
 
+it("limits tooltip totals to spending keys while keeping reference rows visible", () => {
+  const data = {
+    ...liveData,
+    bills: {
+      ...liveData.bills,
+      monthly: [{ month: "2026-07", subcategoryId: "rent", agorot: 44_325 }],
+    },
+    groceries: {
+      ...liveData.groceries,
+      monthly: { ...liveData.groceries.monthly, budgetAgorot: 28_000 },
+    },
+  } as never;
+
+  mocks.tooltipPayload = [
+    { dataKey: "mainRun", name: "mainRun", value: 244 },
+    { dataKey: "topUps", name: "topUps", value: 26 },
+    { dataKey: "budget", name: "budget", value: 280 },
+  ];
+  const groceriesMarkup = renderToStaticMarkup(
+    <AnalyticsChartDetail chart="groceries" data={data} billIds={["rent"]} yoy="rent" period="rolling" />,
+  );
+
+  expect(groceriesMarkup).toContain("Monthly budget");
+  expect(groceriesMarkup).toContain("₪280.00");
+  expect(groceriesMarkup).toContain("₪270.00");
+  expect(groceriesMarkup).not.toContain("₪550.00");
+  expect(groceriesMarkup).toContain('class="font-bold text-primary">Total</span>');
+
+  mocks.tooltipPayload = [
+    { dataKey: "rent", name: "rent", value: 443.25 },
+    { dataKey: "average", name: "average", value: 872.8 },
+  ];
+  const billsMarkup = renderToStaticMarkup(
+    <AnalyticsChartDetail chart="bills" data={data} billIds={["rent"]} yoy="rent" period="rolling" />,
+  );
+
+  expect(billsMarkup).toContain("Average");
+  expect(billsMarkup).toContain("₪872.80");
+  expect(billsMarkup).toContain("₪443.25");
+  expect(billsMarkup).not.toContain("₪1,316.05");
+});
+
+it("handles zero, missing, and excluded tooltip values for a selected subset", () => {
+  mocks.tooltipPayload = [
+    { dataKey: "rent", name: "rent", value: 10 },
+    { dataKey: "average", name: "average", value: 0 },
+    { dataKey: "water", name: "water", value: 100 },
+  ];
+
+  const markup = renderToStaticMarkup(
+    <AnalyticsChartDetail chart="bills" data={liveData as never} billIds={["rent"]} yoy="rent" period="rolling" />,
+  );
+
+  expect(markup).toContain("Average");
+  expect(markup).toContain("₪0.00");
+  expect(markup).toContain("₪10.00");
+  expect(markup).toContain("₪100.00");
+  expect(markup).not.toContain("₪110.00");
+  expect(markup).not.toContain("NaN");
+});
+
 it("keeps Bills stacks and their equivalent table in stable chart order", () => {
   mocks.searchParams = new URLSearchParams("bills=water,rent&yoy=rent");
   const data = {
@@ -743,8 +814,7 @@ it("renders Bills and YoY averages as straight, hoverable lines", () => {
   const markup = renderToStaticMarkup(<AnalyticsDashboard data={data} billIds={["rent"]} yoy="rent" period="rolling" />);
 
   expect(markup).not.toContain("data-reference-line");
-  expect(markup).toContain('data-stroke-dasharray="4 4"');
-  expect(markup).toContain('data-line="average" data-stroke-dasharray="4 4" data-stroke-opacity="0.55"');
-  expect(markup).toContain('data-line="currentAverage" data-stroke-dasharray="4 4" data-stroke-opacity="0.55"');
+  expect(markup).toContain('data-line="average" data-stroke-dasharray="solid" data-stroke-opacity="0.55"');
+  expect(markup).toContain('data-line="currentAverage" data-stroke-dasharray="solid" data-stroke-opacity="0.55"');
   expect(markup).toContain("&quot;currentAverage&quot;:200");
 });

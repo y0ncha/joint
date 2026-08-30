@@ -118,6 +118,7 @@ function ChartTooltipContent({
   nameKey,
   labelKey,
   totalLabel,
+  totalDataKeys,
   totalFormatter,
 }: React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
   React.ComponentProps<"div"> & {
@@ -127,6 +128,7 @@ function ChartTooltipContent({
     nameKey?: string;
     labelKey?: string;
     totalLabel?: React.ReactNode;
+    totalDataKeys?: readonly string[];
     totalFormatter?: (value: number) => React.ReactNode;
   } & Omit<RechartsPrimitive.DefaultTooltipContentProps<TooltipValueType, TooltipNameType>, "accessibilityLayer">) {
   const { config } = useChart();
@@ -157,6 +159,11 @@ function ChartTooltipContent({
   }
 
   const nestLabel = payload.length === 1 && indicator !== "dot";
+  const total = payload.reduce(
+    (sum, item) =>
+      item.type === "none" || (totalDataKeys && !totalDataKeys.includes(String(item.dataKey))) ? sum : sum + Number(item.value ?? 0),
+    0,
+  );
 
   return (
     <div
@@ -224,11 +231,9 @@ function ChartTooltipContent({
           })}
         {totalLabel !== undefined ? (
           <div className="flex items-center justify-between gap-2 border-t border-border/50 pt-1.5">
-            <span className="font-medium text-muted-foreground">{totalLabel}</span>
-            <span className="font-mono font-medium text-foreground tabular-nums">
-              {totalFormatter
-                ? totalFormatter(payload.reduce((total, item) => (item.type === "none" ? total : total + Number(item.value ?? 0)), 0))
-                : payload.reduce((total, item) => (item.type === "none" ? total : total + Number(item.value ?? 0)), 0).toLocaleString()}
+            <span className="font-bold text-primary">{totalLabel}</span>
+            <span className="font-mono font-bold text-primary tabular-nums">
+              {totalFormatter ? totalFormatter(total) : total.toLocaleString()}
             </span>
           </div>
         ) : null}

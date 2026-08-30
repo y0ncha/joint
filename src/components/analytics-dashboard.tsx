@@ -106,10 +106,12 @@ export function dailyHeatmapLevel(total: number) {
 function ExactTooltip({
   labels,
   mutedKeys = [],
+  totalDataKeys,
   totalLabel,
 }: {
   labels: Record<string, string>;
   mutedKeys?: readonly string[];
+  totalDataKeys?: readonly string[];
   totalLabel?: string;
 }) {
   return (
@@ -119,6 +121,7 @@ function ExactTooltip({
       content={
         <ChartTooltipContent
           className="border-border bg-popover text-popover-foreground shadow-sm"
+          totalDataKeys={totalDataKeys}
           totalLabel={totalLabel}
           totalFormatter={(value) => currency.format(value)}
           formatter={(value, name) => {
@@ -606,6 +609,7 @@ function AnalyticsCharts({
                 <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value) => `₪${value}`} />
                 <ExactTooltip
                   labels={{ ...Object.fromEntries(chartBills.map((bill) => [bill.value, bill.label])), average: "Average" }}
+                  totalDataKeys={orderedSelectedBills.map((bill) => bill.value)}
                   totalLabel="Total"
                 />
                 {billsAverage != null ? (
@@ -613,7 +617,6 @@ function AnalyticsCharts({
                     dataKey="average"
                     type="linear"
                     stroke="var(--color-muted-foreground)"
-                    strokeDasharray="4 4"
                     strokeOpacity={0.55}
                     strokeWidth={2}
                     dot={false}
@@ -762,7 +765,6 @@ function AnalyticsCharts({
                   dataKey="currentAverage"
                   type="linear"
                   stroke="var(--color-currentAverage)"
-                  strokeDasharray="4 4"
                   strokeOpacity={0.55}
                   strokeWidth={2}
                   dot={false}
@@ -860,6 +862,7 @@ function AnalyticsCharts({
                   <YAxis tickLine={false} axisLine={false} width={58} tickFormatter={(value) => `₪${value}`} />
                   <ExactTooltip
                     labels={{ mainRun: mainRun?.name ?? "Main run", topUps: topUps?.name ?? "Top-ups", budget: "Monthly budget" }}
+                    totalDataKeys={["mainRun", "topUps"]}
                     totalLabel="Total"
                   />
                   <ChartLegend content={<ChartLegendContent />} />
