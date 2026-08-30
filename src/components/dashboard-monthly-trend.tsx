@@ -1,5 +1,6 @@
 "use client";
 
+import type { ComponentProps } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +42,32 @@ function monthDate(value: string) {
   return new Date(`${value.slice(0, 7)}-01T00:00:00Z`);
 }
 
+function DashboardMonthlyTooltip(props: ComponentProps<typeof ChartTooltipContent>) {
+  const payload = props.payload
+    ? [...props.payload].sort((left, right) => Number(right.dataKey === "savings") - Number(left.dataKey === "savings"))
+    : props.payload;
+
+  return (
+    <ChartTooltipContent
+      {...props}
+      payload={payload}
+      formatter={(value, name) => {
+        const emphasis = name === "savings";
+        return (
+          <div className="flex w-full items-center justify-between gap-4">
+            <span className={emphasis ? "font-semibold text-primary" : "text-muted-foreground"}>
+              {chartConfig[name as keyof typeof chartConfig]?.label}
+            </span>
+            <span className={emphasis ? "font-mono font-semibold text-primary tabular-nums" : "font-mono font-medium tabular-nums"}>
+              {currency.format(Number(value))}
+            </span>
+          </div>
+        );
+      }}
+    />
+  );
+}
+
 export function DashboardMonthlyTrend({ data }: { data: DashboardMonthlyTrendRow[] }) {
   const chartData = data.map((value, index) => ({
     ...value,
@@ -73,14 +100,8 @@ export function DashboardMonthlyTrend({ data }: { data: DashboardMonthlyTrendRow
             />
             <ChartTooltip
               content={
-                <ChartTooltipContent
+                <DashboardMonthlyTooltip
                   labelFormatter={(_, payload) => month.format(monthDate(String(payload[0]?.payload?.month ?? "")))}
-                  formatter={(value, name) => (
-                    <div className="flex w-full items-center justify-between gap-4">
-                      <span className="text-muted-foreground">{chartConfig[name as keyof typeof chartConfig]?.label}</span>
-                      <span className="font-mono font-medium tabular-nums">{currency.format(Number(value))}</span>
-                    </div>
-                  )}
                 />
               }
             />

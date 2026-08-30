@@ -3,6 +3,21 @@ import { cloneElement, isValidElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted(() => ({
+  tooltipPayload: [
+    { color: "var(--analytics-bill-1)", dataKey: "income", name: "income", payload: { month: "2026-07-01" }, value: 15_000 },
+    { color: "var(--analytics-bill-11)", dataKey: "expenses", name: "expenses", payload: { month: "2026-07-01" }, value: 10_000 },
+    { color: "var(--analytics-bill-15)", dataKey: "savings", name: "savings", payload: { month: "2026-07-01" }, value: 5_000 },
+    {
+      color: "var(--color-muted-foreground)",
+      dataKey: "savingsAverage",
+      name: "savingsAverage",
+      payload: { month: "2026-07-01" },
+      value: 3_667,
+    },
+  ],
+}));
+
 vi.mock("recharts", () => ({
   CartesianGrid: () => <span data-grid="true" />,
   Legend: ({ content }: { content?: ReactNode }) =>
@@ -40,7 +55,14 @@ vi.mock("recharts", () => ({
     </div>
   ),
   ResponsiveContainer: ({ children }: { children: ReactNode }) => <>{children}</>,
-  Tooltip: () => <span data-tooltip="true" />,
+  Tooltip: ({ content }: { content?: ReactNode }) =>
+    isValidElement(content)
+      ? cloneElement(content as ReactElement<{ active?: boolean; label?: string; payload?: unknown[] }>, {
+          active: true,
+          label: "2026-07-01",
+          payload: mocks.tooltipPayload,
+        })
+      : null,
   XAxis: () => <span data-axis="month" />,
   YAxis: () => <span data-axis="currency" />,
 }));
@@ -87,4 +109,33 @@ it("renders an accessible detailed balance trend with a dashed rolling average",
   expect(markup).toContain("₪15,000");
   expect(markup).toContain("₪5,000");
   expect(markup).not.toContain("Six-month trend");
+});
+
+it("puts the emphasized monthly balance directly below the tooltip month", () => {
+  const markup = renderToStaticMarkup(<DashboardMonthlyTrend data={data} />);
+  const headingIndex = markup.indexOf('<div class="font-medium">Jul 2026</div>');
+  const balanceIndex = markup.indexOf('class="font-semibold text-primary">Monthly balance');
+  const incomeIndex = markup.indexOf('class="text-muted-foreground">Income');
+
+  expect(headingIndex).toBeGreaterThanOrEqual(0);
+  expect(headingIndex).toBeLessThan(balanceIndex);
+  expect(balanceIndex).toBeLessThan(incomeIndex);
+  expect(markup).toContain('class="font-mono font-semibold text-primary tabular-nums">₪5,000</span>');
+  expect(mocks.tooltipPayload.map((item) => item.dataKey)).toEqual(["income", "expenses", "savings", "savingsAverage"]);
+});
+
+it("keeps zero and negative monthly balances visible in the emphasized tooltip row", () => {
+  const originalPayload = mocks.tooltipPayload;
+
+  try {
+    mocks.tooltipPayload = [{ ...originalPayload[2], value: 0 }];
+    const zeroMarkup = renderToStaticMarkup(<DashboardMonthlyTrend data={data} />);
+    expect(zeroMarkup).toContain('class="font-mono font-semibold text-primary tabular-nums">₪0</span>');
+
+    mocks.tooltipPayload = [{ ...originalPayload[2], value: -125 }];
+    const negativeMarkup = renderToStaticMarkup(<DashboardMonthlyTrend data={data} />);
+    expect(negativeMarkup).toContain('class="font-mono font-semibold text-primary tabular-nums">-₪125</span>');
+  } finally {
+    mocks.tooltipPayload = originalPayload;
+  }
 });
