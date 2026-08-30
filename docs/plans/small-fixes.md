@@ -1,6 +1,10 @@
 # Small fixes: dashboard, transactions, and analytics
 
-Status: approved; implementation in progress.
+Status: approved; Tasks 1–3 complete through `0a29766`; Task 4 awaits the required visual confirmation.
+
+## Execution scope note
+
+The preservation clauses describe the changes made by this plan. Concurrent commit `7af6bd3` independently changes the Home average behavior, table, and average-line styling and adds a changelog entry; preserve it under the unrelated-work rule. That external changelog entry is outside this plan and is not its completion entry.
 
 ## Global Constraints
 
