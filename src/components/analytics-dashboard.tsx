@@ -108,11 +108,13 @@ function ExactTooltip({
   mutedKeys = [],
   totalDataKeys,
   totalLabel,
+  referenceDataKeys,
 }: {
   labels: Record<string, string>;
   mutedKeys?: readonly string[];
   totalDataKeys?: readonly string[];
   totalLabel?: string;
+  referenceDataKeys?: readonly string[];
 }) {
   return (
     <ChartTooltip
@@ -123,6 +125,7 @@ function ExactTooltip({
           className="border-border bg-popover text-popover-foreground shadow-sm"
           totalDataKeys={totalDataKeys}
           totalLabel={totalLabel}
+          referenceDataKeys={referenceDataKeys}
           totalFormatter={(value) => currency.format(value)}
           formatter={(value, name) => {
             const muted = mutedKeys.includes(String(name));
@@ -611,6 +614,7 @@ function AnalyticsCharts({
                   labels={{ ...Object.fromEntries(chartBills.map((bill) => [bill.value, bill.label])), average: "Average" }}
                   totalDataKeys={orderedSelectedBills.map((bill) => bill.value)}
                   totalLabel="Total"
+                  referenceDataKeys={["average"]}
                 />
                 {billsAverage != null ? (
                   <Line
@@ -722,6 +726,7 @@ function AnalyticsCharts({
                     : { current: "Current year", previous: "Previous year", currentAverage: "3-month average" }
                 }
                 mutedKeys={isGasYearOverYear ? ["previousBike", "previousCar"] : ["previous"]}
+                referenceDataKeys={["currentAverage"]}
               />
               <ChartLegend content={<ChartLegendContent />} />
               {isGasYearOverYear ? (
@@ -864,6 +869,7 @@ function AnalyticsCharts({
                     labels={{ mainRun: mainRun?.name ?? "Main run", topUps: topUps?.name ?? "Top-ups", budget: "Monthly budget" }}
                     totalDataKeys={["mainRun", "topUps"]}
                     totalLabel="Total"
+                    referenceDataKeys={["budget"]}
                   />
                   <ChartLegend content={<ChartLegendContent />} />
                   {groceryBudgetAgorot != null ? (

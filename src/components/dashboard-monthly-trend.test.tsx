@@ -63,6 +63,7 @@ vi.mock("recharts", () => ({
 }));
 
 import { DashboardMonthlyTrend } from "./dashboard-monthly-trend";
+import { ChartContainer, ChartTooltipContent } from "./ui/chart";
 
 const data = [
   { month: "2026-02-01", income: 12_000, expenses: 8_000, savings: 4_000 },
@@ -110,13 +111,13 @@ it("renders an accessible detailed balance trend with one flat six-month average
 it("puts the emphasized monthly balance directly below the tooltip month", () => {
   const markup = renderToStaticMarkup(<DashboardMonthlyTrend data={data} />);
   const headingIndex = markup.indexOf('<div class="font-medium">Jul 2026</div>');
-  const balanceIndex = markup.indexOf('class="font-semibold text-primary">Monthly balance');
+  const balanceIndex = markup.indexOf('class="font-bold text-primary">Monthly balance');
   const incomeIndex = markup.indexOf('class="text-muted-foreground">Income');
 
   expect(headingIndex).toBeGreaterThanOrEqual(0);
   expect(headingIndex).toBeLessThan(balanceIndex);
   expect(balanceIndex).toBeLessThan(incomeIndex);
-  expect(markup).toContain('class="font-mono font-semibold text-primary tabular-nums">₪5,000</span>');
+  expect(markup).toContain('class="font-mono font-bold text-primary tabular-nums">₪5,000</span>');
   expect(mocks.tooltipPayload.map((item) => item.dataKey)).toEqual(["income", "expenses", "savings"]);
 });
 
@@ -147,12 +148,35 @@ it("keeps zero and negative monthly balances visible in the emphasized tooltip r
   try {
     mocks.tooltipPayload = [{ ...originalPayload[2], value: 0 }];
     const zeroMarkup = renderToStaticMarkup(<DashboardMonthlyTrend data={data} />);
-    expect(zeroMarkup).toContain('class="font-mono font-semibold text-primary tabular-nums">₪0</span>');
+    expect(zeroMarkup).toContain('class="font-mono font-bold text-primary tabular-nums">₪0</span>');
 
     mocks.tooltipPayload = [{ ...originalPayload[2], value: -125 }];
     const negativeMarkup = renderToStaticMarkup(<DashboardMonthlyTrend data={data} />);
-    expect(negativeMarkup).toContain('class="font-mono font-semibold text-primary tabular-nums">-₪125</span>');
+    expect(negativeMarkup).toContain('class="font-mono font-bold text-primary tabular-nums">-₪125</span>');
   } finally {
     mocks.tooltipPayload = originalPayload;
   }
+});
+
+it.each([undefined, ["spending", "average"]] as const)("excludes marked tooltip references from totals: %s", (totalDataKeys) => {
+  const markup = renderToStaticMarkup(
+    <ChartContainer config={{ spending: { label: "Spending" }, average: { label: "Average" } }}>
+      <ChartTooltipContent
+        active
+        payload={[
+          { dataKey: "spending", graphicalItemId: "spending", name: "spending", value: 100 },
+          { dataKey: "average", graphicalItemId: "average", name: "average", value: 200 },
+        ]}
+        referenceDataKeys={["average"]}
+        totalDataKeys={totalDataKeys}
+        totalLabel="Total"
+      />
+    </ChartContainer>,
+  );
+
+  expect(markup).toContain('class="font-bold text-primary">Total</span>');
+  expect(markup).toContain('class="font-mono font-bold text-primary tabular-nums">100</span>');
+  expect(markup).toContain("Average");
+  expect(markup).toContain(">200</span>");
+  expect(markup).not.toContain(">300</span>");
 });

@@ -545,6 +545,9 @@ it("limits tooltip totals to spending keys while keeping reference rows visible"
   expect(groceriesMarkup).toContain("₪270.00");
   expect(groceriesMarkup).not.toContain("₪550.00");
   expect(groceriesMarkup).toContain('class="font-bold text-primary">Total</span>');
+  expect(groceriesMarkup.indexOf('class="font-bold text-primary">Total</span>')).toBeLessThan(
+    groceriesMarkup.indexOf('class="text-foreground">Monthly budget'),
+  );
 
   mocks.tooltipPayload = [
     { dataKey: "rent", name: "rent", value: 443.25 },
@@ -558,6 +561,28 @@ it("limits tooltip totals to spending keys while keeping reference rows visible"
   expect(billsMarkup).toContain("₪872.80");
   expect(billsMarkup).toContain("₪443.25");
   expect(billsMarkup).not.toContain("₪1,316.05");
+  expect(billsMarkup.indexOf('class="font-bold text-primary">Total</span>')).toBeLessThan(
+    billsMarkup.indexOf('class="text-foreground">Average'),
+  );
+});
+
+it("renders the Year-over-year average after both year values", () => {
+  mocks.tooltipPayload = [
+    { dataKey: "current", name: "current", value: 443.25 },
+    { dataKey: "currentAverage", name: "currentAverage", value: 300 },
+    { dataKey: "previous", name: "previous", value: 210 },
+  ];
+
+  const markup = renderToStaticMarkup(
+    <AnalyticsChartDetail chart="year-over-year" data={liveData as never} billIds={["rent"]} yoy="rent" period="rolling" />,
+  );
+
+  expect(markup.indexOf('class="text-foreground">Current year')).toBeLessThan(
+    markup.indexOf('class="text-muted-foreground">Previous year'),
+  );
+  expect(markup.indexOf('class="text-muted-foreground">Previous year')).toBeLessThan(
+    markup.indexOf('class="text-foreground">3-month average'),
+  );
 });
 
 it("handles zero, missing, and excluded tooltip values for a selected subset", () => {

@@ -54,10 +54,10 @@ function DashboardMonthlyTooltip(props: ComponentProps<typeof ChartTooltipConten
         const emphasis = name === "savings";
         return (
           <div className="flex w-full items-center justify-between gap-4">
-            <span className={emphasis ? "font-semibold text-primary" : "text-muted-foreground"}>
+            <span className={emphasis ? "font-bold text-primary" : "text-muted-foreground"}>
               {chartConfig[name as keyof typeof chartConfig]?.label}
             </span>
-            <span className={emphasis ? "font-mono font-semibold text-primary tabular-nums" : "font-mono font-medium tabular-nums"}>
+            <span className={emphasis ? "font-mono font-bold text-primary tabular-nums" : "font-mono font-medium tabular-nums"}>
               {currency.format(Number(value))}
             </span>
           </div>

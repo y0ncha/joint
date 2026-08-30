@@ -48,6 +48,15 @@ The preservation clauses describe the changes made by this plan. Concurrent comm
 - Extend existing tests with numeric tooltip totals (including nonzero averages/budget), reference rows, zero/missing values and selected subsets. Assert only requested line dash changes.
 - Run focused tests, self-review, commit and report.
 
+## Follow-up 5: Consistent chart tooltip totals and references
+
+- The user request supersedes Task 3's footer-after-references position and Home semibold weight. It changes presentation only; Task 4 date behavior remains pending its visual-confirmation gate.
+- Update the shared `ChartTooltipContent` to render ordinary detail rows, then its existing bold `text-primary` Total row, then selected reference rows. Select references by `dataKey`, preserving formatter behavior, hidden entries, payload order, no payload mutation, and total exclusion.
+- Wire Bills Average, Groceries Monthly budget, and Year-over-year 3-month average as references. Bills and Groceries totals remain limited to their displayed spending keys. Year-over-year keeps separate current and previous values and has no combined total.
+- Keep Home Monthly balance first after the month heading with `font-bold text-primary`; preserve its existing average and chart/table behavior. Existing GasTrendTooltip Total rows become `font-bold text-primary`, with its average last below both totals. Informational donut and heatmap tooltips gain no invented totals.
+- Extend focused existing tests for rendered order and styling across Bills, Groceries, Year-over-year, Home, and Gas where touched. Cover zero, negative, missing, and selected-subset behavior, plus ordinary tooltips without references or totals.
+- Run focused tests, lint, typecheck, and format checks. Commit owned changes and write `.superpowers/sdd/small-fixes/task-5-report.md`; keep the ignored report untracked.
+
 ## Task 4: Transaction and billing date behavior
 
 Prerequisite: explicit user visual confirmation after local Task 2 preview. Do not start until the controller confirms this gate is satisfied.

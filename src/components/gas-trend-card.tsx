@@ -54,12 +54,17 @@ function GasTrendTooltip({
           ["Car · previous year", value.previousCar],
           ["Total · previous year", value.previousTotal],
           ["Average monthly gas", average],
-        ].map(([name, amount]) => (
-          <div key={String(name)} className="flex items-center justify-between gap-4">
-            <dt className="text-muted-foreground">{name}</dt>
-            <dd className="font-mono font-medium tabular-nums">{currency.format(Number(amount))}</dd>
-          </div>
-        ))}
+        ].map(([name, amount]) => {
+          const emphasis = String(name).startsWith("Total ·");
+          return (
+            <div key={String(name)} className="flex items-center justify-between gap-4">
+              <dt className={emphasis ? "font-bold text-primary" : "text-muted-foreground"}>{name}</dt>
+              <dd className={emphasis ? "font-mono font-bold text-primary tabular-nums" : "font-mono font-medium tabular-nums"}>
+                {currency.format(Number(amount))}
+              </dd>
+            </div>
+          );
+        })}
       </dl>
     </div>
   );

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
 
@@ -35,7 +35,25 @@ vi.mock("recharts", () => ({
     />
   ),
   ResponsiveContainer: ({ children }: { children: ReactNode }) => <>{children}</>,
-  Tooltip: () => null,
+  Tooltip: ({ content }: { content?: ReactNode }) =>
+    isValidElement(content)
+      ? cloneElement(content as ReactElement<{ label?: string; payload?: unknown[] }>, {
+          label: "2026-03",
+          payload: [
+            {
+              payload: {
+                bike: 10,
+                car: 20,
+                month: "2026-03",
+                previousBike: 5,
+                previousCar: 10,
+                previousTotal: 15,
+                total: 30,
+              },
+            },
+          ],
+        })
+      : null,
   XAxis: () => <span data-axis="month" />,
   YAxis: () => <span data-axis="currency" />,
 }));
@@ -76,7 +94,12 @@ it("renders six monthly Bike and Car stacked columns with an unlabelled dashed a
   expect(markup).toContain('data-stroke-width="2"');
   expect(markup).toContain("Bike");
   expect(markup).toContain("Car");
-  expect(markup).not.toContain("Average monthly gas");
+  expect(markup).toContain('class="font-bold text-primary">Total · current year</dt>');
+  expect(markup).toContain('class="font-mono font-bold text-primary tabular-nums">₪30</dd>');
+  expect(markup).toContain('class="font-bold text-primary">Total · previous year</dt>');
+  expect(markup).toContain('class="font-mono font-bold text-primary tabular-nums">₪15</dd>');
+  expect(markup.indexOf("Total · current year")).toBeLessThan(markup.indexOf("Total · previous year"));
+  expect(markup.indexOf("Total · previous year")).toBeLessThan(markup.indexOf("Average monthly gas"));
 });
 
 it("accepts the parent height class", () => {
