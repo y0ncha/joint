@@ -207,10 +207,23 @@ export function previewMerchantAutomations(
   transactions: readonly PreviewTransaction[],
   rules: MerchantAutomationRule[],
 ): MerchantAutomationPreview {
+  return projectMerchantAutomations(transactions, rules).preview;
+}
+
+export function prepareIntakeAutomations(transactions: readonly PreviewTransaction[], rules: MerchantAutomationRule[]) {
+  return projectMerchantAutomations(
+    transactions,
+    rules.filter((rule) => rule.action !== "delete_transaction"),
+  );
+}
+
+function projectMerchantAutomations(transactions: readonly PreviewTransaction[], rules: MerchantAutomationRule[]) {
   const ruleSet = snapshotAutomationRules(rules);
+  const evaluatedRows: MerchantAutomationResult[] = [];
   const conflicts = new Map<string, AutomationPreviewConflict>();
   const changes = transactions.flatMap((transaction) => {
     const result = evaluateMerchantAutomations(transaction, rules);
+    evaluatedRows.push(result);
     for (const conflict of result.conflicts) {
       const key = `${conflict.action}:${conflict.winnerId}:${conflict.shadowedRuleIds.join(",")}`;
       const current = conflicts.get(key);
@@ -239,7 +252,10 @@ export function previewMerchantAutomations(
     ];
   });
 
-  return { changes, conflicts: [...conflicts.values()], fingerprint: fingerprintAutomationPreview(changes, ruleSet), ruleSet };
+  return {
+    evaluatedRows,
+    preview: { changes, conflicts: [...conflicts.values()], fingerprint: fingerprintAutomationPreview(changes, ruleSet), ruleSet },
+  };
 }
 
 function pageBounds({ from = 0, to = 999 }: AutomationPage) {

@@ -3,6 +3,14 @@ import { cloneElement, isValidElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted(() => ({
+  tooltipPayload: [
+    { color: "var(--analytics-bill-1)", dataKey: "income", name: "income", payload: { month: "2026-07-01" }, value: 15_000 },
+    { color: "var(--analytics-bill-11)", dataKey: "expenses", name: "expenses", payload: { month: "2026-07-01" }, value: 10_000 },
+    { color: "var(--analytics-bill-15)", dataKey: "savings", name: "savings", payload: { month: "2026-07-01" }, value: 5_000 },
+  ],
+}));
+
 vi.mock("recharts", () => ({
   CartesianGrid: () => <span data-grid="true" />,
   Legend: ({ content }: { content?: ReactNode }) =>
@@ -12,7 +20,6 @@ vi.mock("recharts", () => ({
             { color: "var(--analytics-bill-1)", dataKey: "income" },
             { color: "var(--analytics-bill-11)", dataKey: "expenses" },
             { color: "var(--analytics-bill-15)", dataKey: "savings" },
-            { color: "var(--color-muted-foreground)", dataKey: "savingsAverage" },
           ],
         })
       : null,
@@ -40,12 +47,23 @@ vi.mock("recharts", () => ({
     </div>
   ),
   ResponsiveContainer: ({ children }: { children: ReactNode }) => <>{children}</>,
-  Tooltip: () => <span data-tooltip="true" />,
+  ReferenceLine: ({ y, stroke, strokeDasharray }: { y: number; stroke: string; strokeDasharray: string }) => (
+    <span data-reference-y={y} data-stroke={stroke} data-stroke-dasharray={strokeDasharray} />
+  ),
+  Tooltip: ({ content }: { content?: ReactNode }) =>
+    isValidElement(content)
+      ? cloneElement(content as ReactElement<{ active?: boolean; label?: string; payload?: unknown[] }>, {
+          active: true,
+          label: "2026-07-01",
+          payload: mocks.tooltipPayload,
+        })
+      : null,
   XAxis: () => <span data-axis="month" />,
   YAxis: () => <span data-axis="currency" />,
 }));
 
 import { DashboardMonthlyTrend } from "./dashboard-monthly-trend";
+import { ChartContainer, ChartTooltipContent } from "./ui/chart";
 
 const data = [
   { month: "2026-02-01", income: 12_000, expenses: 8_000, savings: 4_000 },
@@ -56,7 +74,7 @@ const data = [
   { month: "2026-07-01", income: 15_000, expenses: 10_000, savings: 5_000 },
 ];
 
-it("renders an accessible detailed balance trend with a dashed rolling average", () => {
+it("renders an accessible detailed balance trend with one flat six-month average", () => {
   const markup = renderToStaticMarkup(<DashboardMonthlyTrend data={data} />);
 
   expect(markup).toContain("Balance trend");
@@ -69,22 +87,96 @@ it("renders an accessible detailed balance trend with a dashed rolling average",
   expect(markup).toContain('data-line="income" data-stroke="var(--color-income)" data-stroke-dasharray="solid"');
   expect(markup).toContain('data-line="expenses" data-stroke="var(--color-expenses)" data-stroke-dasharray="solid"');
   expect(markup).toContain('data-line="savings" data-stroke="var(--color-savings)" data-stroke-dasharray="solid"');
-  expect(markup).toContain(
-    'data-line="savingsAverage" data-stroke="var(--color-savingsAverage)" data-stroke-dasharray="4 4" data-stroke-opacity="0.55"',
-  );
+  expect(markup).toContain('data-reference-y="3333.3333333333335" data-stroke="var(--muted-foreground)" data-stroke-dasharray="4 4"');
   expect(markup).toContain("--color-income: var(--analytics-bill-1)");
   expect(markup).toContain("--color-expenses: var(--analytics-bill-11)");
   expect(markup).toContain("--color-savings: var(--analytics-bill-15)");
-  expect(markup).toContain("--color-savingsAverage: var(--color-muted-foreground)");
   expect(markup).toContain("Income");
   expect(markup).toContain("Outgoings");
   expect(markup).toContain("Monthly balance");
-  expect(markup).toContain("Balance avg");
-  expect(markup).toContain("₪3,667");
+  expect(markup).toContain("6-month average: ₪3,333/month");
+  expect(markup).not.toContain("savingsAverage");
+  expect(markup).not.toContain("Balance avg");
+  expect(markup).not.toContain("3-month average");
+  expect(markup.match(/<tr\b/g)).toHaveLength(7);
+  expect(markup.match(/<th\b/g)).toHaveLength(4);
   expect(markup).toContain("Feb 2026");
   expect(markup).toContain("Jul 2026");
   expect(markup.indexOf("Jul 2026")).toBeLessThan(markup.indexOf("Feb 2026"));
   expect(markup).toContain("₪15,000");
   expect(markup).toContain("₪5,000");
   expect(markup).not.toContain("Six-month trend");
+});
+
+it("puts the emphasized monthly balance directly below the tooltip month", () => {
+  const markup = renderToStaticMarkup(<DashboardMonthlyTrend data={data} />);
+  const headingIndex = markup.indexOf('<div class="font-medium">Jul 2026</div>');
+  const balanceIndex = markup.indexOf('class="font-bold text-primary">Monthly balance');
+  const incomeIndex = markup.indexOf('class="text-muted-foreground">Income');
+
+  expect(headingIndex).toBeGreaterThanOrEqual(0);
+  expect(headingIndex).toBeLessThan(balanceIndex);
+  expect(balanceIndex).toBeLessThan(incomeIndex);
+  expect(markup).toContain('class="font-mono font-bold text-primary tabular-nums">₪5,000</span>');
+  expect(mocks.tooltipPayload.map((item) => item.dataKey)).toEqual(["income", "expenses", "savings"]);
+});
+
+it.each([
+  { balances: [0, 0, 0, 0, 0, 600], average: 100, label: "₪100" },
+  { balances: [-600, 0, 0, 0, 0, 0], average: -100, label: "-₪100" },
+  { balances: [-600, 600, 0, 0, 0, 0], average: 0, label: "₪0" },
+])("averages all six balances including zero and negative months: $average", ({ balances, average, label }) => {
+  const rows = data.map((row, index) => ({ ...row, savings: balances[index] }));
+  const markup = renderToStaticMarkup(<DashboardMonthlyTrend data={rows} />);
+
+  expect(markup).toContain(`data-reference-y="${average}"`);
+  expect(markup).toContain(`6-month average: ${label}/month`);
+});
+
+it("omits the benchmark and shows an empty message without data", () => {
+  const markup = renderToStaticMarkup(<DashboardMonthlyTrend data={[]} />);
+
+  expect(markup).toContain("No balance data.");
+  expect(markup).not.toContain("data-reference-y");
+  expect(markup).not.toContain("6-month average:");
+  expect(markup).not.toContain("NaN");
+});
+
+it("keeps zero and negative monthly balances visible in the emphasized tooltip row", () => {
+  const originalPayload = mocks.tooltipPayload;
+
+  try {
+    mocks.tooltipPayload = [{ ...originalPayload[2], value: 0 }];
+    const zeroMarkup = renderToStaticMarkup(<DashboardMonthlyTrend data={data} />);
+    expect(zeroMarkup).toContain('class="font-mono font-bold text-primary tabular-nums">₪0</span>');
+
+    mocks.tooltipPayload = [{ ...originalPayload[2], value: -125 }];
+    const negativeMarkup = renderToStaticMarkup(<DashboardMonthlyTrend data={data} />);
+    expect(negativeMarkup).toContain('class="font-mono font-bold text-primary tabular-nums">-₪125</span>');
+  } finally {
+    mocks.tooltipPayload = originalPayload;
+  }
+});
+
+it.each([undefined, ["spending", "average"]] as const)("excludes marked tooltip references from totals: %s", (totalDataKeys) => {
+  const markup = renderToStaticMarkup(
+    <ChartContainer config={{ spending: { label: "Spending" }, average: { label: "Average" } }}>
+      <ChartTooltipContent
+        active
+        payload={[
+          { dataKey: "spending", graphicalItemId: "spending", name: "spending", value: 100 },
+          { dataKey: "average", graphicalItemId: "average", name: "average", value: 200 },
+        ]}
+        referenceDataKeys={["average"]}
+        totalDataKeys={totalDataKeys}
+        totalLabel="Total"
+      />
+    </ChartContainer>,
+  );
+
+  expect(markup).toContain('class="font-bold text-primary">Total</span>');
+  expect(markup).toContain('class="font-mono font-bold text-primary tabular-nums">100</span>');
+  expect(markup).toContain("Average");
+  expect(markup).toContain(">200</span>");
+  expect(markup).not.toContain(">300</span>");
 });

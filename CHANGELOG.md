@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-08-30
+
+- Replaced the Balance trend rolling average with a flat six-month average benchmark and removed the redundant average table column.
+
 ## 2026-07-19
 
 - Split GitHub Actions into pull-request CI and serialized post-merge production migration/deployment workflows.

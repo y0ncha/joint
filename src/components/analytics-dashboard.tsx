@@ -106,11 +106,15 @@ export function dailyHeatmapLevel(total: number) {
 function ExactTooltip({
   labels,
   mutedKeys = [],
+  totalDataKeys,
   totalLabel,
+  referenceDataKeys,
 }: {
   labels: Record<string, string>;
   mutedKeys?: readonly string[];
+  totalDataKeys?: readonly string[];
   totalLabel?: string;
+  referenceDataKeys?: readonly string[];
 }) {
   return (
     <ChartTooltip
@@ -119,7 +123,9 @@ function ExactTooltip({
       content={
         <ChartTooltipContent
           className="border-border bg-popover text-popover-foreground shadow-sm"
+          totalDataKeys={totalDataKeys}
           totalLabel={totalLabel}
+          referenceDataKeys={referenceDataKeys}
           totalFormatter={(value) => currency.format(value)}
           formatter={(value, name) => {
             const muted = mutedKeys.includes(String(name));
@@ -606,14 +612,15 @@ function AnalyticsCharts({
                 <YAxis tickLine={false} axisLine={false} width={52} tickFormatter={(value) => `₪${value}`} />
                 <ExactTooltip
                   labels={{ ...Object.fromEntries(chartBills.map((bill) => [bill.value, bill.label])), average: "Average" }}
+                  totalDataKeys={orderedSelectedBills.map((bill) => bill.value)}
                   totalLabel="Total"
+                  referenceDataKeys={["average"]}
                 />
                 {billsAverage != null ? (
                   <Line
                     dataKey="average"
                     type="linear"
                     stroke="var(--color-muted-foreground)"
-                    strokeDasharray="4 4"
                     strokeOpacity={0.55}
                     strokeWidth={2}
                     dot={false}
@@ -719,6 +726,7 @@ function AnalyticsCharts({
                     : { current: "Current year", previous: "Previous year", currentAverage: "3-month average" }
                 }
                 mutedKeys={isGasYearOverYear ? ["previousBike", "previousCar"] : ["previous"]}
+                referenceDataKeys={["currentAverage"]}
               />
               <ChartLegend content={<ChartLegendContent />} />
               {isGasYearOverYear ? (
@@ -762,7 +770,6 @@ function AnalyticsCharts({
                   dataKey="currentAverage"
                   type="linear"
                   stroke="var(--color-currentAverage)"
-                  strokeDasharray="4 4"
                   strokeOpacity={0.55}
                   strokeWidth={2}
                   dot={false}
@@ -860,7 +867,9 @@ function AnalyticsCharts({
                   <YAxis tickLine={false} axisLine={false} width={58} tickFormatter={(value) => `₪${value}`} />
                   <ExactTooltip
                     labels={{ mainRun: mainRun?.name ?? "Main run", topUps: topUps?.name ?? "Top-ups", budget: "Monthly budget" }}
+                    totalDataKeys={["mainRun", "topUps"]}
                     totalLabel="Total"
+                    referenceDataKeys={["budget"]}
                   />
                   <ChartLegend content={<ChartLegendContent />} />
                   {groceryBudgetAgorot != null ? (

@@ -382,7 +382,8 @@ it("uses one bottom save for recurring transaction edits", () => {
     />,
   );
 
-  expect(markup).toContain("Recurring schedule");
+  expect(markup).not.toContain("Recurring schedule");
+  expect(markup).toContain(">Repeat</label>");
   expect(markup).not.toContain(">Active<");
   expect(markup).toContain('aria-label="Pause future repeats"');
   expect(markup).toContain('aria-label="Stop future repeats"');
@@ -390,12 +391,10 @@ it("uses one bottom save for recurring transaction edits", () => {
   expect(markup).toMatch(/aria-label="Stop future repeats"[^>]*><svg/);
   expect(markup).toContain("lucide-circle-stop");
   expect(markup).not.toContain("lucide-square");
-  expect(markup).not.toContain(">Repeat<");
-  expect(markup).toMatch(/class="[^"]*sr-only[^"]*" for="recurrence-cadence">Recurring cadence<\/label>/);
   expect(markup).toContain("grid-cols-[minmax(0,1fr)_auto] items-end gap-3");
   expect(markup).not.toContain("Save future schedule");
   expect(markup).not.toContain("Manage future repeats from this transaction.");
-  expect(markup.indexOf("Recurring schedule")).toBeLessThan(markup.indexOf("Note"));
+  expect(markup.indexOf(">Repeat</label>")).toBeLessThan(markup.indexOf("Note"));
   expect(markup.indexOf("Note")).toBeLessThan(markup.indexOf("Save changes"));
   expect(markup).toMatch(/class="[^"]*h-11[^"]*" type="submit">Save changes/);
   expect(markup.match(/>Save changes</g)).toHaveLength(1);
@@ -748,12 +747,17 @@ it("renders the transaction composer with labelled core controls", () => {
   expect(markup).toContain("Custom");
   expect(markup).toContain("Paid by");
   expect(markup).toContain("Choose date");
-  expect(markup).toContain("Recurring schedule");
-  expect(markup.indexOf("Recurring schedule")).toBeLessThan(markup.indexOf("Note"));
+  expect(markup).not.toContain("Recurring schedule");
+  expect(markup).toContain(">Repeat</label>");
+  expect(markup.indexOf(">Repeat</label>")).toBeLessThan(markup.indexOf("Note"));
   expect(markup.match(/>Save transaction</g)).toHaveLength(1);
+  expect(markup).toContain('placeholder="e.g. Supermarket…"');
+  expect(markup).toContain('placeholder="0.00"');
+  expect(markup).toContain('placeholder="Add an optional note…"');
+  expect(markup.indexOf("Merchant")).toBeLessThan(markup.indexOf("Amount"));
   expect(markup.indexOf("Amount")).toBeLessThan(markup.indexOf("Category"));
   expect(markup.indexOf("Category")).toBeLessThan(markup.indexOf("transaction-date-label"));
-  expect(markup.indexOf("transaction-date-label")).toBeLessThan(markup.indexOf("Merchant"));
+  expect(markup.indexOf("transaction-date-label")).toBeLessThan(markup.indexOf("Paid by"));
   expect(markup.indexOf("Merchant")).toBeLessThan(markup.indexOf("Paid by"));
   expect(markup.indexOf("Paid by")).toBeLessThan(markup.indexOf('id="transaction-kind"'));
   expect(markup.indexOf('id="transaction-kind"')).toBeLessThan(markup.indexOf("Note"));
@@ -856,6 +860,7 @@ it("renders edit mode with saved transaction values and deletion inside the shee
   expect(markup).toContain('type="hidden" name="subcategoryId" value="groceries"');
   expect(markup).toContain('aria-label="Categories">Groceries');
   expect(markup).toContain('name="amount" value="50"');
+  expect(markup).toContain('name="merchant" value="Saved merchant"');
   expect(markup).toContain("<textarea");
   expect(markup).toMatch(/<textarea[^>]*bg-white\/55/);
   expect(markup).toContain('name="note" rows="4"');
@@ -888,7 +893,8 @@ it("uses the shared recurring fields for a regular manual edit", () => {
     />,
   );
 
-  expect(markup).toContain("Recurring schedule");
+  expect(markup).not.toContain("Recurring schedule");
+  expect(markup).toContain(">Repeat</label>");
   expect(markup).toContain('data-select="recurrence-cadence"');
   expect(markup).toContain("None");
 });
@@ -912,7 +918,8 @@ it("uses the shared recurring fields for a regular manual income edit", () => {
     />,
   );
 
-  expect(markup).toContain("Recurring schedule");
+  expect(markup).not.toContain("Recurring schedule");
+  expect(markup).toContain(">Repeat</label>");
   expect(markup).toContain('data-select="recurrence-cadence"');
   expect(markup).toContain("None");
 });
@@ -1033,11 +1040,18 @@ it("defaults the Billing period from the ledger date after Bills selection and i
   );
 
   for (const markup of [createMarkup, editMarkup]) {
-    expect(markup).toContain("Billing period");
+    expect(markup).toMatch(/<label[^>]*class="[^"]*sr-only[^"]*"[^>]*id="billing-period-label"[^>]*>Billing period<\/label>/);
+    expect(markup).toContain('aria-labelledby="billing-period-label"');
     expect(markup).toContain('aria-label="Use current month"');
     expect(markup).toContain("lucide-calendar-range");
     expect(markup).toContain('aria-label="Choose billing period start"');
     expect(markup).toContain('aria-label="Choose billing period end"');
+    const fromLabel = markup.match(/<label[^>]*id="billing-period-from-label"[^>]*>From<\/label>/)?.[0];
+    const toLabel = markup.match(/<label[^>]*id="billing-period-to-label"[^>]*>To<\/label>/)?.[0];
+    expect(fromLabel).toBeDefined();
+    expect(fromLabel).not.toContain("text-muted-foreground");
+    expect(toLabel).toBeDefined();
+    expect(toLabel).not.toContain("text-muted-foreground");
   }
   expect(createMarkup).toContain("14/07/2026");
   expect(editMarkup).toContain("15/06/2026");

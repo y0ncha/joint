@@ -291,12 +291,24 @@ export function TransactionSheet({
                 />
               </>
             ) : null}
+            <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)}>
+              <FieldLabel htmlFor="merchant">Merchant</FieldLabel>
+              <Input
+                id="merchant"
+                name="merchant"
+                placeholder="e.g. Supermarket…"
+                defaultValue={transaction?.merchant ?? undefined}
+                aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)}
+              />
+              {state?.status === "error" ? <FieldError>{state.fieldErrors.merchant}</FieldError> : null}
+            </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.amount)}>
               <FieldLabel htmlFor="amount">Amount</FieldLabel>
               <Input
                 id="amount"
                 name="amount"
                 inputMode="decimal"
+                placeholder="0.00"
                 required
                 defaultValue={transaction?.amount ?? undefined}
                 aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.amount)}
@@ -372,13 +384,13 @@ export function TransactionSheet({
               {state?.status === "error" ? <FieldError>{state.fieldErrors.occurredOn}</FieldError> : null}
             </Field>
             {isBillsSubcategory ? (
-              <Field data-invalid={Boolean(billingPeriodError)}>
-                <FieldLabel id="billing-period-label">Billing period</FieldLabel>
+              <Field data-invalid={Boolean(billingPeriodError)} aria-labelledby="billing-period-label">
+                <FieldLabel id="billing-period-label" className="sr-only">
+                  Billing period
+                </FieldLabel>
                 <FieldGroup className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-3">
                   <Field>
-                    <FieldLabel id="billing-period-from-label" className="text-muted-foreground">
-                      From
-                    </FieldLabel>
+                    <FieldLabel id="billing-period-from-label">From</FieldLabel>
                     <Popover open={billingPeriodStartOpen} onOpenChange={setBillingPeriodStartOpen}>
                       <PopoverTrigger asChild>
                         <Button
@@ -411,9 +423,7 @@ export function TransactionSheet({
                     </Popover>
                   </Field>
                   <Field>
-                    <FieldLabel id="billing-period-to-label" className="text-muted-foreground">
-                      To
-                    </FieldLabel>
+                    <FieldLabel id="billing-period-to-label">To</FieldLabel>
                     <Popover open={billingPeriodEndOpen} onOpenChange={setBillingPeriodEndOpen}>
                       <PopoverTrigger asChild>
                         <Button
@@ -460,16 +470,6 @@ export function TransactionSheet({
                 {billingPeriodError ? <FieldError>{billingPeriodError}</FieldError> : null}
               </Field>
             ) : null}
-            <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)}>
-              <FieldLabel htmlFor="merchant">Merchant</FieldLabel>
-              <Input
-                id="merchant"
-                name="merchant"
-                defaultValue={transaction?.merchant ?? undefined}
-                aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.merchant)}
-              />
-              {state?.status === "error" ? <FieldError>{state.fieldErrors.merchant}</FieldError> : null}
-            </Field>
             <Field data-invalid={state?.status === "error" && Boolean(state.fieldErrors.paidBy)}>
               <FieldLabel>Paid by</FieldLabel>
               <PillSelect
@@ -508,7 +508,6 @@ export function TransactionSheet({
             </Field>
             {recurrenceFieldsVisible ? (
               <FieldGroup className="gap-4">
-                <p className="font-medium">Recurring schedule</p>
                 <RecurringScheduleFields
                   actions={
                     isRecurring && transaction?.recurringScheduleId && transaction.recurringScheduleStatus ? (
@@ -584,7 +583,6 @@ export function TransactionSheet({
                   }
                   allowNone={!isRecurring}
                   cadence={recurrenceCadence}
-                  hideLabel={isRecurring}
                   interval={recurrenceInterval}
                   onCadenceChange={setRecurrenceCadence}
                   onIntervalChange={setRecurrenceInterval}
@@ -598,6 +596,7 @@ export function TransactionSheet({
                 name="note"
                 rows={4}
                 className="bg-white/55"
+                placeholder="Add an optional note…"
                 defaultValue={transaction?.note ?? undefined}
                 aria-invalid={state?.status === "error" && Boolean(state.fieldErrors.note)}
               />

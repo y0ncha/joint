@@ -5,12 +5,7 @@ import { revalidatePath } from "next/cache";
 import { validationError, type ActionResult } from "@/app/actions/result";
 import { getIsoMonthRange } from "@/lib/date-range";
 import { requireCurrentHousehold } from "@/lib/household";
-import {
-  confirmMerchantAutomationPreview,
-  evaluateMerchantAutomations,
-  getMerchantAutomationRules,
-  previewMerchantAutomations,
-} from "@/lib/merchant-automations";
+import { confirmMerchantAutomationPreview, getMerchantAutomationRules, prepareIntakeAutomations } from "@/lib/merchant-automations";
 import {
   confirmTransactionDuplicatePreview,
   duplicateFormSnapshot,
@@ -73,21 +68,26 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
   const household = await requireCurrentHousehold();
   let rules;
   try {
-    rules = (await getMerchantAutomationRules(household.supabase, household.householdId)).filter(
-      (rule) => rule.action !== "delete_transaction",
-    );
+    rules = await getMerchantAutomationRules(household.supabase, household.householdId);
   } catch {
     return { status: "error", formError: "Unable to save the transaction. Please try again.", fieldErrors: {} };
   }
-  const automated = evaluateMerchantAutomations(
-    {
-      merchant: parsed.data.merchant ?? "",
-      note: parsed.data.note,
-      amount: parsed.data.amount,
-      kind: parsed.data.kind,
-      categoryId: parsed.data.categoryId,
-      subcategoryId: parsed.data.subcategoryId,
-    },
+  const {
+    evaluatedRows: [automated],
+    preview: automationPreview,
+  } = prepareIntakeAutomations(
+    [
+      {
+        id: "manual",
+        merchant: parsed.data.merchant ?? "",
+        note: parsed.data.note,
+        amount: parsed.data.amount,
+        kind: parsed.data.kind,
+        categoryId: parsed.data.categoryId,
+        subcategoryId: parsed.data.subcategoryId,
+        updatedAt: "new",
+      },
+    ],
     rules,
   );
   if (!automated.subcategoryId && !automated.categoryId) {
@@ -108,21 +108,6 @@ export async function createTransaction(input: FormData): Promise<ActionResult> 
       fieldErrors: { paidBy: "Choose a household member." },
     };
   }
-  const automationPreview = previewMerchantAutomations(
-    [
-      {
-        id: "manual",
-        merchant: parsed.data.merchant ?? "",
-        kind: parsed.data.kind,
-        amount: parsed.data.amount,
-        note: parsed.data.note,
-        categoryId: parsed.data.categoryId,
-        subcategoryId: parsed.data.subcategoryId,
-        updatedAt: "new",
-      },
-    ],
-    rules,
-  );
   const automationConfirmation = confirmMerchantAutomationPreview(input, automationPreview);
   if (!automationConfirmation.confirmed) {
     if (automationConfirmation.stale)

@@ -203,6 +203,9 @@ function DashboardBudgetRow({ row }: { row: BudgetRow }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <span className="min-w-0 truncate font-medium">{row.label}</span>
+      <span className="font-mono text-sm tabular-nums">
+        {detailCurrency.format(row.spent)} spent of {detailCurrency.format(row.monthlyBudget)}
+      </span>
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4">
         <Progress
           aria-label={`${row.label}: ${Math.round(row.progress.percentage)}% of monthly budget`}

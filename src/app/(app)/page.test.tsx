@@ -339,6 +339,8 @@ describe("Joint dashboard", () => {
     expect(markup).toContain(">Other<");
     expect(markup).toContain("Monthly spending limits for this period.");
     expect(markup).not.toContain('data-gas-trend="25"');
+    expect(markup).toContain("₪1,500.00 spent of ₪1,000.00");
+    expect(markup).toContain("₪400.00 spent of ₪500.00");
     expect(markup).toContain('aria-label="Rent: Category; ₪1,500.00 spent of ₪1,000.00 budget; ₪500.00 over budget"');
     expect(markup).toContain('aria-label="Groceries: Subcategory; ₪400.00 spent of ₪500.00 budget; ₪100.00 remaining"');
     expect(markup).toContain("size-11");
