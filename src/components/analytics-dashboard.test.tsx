@@ -562,7 +562,7 @@ it("limits tooltip totals to spending keys while keeping reference rows visible"
 
 it("handles zero, missing, and excluded tooltip values for a selected subset", () => {
   mocks.tooltipPayload = [
-    { dataKey: "rent", name: "rent", value: 10 },
+    { dataKey: "rent", name: "rent" },
     { dataKey: "average", name: "average", value: 0 },
     { dataKey: "water", name: "water", value: 100 },
   ];
@@ -573,9 +573,8 @@ it("handles zero, missing, and excluded tooltip values for a selected subset", (
 
   expect(markup).toContain("Average");
   expect(markup).toContain("₪0.00");
-  expect(markup).toContain("₪10.00");
   expect(markup).toContain("₪100.00");
-  expect(markup).not.toContain("₪110.00");
+  expect(markup.match(/font-mono font-bold text-primary tabular-nums\">₪0\.00/g)).toHaveLength(2);
   expect(markup).not.toContain("NaN");
 });
 
