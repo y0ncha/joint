@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { RE2JS } from "re2js";
 
 const mocks = vi.hoisted(() => ({
   requireCurrentHousehold: vi.fn(),
@@ -228,9 +229,14 @@ describe("statement import action", () => {
         ]),
       }),
     });
+    if (preview.status !== "automation_confirmation_required") throw new Error("Expected automation preview");
+    expect(preview.automationPreview.changes).toEqual([
+      expect.objectContaining({ id: "8", expected_merchant: "Corner Market", merchant: "Market", subcategory_id: "groceries" }),
+      expect.objectContaining({ id: "9", expected_merchant: "Refund Shop", merchant: "Refund Shop", category_id: "income-other" }),
+    ]);
+    expect(Object.keys(preview.automationPreview).sort()).toEqual(["changes", "conflicts", "fingerprint", "ruleSet"]);
     expect(mocks.transactionInsert).not.toHaveBeenCalled();
 
-    if (preview.status !== "automation_confirmation_required") throw new Error("Expected automation preview");
     input.set("automationFingerprint", preview.automationPreview.fingerprint);
     await expect(actions.importStatement(null, input)).resolves.toMatchObject({ status: "success" });
 
@@ -241,6 +247,62 @@ describe("statement import action", () => {
         expect.objectContaining({ merchant: "Refund Shop", category_id: "income-other", subcategory_id: null }),
       ]),
     );
+  });
+
+  it("retains unchanged imported rows when another row is automated", async () => {
+    mocks.getMerchantAutomationRules.mockResolvedValue([
+      { id: "normalize", action: "normalize_merchant", pattern: "corner", replacement: "Market", enabled: true, position: 0 },
+    ]);
+
+    const input = formData(statementFile());
+    const preview = await actions.importStatement(null, input);
+    if (preview.status !== "automation_confirmation_required") throw new Error("Expected automation preview");
+    expect(preview.automationPreview.changes).toEqual([expect.objectContaining({ id: "8", merchant: "Market" })]);
+    input.set("automationFingerprint", preview.automationPreview.fingerprint);
+
+    await expect(actions.importStatement(null, input)).resolves.toMatchObject({ status: "success" });
+    expect(mocks.transactionInsert).toHaveBeenCalledWith([
+      expect.objectContaining({ import_row_number: 8, merchant: "Market" }),
+      expect.objectContaining({ import_row_number: 9, merchant: "Refund Shop", subcategory_id: null }),
+    ]);
+  });
+
+  it("evaluates each imported row once per submission", async () => {
+    mocks.getMerchantAutomationRules.mockResolvedValue([
+      { id: "normalize", action: "normalize_merchant", pattern: "corner", replacement: "Market", enabled: true, position: 0 },
+    ]);
+    const compileSpy = vi.spyOn(RE2JS, "compile");
+
+    try {
+      await expect(actions.importStatement(null, formData(statementFile()))).resolves.toMatchObject({
+        status: "automation_confirmation_required",
+      });
+      expect(compileSpy).toHaveBeenCalledTimes(2);
+    } finally {
+      compileSpy.mockRestore();
+    }
+  });
+
+  it("rejects a confirmed import when automation rules changed", async () => {
+    mocks.getMerchantAutomationRules
+      .mockResolvedValueOnce([
+        { id: "normalize", action: "normalize_merchant", pattern: "corner", replacement: "Market", enabled: true, position: 0 },
+      ])
+      .mockResolvedValue([
+        { id: "normalize", action: "normalize_merchant", pattern: "corner", replacement: "Changed Market", enabled: true, position: 0 },
+      ]);
+
+    const input = formData(statementFile());
+    const preview = await actions.importStatement(null, input);
+    if (preview.status !== "automation_confirmation_required") throw new Error("Expected automation preview");
+    input.set("automationFingerprint", preview.automationPreview.fingerprint);
+
+    await expect(actions.importStatement(null, input)).resolves.toEqual({
+      status: "error",
+      formError: "This rules preview is stale. Import again to review the current changes.",
+      fieldErrors: {},
+    });
+    expect(mocks.transactionInsert).not.toHaveBeenCalled();
   });
 
   it("defaults imported Bills assignments to each transaction month", async () => {

@@ -526,6 +526,41 @@ it("fingerprints the target transaction fields and deterministic rule-set snapsh
   );
 });
 
+it("keeps every intake result separate from the changed-only preview and ignores deletion rules", () => {
+  const rules: MerchantAutomationRule[] = [
+    {
+      id: "bills",
+      action: "assign_category",
+      pattern: "utility",
+      subcategoryId: "electricity",
+      destinationKind: "expense",
+      destinationIsBills: true,
+      enabled: true,
+      position: 0,
+    },
+    { id: "delete", action: "delete_transaction", pattern: ".*", enabled: true, position: 1 },
+  ];
+  const transactions = [
+    { id: "bill", merchant: "utility", subcategoryId: null },
+    { id: "unchanged", merchant: "unmatched", subcategoryId: null },
+    { id: "explicit", merchant: "utility", subcategoryId: "chosen" },
+  ].map((transaction) => ({ ...transaction, kind: "expense" as const, categoryId: null, updatedAt: "new" }));
+
+  const { evaluatedRows, preview } = merchantAutomations.prepareIntakeAutomations(transactions, rules);
+
+  expect(evaluatedRows).toMatchObject([
+    { merchant: "utility", subcategoryId: "electricity", assignsBills: true },
+    { merchant: "unmatched", subcategoryId: null },
+    { merchant: "utility", subcategoryId: "chosen" },
+  ]);
+  expect(evaluatedRows).toHaveLength(transactions.length);
+  expect(evaluatedRows.every((row) => !row.deleteTransaction)).toBe(true);
+  expect(evaluatedRows[2].assignsBills).toBeUndefined();
+  expect(preview).toEqual(merchantAutomations.previewMerchantAutomations(transactions, [rules[0]]));
+  expect(preview.changes.map((change) => change.id)).toEqual(["bill"]);
+  expect(Object.keys(preview).sort()).toEqual(["changes", "conflicts", "fingerprint", "ruleSet"]);
+});
+
 it("previews only changed transactions and groups same-action conflicts", () => {
   const rules: MerchantAutomationRule[] = [
     {

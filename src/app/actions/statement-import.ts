@@ -5,12 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/app/actions/result";
 import { getIsoMonthRange } from "@/lib/date-range";
 import { requireCurrentHousehold } from "@/lib/household";
-import {
-  confirmMerchantAutomationPreview,
-  evaluateMerchantAutomations,
-  getMerchantAutomationRules,
-  previewMerchantAutomations,
-} from "@/lib/merchant-automations";
+import { confirmMerchantAutomationPreview, getMerchantAutomationRules, prepareIntakeAutomations } from "@/lib/merchant-automations";
 import { confirmTransactionDuplicatePreview, loadTransactionDuplicatePreview } from "@/lib/transaction-duplicates";
 import { parseStatementFile } from "@/lib/statement-import";
 
@@ -76,17 +71,25 @@ export async function importStatement(_previousState: ActionResult | null, formD
   const payerByCard = new Map(cardMappings.map(({ last_four, user_id }) => [last_four, user_id]));
   let rules;
   try {
-    rules = (await getMerchantAutomationRules(household.supabase, household.householdId)).filter(
-      (rule) => rule.action !== "delete_transaction",
-    );
+    rules = await getMerchantAutomationRules(household.supabase, household.householdId);
   } catch {
     return { status: "error", formError: IMPORT_ERROR, fieldErrors: {} };
   }
-  const rows = parsedStatement.rows.map((row) => {
-    const automated = evaluateMerchantAutomations(
-      { merchant: row.merchant, note: row.note, amount: row.amount, kind: row.kind, categoryId: null, subcategoryId: null },
-      rules,
-    );
+  const { evaluatedRows, preview: automationPreview } = prepareIntakeAutomations(
+    parsedStatement.rows.map((row) => ({
+      id: String(row.importRowNumber),
+      merchant: row.merchant,
+      kind: row.kind,
+      amount: row.amount,
+      note: row.note,
+      categoryId: null,
+      subcategoryId: null,
+      updatedAt: "new",
+    })),
+    rules,
+  );
+  const rows = parsedStatement.rows.map((row, index) => {
+    const automated = evaluatedRows[index];
     const servicePeriod = automated.assignsBills ? getIsoMonthRange(row.occurredOn.slice(0, 7)) : undefined;
     return {
       household_id: household.householdId,
@@ -105,19 +108,6 @@ export async function importStatement(_previousState: ActionResult | null, formD
       import_row_number: row.importRowNumber,
     };
   });
-  const automationPreview = previewMerchantAutomations(
-    parsedStatement.rows.map((row) => ({
-      id: String(row.importRowNumber),
-      merchant: row.merchant,
-      kind: row.kind,
-      amount: row.amount,
-      note: row.note,
-      categoryId: null,
-      subcategoryId: null,
-      updatedAt: "new",
-    })),
-    rules,
-  );
   const automationConfirmation = confirmMerchantAutomationPreview(formData, automationPreview);
   if (!automationConfirmation.confirmed) {
     if (automationConfirmation.stale)

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { RE2JS } from "re2js";
 
 const mocks = vi.hoisted(() => ({
   requireCurrentHousehold: vi.fn(),
@@ -315,13 +316,54 @@ describe("transaction actions", () => {
         changes: [expect.objectContaining({ expected_merchant: "Corner shop", merchant: "Corner Market", subcategory_id: "groceries" })],
       }),
     });
+    if (preview.status !== "automation_confirmation_required") throw new Error("Expected automation preview");
+    expect(Object.keys(preview.automationPreview).sort()).toEqual(["changes", "conflicts", "fingerprint", "ruleSet"]);
     expect(mocks.insert).not.toHaveBeenCalled();
 
-    if (preview.status !== "automation_confirmation_required") throw new Error("Expected automation preview");
     input.set("automationFingerprint", preview.automationPreview.fingerprint);
     await expect(transactionsModule.createTransaction(input)).resolves.toEqual({ status: "success" });
 
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ merchant: "Corner Market", subcategory_id: "groceries" }));
+  });
+
+  it("evaluates each manual candidate once per submission", async () => {
+    configureContextClient();
+    mocks.getMerchantAutomationRules.mockResolvedValue([
+      { id: "normalize", action: "normalize_merchant", pattern: "corner", replacement: "Corner Market", enabled: true, position: 0 },
+    ]);
+    const compileSpy = vi.spyOn(RE2JS, "compile");
+
+    try {
+      await expect(transactionsModule.createTransaction(transactionForm({ merchant: "Corner shop" }))).resolves.toMatchObject({
+        status: "automation_confirmation_required",
+      });
+      expect(compileSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      compileSpy.mockRestore();
+    }
+  });
+
+  it("rejects a confirmed manual submission when automation rules changed", async () => {
+    configureContextClient();
+    mocks.getMerchantAutomationRules
+      .mockResolvedValueOnce([
+        { id: "normalize", action: "normalize_merchant", pattern: "corner", replacement: "Corner Market", enabled: true, position: 0 },
+      ])
+      .mockResolvedValue([
+        { id: "normalize", action: "normalize_merchant", pattern: "corner", replacement: "Changed Market", enabled: true, position: 0 },
+      ]);
+
+    const input = transactionForm({ merchant: "Corner shop" });
+    const preview = await transactionsModule.createTransaction(input);
+    if (preview.status !== "automation_confirmation_required") throw new Error("Expected automation preview");
+    input.set("automationFingerprint", preview.automationPreview.fingerprint);
+
+    await expect(transactionsModule.createTransaction(input)).resolves.toEqual({
+      status: "error",
+      formError: "This rules preview is stale. Save again to review the current changes.",
+      fieldErrors: {},
+    });
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
 
   it("defaults an automated Bills assignment to the transaction month", async () => {
